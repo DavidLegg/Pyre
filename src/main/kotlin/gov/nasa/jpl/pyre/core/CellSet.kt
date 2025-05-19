@@ -1,7 +1,4 @@
-package org.example.gov.nasa.jpl.pyre.state
-
-import gov.nasa.jpl.pyre.state.Cell
-import org.example.gov.nasa.jpl.pyre.io.Serializer
+package org.example.gov.nasa.jpl.pyre.core
 
 @Suppress("UNCHECKED_CAST")
 class CellSet {
@@ -39,8 +36,26 @@ class CellSet {
         return CellSet(map.mapValuesTo(mutableMapOf()) { (_, cellState) -> collapseCellState(cellState) })
     }
 
+    fun save(finconCollector: FinconCollector) {
+        fun <T, E> saveCell(state: CellState<T, E>) = with(state.cell) {
+            finconCollector.report(name, value = serializer.serialize(applyEffect(value, state.effect)))
+        }
+        map.values.forEach { saveCell(it) }
+    }
+
+    fun restore(inconProvider: InconProvider) {
+        fun <T, E> restoreCell(handle: CellHandle<T, E>) = with(this[handle]) {
+            // If incon is missing, ignore it and move on
+            inconProvider.get(name)?.let {
+                // But if the incon is there and fails to deserialize, that's an error.
+                map[handle] = CellState(copy(value = serializer.deserialize(it).getOrThrow()), effectTrait.empty())
+            }
+        }
+        map.keys.forEach { restoreCell(it) }
+    }
+
     companion object {
-        fun join(cellSets: Sequence<CellSet>): CellSet {
+        fun join(cellSets: Collection<CellSet>): CellSet {
             val mergedMap: MutableMap<CellHandle<*, *>, CellState<*, *>> = mutableMapOf()
             for (cs in cellSets) {
                 cs.map.forEach { (handle, state) -> mergedMap.merge(handle, state) { s1, s2 -> join(s1, s2) } }

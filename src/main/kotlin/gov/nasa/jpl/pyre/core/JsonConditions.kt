@@ -1,11 +1,9 @@
-package org.example.gov.nasa.jpl.pyre.conditions
+package org.example.gov.nasa.jpl.pyre.core
 
-import org.example.gov.nasa.jpl.pyre.io.JsonValue
-import org.example.gov.nasa.jpl.pyre.io.JsonValue.JsonMap
-import org.example.gov.nasa.jpl.pyre.io.Serializer
+import org.example.gov.nasa.jpl.pyre.core.JsonValue.JsonMap
 import kotlin.Result.Companion.success
 
-class JsonConditions private constructor(private val conditions: ConditionsTreeNode) : FinconCollector, InconProvider {
+class JsonConditions private constructor(private val conditions: ConditionsTreeNode) : Conditions {
     private class ConditionsTreeNode {
         var value: JsonValue? = null
         val children: MutableMap<String, ConditionsTreeNode> = mutableMapOf()
@@ -14,7 +12,7 @@ class JsonConditions private constructor(private val conditions: ConditionsTreeN
     override fun report(keys: Sequence<String>, value: JsonValue) {
         var targetConditions = conditions
         for (key in keys) {
-            require(key != VALUE_KEY) { "\"${VALUE_KEY}\" is a reserved key which cannot be used for condition identifiers" }
+            require(key != VALUE_KEY) { "\"$VALUE_KEY\" is a reserved key which cannot be used for condition identifiers" }
             targetConditions = targetConditions.children.getOrPut(key) { ConditionsTreeNode() }
         }
 

@@ -1,7 +1,4 @@
-package gov.nasa.jpl.pyre.state
-
-import org.example.gov.nasa.jpl.pyre.core.Duration
-import org.example.gov.nasa.jpl.pyre.io.Serializer
+package org.example.gov.nasa.jpl.pyre.core
 
 data class Cell<T, E>(
     val name: String,
