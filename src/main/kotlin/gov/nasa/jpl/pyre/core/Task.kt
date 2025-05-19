@@ -4,7 +4,7 @@ import org.example.gov.nasa.jpl.pyre.conditions.FinconCollector
 import org.example.gov.nasa.jpl.pyre.conditions.InconProvider
 import org.example.gov.nasa.jpl.pyre.io.JsonValue
 import org.example.gov.nasa.jpl.pyre.io.JsonValue.*
-import org.example.gov.nasa.jpl.pyre.state.SimulationState
+import org.example.gov.nasa.jpl.pyre.state.CellSet.CellHandle
 
 /**
  * A Task is a unit of action in the simulation.
@@ -40,8 +40,10 @@ interface Task<T> {
     //   Maybe that can be handled elsewhere...
     sealed interface PureTaskStep<T> {
         data class Complete<T>(val value: T) : PureTaskStep<T>
-        data class Read<V, T>(val cell: SimulationState.CellHandle<V>, val continuation: (V) -> PureTaskStep<T>) : PureTaskStep<T>
+        data class Read<V, E, T>(val cell: CellHandle<V, E>, val continuation: (V) -> PureTaskStep<T>) : PureTaskStep<T>
+        data class Emit<V, E, T>(val cell: CellHandle<V, E>, val effect: E, val continuation: () -> PureTaskStep<T>) : PureTaskStep<T>
         data class Report<T>(val value: JsonValue, val continuation: () -> PureTaskStep<T>) : PureTaskStep<T>
+        data class Delay<T>(val time: Duration, val continuation: () -> PureTaskStep<T>) : PureTaskStep<T>
         data class Await<T>(val condition: Condition, val continuation: () -> PureTaskStep<T>) : PureTaskStep<T>
         data class Spawn<S, T>(val childName: String, val child: PureTaskStep<S>, val continuation: () -> PureTaskStep<T>) : PureTaskStep<T>
         // delay? Or should that just be a special case of await?
@@ -50,26 +52,38 @@ interface Task<T> {
 
     sealed interface TaskStep<T> {
         data class Complete<T>(val value: T) : TaskStep<T>
-        data class Read<V, T>(val cell: SimulationState.CellHandle<V>, val continuation: (V) -> Task<T>) : TaskStep<T>
+        data class Read<V, E, T>(val cell: CellHandle<V, E>, val continuation: (V) -> Task<T>) : TaskStep<T>
+        data class Emit<V, E, T>(val cell: CellHandle<V, E>, val effect: E, val continuation: () -> Task<T>) : TaskStep<T>
         data class Report<T>(val value: JsonValue, val continuation: () -> Task<T>) : TaskStep<T>
+        data class Delay<T>(val time: Duration, val continuation: () -> Task<T>) : TaskStep<T>
         data class Await<T>(val condition: Condition, val continuation: () -> Task<T>) : TaskStep<T>
         data class Spawn<S, T>(val child: Task<S>, val continuation: () -> Task<T>) : TaskStep<T>
 
         companion object Factory {
             fun <T> of(id: TaskId, step: PureTaskStep<T>, saveData: () -> List<JsonValue>): TaskStep<T> = when (step) {
                 is PureTaskStep.Complete -> Complete(step.value)
-                is PureTaskStep.Read<*, T> -> ofRead(id, step, saveData)
+                is PureTaskStep.Read<*, *, T> -> ofRead(id, step, saveData)
+                is PureTaskStep.Emit<*, *, T> -> ofEmit(id, step, saveData)
                 is PureTaskStep.Report -> Report(step.value) { Task.of(id.nextStep(), step.continuation(), { saveData() + REPORT_MARKER }) }
+                is PureTaskStep.Delay -> Delay(step.time) { Task.of(id.nextStep(), step.continuation(), { saveData() + DELAY_MARKER })}
                 is PureTaskStep.Await -> Await(step.condition) { Task.of(id.nextStep(), step.continuation(), { saveData() + AWAIT_MARKER })}
                 is PureTaskStep.Spawn<*, T> -> ofSpawn(id, step, saveData)
             }
 
-            private fun <V, T> ofRead(
+            private fun <V, E, T> ofRead(
                 id: TaskId,
-                step: PureTaskStep.Read<V, T>,
+                step: PureTaskStep.Read<V, E, T>,
                 saveData: () -> List<JsonValue>
             ) = Read(step.cell) {
                 Task.of(id.nextStep(), step.continuation(it), { saveData() + conditionReadEntry(step.cell.serializer.serialize(it)) })
+            }
+
+            private fun <V, E, T> ofEmit(
+                id: TaskId,
+                step: PureTaskStep.Emit<V, E, T>,
+                saveData: () -> List<JsonValue>
+            ) = Emit(step.cell, step.effect) {
+                Task.of(id.nextStep(), step.continuation(), { saveData() + EMIT_MARKER })
             }
 
             private fun <S, T> ofSpawn(
@@ -83,7 +97,9 @@ interface Task<T> {
     }
 
     companion object {
+        private val EMIT_MARKER = conditionEntry("emit")
         private val REPORT_MARKER = conditionEntry("report")
+        private val DELAY_MARKER = conditionEntry("delay")
         private val AWAIT_MARKER = conditionEntry("await")
         private val SPAWN_MARKER = conditionEntry("spawn")
 
@@ -95,9 +111,8 @@ interface Task<T> {
             override val step: TaskStep<T>
                 get() = TaskStep.of(id, step, saveData)
 
-            override fun save(finconCollector: FinconCollector) {
+            override fun save(finconCollector: FinconCollector) =
                 finconCollector.report(id.rootId.conditionKeys(), JsonArray(saveData()))
-            }
 
             override fun restore(inconProvider: InconProvider): Sequence<Task<*>> {
                 // If there's no incon data for this task or step, start here
@@ -105,34 +120,44 @@ interface Task<T> {
                 val restoreDatum = (restoreData as JsonArray).values.getOrNull(id.stepNumber) ?: return sequenceOf(this)
                 val restoreDatumMap = (restoreDatum as JsonMap).values
                 val restoreDatumType = (restoreDatumMap["type"] as JsonString).value
+
                 val restoreDatumValue = restoreDatumMap["value"]
                 fun requireType(requiredType: String) =
                     require(restoreDatumType == requiredType) { "Expected restore datum of type \"$requiredType\"" }
 
-                return when (step) {
-                    is PureTaskStep.Complete -> emptySequence()
-                    is PureTaskStep.Read<*, T> -> {
-                        requireType("read")
-                        return restoreRead(this.step as TaskStep.Read<*, T>, requireNotNull(restoreDatumValue), inconProvider)
-                    }
-                    is PureTaskStep.Report -> {
-                        requireType("report")
-                        return (this.step as TaskStep.Report).continuation().restore(inconProvider)
-                    }
-                    is PureTaskStep.Await -> {
-                        requireType("await")
-                        return (this.step as TaskStep.Await).continuation().restore(inconProvider)
-                    }
-                    is PureTaskStep.Spawn<*, T> -> {
-                        requireType("spawn")
-                        val spawnStep = this.step as TaskStep.Spawn<*, T>
-                        return spawnStep.child.restore(inconProvider) + spawnStep.continuation().restore(inconProvider)
+                with (this.step) {
+                    return when (this) {
+                        is TaskStep.Complete -> emptySequence()
+                        is TaskStep.Read<*, *, T> -> {
+                            requireType("read")
+                            return restoreRead(this, requireNotNull(restoreDatumValue), inconProvider)
+                        }
+                        is TaskStep.Emit<*, *, T> -> {
+                            requireType("emit")
+                            return this.continuation().restore(inconProvider)
+                        }
+                        is TaskStep.Report -> {
+                            requireType("report")
+                            return this.continuation().restore(inconProvider)
+                        }
+                        is TaskStep.Delay -> {
+                            requireType("delay")
+                            return this.continuation().restore(inconProvider)
+                        }
+                        is TaskStep.Await -> {
+                            requireType("await")
+                            return this.continuation().restore(inconProvider)
+                        }
+                        is TaskStep.Spawn<*, T> -> {
+                            requireType("spawn")
+                            return this.child.restore(inconProvider) + this.continuation().restore(inconProvider)
+                        }
                     }
                 }
             }
 
-            private fun <V> restoreRead(
-                step: TaskStep.Read<V, T>,
+            private fun <V, E> restoreRead(
+                step: TaskStep.Read<V, E, T>,
                 restoreDatum: JsonValue,
                 inconProvider: InconProvider
             ) = step.continuation(step.cell.serializer.deserialize(restoreDatum).getOrThrow()).restore(inconProvider)
