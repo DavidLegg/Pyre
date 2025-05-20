@@ -28,8 +28,6 @@ class JsonConditions private constructor(private val conditions: ConditionsTreeN
         return targetConditions?.value
     }
 
-    fun serialize(): JsonValue = serializer().serialize(this)
-
     companion object {
         const val VALUE_KEY: String = "value"
 
@@ -57,7 +55,5 @@ class JsonConditions private constructor(private val conditions: ConditionsTreeN
                 return success(result)
             }
         }
-
-        fun deserialize(value: JsonValue): Result<JsonConditions> = serializer().deserialize(value)
     }
 }

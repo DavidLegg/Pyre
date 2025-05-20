@@ -7,7 +7,7 @@ import java.util.PriorityQueue
 
 class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
     // CellHandle is class, not data class, because we *want* to use object-identity equality
-    data class TaskEntry(val time: Duration, val task: Task<*>)
+    private data class TaskEntry(val time: Duration, val task: Task<*>)
 
     private var time: Duration = Duration(0)
     private var cells: CellSet = CellSet()
@@ -18,8 +18,8 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
 
     fun time() = time
 
-    fun addTask(task: TaskEntry) {
-        tasks.add(task)
+    fun addTask(task: Task<*>, time: Duration = time()) {
+        tasks.add(TaskEntry(time, task))
     }
 
     fun step() {

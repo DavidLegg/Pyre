@@ -7,26 +7,68 @@ data class Duration(val ticks: Long) : Comparable<Duration> {
         return ticks.compareTo(other.ticks)
     }
 
-    operator fun plus(other: Duration): Duration {
-        return Duration(ticks + other.ticks)
-    }
-
-    operator fun minus(other: Duration): Duration {
-        return Duration(ticks - other.ticks)
+    override fun toString(): String {
+        // TODO: Consider an optional "days" field in this format
+        if (this < ZERO) return "-" + (-this).toString()
+        val hours = this / HOUR
+        val minutes = (this % HOUR) / MINUTE
+        val seconds = (this % MINUTE) / SECOND
+        val microseconds = (this % SECOND) / MICROSECOND
+        return String.format("%02d:%02d:%02f.%06f", hours, minutes, seconds, microseconds)
     }
 
     companion object {
         val ZERO: Duration = Duration(0)
+        val EPSILON: Duration = Duration(1)
+        val MICROSECOND: Duration = EPSILON
+        val MILLISECOND: Duration = 1000 * MICROSECOND
+        val SECOND: Duration = 1000 * MILLISECOND
+        val MINUTE: Duration = 60 * SECOND
+        val HOUR: Duration = 60 * MINUTE
+        val DAY: Duration = 24 * HOUR
+        val WEEK: Duration = 7 * DAY
+        // According to https://www.jpl.nasa.gov/_edu/pdfs/leapday_answers.pdf
+        val ASTRONOMICAL_YEAR: Duration = 365 * DAY + 5 * HOUR + 48 * MINUTE + 46 * SECOND
 
         // TODO: Consider a more human-readable serialization...
         fun serializer(): Serializer<Duration> = object : Serializer<Duration> {
             override fun serialize(obj: Duration): JsonValue {
-                return JsonInt(obj.ticks)
+                return JsonString(obj.toString())
             }
 
             override fun deserialize(jsonValue: JsonValue): Result<Duration> = runCatching {
-                Duration((jsonValue as JsonInt).value)
+                var s = (jsonValue as JsonString).value
+                var signum = 1
+                if (s[0] == '-') {
+                    signum = -1
+                    s = s.substring(1)
+                }
+
+                val parts = s.split(':')
+                require(parts.size == 3)
+                val hours = parts[0].toInt()
+                val minutes = parts[1].toInt()
+                val secondsParts = parts[2].split('.')
+                require(secondsParts.size == 2)
+                val seconds = secondsParts[0].toInt()
+                require(secondsParts[1].length == 6)
+                val microseconds = secondsParts[1].toInt()
+
+                return Result.success(signum * (hours * HOUR + minutes * MINUTE + seconds * SECOND + microseconds * MICROSECOND))
             }
         }
     }
 }
+
+// Operator overloads:
+operator fun Duration.plus(other: Duration): Duration = Duration(ticks + other.ticks)
+operator fun Duration.minus(other: Duration): Duration = Duration(ticks - other.ticks)
+operator fun Duration.times(scale: Long) = Duration(ticks * scale)
+operator fun Duration.unaryPlus(): Duration = Duration(+ticks)
+operator fun Duration.unaryMinus(): Duration = Duration(-ticks)
+operator fun Duration.div(scale: Long) = Duration(ticks / scale)
+operator fun Duration.div(divisor: Duration) = ticks / divisor.ticks
+infix fun Duration.ratioOver(other: Duration) = ticks.toDouble() / other.ticks
+operator fun Duration.rem(other: Duration): Duration = Duration(ticks % other.ticks)
+operator fun Long.times(duration: Duration) = Duration(duration.ticks * this)
+operator fun Int.times(duration: Duration) = Duration(duration.ticks * this)
