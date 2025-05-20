@@ -18,7 +18,7 @@ interface Task<T> {
     val id: TaskId
     fun runStep(): TaskStepResult<T>
     fun save(finconCollector: FinconCollector)
-    fun restore(inconProvider: InconProvider): Sequence<Task<*>>
+    fun restore(inconProvider: InconProvider): Sequence<Task<*>>?
 
     class RootTaskId(val name: String, val parent: RootTaskId?) {
         fun conditionKeys() : Sequence<String> = generateSequence(this) { it.parent }.map { it.name }
@@ -58,16 +58,15 @@ interface Task<T> {
 
         companion object Factory {
             fun <T> of(id: TaskId, step: () -> PureStepResult<T>, saveData: () -> List<JsonValue>): () -> TaskStepResult<T> {
-                fun <V, E, T> ofRead(step: PureStepResult.Read<V, E, T>): Read<V, E, T> {
-                    return Read(step.cell) {
-                        Task.of(
-                            id.nextStep(),
-                            // Important: step.continuation is deferred to Task.runStep.
-                            // This means the outer Read.continuation can safely be called immediately after reading,
-                            // without invoking client code prematurely.
-                            { step.continuation(it) },
-                            { saveData() + conditionReadEntry(step.cell.serializer.serialize(it)) })
-                    }
+                fun <V, E, T> ofRead(step: PureStepResult.Read<V, E, T>) = Read(step.cell) {
+                    Task.of(
+                        id.nextStep(),
+                        // Important: step.continuation is deferred to Task.runStep.
+                        // This means the outer Read.continuation can safely be called immediately after reading,
+                        // without invoking client code prematurely.
+                        { step.continuation(it) },
+                        { saveData() + conditionReadEntry(step.cell.serializer.serialize(it)) }
+                    )
                 }
 
                 fun <V, E, T> ofEmit(step: PureStepResult.Emit<V, E, T>) = Emit(
@@ -128,9 +127,10 @@ interface Task<T> {
             override fun save(finconCollector: FinconCollector) =
                 finconCollector.report(id.rootId.conditionKeys(), JsonArray(saveData()))
 
-            override fun restore(inconProvider: InconProvider): Sequence<Task<*>> {
-                // If there's no incon data for this task or step, start here
-                val restoreData = inconProvider.get(id.rootId.conditionKeys()) ?: return sequenceOf(this)
+            override fun restore(inconProvider: InconProvider): Sequence<Task<*>>? {
+                // If there's no incon data for this task, signal that by returning null
+                val restoreData = inconProvider.get(id.rootId.conditionKeys()) ?: return null
+                // If there's no incon data for this step, we've merely reached the current step, start here
                 val restoreDatum = (restoreData as JsonArray).values.getOrNull(id.stepNumber) ?: return sequenceOf(this)
                 val restoreDatumMap = (restoreDatum as JsonMap).values
                 val restoreDatumType = (restoreDatumMap["type"] as JsonString).value
@@ -166,7 +166,7 @@ interface Task<T> {
                         }
                         is TaskStepResult.Spawn<*, T> -> {
                             requireType("spawn")
-                            return child.restore(inconProvider) + continuation.restore(inconProvider)
+                            return requireNotNull(child.restore(inconProvider)) + requireNotNull(continuation.restore(inconProvider))
                         }
                     }
                 }

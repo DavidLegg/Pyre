@@ -1,14 +1,15 @@
 package gov.nasa.jpl.pyre.ember
 
 import org.example.gov.nasa.jpl.pyre.core.*
+import org.example.gov.nasa.jpl.pyre.core.SimulationState.SimulationInitializer
 
 class Simulation {
     data class SimulationSetup(
         val reportHandler: (JsonValue) -> Unit,
-        val inconProvider: InconProvider,
+        val inconProvider: InconProvider?,
         val finconCollector: FinconCollector,
-        val finconTimes: Sequence<Duration>,
-        val initializer: Task<*>,
+        val finconTime: Duration?,
+        val initialize: SimulationInitializer.() -> Unit,
         val endTime: Duration,
     )
 
@@ -16,16 +17,20 @@ class Simulation {
         fun run(setup: SimulationSetup) {
             with (setup) {
                 with(SimulationState(reportHandler)) {
-                    addTask(initializer)
-                    restore(inconProvider)
-                    // Fincon tasks go in after restoring, because they vary by each simulation
-                    finconTimes.forEach { finconTime ->
+                    // Initialize the model, which gives us cells and tasks
+                    initializer().initialize()
+                    // Restore the model if we have an incon
+                    inconProvider?.let { restore(it) }
+                    // Add a task to cut the fincon at the right time, if fincon was requested
+                    finconTime?.let {
                         addTask(Task.of("collect fincon at $finconTime") {
                             save(finconCollector)
                             Task.PureStepResult.Complete(Unit)
-                        }, time = finconTime)
+                        }, time = it)
                     }
-                    while (time() < endTime) step()
+                    // Step the simulation until we hit the end time
+                    // This includes cutting fincons at each fincon time.
+                    while (time() < endTime) stepTo(endTime)
                 }
             }
         }

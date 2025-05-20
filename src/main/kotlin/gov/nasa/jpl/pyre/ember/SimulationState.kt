@@ -16,18 +16,38 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
     private val listeningTasks: MutableMap<Await<*>, Set<CellHandle<*, *>>> = mutableMapOf()
     private val conditionalTasks: MutableMap<Await<*>, TaskEntry> = mutableMapOf()
 
+    /**
+     * These are the actions allowed during "initialization", before the simulation starts running.
+     * Note that this is the only time we're allowed to allocate cells.
+     */
+    interface SimulationInitializer {
+        fun <T: Any, E> allocate(cell: Cell<T, E>): CellHandle<T, E>
+        fun spawn(task: Task<*>)
+    }
+
+    fun initializer() = object : SimulationInitializer {
+        override fun <T: Any, E> allocate(cell: Cell<T, E>) = cells.allocate(cell)
+        override fun spawn(task: Task<*>) = addTask(task)
+    }
+
     fun time() = time
 
     fun addTask(task: Task<*>, time: Duration = time()) {
         tasks.add(TaskEntry(time, task))
     }
 
-    fun step() {
-        val cellSetBranches: MutableList<CellSet> = mutableListOf()
-        while (tasks.peek()?.time == time) {
-            cellSetBranches += cells.split().also { runTask(tasks.remove().task, it) }
+    fun stepTo(endTime: Duration) {
+        if (tasks.peek()?.time == time) {
+            val cellSetBranches: MutableList<CellSet> = mutableListOf()
+            while (tasks.peek()?.time == time) {
+                cellSetBranches += cells.split().also { runTask(tasks.remove().task, it) }
+            }
+            cells = CellSet.join(cellSetBranches)
+        } else {
+            val stepTime = tasks.peek()?.time ?: endTime
+            cells.stepBy(stepTime - time)
+            time = stepTime
         }
-        cells = CellSet.join(cellSetBranches)
     }
 
     private fun runTask(task: Task<*>, cellSet: CellSet) {
@@ -114,6 +134,9 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
     // This needs to be tested fairly extensively...
 
     fun save(finconCollector: FinconCollector) {
+        with (finconCollector.withPrefix("simulation")) {
+            report("time", value=Duration.serializer().serialize(time))
+        }
         cells.save(finconCollector.withPrefix("cells"))
         val taskCollector = finconCollector.withPrefix("tasks")
         val taskStateCollector = taskCollector.withSuffix("state")
@@ -125,14 +148,21 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
     }
 
     fun restore(inconProvider: InconProvider) {
+        with (inconProvider.withPrefix("simulation")) {
+            time = Duration.serializer().deserialize(requireNotNull(get("time"))).getOrThrow()
+        }
         cells.restore(inconProvider.withPrefix("cells"))
         val taskProvider = inconProvider.withPrefix("tasks")
         val taskStateProvider = taskProvider.withSuffix("state")
         val taskTimeProvider = taskProvider.withSuffix("time")
-        val rootTasks = tasks.stream().toList()
+        val rootTasks = tasks.asSequence()
         tasks.clear()
         for (rootTask in rootTasks) {
-            for (restoredTask in rootTask.task.restore(taskStateProvider)) {
+            val restoredTasks = rootTask.task.restore(taskStateProvider)
+            // If there was no incon data for this task, default back to the root task.
+            if (restoredTasks == null) tasks.add(rootTask)
+            // Otherwise, restore all the children of that task
+            else for (restoredTask in restoredTasks) {
                 val restoredTime = Duration.serializer()
                     .deserialize(requireNotNull(taskTimeProvider.get(restoredTask.id.rootId.conditionKeys())))
                     .getOrThrow()

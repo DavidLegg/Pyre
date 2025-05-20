@@ -2,7 +2,9 @@ package org.example.gov.nasa.jpl.pyre.core
 
 @Suppress("UNCHECKED_CAST")
 class CellSet {
-    class CellHandle<T, E>(val name: String, val serializer: Serializer<T>)
+    class CellHandle<T, E>(val name: String, val serializer: Serializer<T>) {
+        override fun toString() = name
+    }
     data class CellState<T, E>(val cell: Cell<T, E>, val effect: E)
 
     private val map: MutableMap<CellHandle<*, *>, CellState<*, *>>
@@ -52,6 +54,13 @@ class CellSet {
             }
         }
         map.keys.forEach { restoreCell(it) }
+    }
+
+    fun stepBy(delta: Duration) {
+        fun <T, E> stepCell(state: CellState<T, E> ) = with(state.cell) {
+            CellState(copy(value = stepBy(applyEffect(value, state.effect), delta)), effectTrait.empty())
+        }
+        map.replaceAll { _, state -> stepCell(state) }
     }
 
     companion object {

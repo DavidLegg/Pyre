@@ -9,6 +9,8 @@ class JsonConditions private constructor(private val conditions: ConditionsTreeN
         val children: MutableMap<String, ConditionsTreeNode> = mutableMapOf()
     }
 
+    public constructor() : this(ConditionsTreeNode())
+
     override fun report(keys: Sequence<String>, value: JsonValue) {
         var targetConditions = conditions
         for (key in keys) {

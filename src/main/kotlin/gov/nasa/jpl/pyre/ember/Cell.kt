@@ -4,7 +4,7 @@ data class Cell<T, E>(
     val name: String,
     val value: T,
     val serializer: Serializer<T>,
-    val stepper: (T, Duration) -> T,
+    val stepBy: (T, Duration) -> T,
     val applyEffect: (T, E) -> T,
     val effectTrait: EffectTrait<E>,
 ) {
