@@ -1,4 +1,4 @@
-package org.example.gov.nasa.jpl.pyre.core
+package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
 

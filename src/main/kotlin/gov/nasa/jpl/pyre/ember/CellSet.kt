@@ -1,7 +1,8 @@
-package org.example.gov.nasa.jpl.pyre.core
+package gov.nasa.jpl.pyre.ember
 
 @Suppress("UNCHECKED_CAST")
 class CellSet {
+    // CellHandle is class, not data class, because we *want* to use object-identity equality
     class CellHandle<T, E>(val name: String, val serializer: Serializer<T>) {
         override fun toString() = name
     }
@@ -57,7 +58,7 @@ class CellSet {
     }
 
     fun stepBy(delta: Duration) {
-        fun <T, E> stepCell(state: CellState<T, E> ) = with(state.cell) {
+        fun <T, E> stepCell(state: CellState<T, E>) = with(state.cell) {
             CellState(copy(value = stepBy(applyEffect(value, state.effect), delta)), effectTrait.empty())
         }
         map.replaceAll { _, state -> stepCell(state) }

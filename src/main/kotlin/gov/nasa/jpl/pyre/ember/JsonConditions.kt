@@ -1,6 +1,6 @@
-package org.example.gov.nasa.jpl.pyre.core
+package gov.nasa.jpl.pyre.ember
 
-import org.example.gov.nasa.jpl.pyre.core.JsonValue.JsonMap
+import gov.nasa.jpl.pyre.ember.JsonValue.JsonMap
 import kotlin.Result.Companion.success
 
 class JsonConditions private constructor(private val conditions: ConditionsTreeNode) : Conditions {

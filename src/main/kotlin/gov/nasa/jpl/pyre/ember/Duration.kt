@@ -1,6 +1,9 @@
-package org.example.gov.nasa.jpl.pyre.core
+package gov.nasa.jpl.pyre.ember
 
-import org.example.gov.nasa.jpl.pyre.core.JsonValue.*
+import gov.nasa.jpl.pyre.ember.JsonValue.*
+import kotlin.math.ceil
+import kotlin.math.floor
+import kotlin.math.roundToLong
 
 data class Duration(val ticks: Long) : Comparable<Duration> {
     override fun compareTo(other: Duration): Int {
@@ -14,7 +17,7 @@ data class Duration(val ticks: Long) : Comparable<Duration> {
         val minutes = (this % HOUR) / MINUTE
         val seconds = (this % MINUTE) / SECOND
         val microseconds = (this % SECOND) / MICROSECOND
-        return String.format("%02d:%02d:%02f.%06f", hours, minutes, seconds, microseconds)
+        return String.format("%02d:%02d:%02d.%06d", hours, minutes, seconds, microseconds)
     }
 
     companion object {
@@ -30,7 +33,6 @@ data class Duration(val ticks: Long) : Comparable<Duration> {
         // According to https://www.jpl.nasa.gov/_edu/pdfs/leapday_answers.pdf
         val ASTRONOMICAL_YEAR: Duration = 365 * DAY + 5 * HOUR + 48 * MINUTE + 46 * SECOND
 
-        // TODO: Consider a more human-readable serialization...
         fun serializer(): Serializer<Duration> = object : Serializer<Duration> {
             override fun serialize(obj: Duration): JsonValue {
                 return JsonString(obj.toString())
@@ -60,6 +62,7 @@ data class Duration(val ticks: Long) : Comparable<Duration> {
     }
 }
 
+// TODO: These should move to spark layer
 // Operator overloads:
 operator fun Duration.plus(other: Duration): Duration = Duration(ticks + other.ticks)
 operator fun Duration.minus(other: Duration): Duration = Duration(ticks - other.ticks)
@@ -72,3 +75,9 @@ infix fun Duration.ratioOver(other: Duration) = ticks.toDouble() / other.ticks
 operator fun Duration.rem(other: Duration): Duration = Duration(ticks % other.ticks)
 operator fun Long.times(duration: Duration) = Duration(duration.ticks * this)
 operator fun Int.times(duration: Duration) = Duration(duration.ticks * this)
+infix fun Duration.roundTimes(scale: Double) = Duration((ticks * scale).roundToLong())
+infix fun Double.roundTimes(scale: Duration) = Duration((scale.ticks * this).roundToLong())
+infix fun Duration.floorTimes(scale: Double) = Duration(floor(ticks * scale).roundToLong())
+infix fun Double.floorTimes(scale: Duration) = Duration(floor(scale.ticks * this).roundToLong())
+infix fun Duration.ceilTimes(scale: Double) = Duration(ceil(ticks * scale).roundToLong())
+infix fun Double.ceilTimes(scale: Duration) = Duration(ceil(scale.ticks * this).roundToLong())

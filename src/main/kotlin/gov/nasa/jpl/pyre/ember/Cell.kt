@@ -1,4 +1,4 @@
-package org.example.gov.nasa.jpl.pyre.core
+package gov.nasa.jpl.pyre.ember
 
 data class Cell<T, E>(
     val name: String,

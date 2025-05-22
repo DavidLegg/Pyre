@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.spark
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction.Companion.withInverse
-import org.example.gov.nasa.jpl.pyre.core.JsonValue.*
-import org.example.gov.nasa.jpl.pyre.core.Serializer
+import gov.nasa.jpl.pyre.ember.JsonValue.*
+import gov.nasa.jpl.pyre.ember.Serializer
 
 object BasicSerializers {
     val LONG_SERIALIZER = Serializer.of(::JsonInt withInverse { (it as JsonInt).value })

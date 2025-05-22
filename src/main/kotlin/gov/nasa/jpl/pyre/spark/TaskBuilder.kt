@@ -1,8 +1,11 @@
 package gov.nasa.jpl.pyre.spark
 
-import org.example.gov.nasa.jpl.pyre.core.*
-import org.example.gov.nasa.jpl.pyre.core.CellSet.CellHandle
-import org.example.gov.nasa.jpl.pyre.core.Task.PureStepResult.*
+import gov.nasa.jpl.pyre.ember.Duration
+import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
+import gov.nasa.jpl.pyre.ember.Condition
+import gov.nasa.jpl.pyre.ember.JsonValue
+import gov.nasa.jpl.pyre.ember.Task
+import gov.nasa.jpl.pyre.ember.Task.PureStepResult.*
 import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
 
@@ -15,7 +18,7 @@ import kotlin.coroutines.intrinsics.*
  * That said, I'm only about 50% confident that I understand how this thing works.
  */
 
-interface CoroutineTaskScope<T> {
+interface TaskScope<T> {
     suspend fun complete(value: T)
     suspend fun <V, E> read(cell: CellHandle<V, E>): V
     suspend fun <V, E> emit(cell: CellHandle<V, E>, effect: E)
@@ -42,15 +45,12 @@ interface CoroutineTaskScope<T> {
  * }
  * ```
  */
-fun coroutineTask(name: String, block: suspend CoroutineTaskScope<Unit>.() -> Unit): Task<Unit> {
-    with (CoroutineTask<Unit>()) {
-        return Task.of(name, continueWith(block.createCoroutineUnintercepted(this, this)))
-    }
+fun task(name: String, block: suspend TaskScope<Unit>.() -> Unit): Task<Unit> = with(TaskBuilder<Unit>()) {
+    Task.of(name, continueWith(block.createCoroutineUnintercepted(this, this)))
 }
 
-private class CoroutineTask<T> : CoroutineTaskScope<T>, Continuation<Unit> {
+private class TaskBuilder<T> : TaskScope<T>, Continuation<Unit> {
     private var nextResult: Task.PureStepResult<T>? = null
-    private var nextContinuation: Continuation<Unit>? = null
 
     override suspend fun complete(value: T): Unit =
         suspendCoroutineUninterceptedOrReturn {

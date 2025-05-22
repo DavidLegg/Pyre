@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.ember
 
-import org.example.gov.nasa.jpl.pyre.core.*
-import org.example.gov.nasa.jpl.pyre.core.SimulationState.SimulationInitializer
+import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitializer
 
 class Simulation {
     data class SimulationSetup(

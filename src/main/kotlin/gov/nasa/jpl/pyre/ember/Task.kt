@@ -1,7 +1,7 @@
-package org.example.gov.nasa.jpl.pyre.core
+package gov.nasa.jpl.pyre.ember
 
-import org.example.gov.nasa.jpl.pyre.core.JsonValue.*
-import org.example.gov.nasa.jpl.pyre.core.CellSet.CellHandle
+import gov.nasa.jpl.pyre.ember.JsonValue.*
+import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
 
 /**
  * A Task is a unit of action in the simulation.
@@ -19,13 +19,18 @@ interface Task<T> {
     fun runStep(): TaskStepResult<T>
     fun save(finconCollector: FinconCollector)
     fun restore(inconProvider: InconProvider): Sequence<Task<*>>?
+    fun isCompleted(): Boolean
 
-    class RootTaskId(val name: String, val parent: RootTaskId?) {
+    data class RootTaskId(val name: String, val parent: RootTaskId?) {
         fun conditionKeys() : Sequence<String> = generateSequence(this) { it.parent }.map { it.name }
+
+        override fun toString() = conditionKeys().joinToString(".")
     }
-    class TaskId(val rootId: RootTaskId, val stepNumber: Int) {
+    data class TaskId(val rootId: RootTaskId, val stepNumber: Int) {
         fun nextStep() = TaskId(rootId, stepNumber + 1)
         fun child(childName: String) = TaskId(RootTaskId(childName, rootId), 0)
+
+        override fun toString() = "$rootId[$stepNumber]"
     }
 
     // Explanation:
@@ -36,25 +41,52 @@ interface Task<T> {
     // TODO: Should there be any checking of things like task name collisions?
     //   Maybe that can be handled elsewhere...
     sealed interface PureStepResult<T> {
-        data class Complete<T>(val value: T) : PureStepResult<T>
-        data class Read<V, E, T>(val cell: CellHandle<V, E>, val continuation: (V) -> PureStepResult<T>) : PureStepResult<T>
-        data class Emit<V, E, T>(val cell: CellHandle<V, E>, val effect: E, val continuation: () -> PureStepResult<T>) : PureStepResult<T>
-        data class Report<T>(val value: JsonValue, val continuation: () -> PureStepResult<T>) : PureStepResult<T>
-        data class Delay<T>(val time: Duration, val continuation: () -> PureStepResult<T>) : PureStepResult<T>
-        data class Await<T>(val condition: Condition, val continuation: () -> PureStepResult<T>) : PureStepResult<T>
-        data class Spawn<S, T>(val childName: String, val child: () -> PureStepResult<S>, val continuation: () -> PureStepResult<T>) : PureStepResult<T>
-        // delay? Or should that just be a special case of await?
+        data class Complete<T>(val value: T) : PureStepResult<T> {
+            override fun toString() = "Complete($value)"
+        }
+        data class Read<V, E, T>(val cell: CellHandle<V, E>, val continuation: (V) -> PureStepResult<T>) : PureStepResult<T> {
+            override fun toString() = "Read(${cell.name})"
+        }
+        data class Emit<V, E, T>(val cell: CellHandle<V, E>, val effect: E, val continuation: () -> PureStepResult<T>) : PureStepResult<T> {
+            override fun toString() = "Emit(${cell.name}, $effect)"
+        }
+        data class Report<T>(val value: JsonValue, val continuation: () -> PureStepResult<T>) : PureStepResult<T> {
+            override fun toString() = "Report($value)"
+        }
+        data class Delay<T>(val time: Duration, val continuation: () -> PureStepResult<T>) : PureStepResult<T> {
+            override fun toString() = "Delay($time)"
+        }
+        data class Await<T>(val condition: Condition, val continuation: () -> PureStepResult<T>) : PureStepResult<T> {
+            override fun toString() = "Await($condition)"
+        }
+        data class Spawn<S, T>(val childName: String, val child: () -> PureStepResult<S>, val continuation: () -> PureStepResult<T>) : PureStepResult<T> {
+            override fun toString() = "Spawn($childName)"
+        }
         // TODO - other task results / steps?
     }
 
     sealed interface TaskStepResult<T> {
-        data class Complete<T>(val value: T) : TaskStepResult<T>
-        data class Read<V, E, T>(val cell: CellHandle<V, E>, val continuation: (V) -> Task<T>) : TaskStepResult<T>
-        data class Emit<V, E, T>(val cell: CellHandle<V, E>, val effect: E, val continuation: Task<T>) : TaskStepResult<T>
-        data class Report<T>(val value: JsonValue, val continuation: Task<T>) : TaskStepResult<T>
-        data class Delay<T>(val time: Duration, val continuation: Task<T>) : TaskStepResult<T>
-        data class Await<T>(val condition: Condition, val continuation: Task<T>) : TaskStepResult<T>
-        data class Spawn<S, T>(val child: Task<S>, val continuation: Task<T>) : TaskStepResult<T>
+        data class Complete<T>(val value: T, val continuation: Task<T>) : TaskStepResult<T> {
+            override fun toString() = "Complete($value)"
+        }
+        data class Read<V, E, T>(val cell: CellHandle<V, E>, val continuation: (V) -> Task<T>) : TaskStepResult<T> {
+            override fun toString() = "Read(${cell.name})"
+        }
+        data class Emit<V, E, T>(val cell: CellHandle<V, E>, val effect: E, val continuation: Task<T>) : TaskStepResult<T> {
+            override fun toString() = "Emit(${cell.name}, $effect)"
+        }
+        data class Report<T>(val value: JsonValue, val continuation: Task<T>) : TaskStepResult<T> {
+            override fun toString() = "Report($value)"
+        }
+        data class Delay<T>(val time: Duration, val continuation: Task<T>) : TaskStepResult<T> {
+            override fun toString() = "Delay($time)"
+        }
+        data class Await<T>(val condition: Condition, val continuation: Task<T>) : TaskStepResult<T> {
+            override fun toString() = "Await($condition)"
+        }
+        data class Spawn<S, T>(val child: Task<S>, val continuation: Task<T>) : TaskStepResult<T> {
+            override fun toString() = "Spawn($child)"
+        }
 
         companion object Factory {
             fun <T> of(id: TaskId, step: () -> PureStepResult<T>, saveData: () -> List<JsonValue>): () -> TaskStepResult<T> {
@@ -83,7 +115,10 @@ interface Task<T> {
                 return {
                     with (step()) {
                         when (this) {
-                            is PureStepResult.Complete -> Complete(value)
+                            is PureStepResult.Complete -> Complete(
+                                value,
+                                completedTask(id.nextStep(), value, { saveData() + COMPLETE_MARKER })
+                            )
                             is PureStepResult.Read<*, *, T> -> ofRead(this)
                             is PureStepResult.Emit<*, *, T> -> ofEmit(this)
                             is PureStepResult.Report -> Report(
@@ -113,10 +148,16 @@ interface Task<T> {
         private val DELAY_MARKER = conditionEntry("delay")
         private val AWAIT_MARKER = conditionEntry("await")
         private val SPAWN_MARKER = conditionEntry("spawn")
+        private val COMPLETE_MARKER = conditionEntry("complete")
 
-        fun <T> of(name: String, step: () -> PureStepResult<T>) = of(TaskId(RootTaskId(name, null), 0), step, { emptyList() })
+        fun <T> of(name: String, step: () -> PureStepResult<T>) =
+            of(TaskId(RootTaskId(name, null), 0), step, { emptyList() })
 
-        private fun <T> of(id: TaskId, step: () -> PureStepResult<T>, saveData: () -> List<JsonValue>) = object : Task<T> {
+        private fun <T> of(
+            id: TaskId,
+            step: () -> PureStepResult<T>,
+            saveData: () -> List<JsonValue>,
+        ) = object : Task<T> {
             override val id: TaskId
                 get() = id
 
@@ -126,6 +167,8 @@ interface Task<T> {
 
             override fun save(finconCollector: FinconCollector) =
                 finconCollector.report(id.rootId.conditionKeys(), JsonArray(saveData()))
+
+            override fun isCompleted() = false
 
             override fun restore(inconProvider: InconProvider): Sequence<Task<*>>? {
                 // If there's no incon data for this task, signal that by returning null
@@ -141,32 +184,35 @@ interface Task<T> {
 
                 // TODO: Think through, or at least test thoroughly, this restore procedure.
                 //   I have a nagging feeling there's an off-by-one error lurking in here...
-                with (this.runStep()) {
-                    return when (this) {
-                        is TaskStepResult.Complete -> emptySequence()
+                return with (this.runStep()) {
+                    when (this) {
+                        is TaskStepResult.Complete -> {
+                            requireType("complete")
+                            sequenceOf(continuation)
+                        }
                         is TaskStepResult.Read<*, *, T> -> {
                             requireType("read")
-                            return restoreRead(this, requireNotNull(restoreDatumValue), inconProvider)
+                            restoreRead(this, requireNotNull(restoreDatumValue), inconProvider)
                         }
                         is TaskStepResult.Emit<*, *, T> -> {
                             requireType("emit")
-                            return continuation.restore(inconProvider)
+                            continuation.restore(inconProvider)
                         }
                         is TaskStepResult.Report -> {
                             requireType("report")
-                            return continuation.restore(inconProvider)
+                            continuation.restore(inconProvider)
                         }
                         is TaskStepResult.Delay -> {
                             requireType("delay")
-                            return continuation.restore(inconProvider)
+                            continuation.restore(inconProvider)
                         }
                         is TaskStepResult.Await -> {
                             requireType("await")
-                            return continuation.restore(inconProvider)
+                            continuation.restore(inconProvider)
                         }
                         is TaskStepResult.Spawn<*, T> -> {
                             requireType("spawn")
-                            return requireNotNull(child.restore(inconProvider)) + requireNotNull(continuation.restore(inconProvider))
+                            requireNotNull(child.restore(inconProvider)) + requireNotNull(continuation.restore(inconProvider))
                         }
                     }
                 }
@@ -178,6 +224,21 @@ interface Task<T> {
                 inconProvider: InconProvider
             ) = step.continuation(step.cell.serializer.deserialize(restoreDatum).getOrThrow()).restore(inconProvider)
         }
+
+        private fun <T> completedTask(id: TaskId, result: T, saveData: () -> List<JsonValue>) =
+            object : Task<T> {
+                override val id: TaskId
+                    get() = id
+
+                override fun runStep(): TaskStepResult<T> = TaskStepResult.Complete(result, this)
+
+                override fun save(finconCollector: FinconCollector) =
+                    finconCollector.report(id.rootId.conditionKeys(), JsonArray(saveData()))
+
+                override fun isCompleted() = true
+
+                override fun restore(inconProvider: InconProvider) = sequenceOf<Task<T>>(this)
+            }
 
         private fun conditionEntry(type: String) = JsonMap(mapOf("type" to JsonString(type)))
         private fun conditionReadEntry(value: JsonValue) = JsonMap(mapOf("type" to JsonString("read"), "value" to value))
