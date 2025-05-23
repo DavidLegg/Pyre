@@ -705,7 +705,7 @@ class SimulationTest {
         val fincon = JsonConditions.serializer().serialize(setup.finconCollector as JsonConditions)
         with (fincon as JsonMap) {
             within("simulation") {
-                assertEquals("00:01:00.000000", string("time", "value"))
+                assertEquals("00:01:00.000000", string("time", "$"))
             }
         }
     }
@@ -725,14 +725,14 @@ class SimulationTest {
         val fincon = JsonConditions.serializer().serialize(setup.finconCollector as JsonConditions)
         with (fincon as JsonMap) {
             within("simulation") {
-                assertEquals("00:01:00.000000", string("time", "value"))
+                assertEquals("00:01:00.000000", string("time", "$"))
             }
             within("cells") {
-                within("x", "value") {
+                within("x", "$") {
                     assertNearlyEquals(70.0, double("value")!!)
                     assertNearlyEquals(1.0, double("rate")!!)
                 }
-                within("y", "value") {
+                within("y", "$") {
                     assertNearlyEquals(4.0, double("value")!!)
                     assertNearlyEquals(-0.1, double("rate")!!)
                 }
@@ -820,52 +820,20 @@ class SimulationTest {
         val fincon = JsonConditions.serializer().serialize(setup.finconCollector as JsonConditions)
         with (fincon as JsonMap) {
             within("simulation") {
-                assertEquals("00:01:00.000000", string("time", "value"))
+                assertEquals("00:01:00.000000", string("time", "$"))
             }
             within("cells") {
-                within("x", "value") {
+                within("x", "$") {
                     assertNearlyEquals(70.0, double("value")!!)
                     assertNearlyEquals(1.0, double("rate")!!)
                 }
-                within("y", "value") {
+                within("y", "$") {
                     assertNearlyEquals(4.0, double("value")!!)
                     assertNearlyEquals(-0.1, double("rate")!!)
                 }
             }
             within("tasks") {
-                within("Complete Immediately", "state", "value") {
-                    array {
-                        element {
-                            assertEquals("complete", string("type"))
-                        }
-                        assert(atEnd())
-                    }
-                }
-                within("Single Batch Task", "state", "value") {
-                    array {
-                        element {
-                            assertEquals("read", string("type"))
-                            within("value") {
-                                assertNearlyEquals(10.0, double("value")!!)
-                                assertNearlyEquals(1.0, double("rate")!!)
-                            }
-                        }
-                        element {
-                            assertEquals("read", string("type"))
-                            within("value") {
-                                assertNearlyEquals(10.0, double("value")!!)
-                                assertNearlyEquals(-0.1, double("rate")!!)
-                            }
-                        }
-                        element {
-                            assertEquals("report", string("type"))
-                        }
-                        element {
-                            assertEquals("complete", string("type"))
-                        }
-                    }
-                }
-                within("Multi Batch Task", "state", "value") {
+                within("Multi Batch Task", "$") {
                     array {
                         element {
                             assertEquals("read", string("type"))
@@ -1077,20 +1045,20 @@ class SimulationTest {
         val fincon = JsonConditions.serializer().serialize(setup.finconCollector as JsonConditions)
         with (fincon) {
             within("simulation") {
-                assertEquals("00:59:00.000000", string("time", "value"))
+                assertEquals("00:59:00.000000", string("time", "$"))
             }
             within("cells") {
-                assertEquals(5, int("x", "value"))
-                assertEquals("00:59:00.000000", string("clock", "value"))
+                assertEquals(5, int("x", "$"))
+                assertEquals("00:59:00.000000", string("clock", "$"))
             }
             within("tasks", "Repeater") {
-                within("state", "value") {
+                within("$") {
                     array {
                         element { assertEquals("delay", string("type")) }
                         assert(atEnd())
                     }
                 }
-                assertEquals("01:00:00.000000", string("time", "value"))
+                assertEquals("01:00:00.000000", string("time", "$"))
             }
         }
     }
@@ -1313,11 +1281,11 @@ class SimulationTest {
         val fincon = JsonConditions.serializer().serialize(setup.finconCollector as JsonConditions)
         with (fincon) {
             within("simulation") {
-                assertEquals("01:00:00.000000", string("time", "value"))
+                assertEquals("01:00:00.000000", string("time", "$"))
             }
             within("tasks") {
                 within("P") {
-                    within("children", "value") {
+                    within("children", "$") {
                         array {
                             // Only the active children are saved, because only the active children need to be restored.
                             // Completed children can simply not be restored, to the same effect as restoring and completing them.
@@ -1328,7 +1296,7 @@ class SimulationTest {
                         }
                     }
 
-                    within("state", "value") {
+                    within("$") {
                         array {
                             element { assertEquals("report", string("type")) }
                             element {
@@ -1345,26 +1313,10 @@ class SimulationTest {
                             assert(atEnd())
                         }
                     }
-                    assertEquals("01:30:00.000000", string("time", "value"))
-
-                    within("C") {
-                        within("state", "value") {
-                            array {
-                                element { assertEquals("report", string("type")) }
-                                element {
-                                    assertEquals("spawn", string("type"))
-                                    assertEquals("child", string("branch"))
-                                }
-                                element { assertEquals("report", string("type")) }
-                                element { assertEquals("delay", string("type")) }
-                                element { assertEquals("report", string("type")) }
-                                element { assertEquals("complete", string("type")) }
-                            }
-                        }
-                    }
+                    assertEquals("01:30:00.000000", string("time", "$"))
 
                     within("D") {
-                        within("state", "value") {
+                        within("$") {
                             array {
                                 element { assertEquals("report", string("type")) }
                                 element {
@@ -1381,7 +1333,7 @@ class SimulationTest {
                                 element { assertEquals("delay", string("type")) }
                             }
                         }
-                        assertEquals("01:15:00.000000", string("time", "value"))
+                        assertEquals("01:15:00.000000", string("time", "$"))
                     }
                 }
             }

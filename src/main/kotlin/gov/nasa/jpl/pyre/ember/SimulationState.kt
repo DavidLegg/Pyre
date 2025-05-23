@@ -20,7 +20,6 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
     private val listeningTasks: MutableMap<Task<*>, Set<CellHandle<*, *>>> = mutableMapOf()
     private val conditionalTasks: MutableMap<Task<*>, TaskEntry> = mutableMapOf()
     private val modifiedCells: MutableSet<CellHandle<*, *>> = mutableSetOf()
-    private val completedTasks: MutableSet<Task<*>> = mutableSetOf()
 
     /**
      * These are the actions allowed during "initialization", before the simulation starts running.
@@ -150,7 +149,7 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
         val stepResult = task.runStep()
         InternalLogger.log("... returns $stepResult")
         when (stepResult) {
-            is Complete -> completedTasks += stepResult.continuation
+            is Complete -> Unit // Nothing to do
             is Delay -> addTask(stepResult.continuation, time + stepResult.time)
             is Await -> runTaskAwait(stepResult)
             is Emit<*, *, *> -> runTaskEmit(stepResult)
@@ -200,8 +199,6 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
             it.save(taskCollector)
             taskTimeCollector.report(it.id.rootId.conditionKeys(), Duration.serializer().serialize(time))
         }
-        // Save the completed tasks as well, such that they won't re-run when we restore
-        completedTasks.forEach { it.save(taskCollector) }
     }
 
     fun restore(inconProvider: InconProvider) {
@@ -214,17 +211,10 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
         val rootTasks = tasks.toList()
         tasks.clear()
         for (rootTask in rootTasks) {
-            val restoredTasks = rootTask.task.restore(taskProvider)
-            // If there was no incon data for this task, default back to the root task.
-            if (restoredTasks == null) tasks.add(rootTask)
-            // Otherwise, restore all the children of that task
-            else for (restoredTask in restoredTasks) {
-                if (restoredTask.isCompleted()) {
-                    completedTasks += restoredTask
-                } else {
-                    val restoredTime = Duration.serializer().deserialize(requireNotNull(taskTimeProvider.get(restoredTask.id.rootId.conditionKeys())))
-                    tasks += TaskEntry(restoredTime, restoredTask)
-                }
+            for (restoredTask in rootTask.task.restore(taskProvider)) {
+                val restoredTime = Duration.serializer()
+                    .deserialize(requireNotNull(taskTimeProvider.get(restoredTask.id.rootId.conditionKeys())))
+                tasks += TaskEntry(restoredTime, restoredTask)
             }
         }
     }

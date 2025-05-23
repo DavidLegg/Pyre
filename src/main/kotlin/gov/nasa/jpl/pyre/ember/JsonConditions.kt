@@ -50,7 +50,7 @@ class JsonConditions private constructor(private val conditions: ConditionsTreeN
     }
 
     companion object {
-        const val VALUE_KEY: String = "value"
+        const val VALUE_KEY: String = "$"
 
         fun serializer(): Serializer<JsonConditions> = object: Serializer<JsonConditions> {
             override fun serialize(obj: JsonConditions) = serialize(obj.conditions)

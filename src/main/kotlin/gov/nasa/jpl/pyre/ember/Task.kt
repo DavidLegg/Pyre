@@ -19,8 +19,7 @@ interface Task<T> {
     val id: TaskId
     fun runStep(): TaskStepResult<T>
     fun save(finconCollector: FinconCollector)
-    fun restore(inconProvider: InconProvider): Sequence<Task<*>>?
-    fun isCompleted(): Boolean
+    fun restore(inconProvider: InconProvider): Sequence<Task<*>>
 
     data class RootTaskId(val name: String, val parent: RootTaskId?) {
         fun conditionKeys() : Sequence<String> = generateSequence(this) { it.parent }
@@ -74,7 +73,7 @@ interface Task<T> {
     }
 
     sealed interface TaskStepResult<T> {
-        data class Complete<T>(val value: T, val continuation: Task<T>) : TaskStepResult<T> {
+        data class Complete<T>(val value: T) : TaskStepResult<T> {
             override fun toString() = "Complete($value)"
         }
         data class Read<V, E, T>(val cell: CellHandle<V, E>, val continuation: (V) -> Task<T>) : TaskStepResult<T> {
@@ -109,30 +108,21 @@ interface Task<T> {
 // it's so complicated in practice that everyone basically uses PureTask.
 // Even I use it to test the ember engine, since writing Task from scratch would be so miserable.
 // For that reason, I'm keeping this in ember instead of spark.
-private class PureTask<T> : Task<T> {
-    override val id: TaskId
-    private val step: () -> PureStepResult<T>
-    private val saveData: () -> List<JsonValue>
+private class PureTask<T>(
+    override val id: TaskId,
+    private val step: () -> PureStepResult<T>,
+    private val saveData: () -> List<JsonValue>,
+    rootTask: PureTask<T>?
+) : Task<T> {
     private val rootTask: PureTask<T>
 
-    constructor(
-        id: TaskId,
-        step: () -> PureStepResult<T>,
-        saveData: () -> List<JsonValue>,
-        rootTask: PureTask<T>?
-    ) {
-        this.id = id
-        this.step = step
-        this.saveData = saveData
+    init {
         this.rootTask = rootTask ?: this
     }
 
     override fun runStep(): TaskStepResult<T> {
         return when (val stepResult = step()) {
-            is PureStepResult.Complete -> TaskStepResult.Complete(
-                stepResult.value,
-                completedTask(id.nextStep(), stepResult.value, { saveData() + COMPLETE_MARKER })
-            )
+            is PureStepResult.Complete -> TaskStepResult.Complete(stepResult.value)
             is PureStepResult.Read<*, *, T> -> runRead(stepResult)
             is PureStepResult.Emit<*, *, T> -> runEmit(stepResult)
             is PureStepResult.Report -> TaskStepResult.Report(
@@ -177,27 +167,24 @@ private class PureTask<T> : Task<T> {
 
     override fun save(finconCollector: FinconCollector) {
         // Report my fincon state
-        finconCollector.report(id.rootId.conditionKeys() + "state", value=JsonArray(saveData()))
+        finconCollector.report(id.rootId.conditionKeys(), value=JsonArray(saveData()))
         // If this is a child task, report to the parent that I need to be spawned
-        id.rootId.parent?.let {
-            finconCollector.accrue(it.conditionKeys() + "children", value=JsonString(id.rootId.name))
-        }
+        id.rootId.parent?.run { finconCollector.accrue(conditionKeys() + "children", value=JsonString(id.rootId.name)) }
     }
-
-    override fun isCompleted() = false
 
     override fun restore(inconProvider: InconProvider) = restore(inconProvider, id)
 
-    private fun restore(inconProvider: InconProvider, targetTaskId: TaskId): Sequence<Task<*>>? {
-        // if there's no incon data for this task, report that by returning null
+    private fun restore(inconProvider: InconProvider, targetTaskId: TaskId): Sequence<Task<*>> {
         val targetConditionKeys = targetTaskId.rootId.conditionKeys()
-        val inconData = inconProvider.get(targetConditionKeys + "state") ?: return null
-        // Restore this task itself
-        val result = mutableListOf(restoreSingle((inconData as JsonArray).values))
+        val result = mutableListOf<Task<*>>()
+        // Restore this task itself, if there's incon data for it.
+        (inconProvider.get(targetConditionKeys) as JsonArray?)?.apply {
+            result.add(restoreSingle(values))
+        }
         // For any child reported in the fincon, call restore again, using that child's id
         // to get the state history which spawned and later ran that child.
         (inconProvider.get(targetConditionKeys + "children") as JsonArray?)?.values?.forEach {
-            // Since that child is reported as needing to be restored, throw an error if we can't restore it.
+            // Since that child is reported as needing to be restored, throw an error if there's no incon data for it
             result.addAll(requireNotNull(rootTask.restore(inconProvider, id.child((it as JsonString).value))))
         }
         return result.asSequence()
@@ -216,8 +203,7 @@ private class PureTask<T> : Task<T> {
         return with (this.runStep()) {
             when (this) {
                 is TaskStepResult.Complete -> {
-                    requireType("complete")
-                    continuation
+                    throw IllegalArgumentException("Extra restore data for completed task")
                 }
                 is TaskStepResult.Read<*, *, T> -> {
                     requireType("read")
@@ -257,23 +243,11 @@ private class PureTask<T> : Task<T> {
         remainingRestoreData: List<JsonValue>,
     ) = (step.continuation(step.cell.serializer.deserialize(restoreDatum)) as PureTask<T>).restoreSingle(remainingRestoreData)
 
-    private fun <T> completedTask(id: TaskId, result: T, saveData: () -> List<JsonValue>) =
-        object : Task<T> {
-            override val id: TaskId
-                get() = id
-            override fun runStep(): TaskStepResult<T> = TaskStepResult.Complete(result, this)
-            override fun save(finconCollector: FinconCollector) =
-                finconCollector.report(id.rootId.conditionKeys() + "state", JsonArray(saveData()))
-            override fun isCompleted() = true
-            override fun restore(inconProvider: InconProvider) = sequenceOf<Task<T>>(this)
-        }
-
     companion object {
         private val EMIT_MARKER = conditionEntry("emit")
         private val REPORT_MARKER = conditionEntry("report")
         private val DELAY_MARKER = conditionEntry("delay")
         private val AWAIT_MARKER = conditionEntry("await")
-        private val COMPLETE_MARKER = conditionEntry("complete")
 
         private fun conditionEntry(type: String) = JsonMap(mapOf("type" to JsonString(type)))
         private fun conditionReadEntry(value: JsonValue) = JsonMap(mapOf(
