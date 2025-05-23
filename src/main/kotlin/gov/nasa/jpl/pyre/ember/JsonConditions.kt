@@ -62,19 +62,18 @@ class JsonConditions private constructor(private val conditions: ConditionsTreeN
                 return JsonMap(result)
             }
 
-            override fun deserialize(jsonValue: JsonValue) =
-                deserializeNode(jsonValue).map { JsonConditions(it) }
+            override fun deserialize(jsonValue: JsonValue) = JsonConditions(deserializeNode(jsonValue))
 
-            private fun deserializeNode(jsonValue: JsonValue): Result<ConditionsTreeNode> = kotlin.runCatching {
+            private fun deserializeNode(jsonValue: JsonValue): ConditionsTreeNode {
                 val result = ConditionsTreeNode()
                 for ((key, value) in (jsonValue as JsonMap).values) {
                     if (key == VALUE_KEY) {
                         result.value = value
                     } else {
-                        result.children[key] = deserializeNode(value).getOrThrow()
+                        result.children[key] = deserializeNode(value)
                     }
                 }
-                return success(result)
+                return result
             }
         }
     }

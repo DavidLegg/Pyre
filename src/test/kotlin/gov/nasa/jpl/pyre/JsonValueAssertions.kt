@@ -1,5 +1,6 @@
-package gov.nasa.jpl.pyre.ember
+package gov.nasa.jpl.pyre
 
+import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.JsonValue.*
 
 // The getter functions below use (_ as T?) instead of (_ as? T)

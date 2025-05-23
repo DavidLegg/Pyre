@@ -255,7 +255,7 @@ private class PureTask<T> : Task<T> {
         step: TaskStepResult.Read<V, E, T>,
         restoreDatum: JsonValue,
         remainingRestoreData: List<JsonValue>,
-    ) = (step.continuation(step.cell.serializer.deserialize(restoreDatum).getOrThrow()) as PureTask<T>).restoreSingle(remainingRestoreData)
+    ) = (step.continuation(step.cell.serializer.deserialize(restoreDatum)) as PureTask<T>).restoreSingle(remainingRestoreData)
 
     private fun <T> completedTask(id: TaskId, result: T, saveData: () -> List<JsonValue>) =
         object : Task<T> {

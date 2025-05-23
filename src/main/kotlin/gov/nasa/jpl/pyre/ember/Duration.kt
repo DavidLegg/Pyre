@@ -38,7 +38,7 @@ data class Duration(val ticks: Long) : Comparable<Duration> {
                 return JsonString(obj.toString())
             }
 
-            override fun deserialize(jsonValue: JsonValue): Result<Duration> = runCatching {
+            override fun deserialize(jsonValue: JsonValue): Duration {
                 var s = (jsonValue as JsonString).value
                 var signum = 1
                 if (s[0] == '-') {
@@ -56,7 +56,7 @@ data class Duration(val ticks: Long) : Comparable<Duration> {
                 require(secondsParts[1].length == 6)
                 val microseconds = secondsParts[1].toInt()
 
-                return Result.success(signum * (hours * HOUR + minutes * MINUTE + seconds * SECOND + microseconds * MICROSECOND))
+                return signum * (hours * HOUR + minutes * MINUTE + seconds * SECOND + microseconds * MICROSECOND)
             }
         }
     }

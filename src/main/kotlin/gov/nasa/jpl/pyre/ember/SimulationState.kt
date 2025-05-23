@@ -206,7 +206,7 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
 
     fun restore(inconProvider: InconProvider) {
         with (inconProvider.withPrefix("simulation")) {
-            time = Duration.serializer().deserialize(requireNotNull(get("time"))).getOrThrow()
+            time = Duration.serializer().deserialize(requireNotNull(get("time")))
         }
         cells.restore(inconProvider.withPrefix("cells"))
         val taskProvider = inconProvider.withPrefix("tasks")
@@ -222,9 +222,7 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
                 if (restoredTask.isCompleted()) {
                     completedTasks += restoredTask
                 } else {
-                    val restoredTime = Duration.serializer()
-                        .deserialize(requireNotNull(taskTimeProvider.get(restoredTask.id.rootId.conditionKeys())))
-                        .getOrThrow()
+                    val restoredTime = Duration.serializer().deserialize(requireNotNull(taskTimeProvider.get(restoredTask.id.rootId.conditionKeys())))
                     tasks += TaskEntry(restoredTime, restoredTask)
                 }
             }

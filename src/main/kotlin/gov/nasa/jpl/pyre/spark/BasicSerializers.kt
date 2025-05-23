@@ -15,6 +15,6 @@ object BasicSerializers {
     fun <T> listSerializer(elementSerializer: Serializer<T>) = Serializer.of(
         { l: List<T> -> JsonArray(l.map(elementSerializer::serialize))}
         withInverse
-        { (it as JsonArray).values.map { elementSerializer.deserialize(it).getOrThrow() } }
+        { (it as JsonArray).values.map { elementSerializer.deserialize(it) } }
     )
 }

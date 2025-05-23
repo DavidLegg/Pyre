@@ -51,7 +51,7 @@ class CellSet {
             // If incon is missing, ignore it and move on
             inconProvider.get(name)?.let {
                 // But if the incon is there and fails to deserialize, that's an error.
-                map[handle] = CellState(copy(value = serializer.deserialize(it).getOrThrow()), effectTrait.empty())
+                map[handle] = CellState(copy(value = serializer.deserialize(it)), effectTrait.empty())
             }
         }
         map.keys.forEach { restoreCell(it) }

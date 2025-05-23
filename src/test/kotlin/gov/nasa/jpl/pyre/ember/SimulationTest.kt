@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.ember
 
+import gov.nasa.jpl.pyre.*
 import gov.nasa.jpl.pyre.coals.InvertibleFunction.Companion.withInverse
 import gov.nasa.jpl.pyre.ember.Cell.EffectTrait
 import gov.nasa.jpl.pyre.ember.Duration.Companion.EPSILON
@@ -755,7 +756,7 @@ class SimulationTest {
 
         val nextSetup = emptySetup().copy(
             endTime = 2.1 roundTimes MINUTE,
-            inconProvider = JsonConditions.serializer().deserialize(fincon).getOrThrow(),
+            inconProvider = JsonConditions.serializer().deserialize(fincon),
             initialize = { initialize() }
         )
         assertDoesNotThrow { Simulation.run(nextSetup) }
@@ -985,7 +986,7 @@ class SimulationTest {
         val fincon = JsonConditions.serializer().serialize(setup.finconCollector as JsonConditions)
         val nextSetup = emptySetup().copy(
             endTime = 2.1 roundTimes MINUTE,
-            inconProvider = JsonConditions.serializer().deserialize(fincon).getOrThrow(),
+            inconProvider = JsonConditions.serializer().deserialize(fincon),
             initialize = { initialize() }
         )
         assertDoesNotThrow { Simulation.run(nextSetup) }
@@ -1131,7 +1132,7 @@ class SimulationTest {
         val nextSetup = emptySetup().copy(
             initialize = { initialize() },
             endTime = HOUR + 5 * MINUTE,
-            inconProvider = JsonConditions.serializer().deserialize(fincon).getOrThrow(),
+            inconProvider = JsonConditions.serializer().deserialize(fincon),
         )
         assertDoesNotThrow { Simulation.run(nextSetup) }
         // 1 play during the "restore" phase, to get the task re-initialized
@@ -1450,7 +1451,7 @@ class SimulationTest {
 
         val nextSetup = emptySetup().copy(
             initialize = { initialize() },
-            inconProvider = JsonConditions.serializer().deserialize(fincon).getOrThrow(),
+            inconProvider = JsonConditions.serializer().deserialize(fincon),
             endTime = 2 * HOUR,
         )
         assertDoesNotThrow { Simulation.run(nextSetup) }
@@ -1517,7 +1518,7 @@ class SimulationTest {
 
         val nextSetup = emptySetup().copy(
             initialize = { initialize() },
-            inconProvider = JsonConditions.serializer().deserialize(fincon).getOrThrow(),
+            inconProvider = JsonConditions.serializer().deserialize(fincon),
             endTime = 2 * HOUR,
         )
         assertDoesNotThrow { Simulation.run(nextSetup) }
@@ -1590,7 +1591,7 @@ class SimulationTest {
 
         val nextSetup = emptySetup().copy(
             initialize = { initialize() },
-            inconProvider = JsonConditions.serializer().deserialize(fincon).getOrThrow(),
+            inconProvider = JsonConditions.serializer().deserialize(fincon),
             endTime = 2 * HOUR,
         )
         assertDoesNotThrow { Simulation.run(nextSetup) }
