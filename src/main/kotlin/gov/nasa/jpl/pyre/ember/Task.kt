@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.ember.JsonValue.*
 import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
+import gov.nasa.jpl.pyre.ember.Task.*
 
 /**
  * A Task is a unit of action in the simulation.
@@ -22,7 +23,11 @@ interface Task<T> {
     fun isCompleted(): Boolean
 
     data class RootTaskId(val name: String, val parent: RootTaskId?) {
-        fun conditionKeys() : Sequence<String> = generateSequence(this) { it.parent }.map { it.name }
+        fun conditionKeys() : Sequence<String> = generateSequence(this) { it.parent }
+            .map { it.name }
+            .toList()
+            .asReversed()
+            .asSequence()
 
         override fun toString() = conditionKeys().joinToString(".")
     }
@@ -62,6 +67,9 @@ interface Task<T> {
         data class Spawn<S, T>(val childName: String, val child: () -> PureStepResult<S>, val continuation: () -> PureStepResult<T>) : PureStepResult<T> {
             override fun toString() = "Spawn($childName)"
         }
+        class Restart<T> : PureStepResult<T> {
+            override fun toString() = "Restart"
+        }
         // TODO - other task results / steps?
     }
 
@@ -87,160 +95,192 @@ interface Task<T> {
         data class Spawn<S, T>(val child: Task<S>, val continuation: Task<T>) : TaskStepResult<T> {
             override fun toString() = "Spawn($child)"
         }
+    }
 
-        companion object Factory {
-            fun <T> of(id: TaskId, step: () -> PureStepResult<T>, saveData: () -> List<JsonValue>): () -> TaskStepResult<T> {
-                fun <V, E, T> ofRead(step: PureStepResult.Read<V, E, T>) = Read(step.cell) {
-                    Task.of(
-                        id.nextStep(),
-                        // Important: step.continuation is deferred to Task.runStep.
-                        // This means the outer Read.continuation can safely be called immediately after reading,
-                        // without invoking client code prematurely.
-                        { step.continuation(it) },
-                        { saveData() + conditionReadEntry(step.cell.serializer.serialize(it)) }
-                    )
+    companion object {
+        fun <T> of(name: String, step: () -> PureStepResult<T>): Task<T> {
+            return PureTask(TaskId(RootTaskId(name, null), 0), step, { emptyList() }, null)
+        }
+    }
+}
+
+
+// Although you could technically implement Task from scratch,
+// it's so complicated in practice that everyone basically uses PureTask.
+// Even I use it to test the ember engine, since writing Task from scratch would be so miserable.
+// For that reason, I'm keeping this in ember instead of spark.
+private class PureTask<T> : Task<T> {
+    override val id: TaskId
+    private val step: () -> PureStepResult<T>
+    private val saveData: () -> List<JsonValue>
+    private val rootTask: PureTask<T>
+
+    constructor(
+        id: TaskId,
+        step: () -> PureStepResult<T>,
+        saveData: () -> List<JsonValue>,
+        rootTask: PureTask<T>?
+    ) {
+        this.id = id
+        this.step = step
+        this.saveData = saveData
+        this.rootTask = rootTask ?: this
+    }
+
+    override fun runStep(): TaskStepResult<T> {
+        return when (val stepResult = step()) {
+            is PureStepResult.Complete -> TaskStepResult.Complete(
+                stepResult.value,
+                completedTask(id.nextStep(), stepResult.value, { saveData() + COMPLETE_MARKER })
+            )
+            is PureStepResult.Read<*, *, T> -> runRead(stepResult)
+            is PureStepResult.Emit<*, *, T> -> runEmit(stepResult)
+            is PureStepResult.Report -> TaskStepResult.Report(
+                stepResult.value,
+                PureTask(id.nextStep(), stepResult.continuation, { saveData() + REPORT_MARKER }, rootTask)
+            )
+            is PureStepResult.Delay -> TaskStepResult.Delay(
+                stepResult.time,
+                PureTask(id.nextStep(), stepResult.continuation, { saveData() + DELAY_MARKER }, rootTask)
+            )
+            is PureStepResult.Await -> TaskStepResult.Await(
+                stepResult.condition,
+                PureTask(id.nextStep(), stepResult.continuation, { saveData() + AWAIT_MARKER }, rootTask)
+            )
+            is PureStepResult.Spawn<*, T> -> runSpawn(stepResult)
+            is PureStepResult.Restart -> rootTask.runStep()
+        }
+    }
+
+    private fun <V, E> runRead(step: PureStepResult.Read<V, E, T>) = TaskStepResult.Read(step.cell) {
+        PureTask(
+            id.nextStep(),
+            // Important: step.continuation is deferred to Task.runStep.
+            // This means the outer Read.continuation can safely be called immediately after reading,
+            // without invoking client code prematurely.
+            { step.continuation(it) },
+            { saveData() + conditionReadEntry(step.cell.serializer.serialize(it)) },
+            rootTask,
+        )
+    }
+
+    private fun <V, E> runEmit(step: PureStepResult.Emit<V, E, T>) = TaskStepResult.Emit(
+        step.cell,
+        step.effect,
+        PureTask(id.nextStep(), step.continuation, { saveData() + EMIT_MARKER }, rootTask)
+    )
+
+    private fun <S> runSpawn(step: PureStepResult.Spawn<S, T>) = TaskStepResult.Spawn(
+        PureTask(id.child(step.childName), step.child, { saveData() + conditionSpawnEntry(onChild=true) }, null),
+        PureTask(id.nextStep(), step.continuation, { saveData() + conditionSpawnEntry(onChild=false) }, rootTask)
+    )
+
+    override fun save(finconCollector: FinconCollector) {
+        // Report my fincon state
+        finconCollector.report(id.rootId.conditionKeys() + "state", value=JsonArray(saveData()))
+        // If this is a child task, report to the parent that I need to be spawned
+        id.rootId.parent?.let {
+            finconCollector.accrue(it.conditionKeys() + "children", value=JsonString(id.rootId.name))
+        }
+    }
+
+    override fun isCompleted() = false
+
+    override fun restore(inconProvider: InconProvider) = restore(inconProvider, id)
+
+    private fun restore(inconProvider: InconProvider, targetTaskId: TaskId): Sequence<Task<*>>? {
+        // if there's no incon data for this task, report that by returning null
+        val targetConditionKeys = targetTaskId.rootId.conditionKeys()
+        val inconData = inconProvider.get(targetConditionKeys + "state") ?: return null
+        // Restore this task itself
+        val result = mutableListOf(restoreSingle((inconData as JsonArray).values))
+        // For any child reported in the fincon, call restore again, using that child's id
+        // to get the state history which spawned and later ran that child.
+        (inconProvider.get(targetConditionKeys + "children") as JsonArray?)?.values?.forEach {
+            // Since that child is reported as needing to be restored, throw an error if we can't restore it.
+            result.addAll(requireNotNull(rootTask.restore(inconProvider, id.child((it as JsonString).value))))
+        }
+        return result.asSequence()
+    }
+
+    private fun restoreSingle(restoreData: List<JsonValue>): Task<*> {
+        // If there's no incon data left, we've reached the active step
+        val restoreDatum = restoreData.firstOrNull() ?: return this
+        val restoreDatumMap = (restoreDatum as JsonMap).values
+        val restoreDatumType = (restoreDatumMap["type"] as JsonString).value
+        val remainingRestoreData = restoreData.subList(1, restoreData.size)
+
+        fun requireType(requiredType: String) =
+            require(restoreDatumType == requiredType) { "Expected restore datum of type \"$requiredType\"" }
+
+        return with (this.runStep()) {
+            when (this) {
+                is TaskStepResult.Complete -> {
+                    requireType("complete")
+                    continuation
                 }
-
-                fun <V, E, T> ofEmit(step: PureStepResult.Emit<V, E, T>) = Emit(
-                    step.cell,
-                    step.effect,
-                    Task.of(id.nextStep(), step.continuation, { saveData() + EMIT_MARKER })
-                )
-
-                fun <S, T> ofSpawn(step: PureStepResult.Spawn<S, T>) = Spawn(
-                    Task.of(id.child(step.childName), step.child, { emptyList() }),
-                    Task.of(id.nextStep(), step.continuation, { saveData() + SPAWN_MARKER })
-                )
-
-                return {
-                    with (step()) {
-                        when (this) {
-                            is PureStepResult.Complete -> Complete(
-                                value,
-                                completedTask(id.nextStep(), value, { saveData() + COMPLETE_MARKER })
-                            )
-                            is PureStepResult.Read<*, *, T> -> ofRead(this)
-                            is PureStepResult.Emit<*, *, T> -> ofEmit(this)
-                            is PureStepResult.Report -> Report(
-                                value,
-                                Task.of(id.nextStep(), continuation, { saveData() + REPORT_MARKER })
-                            )
-                            is PureStepResult.Delay -> Delay(
-                                time,
-                                Task.of(id.nextStep(), continuation, { saveData() + DELAY_MARKER })
-                            )
-                            is PureStepResult.Await -> Await(
-                                condition,
-                                Task.of(id.nextStep(), continuation, { saveData() + AWAIT_MARKER })
-                            )
-                            is PureStepResult.Spawn<*, T> -> ofSpawn(this)
-                        }
+                is TaskStepResult.Read<*, *, T> -> {
+                    requireType("read")
+                    restoreRead(this, requireNotNull(restoreDatumMap["value"]), remainingRestoreData)
+                }
+                is TaskStepResult.Emit<*, *, T> -> {
+                    requireType("emit")
+                    (continuation as PureTask<T>).restoreSingle(remainingRestoreData)
+                }
+                is TaskStepResult.Report -> {
+                    requireType("report")
+                    (continuation as PureTask<T>).restoreSingle(remainingRestoreData)
+                }
+                is TaskStepResult.Delay -> {
+                    requireType("delay")
+                    (continuation as PureTask<T>).restoreSingle(remainingRestoreData)
+                }
+                is TaskStepResult.Await -> {
+                    requireType("await")
+                    (continuation as PureTask<T>).restoreSingle(remainingRestoreData)
+                }
+                is TaskStepResult.Spawn<*, T> -> {
+                    requireType("spawn")
+                    when (val branch = restoreDatumMap["branch"]) {
+                        JsonString("child") -> requireNotNull((child as PureTask<*>).restoreSingle(remainingRestoreData))
+                        JsonString("parent") -> requireNotNull((continuation as PureTask<T>).restoreSingle(remainingRestoreData))
+                        else -> throw IllegalArgumentException("Branch $branch should be \"child\" or \"parent\"")
                     }
                 }
             }
-
         }
     }
+
+    private fun <V, E> restoreRead(
+        step: TaskStepResult.Read<V, E, T>,
+        restoreDatum: JsonValue,
+        remainingRestoreData: List<JsonValue>,
+    ) = (step.continuation(step.cell.serializer.deserialize(restoreDatum).getOrThrow()) as PureTask<T>).restoreSingle(remainingRestoreData)
+
+    private fun <T> completedTask(id: TaskId, result: T, saveData: () -> List<JsonValue>) =
+        object : Task<T> {
+            override val id: TaskId
+                get() = id
+            override fun runStep(): TaskStepResult<T> = TaskStepResult.Complete(result, this)
+            override fun save(finconCollector: FinconCollector) =
+                finconCollector.report(id.rootId.conditionKeys() + "state", JsonArray(saveData()))
+            override fun isCompleted() = true
+            override fun restore(inconProvider: InconProvider) = sequenceOf<Task<T>>(this)
+        }
 
     companion object {
         private val EMIT_MARKER = conditionEntry("emit")
         private val REPORT_MARKER = conditionEntry("report")
         private val DELAY_MARKER = conditionEntry("delay")
         private val AWAIT_MARKER = conditionEntry("await")
-        private val SPAWN_MARKER = conditionEntry("spawn")
         private val COMPLETE_MARKER = conditionEntry("complete")
 
-        fun <T> of(name: String, step: () -> PureStepResult<T>) =
-            of(TaskId(RootTaskId(name, null), 0), step, { emptyList() })
-
-        private fun <T> of(
-            id: TaskId,
-            step: () -> PureStepResult<T>,
-            saveData: () -> List<JsonValue>,
-        ) = object : Task<T> {
-            override val id: TaskId
-                get() = id
-
-            override fun runStep(): TaskStepResult<T> {
-                return TaskStepResult.of(id, step, saveData)()
-            }
-
-            override fun save(finconCollector: FinconCollector) =
-                finconCollector.report(id.rootId.conditionKeys(), JsonArray(saveData()))
-
-            override fun isCompleted() = false
-
-            override fun restore(inconProvider: InconProvider): Sequence<Task<*>>? {
-                // If there's no incon data for this task, signal that by returning null
-                val restoreData = inconProvider.get(id.rootId.conditionKeys()) ?: return null
-                // If there's no incon data for this step, we've merely reached the current step, start here
-                val restoreDatum = (restoreData as JsonArray).values.getOrNull(id.stepNumber) ?: return sequenceOf(this)
-                val restoreDatumMap = (restoreDatum as JsonMap).values
-                val restoreDatumType = (restoreDatumMap["type"] as JsonString).value
-
-                val restoreDatumValue = restoreDatumMap["value"]
-                fun requireType(requiredType: String) =
-                    require(restoreDatumType == requiredType) { "Expected restore datum of type \"$requiredType\"" }
-
-                // TODO: Think through, or at least test thoroughly, this restore procedure.
-                //   I have a nagging feeling there's an off-by-one error lurking in here...
-                return with (this.runStep()) {
-                    when (this) {
-                        is TaskStepResult.Complete -> {
-                            requireType("complete")
-                            sequenceOf(continuation)
-                        }
-                        is TaskStepResult.Read<*, *, T> -> {
-                            requireType("read")
-                            restoreRead(this, requireNotNull(restoreDatumValue), inconProvider)
-                        }
-                        is TaskStepResult.Emit<*, *, T> -> {
-                            requireType("emit")
-                            continuation.restore(inconProvider)
-                        }
-                        is TaskStepResult.Report -> {
-                            requireType("report")
-                            continuation.restore(inconProvider)
-                        }
-                        is TaskStepResult.Delay -> {
-                            requireType("delay")
-                            continuation.restore(inconProvider)
-                        }
-                        is TaskStepResult.Await -> {
-                            requireType("await")
-                            continuation.restore(inconProvider)
-                        }
-                        is TaskStepResult.Spawn<*, T> -> {
-                            requireType("spawn")
-                            requireNotNull(child.restore(inconProvider)) + requireNotNull(continuation.restore(inconProvider))
-                        }
-                    }
-                }
-            }
-
-            private fun <V, E> restoreRead(
-                step: TaskStepResult.Read<V, E, T>,
-                restoreDatum: JsonValue,
-                inconProvider: InconProvider
-            ) = step.continuation(step.cell.serializer.deserialize(restoreDatum).getOrThrow()).restore(inconProvider)
-        }
-
-        private fun <T> completedTask(id: TaskId, result: T, saveData: () -> List<JsonValue>) =
-            object : Task<T> {
-                override val id: TaskId
-                    get() = id
-
-                override fun runStep(): TaskStepResult<T> = TaskStepResult.Complete(result, this)
-
-                override fun save(finconCollector: FinconCollector) =
-                    finconCollector.report(id.rootId.conditionKeys(), JsonArray(saveData()))
-
-                override fun isCompleted() = true
-
-                override fun restore(inconProvider: InconProvider) = sequenceOf<Task<T>>(this)
-            }
-
         private fun conditionEntry(type: String) = JsonMap(mapOf("type" to JsonString(type)))
-        private fun conditionReadEntry(value: JsonValue) = JsonMap(mapOf("type" to JsonString("read"), "value" to value))
+        private fun conditionReadEntry(value: JsonValue) = JsonMap(mapOf(
+            "type" to JsonString("read"),
+            "value" to value))
+        private fun conditionSpawnEntry(onChild: Boolean) = JsonMap(mapOf(
+            "type" to JsonString("spawn"),
+            "branch" to JsonString(if (onChild) "child" else "parent")))
     }
 }

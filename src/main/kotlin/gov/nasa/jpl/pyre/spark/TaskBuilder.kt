@@ -15,17 +15,16 @@ import kotlin.coroutines.intrinsics.*
  * That provides the ability to construct an iterator with yield statements,
  * which is structurally similar to a task with await statements.
  * From there, I generalized a little to get the various kinds of continuation types to line up.
- * That said, I'm only about 50% confident that I understand how this thing works.
+ * That said, I'm only about 80% confident that I understand how this thing works.
  */
 
 interface TaskScope<T> {
-    suspend fun complete(value: T)
     suspend fun <V, E> read(cell: CellHandle<V, E>): V
     suspend fun <V, E> emit(cell: CellHandle<V, E>, effect: E)
     suspend fun report(value: JsonValue)
     suspend fun delay(time: Duration)
     suspend fun await(condition: Condition)
-    suspend fun <S> spawn(childName: String, child: () -> Task.PureStepResult<S>)
+    suspend fun <S> spawn(childName: String, childBlock: suspend TaskScope<S>.() -> S)
 }
 
 /**
@@ -45,18 +44,14 @@ interface TaskScope<T> {
  * }
  * ```
  */
-fun task(name: String, block: suspend TaskScope<Unit>.() -> Unit): Task<Unit> = with(TaskBuilder<Unit>()) {
-    Task.of(name, continueWith(block.createCoroutineUnintercepted(this, this)))
-}
+fun task(name: String, block: suspend TaskScope<Unit>.() -> Unit): Task<Unit> =
+    Task.of(name, blockToTaskStepGenerator(block))
 
-private class TaskBuilder<T> : TaskScope<T>, Continuation<Unit> {
+private fun <T> blockToTaskStepGenerator(block: suspend TaskScope<T>.() -> T): () -> Task.PureStepResult<T> =
+    with(TaskBuilder<T>()) { continueWith(block.createCoroutineUnintercepted(this, this)) }
+
+private class TaskBuilder<T> : TaskScope<T>, Continuation<T> {
     private var nextResult: Task.PureStepResult<T>? = null
-
-    override suspend fun complete(value: T): Unit =
-        suspendCoroutineUninterceptedOrReturn {
-            nextResult = Complete(value)
-            Unit
-        }
 
     override suspend fun <V, E> read(cell: CellHandle<V, E>): V =
         suspendCoroutineUninterceptedOrReturn { c ->
@@ -92,9 +87,9 @@ private class TaskBuilder<T> : TaskScope<T>, Continuation<Unit> {
             COROUTINE_SUSPENDED
         }
 
-    override suspend fun <S> spawn(childName: String, child: () -> Task.PureStepResult<S>) =
+    override suspend fun <S> spawn(childName: String, childBlock: suspend TaskScope<S>.() -> S) =
         suspendCoroutineUninterceptedOrReturn { c ->
-            nextResult = Spawn(childName, child, continueWith(c))
+            nextResult = Spawn(childName, blockToTaskStepGenerator(childBlock), continueWith(c))
             COROUTINE_SUSPENDED
         }
 
@@ -102,8 +97,8 @@ private class TaskBuilder<T> : TaskScope<T>, Continuation<Unit> {
         get() = EmptyCoroutineContext
 
     // Completion continuation implementation
-    override fun resumeWith(result: Result<Unit>) {
-        result.getOrThrow()
+    override fun resumeWith(result: Result<T>) {
+        nextResult = Complete(result.getOrThrow())
     }
 
     fun continueWith(continuation: Continuation<Unit>): () -> Task.PureStepResult<T> = {

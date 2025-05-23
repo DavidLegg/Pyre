@@ -1,25 +1,44 @@
 package gov.nasa.jpl.pyre.ember
 
+import gov.nasa.jpl.pyre.ember.JsonValue.JsonArray
 import gov.nasa.jpl.pyre.ember.JsonValue.JsonMap
 import kotlin.Result.Companion.success
 
 class JsonConditions private constructor(private val conditions: ConditionsTreeNode) : Conditions {
     private class ConditionsTreeNode {
         var value: JsonValue? = null
+        var accruedValue: MutableList<JsonValue>? = null
         val children: MutableMap<String, ConditionsTreeNode> = mutableMapOf()
     }
 
-    public constructor() : this(ConditionsTreeNode())
+    constructor() : this(ConditionsTreeNode())
 
     override fun report(keys: Sequence<String>, value: JsonValue) {
+        val targetConditions = getNode(keys)
+        require(targetConditions.value == null) {
+            "Final condition ${keys.joinToString(separator=".")} was already reported, cannot report a new value."
+        }
+        require(targetConditions.accruedValue == null) {
+            "Final condition ${keys.joinToString(separator=".")} is already being accrued, cannot report a value."
+        }
+        targetConditions.value = value
+    }
+
+    override fun accrue(keys: Sequence<String>, value: JsonValue) {
+        val targetConditions = getNode(keys)
+        require(targetConditions.value == null) {
+            "Final condition ${keys.joinToString(separator=".")} was reported, cannot accrue another value."
+        }
+        targetConditions.accruedValue = (targetConditions.accruedValue ?: mutableListOf()).apply { add(value) }
+    }
+
+    private fun getNode(keys: Sequence<String>): ConditionsTreeNode {
         var targetConditions = conditions
         for (key in keys) {
-            require(key != VALUE_KEY) { "\"$VALUE_KEY\" is a reserved key which cannot be used for condition identifiers" }
+            require(key != VALUE_KEY) { "\"$VALUE_KEY\" is a reserved key which cannot be used for condition keys" }
             targetConditions = targetConditions.children.getOrPut(key) { ConditionsTreeNode() }
         }
-
-        require(targetConditions.value == null) { "Final condition ${keys.joinToString(separator=".")} is already set!" }
-        targetConditions.value = value
+        return targetConditions
     }
 
     override fun get(keys: Sequence<String>): JsonValue? {
@@ -27,7 +46,7 @@ class JsonConditions private constructor(private val conditions: ConditionsTreeN
         for (key in keys) {
             targetConditions = targetConditions?.children?.get(key)
         }
-        return targetConditions?.value
+        return targetConditions?.value ?: targetConditions?.accruedValue?.let { JsonArray(it) }
     }
 
     companion object {
@@ -39,6 +58,7 @@ class JsonConditions private constructor(private val conditions: ConditionsTreeN
             private fun serialize(node: ConditionsTreeNode): JsonValue {
                 var result = node.children.mapValues { serialize(it.value) }
                 node.value?.let { result += VALUE_KEY to it }
+                node.accruedValue?.let { result += VALUE_KEY to JsonArray(it.toList()) }
                 return JsonMap(result)
             }
 

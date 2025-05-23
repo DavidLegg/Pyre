@@ -1,6 +1,8 @@
 package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction.Companion.withInverse
+import gov.nasa.jpl.pyre.ember.Cell.EffectTrait
+import gov.nasa.jpl.pyre.ember.Duration.Companion.EPSILON
 import gov.nasa.jpl.pyre.ember.Simulation.SimulationSetup
 import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
@@ -16,6 +18,55 @@ import kotlin.test.assertContains
 
 class SimulationTest {
     private var reports: MutableList<JsonValue> = mutableListOf()
+
+    private fun intCounterCell(name: String, value: Int) = Cell(
+        name,
+        value,
+        INT_SERIALIZER,
+        { x, _ -> x },
+        { x, n -> x + n },
+        object : EffectTrait<Int> {
+            override fun empty() = 0
+            override fun concurrent(left: Int, right: Int) = left + right
+            override fun sequential(first: Int, second: Int) = first + second
+        }
+    )
+
+    private fun <T> setEffectTrait() = object : EffectTrait<T?> {
+        override fun empty(): T? = null
+        override fun concurrent(left: T?, right: T?): T? =
+            if (left != null && right != null) {
+                throw IllegalArgumentException("Concurrent non-commuting effects")
+            } else {
+                left ?: right
+            }
+        override fun sequential(first: T?, second: T?): T? = second ?: first
+    }
+
+    private data class LinearDynamics(val value: Double, val rate: Double)
+    private val linearDynamicsSerializer : Serializer<LinearDynamics> = Serializer.of(
+        { d: LinearDynamics -> JsonMap(mapOf("value" to JsonDouble(d.value), "rate" to JsonDouble(d.rate))) }
+                withInverse
+                { with((it as JsonMap).values) { LinearDynamics((get("value") as JsonDouble).value, (get("rate") as JsonDouble).value) } }
+    )
+    private fun linearDynamicsStep(d: LinearDynamics, t: Duration) = LinearDynamics(d.value + d.rate * (t ratioOver SECOND), d.rate)
+    private fun linearCell(name: String, value: Double, rate: Double) = Cell(
+        name,
+        LinearDynamics(value, rate),
+        linearDynamicsSerializer,
+        ::linearDynamicsStep,
+        { d, e -> e ?: d },
+        setEffectTrait<LinearDynamics>()
+    )
+
+    private fun clockCell(name: String, t: Duration) = Cell(
+        name,
+        t,
+        Duration.serializer(),
+        { s, delta -> s + delta },
+        { s, e -> e ?: s },
+        setEffectTrait<Duration>()
+    )
 
     private fun emptySetup() = SimulationSetup(
         reportHandler = { reports.add(it) },
@@ -54,16 +105,11 @@ class SimulationTest {
 
     @Test
     fun task_can_allocate_cell() {
-        // To minimize dependencies, just use a dummy version of effects, stepping, and effect trait.
         assertDoesNotThrow {
             Simulation.run(
                 emptySetup().copy(
                     initialize = {
-                        allocate(Cell("x", 42, INT_SERIALIZER, { x, _ -> x }, { x, _ -> x }, object : Cell.EffectTrait<Int> {
-                            override fun empty() = 0
-                            override fun concurrent(left: Int, right: Int) = 0
-                            override fun sequential(first: Int, second: Int) = 0
-                        }))
+                        allocate(intCounterCell("x", 42))
                     },
                     endTime = HOUR,
                 )
@@ -78,11 +124,7 @@ class SimulationTest {
             Simulation.run(
                 emptySetup().copy(
                     initialize = {
-                        val x = allocate(Cell("x", 42, INT_SERIALIZER, { x, _ -> x }, { x, _ -> x }, object : Cell.EffectTrait<Int> {
-                            override fun empty() = 0
-                            override fun concurrent(left: Int, right: Int) = 0
-                            override fun sequential(first: Int, second: Int) = 0
-                        }))
+                        val x = allocate(intCounterCell("x", 42))
                         spawn(Task.of("read cell") {
                             Read(x) {
                                 Report(JsonString("x = $it")) {
@@ -104,11 +146,7 @@ class SimulationTest {
             Simulation.run(
                 emptySetup().copy(
                     initialize = {
-                        val x = allocate(Cell("x", 42, INT_SERIALIZER, { x, _ -> x }, { x, n -> x + n }, object : Cell.EffectTrait<Int> {
-                            override fun empty() = 0
-                            override fun concurrent(left: Int, right: Int) = left + right
-                            override fun sequential(first: Int, second: Int) = first + second
-                        }))
+                        val x = allocate(intCounterCell("x", 42))
                         spawn(Task.of("emit effect") {
                             Emit(x, 13) {
                                 Read(x) {
@@ -153,7 +191,7 @@ class SimulationTest {
                         // This is *not* a good way to implement stepping, since multiple steps, each < 1 minute,
                         // will not change the value, but a single >1 minute step would.
                         // It's fine for this test, though.
-                        val x = allocate(Cell("x", 0, INT_SERIALIZER, { x, t -> x + (t / MINUTE).toInt() }, { x, n -> x + n }, object : Cell.EffectTrait<Int> {
+                        val x = allocate(Cell("x", 0, INT_SERIALIZER, { x, t -> x + (t / MINUTE).toInt() }, { x, n -> x + n }, object : EffectTrait<Int> {
                             override fun empty() = 0
                             override fun concurrent(left: Int, right: Int) = left + right
                             override fun sequential(first: Int, second: Int) = first + second
@@ -185,11 +223,7 @@ class SimulationTest {
             Simulation.run(
                 emptySetup().copy(
                     initialize = {
-                        val x = allocate(Cell("x", 10, INT_SERIALIZER, { x, _ -> x }, { x, n -> x + n }, object : Cell.EffectTrait<Int> {
-                            override fun empty() = 0
-                            override fun concurrent(left: Int, right: Int) = left + right
-                            override fun sequential(first: Int, second: Int) = first + second
-                        }))
+                        val x = allocate(intCounterCell("x", 10))
                         spawn(Task.of("Task A") {
                             Emit(x, 5) {
                                 Read(x) {
@@ -238,11 +272,7 @@ class SimulationTest {
             Simulation.run(
                 emptySetup().copy(
                     initialize = {
-                        val x = allocate(Cell("x", 10, INT_SERIALIZER, { x, _ -> x }, { x, n -> x + n }, object : Cell.EffectTrait<Int> {
-                            override fun empty() = 0
-                            override fun concurrent(left: Int, right: Int) = left + right
-                            override fun sequential(first: Int, second: Int) = first + second
-                        }))
+                        val x = allocate(intCounterCell("x", 10))
                         spawn(Task.of("Task A") {
                             Emit(x, 5) {
                                 Read(x) {
@@ -284,7 +314,7 @@ class SimulationTest {
                 emptySetup().copy(
                     initialize = {
                         // Note: This is *not* a correct effect trait, but it's simple and lets us observe what's happening better.
-                        val x = allocate(Cell("x", 10, INT_SERIALIZER, { x, _ -> x }, { x, n -> x + n }, object : Cell.EffectTrait<Int> {
+                        val x = allocate(Cell("x", 10, INT_SERIALIZER, { x, _ -> x }, { x, n -> x + n }, object : EffectTrait<Int> {
                             override fun empty() = 0
                             override fun concurrent(left: Int, right: Int) = 0
                             override fun sequential(first: Int, second: Int) = first + second + 100
@@ -318,7 +348,7 @@ class SimulationTest {
                 emptySetup().copy(
                     initialize = {
                         // Note: This is *not* a correct effect trait, but it's simple and lets us observe what's happening better.
-                        val x = allocate(Cell("x", 10, INT_SERIALIZER, { x, _ -> x }, { x, n -> x + n }, object : Cell.EffectTrait<Int> {
+                        val x = allocate(Cell("x", 10, INT_SERIALIZER, { x, _ -> x }, { x, n -> x + n }, object : EffectTrait<Int> {
                             override fun empty() = 0
                             override fun concurrent(left: Int, right: Int) = left + right + 100
                             override fun sequential(first: Int, second: Int) = first + second
@@ -389,11 +419,7 @@ class SimulationTest {
             Simulation.run(
                 emptySetup().copy(
                     initialize = {
-                        val x = allocate(Cell("x", 10, INT_SERIALIZER, { x, _ -> x }, { x, n -> x + n }, object : Cell.EffectTrait<Int> {
-                            override fun empty() = 0
-                            override fun concurrent(left: Int, right: Int) = left + right
-                            override fun sequential(first: Int, second: Int) = first + second
-                        }))
+                        val x = allocate(intCounterCell("x", 10))
                         spawn(Task.of("Awaiter") {
                             Await(Condition.Complete(ZERO)) {
                                 Read(x) {
@@ -451,16 +477,8 @@ class SimulationTest {
             Simulation.run(
                 emptySetup().copy(
                     initialize = {
-                        val x = allocate(Cell("x", 10, INT_SERIALIZER, { x, _ -> x }, { x, n -> x + n }, object : Cell.EffectTrait<Int> {
-                            override fun empty() = 0
-                            override fun concurrent(left: Int, right: Int) = left + right
-                            override fun sequential(first: Int, second: Int) = first + second
-                        }))
-                        val y = allocate(Cell("y", 12, INT_SERIALIZER, { y, _ -> y }, { y, n -> y + n }, object : Cell.EffectTrait<Int> {
-                            override fun empty() = 0
-                            override fun concurrent(left: Int, right: Int) = left + right
-                            override fun sequential(first: Int, second: Int) = first + second
-                        }))
+                        val x = allocate(intCounterCell("x", 10))
+                        val y = allocate(intCounterCell("y", 12))
                         spawn(Task.of("Awaiter") {
                             val condition = Condition.Read(x) { xValue ->
                                 Condition.Read(y) { yValue ->
@@ -510,31 +528,6 @@ class SimulationTest {
         }
     }
 
-    private data class LinearDynamics(val value: Double, val rate: Double)
-    private val linearDynamicsSerializer : Serializer<LinearDynamics> = Serializer.of(
-        { d: LinearDynamics -> JsonMap(mapOf("value" to JsonDouble(d.value), "rate" to JsonDouble(d.rate))) }
-        withInverse
-        { with((it as JsonMap).values) { LinearDynamics((get("value") as JsonDouble).value, (get("rate") as JsonDouble).value) } }
-    )
-    private fun linearDynamicsStep(d: LinearDynamics, t: Duration) = LinearDynamics(d.value + d.rate * (t ratioOver SECOND), d.rate)
-    private fun linearCell(name: String, value: Double, rate: Double) = Cell(
-        name,
-        LinearDynamics(value, rate),
-        linearDynamicsSerializer,
-        ::linearDynamicsStep,
-        { d, e -> e ?: d },
-        object : Cell.EffectTrait<LinearDynamics?> {
-            override fun empty() = null
-            override fun concurrent(left: LinearDynamics?, right: LinearDynamics?) =
-                if (left != null && right != null) {
-                    throw IllegalArgumentException("Concurrent non-commuting effects")
-                } else {
-                    left ?: right
-                }
-            override fun sequential(first: LinearDynamics?, second: LinearDynamics?) = second ?: first
-        }
-    )
-
     @Test
     fun await_nonzero_condition_waits_specified_time() {
         assertDoesNotThrow {
@@ -583,11 +576,7 @@ class SimulationTest {
                 emptySetup().copy(
                     initialize = {
                         val x = allocate(linearCell("x", 10.0, 1.0))
-                        val y = allocate(Cell("y", 0, INT_SERIALIZER, { y, _ -> y }, { y, n -> y + n }, object : Cell.EffectTrait<Int> {
-                            override fun empty() = 0
-                            override fun concurrent(left: Int, right: Int) = left + right
-                            override fun sequential(first: Int, second: Int) = first + second
-                        }))
+                        val y = allocate(intCounterCell("y", 0))
                         spawn(Task.of("Awaiter") {
                             val cond = Condition.Read(x) {
                                 Condition.Complete(with (it) {
@@ -651,11 +640,7 @@ class SimulationTest {
                 emptySetup().copy(
                     initialize = {
                         val x = allocate(linearCell("x", 10.0, 1.0))
-                        val y = allocate(Cell("y", 0, INT_SERIALIZER, { y, _ -> y }, { y, n -> y + n }, object : Cell.EffectTrait<Int> {
-                            override fun empty() = 0
-                            override fun concurrent(left: Int, right: Int) = left + right
-                            override fun sequential(first: Int, second: Int) = first + second
-                        }))
+                        val y = allocate(intCounterCell("y", 0))
                         spawn(Task.of("Awaiter") {
                             val cond = Condition.Read(x) {
                                 Condition.Complete(with (it) {
@@ -1021,6 +1006,602 @@ class SimulationTest {
                         assertNearlyEquals(-0.1, double("rate")!!)
                     }
                 }
+                assert(atEnd())
+            }
+        }
+    }
+
+    @Test
+    fun restart_tasks_can_run_indefinitely() {
+        assertDoesNotThrow {
+            Simulation.run(
+                emptySetup().copy(
+                    initialize = {
+                        val x = allocate(intCounterCell("x", 0))
+                        val clock = allocate(clockCell("clock", ZERO))
+                        spawn(Task.of<Unit>("Repeater") {
+                            Delay(10 * MINUTE) {
+                                Emit(x, 1) {
+                                    Read(clock) { time ->
+                                        Read(x) {
+                                            Report(JsonString("x = $it at $time")) {
+                                                Restart()
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        })
+                    },
+                    endTime = HOUR,
+                )
+            )
+        }
+        with (JsonArray(reports)) {
+            array {
+                element { assertEquals("x = 1 at 00:10:00.000000", string()) }
+                element { assertEquals("x = 2 at 00:20:00.000000", string()) }
+                element { assertEquals("x = 3 at 00:30:00.000000", string()) }
+                element { assertEquals("x = 4 at 00:40:00.000000", string()) }
+                element { assertEquals("x = 5 at 00:50:00.000000", string()) }
+                assert(atEnd())
+            }
+        }
+    }
+
+    @Test
+    fun restart_tasks_save_fincon_data_since_last_restart_only() {
+        val setup = emptySetup().copy(
+            initialize = {
+                val x = allocate(intCounterCell("x", 0))
+                val clock = allocate(clockCell("clock", ZERO))
+                spawn(Task.of<Unit>("Repeater") {
+                    Delay(10 * MINUTE) {
+                        Emit(x, 1) {
+                            Read(clock) { time ->
+                                Read(x) {
+                                    Report(JsonString("x = $it at $time")) {
+                                        Restart()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                })
+            },
+            finconTime = 59 * MINUTE,
+            endTime = HOUR,
+        )
+        assertDoesNotThrow { Simulation.run(setup) }
+        val fincon = JsonConditions.serializer().serialize(setup.finconCollector as JsonConditions)
+        with (fincon) {
+            within("simulation") {
+                assertEquals("00:59:00.000000", string("time", "value"))
+            }
+            within("cells") {
+                assertEquals(5, int("x", "value"))
+                assertEquals("00:59:00.000000", string("clock", "value"))
+            }
+            within("tasks", "Repeater") {
+                within("state", "value") {
+                    array {
+                        element { assertEquals("delay", string("type")) }
+                        assert(atEnd())
+                    }
+                }
+                assertEquals("01:00:00.000000", string("time", "value"))
+            }
+        }
+    }
+
+    @Test
+    fun restart_tasks_replay_from_last_restart_when_restoring() {
+        // This is a deeply cursed way to leak state out of the simulation.
+        // This should never be done in production, but for the sake of testing,
+        // it's a useful way to observe the replay, when that replay *should* be invisible.
+        var plays = 0
+        fun SimulationState.SimulationInitializer.initialize() {
+            val x = allocate(intCounterCell("x", 0))
+            val clock = allocate(clockCell("clock", ZERO))
+            spawn(Task.of<Unit>("Repeater") {
+                plays++
+                Delay(10 * MINUTE) {
+                    Emit(x, 1) {
+                        Read(clock) { time ->
+                            Read(x) {
+                                Report(JsonString("x = $it at $time")) {
+                                    Restart()
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+        }
+        val setup = emptySetup().copy(
+            initialize = { initialize() },
+            finconTime = 59 * MINUTE,
+            endTime = HOUR,
+        )
+        assertDoesNotThrow { Simulation.run(setup) }
+        val fincon = JsonConditions.serializer().serialize(setup.finconCollector as JsonConditions)
+        assertEquals(6, plays)
+        plays = 0
+
+        val nextSetup = emptySetup().copy(
+            initialize = { initialize() },
+            endTime = HOUR + 5 * MINUTE,
+            inconProvider = JsonConditions.serializer().deserialize(fincon).getOrThrow(),
+        )
+        assertDoesNotThrow { Simulation.run(nextSetup) }
+        // 1 play during the "restore" phase, to get the task re-initialized
+        // 1 play during actual simulation, at time = 1 hour
+        assertEquals(2, plays)
+    }
+
+    @Test
+    fun tasks_can_spawn_children() {
+        assertDoesNotThrow {
+            Simulation.run(emptySetup().copy(
+                initialize = {
+                    spawn(Task.of("Parent") {
+                        Report(JsonString("Parent's report")) {
+                            Spawn("Child", {
+                                Report(JsonString("Child's report")) {
+                                    Complete(Unit)
+                                }
+                            }) {
+                                Complete(Unit)
+                            }
+                        }
+                    })
+                },
+                endTime = HOUR,
+            ))
+        }
+        with (JsonArray(reports)) {
+            array {
+                element { assertEquals("Parent's report", string()) }
+                element { assertEquals("Child's report", string()) }
+                assert(atEnd())
+            }
+        }
+    }
+
+    @Test
+    fun child_tasks_run_in_parallel_with_parent_and_each_other() {
+        assertDoesNotThrow {
+            Simulation.run(emptySetup().copy(
+                initialize = {
+                    var x = allocate(intCounterCell("x", 0))
+
+                    spawn(Task.of("Counter") {
+                        Emit(x, 1) {
+                            Delay(ZERO) {
+                                Emit(x, 1) {
+                                    Delay(ZERO) {
+                                        Emit(x, 1) {
+                                            Delay(ZERO) {
+                                                Emit(x, 1) {
+                                                    Complete(Unit)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    })
+
+                    spawn(Task.of("P") {
+                        Read(x) {
+                            Report(JsonString("Tick 0: P says: x = $it")) {
+                                Spawn("C1", {
+                                    Read(x) {
+                                        Report(JsonString("Tick 1: C1 says: x = $it")) {
+                                            Delay(ZERO) {
+                                                Read(x) {
+                                                    Report(JsonString("Tick 2: C1 says: x = $it")) {
+                                                        Complete(Unit)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }) {
+                                    Spawn("C2", {
+                                        Read(x) {
+                                            Report(JsonString("Tick 1: C2 says: x = $it")) {
+                                                Delay(ZERO) {
+                                                    Read(x) {
+                                                        Report(JsonString("Tick 2: C2 says: x = $it")) {
+                                                            Complete(Unit)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }) {
+                                        Delay(ZERO) {
+                                            Read(x) {
+                                                Report(JsonString("Tick 1: P says: x = $it")) {
+                                                    Delay(ZERO) {
+                                                        Read(x) {
+                                                            Report(JsonString("Tick 2: P says: x = $it")) {
+                                                                Complete(Unit)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    })
+                },
+                endTime = HOUR,
+            ))
+        }
+        assertEquals(7, reports.size)
+        assertEquals(JsonString("Tick 0: P says: x = 0"), reports[0])
+        // Ordering of reports in the same tick is non-deterministic
+        assertEquals(
+            setOf(
+                JsonString("Tick 1: P says: x = 1"),
+                JsonString("Tick 1: C1 says: x = 1"),
+                JsonString("Tick 1: C2 says: x = 1"),
+            ),
+            reports.subList(1, 4).toSet())
+        assertEquals(
+            setOf(
+                JsonString("Tick 2: P says: x = 2"),
+                JsonString("Tick 2: C1 says: x = 2"),
+                JsonString("Tick 2: C2 says: x = 2"),
+            ),
+            reports.subList(4, 7).toSet())
+    }
+
+    @Test
+    fun child_tasks_can_be_saved() {
+        val setup = emptySetup().copy(
+            initialize = {
+                spawn(Task.of("P") {
+                    Report(JsonString("P -- 1")) {
+                        Spawn("C", {
+                            Report(JsonString("C -- 1")) {
+                                Delay(45 * MINUTE) {
+                                    // 00:45:00
+                                    Report(JsonString("C -- 2")) {
+                                        Complete(Unit)
+                                    }
+                                }
+                            }
+                        }) {
+                            Delay(30 * MINUTE) {
+                                // 00:30:00
+                                Report(JsonString("P -- 2")) {
+                                    Spawn("D", {
+                                        Report(JsonString("D -- 1")) {
+                                            Delay(45 * MINUTE) {
+                                                // 01:15:00
+                                                Report(JsonString("D -- 2")) {
+                                                    Complete(Unit)
+                                                }
+                                            }
+                                        }
+                                    }) {
+                                        Delay(HOUR) {
+                                            // 01:30:00
+                                            Report(JsonString("P -- 3")) {
+                                                Complete(Unit)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                })
+            },
+            finconTime = HOUR,
+            endTime = HOUR + MINUTE,
+        )
+        assertDoesNotThrow { Simulation.run(setup) }
+        val fincon = JsonConditions.serializer().serialize(setup.finconCollector as JsonConditions)
+        with (fincon) {
+            within("simulation") {
+                assertEquals("01:00:00.000000", string("time", "value"))
+            }
+            within("tasks") {
+                within("P") {
+                    within("children", "value") {
+                        array {
+                            // Only the active children are saved, because only the active children need to be restored.
+                            // Completed children can simply not be restored, to the same effect as restoring and completing them.
+                            // This keeps the fincon files from growing indefinitely, as the completed children
+                            // get dropped after one save/restore cycle.
+                            element { assertEquals("D", string()) }
+                            assert(atEnd())
+                        }
+                    }
+
+                    within("state", "value") {
+                        array {
+                            element { assertEquals("report", string("type")) }
+                            element {
+                                assertEquals("spawn", string("type"))
+                                assertEquals("parent", string("branch"))
+                            }
+                            element { assertEquals("delay", string("type")) }
+                            element { assertEquals("report", string("type")) }
+                            element {
+                                assertEquals("spawn", string("type"))
+                                assertEquals("parent", string("branch"))
+                            }
+                            element { assertEquals("delay", string("type")) }
+                            assert(atEnd())
+                        }
+                    }
+                    assertEquals("01:30:00.000000", string("time", "value"))
+
+                    within("C") {
+                        within("state", "value") {
+                            array {
+                                element { assertEquals("report", string("type")) }
+                                element {
+                                    assertEquals("spawn", string("type"))
+                                    assertEquals("child", string("branch"))
+                                }
+                                element { assertEquals("report", string("type")) }
+                                element { assertEquals("delay", string("type")) }
+                                element { assertEquals("report", string("type")) }
+                                element { assertEquals("complete", string("type")) }
+                            }
+                        }
+                    }
+
+                    within("D") {
+                        within("state", "value") {
+                            array {
+                                element { assertEquals("report", string("type")) }
+                                element {
+                                    assertEquals("spawn", string("type"))
+                                    assertEquals("parent", string("branch"))
+                                }
+                                element { assertEquals("delay", string("type")) }
+                                element { assertEquals("report", string("type")) }
+                                element {
+                                    assertEquals("spawn", string("type"))
+                                    assertEquals("child", string("branch"))
+                                }
+                                element { assertEquals("report", string("type")) }
+                                element { assertEquals("delay", string("type")) }
+                            }
+                        }
+                        assertEquals("01:15:00.000000", string("time", "value"))
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun child_tasks_can_be_restored() {
+        fun SimulationState.SimulationInitializer.initialize() {
+            spawn(Task.of("P") {
+                Report(JsonString("P -- 1")) {
+                    Spawn("C", {
+                        Report(JsonString("C -- 1")) {
+                            Delay(45 * MINUTE) {
+                                // 00:45:00
+                                Report(JsonString("C -- 2")) {
+                                    Complete(Unit)
+                                }
+                            }
+                        }
+                    }) {
+                        Delay(30 * MINUTE) {
+                            // 00:30:00
+                            Report(JsonString("P -- 2")) {
+                                Spawn("D", {
+                                    Report(JsonString("D -- 1")) {
+                                        Delay(45 * MINUTE) {
+                                            // 01:15:00
+                                            Report(JsonString("D -- 2")) {
+                                                Complete(Unit)
+                                            }
+                                        }
+                                    }
+                                }) {
+                                    Delay(HOUR) {
+                                        // 01:30:00
+                                        Report(JsonString("P -- 3")) {
+                                            Complete(Unit)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+        }
+        val setup = emptySetup().copy(
+            initialize = { initialize() },
+            finconTime = HOUR,
+            endTime = HOUR + MINUTE,
+        )
+        assertDoesNotThrow { Simulation.run(setup) }
+        val fincon = JsonConditions.serializer().serialize(setup.finconCollector as JsonConditions)
+
+        with (JsonArray(reports)) {
+            array {
+                element { assertEquals("P -- 1", string()) }
+                element { assertEquals("C -- 1", string()) }
+                element { assertEquals("P -- 2", string()) }
+                element { assertEquals("D -- 1", string()) }
+                element { assertEquals("C -- 2", string()) }
+                assert(atEnd())
+            }
+        }
+        reports.clear()
+
+        val nextSetup = emptySetup().copy(
+            initialize = { initialize() },
+            inconProvider = JsonConditions.serializer().deserialize(fincon).getOrThrow(),
+            endTime = 2 * HOUR,
+        )
+        assertDoesNotThrow { Simulation.run(nextSetup) }
+
+        with (JsonArray(reports)) {
+            array {
+                element { assertEquals("D -- 2", string()) }
+                element { assertEquals("P -- 3", string()) }
+                assert(atEnd())
+            }
+        }
+    }
+
+    @Test
+    fun children_of_repeating_tasks_can_be_restored() {
+        fun SimulationState.SimulationInitializer.initialize() {
+            val n = allocate(intCounterCell("n", 1))
+            val clock = allocate(clockCell("clock", ZERO))
+
+            spawn(Task.of<Unit>("Repeater") {
+                Delay(10 * MINUTE) {
+                    Read(n) { nValue ->
+                        Spawn("Child $nValue", {
+                            Read(clock) { time ->
+                                Report(JsonString("Child $nValue start at $time")) {
+                                    Delay(45 * MINUTE) {
+                                        Read(clock) { time ->
+                                            Report(JsonString("Child $nValue end at $time")) {
+                                                Complete(Unit)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }) {
+                            Emit(n, 1) {
+                                Restart()
+                            }
+                        }
+                    }
+                }
+            })
+        }
+        val setup = emptySetup().copy(
+            initialize = { initialize() },
+            finconTime = 58 * MINUTE,
+            endTime = 59 * MINUTE,
+        )
+        assertDoesNotThrow { Simulation.run(setup) }
+        val fincon = JsonConditions.serializer().serialize(setup.finconCollector as JsonConditions)
+
+        with (JsonArray(reports)) {
+            array {
+                element { assertEquals("Child 1 start at 00:10:00.000000", string()) }
+                element { assertEquals("Child 2 start at 00:20:00.000000", string()) }
+                element { assertEquals("Child 3 start at 00:30:00.000000", string()) }
+                element { assertEquals("Child 4 start at 00:40:00.000000", string()) }
+                element { assertEquals("Child 5 start at 00:50:00.000000", string()) }
+                element { assertEquals("Child 1 end at 00:55:00.000000", string()) }
+                assert(atEnd())
+            }
+        }
+        reports.clear()
+
+        val nextSetup = emptySetup().copy(
+            initialize = { initialize() },
+            inconProvider = JsonConditions.serializer().deserialize(fincon).getOrThrow(),
+            endTime = 2 * HOUR,
+        )
+        assertDoesNotThrow { Simulation.run(nextSetup) }
+
+        with (JsonArray(reports)) {
+            array {
+                element { assertEquals("Child 6 start at 01:00:00.000000", string()) }
+                element { assertEquals("Child 2 end at 01:05:00.000000", string()) }
+                element { assertEquals("Child 7 start at 01:10:00.000000", string()) }
+                element { assertEquals("Child 3 end at 01:15:00.000000", string()) }
+                element { assertEquals("Child 8 start at 01:20:00.000000", string()) }
+                element { assertEquals("Child 4 end at 01:25:00.000000", string()) }
+                element { assertEquals("Child 9 start at 01:30:00.000000", string()) }
+                element { assertEquals("Child 5 end at 01:35:00.000000", string()) }
+                element { assertEquals("Child 10 start at 01:40:00.000000", string()) }
+                element { assertEquals("Child 6 end at 01:45:00.000000", string()) }
+                element { assertEquals("Child 11 start at 01:50:00.000000", string()) }
+                element { assertEquals("Child 7 end at 01:55:00.000000", string()) }
+                assert(atEnd())
+            }
+        }
+    }
+
+    @Test
+    fun repeating_children_can_be_restored() {
+        fun SimulationState.SimulationInitializer.initialize() {
+            val n = allocate(intCounterCell("n", 1))
+            val clock = allocate(clockCell("clock", ZERO))
+
+            spawn(Task.of("Parent") {
+                Delay(5 * MINUTE) {
+                    Spawn("Repeater", {
+                        Delay(10 * MINUTE) {
+                            Read(clock) { time ->
+                                Read(n) {
+                                    Report(JsonString("Iteration $it at $time")) {
+                                        Emit(n, 1) {
+                                            Restart<Unit>()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }) {
+                        Complete(Unit)
+                    }
+                }
+            })
+        }
+
+        val setup = emptySetup().copy(
+            initialize = { initialize() },
+            finconTime = HOUR,
+            endTime = HOUR + EPSILON,
+        )
+        assertDoesNotThrow { Simulation.run(setup) }
+        val fincon = JsonConditions.serializer().serialize(setup.finconCollector as JsonConditions)
+
+        with (JsonArray(reports)) {
+            array {
+                element { assertEquals("Iteration 1 at 00:15:00.000000", string())}
+                element { assertEquals("Iteration 2 at 00:25:00.000000", string())}
+                element { assertEquals("Iteration 3 at 00:35:00.000000", string())}
+                element { assertEquals("Iteration 4 at 00:45:00.000000", string())}
+                element { assertEquals("Iteration 5 at 00:55:00.000000", string())}
+                assert(atEnd())
+            }
+        }
+        reports.clear()
+
+        val nextSetup = emptySetup().copy(
+            initialize = { initialize() },
+            inconProvider = JsonConditions.serializer().deserialize(fincon).getOrThrow(),
+            endTime = 2 * HOUR,
+        )
+        assertDoesNotThrow { Simulation.run(nextSetup) }
+        with (JsonArray(reports)) {
+            array {
+                element { assertEquals("Iteration 6 at 01:05:00.000000", string())}
+                element { assertEquals("Iteration 7 at 01:15:00.000000", string())}
+                element { assertEquals("Iteration 8 at 01:25:00.000000", string())}
+                element { assertEquals("Iteration 9 at 01:35:00.000000", string())}
+                element { assertEquals("Iteration 10 at 01:45:00.000000", string())}
+                element { assertEquals("Iteration 11 at 01:55:00.000000", string())}
                 assert(atEnd())
             }
         }

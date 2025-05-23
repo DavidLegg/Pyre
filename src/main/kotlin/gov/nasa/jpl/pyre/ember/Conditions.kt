@@ -6,6 +6,8 @@ interface Conditions : FinconCollector, InconProvider {
         return object : Conditions {
             override fun report(keys: Sequence<String>, value: JsonValue) =
                 original.report(sequenceOf(key) + keys, value)
+            override fun accrue(keys: Sequence<String>, value: JsonValue) =
+                original.accrue(sequenceOf(key) + keys, value)
             override fun get(keys: Sequence<String>) =
                 original.get(sequenceOf(key) + keys)
         }
@@ -14,6 +16,8 @@ interface Conditions : FinconCollector, InconProvider {
         val original = this
         return object : Conditions {
             override fun report(keys: Sequence<String>, value: JsonValue) =
+                original.report(keys + key, value)
+            override fun accrue(keys: Sequence<String>, value: JsonValue) =
                 original.report(keys + key, value)
             override fun get(keys: Sequence<String>) =
                 original.get(keys + key)
