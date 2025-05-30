@@ -1291,7 +1291,13 @@ class SimulationTest {
                             // Completed children can simply not be restored, to the same effect as restoring and completing them.
                             // This keeps the fincon files from growing indefinitely, as the completed children
                             // get dropped after one save/restore cycle.
-                            element { assertEquals("D", string()) }
+                            element {
+                                array {
+                                    element { assertEquals("P", string()) }
+                                    element { assertEquals("D", string()) }
+                                    assert(atEnd())
+                                }
+                            }
                             assert(atEnd())
                         }
                     }
@@ -1555,6 +1561,70 @@ class SimulationTest {
                 element { assertEquals("Iteration 9 at 01:35:00.000000", string())}
                 element { assertEquals("Iteration 10 at 01:45:00.000000", string())}
                 element { assertEquals("Iteration 11 at 01:55:00.000000", string())}
+                assert(atEnd())
+            }
+        }
+    }
+
+    @Test
+    fun grandchild_tasks_can_be_restored() {
+        fun SimulationState.SimulationInitializer.initialize() {
+            spawn(Task.of("P") {
+                Report(JsonString("P -- 1")) {
+                    Spawn("C", {
+                        Report(JsonString("C -- 1")) {
+                            Spawn("GC", {
+                                Report(JsonString("GC -- 1")) {
+                                    Delay(90 * MINUTE) {
+                                        Report(JsonString("GC -- 2")) {
+                                            Complete(Unit)
+                                        }
+                                    }
+                                }
+                            }) {
+                                Report(JsonString("C -- 2")) {
+                                    Complete(Unit)
+                                }
+                            }
+                        }
+                    }) {
+                        Report(JsonString("P -- 2")) {
+                            Complete(Unit)
+                        }
+                    }
+                }
+            })
+        }
+        val setup = emptySetup().copy(
+            initialize = { initialize() },
+            finconTime = HOUR,
+            endTime = HOUR + MINUTE,
+        )
+        assertDoesNotThrow { Simulation.run(setup) }
+        val fincon = JsonConditions.serializer().serialize(setup.finconCollector as JsonConditions)
+
+        with (JsonArray(reports)) {
+            array {
+                element { assertEquals("P -- 1", string()) }
+                element { assertEquals("P -- 2", string()) }
+                element { assertEquals("C -- 1", string()) }
+                element { assertEquals("C -- 2", string()) }
+                element { assertEquals("GC -- 1", string()) }
+                assert(atEnd())
+            }
+        }
+        reports.clear()
+
+        val nextSetup = emptySetup().copy(
+            initialize = { initialize() },
+            inconProvider = JsonConditions.serializer().deserialize(fincon),
+            endTime = 2 * HOUR,
+        )
+        assertDoesNotThrow { Simulation.run(nextSetup) }
+
+        with (JsonArray(reports)) {
+            array {
+                element { assertEquals("GC -- 2", string()) }
                 assert(atEnd())
             }
         }

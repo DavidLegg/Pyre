@@ -167,9 +167,15 @@ private class PureTask<T>(
 
     override fun save(finconCollector: FinconCollector) {
         // Report my fincon state
-        finconCollector.report(id.rootId.conditionKeys(), value=JsonArray(saveData()))
-        // If this is a child task, report to the parent that I need to be spawned
-        id.rootId.parent?.run { finconCollector.accrue(conditionKeys() + "children", value=JsonString(id.rootId.name)) }
+        val conditionKeys = id.rootId.conditionKeys()
+        finconCollector.report(conditionKeys, value=JsonArray(saveData()))
+        // If this is a child task, report to root task that I need to be spawned
+        if (id.rootId.parent != null) {
+            var taskId = id.rootId
+            while (taskId.parent != null) taskId = taskId.parent
+            finconCollector.accrue(taskId.conditionKeys() + "children",
+                value=JsonArray(conditionKeys.map { JsonString(it) }.toList()))
+        }
     }
 
     override fun restore(inconProvider: InconProvider) = restore(inconProvider, id)
@@ -185,9 +191,17 @@ private class PureTask<T>(
         // to get the state history which spawned and later ran that child.
         (inconProvider.get(targetConditionKeys + "children") as JsonArray?)?.values?.forEach {
             // Since that child is reported as needing to be restored, throw an error if there's no incon data for it
-            result.addAll(requireNotNull(rootTask.restore(inconProvider, id.child((it as JsonString).value))))
+            result.addAll(requireNotNull(rootTask.restore(
+                inconProvider, constructTaskId((it as JsonArray).values.map { (it as JsonString).value }))))
         }
         return result.asSequence()
+    }
+
+    private fun constructTaskId(components: List<String>): TaskId {
+        var rootId: RootTaskId? = null
+        components.forEach { rootId = RootTaskId(it, rootId) }
+        requireNotNull(rootId)
+        return TaskId(rootId, 0)
     }
 
     private fun restoreSingle(restoreData: List<JsonValue>): Task<*> {
