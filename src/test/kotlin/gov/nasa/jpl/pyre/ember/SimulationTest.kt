@@ -74,9 +74,8 @@ class SimulationTest {
         inconProvider = null,
         finconCollector = JsonConditions(),
         finconTime = null,
-        initialize = {},
         endTime = ZERO,
-    )
+    ) {}
 
     @Test
     fun empty_simulation_is_valid() {

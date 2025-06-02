@@ -8,8 +8,8 @@ class Simulation {
         val inconProvider: InconProvider?,
         val finconCollector: FinconCollector,
         val finconTime: Duration?,
-        val initialize: SimulationInitializer.() -> Unit,
         val endTime: Duration,
+        val initialize: SimulationInitializer.() -> Unit,
     )
 
     companion object {
