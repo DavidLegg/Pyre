@@ -66,6 +66,7 @@ data class Duration(val ticks: Long) : Comparable<Duration> {
 // Operator overloads:
 operator fun Duration.plus(other: Duration): Duration = Duration(ticks + other.ticks)
 operator fun Duration.minus(other: Duration): Duration = Duration(ticks - other.ticks)
+operator fun Duration.times(scale: Int) = Duration(ticks * scale)
 operator fun Duration.times(scale: Long) = Duration(ticks * scale)
 operator fun Duration.unaryPlus(): Duration = Duration(+ticks)
 operator fun Duration.unaryMinus(): Duration = Duration(-ticks)

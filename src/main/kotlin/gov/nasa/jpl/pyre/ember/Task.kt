@@ -4,6 +4,8 @@ import gov.nasa.jpl.pyre.ember.JsonValue.*
 import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
 import gov.nasa.jpl.pyre.ember.Task.*
 
+typealias PureTaskStep<T> = () -> PureStepResult<T>
+
 /**
  * A Task is a unit of action in the simulation.
  *
@@ -28,7 +30,9 @@ interface Task<T> {
             .asReversed()
             .asSequence()
 
-        override fun toString() = conditionKeys().joinToString(".")
+        override fun toString() = conditionKeys()
+            .map { if (it.contains(Regex("[ .\"\']"))) "($it)" else it }
+            .joinToString(".")
     }
     data class TaskId(val rootId: RootTaskId, val stepNumber: Int) {
         fun nextStep() = TaskId(rootId, stepNumber + 1)
@@ -51,19 +55,19 @@ interface Task<T> {
         data class Read<V, E, T>(val cell: CellHandle<V, E>, val continuation: (V) -> PureStepResult<T>) : PureStepResult<T> {
             override fun toString() = "Read(${cell.name})"
         }
-        data class Emit<V, E, T>(val cell: CellHandle<V, E>, val effect: E, val continuation: () -> PureStepResult<T>) : PureStepResult<T> {
+        data class Emit<V, E, T>(val cell: CellHandle<V, E>, val effect: E, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Emit(${cell.name}, $effect)"
         }
-        data class Report<T>(val value: JsonValue, val continuation: () -> PureStepResult<T>) : PureStepResult<T> {
+        data class Report<T>(val value: JsonValue, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Report($value)"
         }
-        data class Delay<T>(val time: Duration, val continuation: () -> PureStepResult<T>) : PureStepResult<T> {
+        data class Delay<T>(val time: Duration, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Delay($time)"
         }
-        data class Await<T>(val condition: Condition, val continuation: () -> PureStepResult<T>) : PureStepResult<T> {
+        data class Await<T>(val condition: () -> Condition, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Await($condition)"
         }
-        data class Spawn<S, T>(val childName: String, val child: () -> PureStepResult<S>, val continuation: () -> PureStepResult<T>) : PureStepResult<T> {
+        data class Spawn<S, T>(val childName: String, val child: PureTaskStep<S>, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Spawn($childName)"
         }
         class Restart<T> : PureStepResult<T> {
@@ -88,7 +92,9 @@ interface Task<T> {
         data class Delay<T>(val time: Duration, val continuation: Task<T>) : TaskStepResult<T> {
             override fun toString() = "Delay($time)"
         }
-        data class Await<T>(val condition: Condition, val continuation: Task<T>) : TaskStepResult<T> {
+        // It's useful to users of Await, especially the coroutine builder, to run some setup code with each condition evaluation.
+        // That's why we use () -> Condition instead of just Condition.
+        data class Await<T>(val condition: () -> Condition, val continuation: Task<T>) : TaskStepResult<T> {
             override fun toString() = "Await($condition)"
         }
         data class Spawn<S, T>(val child: Task<S>, val continuation: Task<T>) : TaskStepResult<T> {
@@ -97,7 +103,7 @@ interface Task<T> {
     }
 
     companion object {
-        fun <T> of(name: String, step: () -> PureStepResult<T>): Task<T> {
+        fun <T> of(name: String, step: PureTaskStep<T>): Task<T> {
             return PureTask(TaskId(RootTaskId(name, null), 0), step, { emptyList() }, null)
         }
     }
@@ -110,15 +116,11 @@ interface Task<T> {
 // For that reason, I'm keeping this in ember instead of spark.
 private class PureTask<T>(
     override val id: TaskId,
-    private val step: () -> PureStepResult<T>,
+    private val step: PureTaskStep<T>,
     private val saveData: () -> List<JsonValue>,
     rootTask: PureTask<T>?
 ) : Task<T> {
-    private val rootTask: PureTask<T>
-
-    init {
-        this.rootTask = rootTask ?: this
-    }
+    private val rootTask: PureTask<T> = rootTask ?: this
 
     override fun runStep(): TaskStepResult<T> {
         return when (val stepResult = step()) {

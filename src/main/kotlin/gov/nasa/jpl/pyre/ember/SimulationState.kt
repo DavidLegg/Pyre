@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.ember.Task.TaskStepResult.*
 import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
+import gov.nasa.jpl.pyre.ember.Task.PureStepResult
 import java.util.Comparator.comparing
 import java.util.PriorityQueue
 
@@ -28,6 +29,8 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
     interface SimulationInitializer {
         fun <T: Any, E> allocate(cell: Cell<T, E>): CellHandle<T, E>
         fun spawn(task: Task<*>)
+        // Convenience signature to align root task and child task spawning
+        fun <T> spawn(name: String, step: () -> PureStepResult<T>) = spawn(Task.of(name, step))
     }
 
     fun initializer() = object : SimulationInitializer {
@@ -106,7 +109,7 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
             }
 
             // Evaluate the condition
-            val (cellsRead, readyTime) = evaluateCondition(stepResult.condition, cellSet)
+            val (cellsRead, readyTime) = evaluateCondition(stepResult.condition(), cellSet)
 
             // Schedule listeners to re-evaluate condition
             for (cell in cellsRead) {

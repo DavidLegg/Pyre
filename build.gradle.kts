@@ -2,7 +2,7 @@ plugins {
     kotlin("jvm") version "2.1.21"
 }
 
-group = "org.example"
+group = "gov.nasa.jpl.pyre"
 version = "1.0-SNAPSHOT"
 
 repositories {

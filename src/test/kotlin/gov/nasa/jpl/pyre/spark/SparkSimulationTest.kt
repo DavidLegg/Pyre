@@ -4,6 +4,7 @@ import gov.nasa.jpl.pyre.array
 import gov.nasa.jpl.pyre.ember.*
 import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
+import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.JsonValue.JsonArray
@@ -13,6 +14,8 @@ import gov.nasa.jpl.pyre.ember.Simulation.SimulationSetup
 import gov.nasa.jpl.pyre.ember.SimulationState
 import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.*
+import gov.nasa.jpl.pyre.spark.resources.getValue
+import gov.nasa.jpl.pyre.spark.*
 import gov.nasa.jpl.pyre.string
 import org.junit.jupiter.api.assertDoesNotThrow
 import kotlin.test.Test
@@ -60,7 +63,7 @@ class SparkSimulationTest {
             val floatR: MutableResource<Discrete<Float>> = discreteResource("floatR", 3.0f)
             val enumR: MutableResource<Discrete<PowerState>> = discreteResource("enumR", PowerState.OFF)
 
-            spawn(task("Reader") {
+            spawn("Reader", task {
                 val i: Int = intR.getValue()
                 val l: Long = longR.getValue()
                 val b: Boolean = boolR.getValue()
@@ -103,7 +106,7 @@ class SparkSimulationTest {
             val floatR: MutableResource<Discrete<Float>> = discreteResource("floatR", 3.0f)
             val enumR: MutableResource<Discrete<PowerState>> = discreteResource("enumR", PowerState.OFF)
 
-            spawn(task("Emitter") {
+            spawn("Emitter", task {
                 intR.emit { i: Int -> i + 1 }
                 longR.emit { l: Long -> l + 1 }
                 boolR.emit { b: Boolean -> !b }
@@ -113,7 +116,7 @@ class SparkSimulationTest {
                 enumR.emit { e: PowerState -> PowerState.WARMUP }
             })
 
-            spawn(task("Reader") {
+            spawn("Reader", task {
                 delay(5 * MINUTE)
 
                 val i: Int = intR.getValue()
@@ -168,13 +171,12 @@ class SparkSimulationTest {
                     }
                 }
             }
-            val totalPower = with (DiscreteResourceMonad) {
-                bind (devicePower) { d: Double ->
-                    map (miscPower) { m: Double -> d + m }
-                }
+            val totalPower = DiscreteResourceMonad.map(devicePower, miscPower) { d, m ->
+                // I'm just adding things up here, but you could do arbitrarily complicated stuff here.
+                d + m
             }
 
-            spawn(task("Test") {
+            spawn("Test", task {
                 assertEquals(0.0, devicePower.getValue())
                 assertEquals(2.0, totalPower.getValue())
 
@@ -201,5 +203,89 @@ class SparkSimulationTest {
         }
 
         assertDoesNotThrow { Simulation.run(setup) }
+    }
+
+    @Test
+    fun coroutine_tasks_can_restart() {
+        val setup = setup {
+            spawn("Report periodically", repeatingTask {
+                delay(MINUTE)
+                report(JsonString("Report"))
+            })
+        }.copy(endTime=10.5 roundTimes MINUTE)
+
+        assertDoesNotThrow { Simulation.run(setup) }
+
+        assertEquals(10, reports.size)
+        reports.forEach { assertEquals(JsonString("Report"), it) }
+    }
+
+    @Test
+    fun tasks_can_await_condition_on_resources() {
+        val setup = setup {
+            val x = discreteResource("x", 1)
+            val y = discreteResource("y", 5)
+
+            spawn("Report x > y", task {
+                await(x greaterThan y)
+                report(JsonString("Condition triggered: ${x.getValue()} > ${y.getValue()}"))
+            })
+
+            spawn("Change values", task {
+                delay(MINUTE)
+                x.set(5)
+                delay(MINUTE)
+                y.set(6)
+                delay(MINUTE)
+                y.set(4)
+                delay(MINUTE)
+                x.set(10)
+            })
+        }
+
+        assertDoesNotThrow { Simulation.run(setup) }
+
+        with (JsonArray(reports)) {
+            array {
+                element { assertEquals("Condition triggered: 5 > 4", string())}
+                assert(atEnd())
+            }
+        }
+    }
+
+    @Test
+    fun reactions_against_discrete_resources() {
+        val setup = setup {
+            val minimum = discreteResource("minimum", 1)
+            val maximum = discreteResource("maximum", 10)
+            val setting = discreteResource("setting", 5)
+
+            spawn("Minimum Monitor", onceWhenever(setting lessThan minimum) {
+                report(JsonString("Minimum violated: ${setting.getValue()} < ${minimum.getValue()}"))
+            })
+
+            spawn("Maximum Monitor", onceWhenever(setting greaterThan maximum) {
+                report(JsonString("Maximum violated: ${setting.getValue()} > ${maximum.getValue()}"))
+            })
+
+            spawn("Change Setting", task {
+                for (s in listOf(6, 7, 9, 10, 11, 12, 10, 11, 6, 1, 0, -1, 0, 1, -4)) {
+                    delay(SECOND)
+                    setting.set(s)
+                }
+            })
+        }
+
+        assertDoesNotThrow { Simulation.run(setup) }
+
+        with (JsonArray(reports)) {
+            array {
+                element { assertEquals("Maximum violated: 11 > 10", string()) }
+                element { assertEquals("Maximum violated: 11 > 10", string()) }
+                element { assertEquals("Minimum violated: 0 < 1", string()) }
+                element { assertEquals("Minimum violated: -4 < 1", string()) }
+                assert(atEnd())
+            }
+        }
     }
 }

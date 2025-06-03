@@ -1,15 +1,29 @@
 package gov.nasa.jpl.pyre.spark.resources
 
 import gov.nasa.jpl.pyre.coals.suspend
-import gov.nasa.jpl.pyre.spark.TaskScope
+import gov.nasa.jpl.pyre.spark.CellsReadableScope
+import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 
 fun interface ThinResource<D> {
-    context (TaskScope<*>)
+    // TODO: Factor out a "ResourceReadScope", which we use for ConditionScope, and from which TaskScope derives.
+    //  Use that scope here, so we can derive conditions from resources
+    context (CellsReadableScope)
     suspend fun getDynamics() : D
 }
 // TODO: Consider wrapping this in Result (equiv. to ErrorCatching), building ResultMonad, and updating DynamicsMonad
 typealias FullDynamics<D> = Expiring<D>
 typealias Resource<D> = ThinResource<FullDynamics<D>>
+
+/*
+ * Helpers
+ */
+
+context (CellsReadableScope)
+suspend fun <V, D : Dynamics<V, D>> Resource<D>.getValue(): V = this.getDynamics().data.value()
+
+/*
+ * Monads
+ */
 
 object ThinResourceMonad {
     fun <A> pure(a: A): ThinResource<A> = ThinResource { a }

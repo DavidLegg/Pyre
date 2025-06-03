@@ -402,7 +402,7 @@ class SimulationTest {
                 emptySetup().copy(
                     initialize = {
                         spawn(Task.of("Await condition") {
-                            Await(Condition.Complete(ZERO)) {
+                            Await({ Condition.Complete(ZERO) }) {
                                 Complete(Unit)
                             }
                         })
@@ -421,7 +421,7 @@ class SimulationTest {
                     initialize = {
                         val x = allocate(intCounterCell("x", 10))
                         spawn(Task.of("Awaiter") {
-                            Await(Condition.Complete(ZERO)) {
+                            Await({ Condition.Complete(ZERO) }) {
                                 Read(x) {
                                     Report(JsonString("Awaiter says: x = $it")) {
                                         Complete(Unit)
@@ -457,7 +457,7 @@ class SimulationTest {
                 emptySetup().copy(
                     initialize = {
                         spawn(Task.of("Awaiter") {
-                            Await(Condition.Complete(null)) {
+                            Await({ Condition.Complete(null) }) {
                                 Report(JsonString("Awaiter ran!")) {
                                     Complete(Unit)
                                 }
@@ -485,7 +485,7 @@ class SimulationTest {
                                     Condition.Complete(if (xValue >= yValue) ZERO else null)
                                 }
                             }
-                            Await(condition) {
+                            Await({ condition }) {
                                 Read(x) {
                                     Report(JsonString("Awaiter says: x = $it")) {
                                         Read(y) {
@@ -548,7 +548,7 @@ class SimulationTest {
                                     }
                                 })
                             }
-                            Await(cond) {
+                            Await({ cond }) {
                                 Read(x) {
                                     Report(x.serializer.serialize(it)) {
                                         Complete(Unit)
@@ -590,7 +590,7 @@ class SimulationTest {
                                     }
                                 })
                             }
-                            Await(cond) {
+                            Await({ cond }) {
                                 Read(x) {
                                     Report(x.serializer.serialize(it)) {
                                         Read(y) {
@@ -654,7 +654,7 @@ class SimulationTest {
                                     }
                                 })
                             }
-                            Await(cond) {
+                            Await({ cond }) {
                                 Read(x) {
                                     Report(x.serializer.serialize(it)) {
                                         Read(y) {

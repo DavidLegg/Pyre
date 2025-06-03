@@ -7,6 +7,7 @@ import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitializer
 import gov.nasa.jpl.pyre.ember.Cell.EffectTrait
 import gov.nasa.jpl.pyre.ember.*
 import gov.nasa.jpl.pyre.ember.JsonValue.JsonMap
+import gov.nasa.jpl.pyre.spark.CellsReadableScope
 import gov.nasa.jpl.pyre.spark.TaskScope
 
 interface MutableResource<D> : Resource<D> {
@@ -54,7 +55,7 @@ fun <V, D : Dynamics<V, D>> SimulationInitializer.resource(
         context(TaskScope<*>)
         override suspend fun emit(effect: (FullDynamics<D>) -> FullDynamics<D>) = emit(cell, effect)
 
-        context(TaskScope<*>)
+        context(CellsReadableScope)
         override suspend fun getDynamics(): FullDynamics<D> = read(cell)
     }
 }

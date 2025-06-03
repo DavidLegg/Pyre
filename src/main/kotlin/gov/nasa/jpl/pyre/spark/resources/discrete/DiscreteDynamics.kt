@@ -1,9 +1,11 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
+import gov.nasa.jpl.pyre.coals.curry
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.DynamicsMonad
 import gov.nasa.jpl.pyre.spark.resources.FullDynamics
+import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
 
@@ -11,6 +13,9 @@ data class Discrete<A>(val value: A) : Dynamics<A, Discrete<A>> {
     override fun value() = value
     override fun step(t: Duration) = this
 }
+
+typealias DiscreteResource<V> = Resource<Discrete<V>>
+typealias MutableDiscreteResource<V> = MutableResource<Discrete<V>>
 
 object DiscreteMonad {
     fun <A> pure(a: A): Discrete<A> = Discrete(a)
@@ -37,15 +42,17 @@ object DiscreteDynamicsMonad {
 }
 
 object DiscreteResourceMonad {
-    fun <A> pure(a: A): Resource<Discrete<A>> = ResourceMonad.pure(DiscreteMonad.pure(a))
-    fun <A, B> apply(a: Resource<Discrete<A>>, f: Resource<Discrete<(A) -> B>>): Resource<Discrete<B>> =
+    fun <A> pure(a: A): DiscreteResource<A> = ResourceMonad.pure(DiscreteMonad.pure(a))
+    fun <A, B> apply(a: DiscreteResource<A>, f: DiscreteResource<(A) -> B>): DiscreteResource<B> =
         ResourceMonad.apply(a, ResourceMonad.map(f, DiscreteMonad::apply))
-    fun <A> distribute(a: Discrete<Resource<A>>): Resource<Discrete<A>> =
+    fun <A> distribute(a: Discrete<Resource<A>>): DiscreteResource<A> =
         ResourceMonad.map(a.value, DiscreteMonad::pure)
-    fun <A> join(a: Resource<Discrete<Resource<Discrete<A>>>>): Resource<Discrete<A>> =
+    fun <A> join(a: DiscreteResource<DiscreteResource<A>>): DiscreteResource<A> =
         ResourceMonad.map(ResourceMonad.join(ResourceMonad.map(a, DiscreteResourceMonad::distribute)), DiscreteMonad::join)
     // TODO: Generate other methods
-    fun <A, B> apply(f: Resource<Discrete<(A) -> B>>): (Resource<Discrete<A>>) -> Resource<Discrete<B>> = { apply(it, f) }
-    fun <A, B> map(a: Resource<Discrete<A>>, f: (A) -> B): Resource<Discrete<B>> = apply(a, pure(f))
-    fun <A, B> bind(a: Resource<Discrete<A>>, f: (A) -> Resource<Discrete<B>>): Resource<Discrete<B>> = join(map(a, f))
+    fun <A, B> apply(f: DiscreteResource<(A) -> B>): (DiscreteResource<A>) -> DiscreteResource<B> = { apply(it, f) }
+    fun <A, B> map(a: DiscreteResource<A>, f: (A) -> B): DiscreteResource<B> = apply(a, pure(f))
+    fun <A, B> bind(a: DiscreteResource<A>, f: (A) -> DiscreteResource<B>): DiscreteResource<B> = join(map(a, f))
+    fun <A, B, C> map(a: DiscreteResource<A>, b: DiscreteResource<B>, f: (A) -> (B) -> C): DiscreteResource<C> = apply(b, map(a, f))
+    fun <A, B, C> map(a: DiscreteResource<A>, b: DiscreteResource<B>, f: (A, B) -> C): DiscreteResource<C> = map(a, b, curry(f))
 }
