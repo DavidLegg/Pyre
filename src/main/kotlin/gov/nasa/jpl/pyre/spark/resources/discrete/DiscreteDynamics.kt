@@ -4,6 +4,8 @@ import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.DynamicsMonad
 import gov.nasa.jpl.pyre.spark.resources.FullDynamics
+import gov.nasa.jpl.pyre.spark.resources.Resource
+import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
 
 data class Discrete<A>(val value: A) : Dynamics<A, Discrete<A>> {
     override fun value() = value
@@ -32,4 +34,18 @@ object DiscreteDynamicsMonad {
     fun <A, B> apply(f: FullDynamics<Discrete<(A) -> B>>): (FullDynamics<Discrete<A>>) -> FullDynamics<Discrete<B>> = { apply(it, f) }
     fun <A, B> map(a: FullDynamics<Discrete<A>>, f: (A) -> B): FullDynamics<Discrete<B>> = apply(a, pure(f))
     fun <A, B> bind(a: FullDynamics<Discrete<A>>, f: (A) -> FullDynamics<Discrete<B>>): FullDynamics<Discrete<B>> = join(map(a, f))
+}
+
+object DiscreteResourceMonad {
+    fun <A> pure(a: A): Resource<Discrete<A>> = ResourceMonad.pure(DiscreteMonad.pure(a))
+    fun <A, B> apply(a: Resource<Discrete<A>>, f: Resource<Discrete<(A) -> B>>): Resource<Discrete<B>> =
+        ResourceMonad.apply(a, ResourceMonad.map(f, DiscreteMonad::apply))
+    fun <A> distribute(a: Discrete<Resource<A>>): Resource<Discrete<A>> =
+        ResourceMonad.map(a.value, DiscreteMonad::pure)
+    fun <A> join(a: Resource<Discrete<Resource<Discrete<A>>>>): Resource<Discrete<A>> =
+        ResourceMonad.map(ResourceMonad.join(ResourceMonad.map(a, DiscreteResourceMonad::distribute)), DiscreteMonad::join)
+    // TODO: Generate other methods
+    fun <A, B> apply(f: Resource<Discrete<(A) -> B>>): (Resource<Discrete<A>>) -> Resource<Discrete<B>> = { apply(it, f) }
+    fun <A, B> map(a: Resource<Discrete<A>>, f: (A) -> B): Resource<Discrete<B>> = apply(a, pure(f))
+    fun <A, B> bind(a: Resource<Discrete<A>>, f: (A) -> Resource<Discrete<B>>): Resource<Discrete<B>> = join(map(a, f))
 }

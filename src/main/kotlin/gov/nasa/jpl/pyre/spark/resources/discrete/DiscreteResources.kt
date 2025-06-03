@@ -69,6 +69,10 @@ suspend fun <V> MutableResource<Discrete<V>>.emit(effect: (V) -> V) = this.emit 
     Expiring(Discrete(effect(it.data.value)), NEVER)
 }
 
+context (TaskScope<*>)
+suspend fun <V> MutableResource<Discrete<V>>.set(value: V) = this.emit { _: V -> value }
+
+
 // TODO: Write more specialized convenience effects, maybe split out into new files for different roles?
 //   E.g., increment/decrement, increase/decrease, set, etc.
 

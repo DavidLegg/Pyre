@@ -146,4 +146,60 @@ class SparkSimulationTest {
             }
         }
     }
+
+    // Now that we've run a few tests verifying that all the tasks run to completion, I'm less concerned about it.
+    // From here on out, we'll just drop assertions in the task code itself, trusting that they'll execute.
+
+    @Test
+    fun primitive_discrete_resources_can_be_derived() {
+        val setup = setup {
+            val state = discreteResource("power", PowerState.OFF)
+            val warmupPower = discreteResource("warmupPower", 3.0)
+            val onPower = discreteResource("onPower", 10.0)
+            val miscPower = discreteResource("miscPower", 2.0)
+            // TODO: clean these up using multi-arg monad methods
+            // TODO: Consider a "derived resource builder", akin to TaskBuilder, to use coroutines to define the derivation...
+            val devicePower = with (DiscreteResourceMonad) {
+                bind (state) {
+                    when (it) {
+                        PowerState.OFF -> pure(0.0)
+                        PowerState.WARMUP -> warmupPower
+                        PowerState.ON -> onPower
+                    }
+                }
+            }
+            val totalPower = with (DiscreteResourceMonad) {
+                bind (devicePower) { d: Double ->
+                    map (miscPower) { m: Double -> d + m }
+                }
+            }
+
+            spawn(task("Test") {
+                assertEquals(0.0, devicePower.getValue())
+                assertEquals(2.0, totalPower.getValue())
+
+                delay(5 * MINUTE)
+                state.set(PowerState.WARMUP)
+                assertEquals(3.0, devicePower.getValue())
+                assertEquals(5.0, totalPower.getValue())
+
+                delay(10 * MINUTE)
+                warmupPower.emit { p: Double -> 2 * p }
+                assertEquals(6.0, devicePower.getValue())
+                assertEquals(8.0, totalPower.getValue())
+
+                delay(10 * MINUTE)
+                state.set(PowerState.ON)
+                assertEquals(10.0, devicePower.getValue())
+                assertEquals(12.0, totalPower.getValue())
+
+                delay(10 * MINUTE)
+                miscPower.emit { p: Double -> p + 1 }
+                assertEquals(10.0, devicePower.getValue())
+                assertEquals(13.0, totalPower.getValue())
+            })
+        }
+
+        assertDoesNotThrow { Simulation.run(setup) }
+    }
 }
