@@ -1,10 +1,5 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
-import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.spark.TaskScope
-import gov.nasa.jpl.pyre.spark.condition
-import gov.nasa.jpl.pyre.spark.resources.getValue
-
 typealias BooleanResource = DiscreteResource<Boolean>
 
 // Since overload conflicts are common between resource derivation operations due to erasure,

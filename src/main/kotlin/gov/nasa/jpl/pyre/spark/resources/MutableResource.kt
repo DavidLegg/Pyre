@@ -3,12 +3,12 @@ package gov.nasa.jpl.pyre.spark.resources
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.coals.andThen
 import gov.nasa.jpl.pyre.coals.identity
-import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitializer
+import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.ember.Cell.EffectTrait
 import gov.nasa.jpl.pyre.ember.*
 import gov.nasa.jpl.pyre.ember.JsonValue.JsonMap
-import gov.nasa.jpl.pyre.spark.CellsReadableScope
-import gov.nasa.jpl.pyre.spark.TaskScope
+import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 interface MutableResource<D> : Resource<D> {
     context (TaskScope<*>)
@@ -29,14 +29,14 @@ fun <D> dynamicsSerializer(serializer: Serializer<D>): Serializer<FullDynamics<D
     }
 ))
 
-fun <V, D : Dynamics<V, D>> SimulationInitializer.resource(
+fun <V, D : Dynamics<V, D>> SimulationInitContext.resource(
     name: String,
     initialDynamics: D,
     serializer: Serializer<D>,
     effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
 ) = resource(name, DynamicsMonad.pure(initialDynamics), dynamicsSerializer(serializer), effectTrait)
 
-fun <V, D : Dynamics<V, D>> SimulationInitializer.resource(
+fun <V, D : Dynamics<V, D>> SimulationInitContext.resource(
     name: String,
     initialDynamics: FullDynamics<D>,
     serializer: Serializer<FullDynamics<D>>,
@@ -46,7 +46,7 @@ fun <V, D : Dynamics<V, D>> SimulationInitializer.resource(
         name,
         initialDynamics,
         serializer,
-        { d, t -> Expiring(d.data.step(t), d.expiry - t) },
+        { d, t -> d.step(t) },
         { d, effect -> effect(d) },
         effectTrait,
     ))

@@ -9,6 +9,8 @@ import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
 
 data class Expiring<T>(val data: T, val expiry: Expiry)
 
+fun <D : Dynamics<*, D>> Expiring<D>.step(time: Duration) = Expiring(data.step(time), expiry - time)
+
 data class Expiry(val time: Duration?): Comparable<Expiry> {
     override fun compareTo(other: Expiry): Int {
         return if (this.time == null && other.time == null) 0

@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.spark
+package gov.nasa.jpl.pyre.spark.tasks
 
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.CellSet.CellHandle

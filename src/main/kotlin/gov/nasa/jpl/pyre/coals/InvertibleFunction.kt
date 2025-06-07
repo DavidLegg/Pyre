@@ -11,6 +11,8 @@ interface InvertibleFunction<A, B> : (A) -> B {
             }
 
         infix fun <A, B> ((A) -> B).withInverse(inverse: (B) -> A): InvertibleFunction<A, B> = of(this, inverse)
+
+        fun <A> identity(): InvertibleFunction<A, A> = of({ it }, { it })
     }
 }
 

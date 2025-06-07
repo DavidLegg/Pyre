@@ -9,37 +9,59 @@ import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.JsonValue.JsonArray
 import gov.nasa.jpl.pyre.ember.JsonValue.JsonString
-import gov.nasa.jpl.pyre.ember.Simulation
-import gov.nasa.jpl.pyre.ember.Simulation.SimulationSetup
+import gov.nasa.jpl.pyre.ember.SimpleSimulation
+import gov.nasa.jpl.pyre.ember.SimpleSimulation.SimulationSetup
 import gov.nasa.jpl.pyre.ember.SimulationState
 import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.*
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.*
+import gov.nasa.jpl.pyre.spark.tasks.await
+import gov.nasa.jpl.pyre.spark.tasks.onceWhenever
+import gov.nasa.jpl.pyre.spark.tasks.repeatingTask
+import gov.nasa.jpl.pyre.spark.tasks.task
 import gov.nasa.jpl.pyre.string
 import org.junit.jupiter.api.assertDoesNotThrow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class SparkSimulationTest {
-    val reports = mutableListOf<JsonValue>()
+    private data class SimulationResult(
+        val reports: List<JsonValue>,
+        val fincon: JsonValue?,
+    )
 
-    private fun setup(initialize: SimulationState.SimulationInitializer.() -> Unit): SimulationSetup {
-        return SimulationSetup(
-            reportHandler = reports::add,
-            inconProvider = null,
-            finconCollector = JsonConditions(),
-            finconTime = null,
-            endTime = HOUR,
-            initialize = initialize,
-        )
+    private fun runSimulation(
+        endTime: Duration,
+        incon: JsonValue? = null,
+        takeFincon: Boolean = false,
+        initialize: SimulationState.SimulationInitContext.() -> Unit,
+    ): SimulationResult {
+        assertDoesNotThrow {
+            // Build a simulation that'll write reports to memory
+            val reports = mutableListOf<JsonValue>()
+            val simulation = SimpleSimulation(SimulationSetup(
+                reportHandler = { reports.add(it) },
+                inconProvider = incon?.let { JsonConditions.serializer().deserialize(it) },
+                initialize = initialize,
+            ))
+            // Run the simulation to the end
+            simulation.runUntil(endTime)
+            // Cut a fincon, if requested
+            val fincon = if (takeFincon) {
+                val finconCollector = JsonConditions()
+                simulation.save(finconCollector)
+                JsonConditions.serializer().serialize(finconCollector)
+            } else null
+            // Return all results, and let the simulation itself be garbage collected
+            return SimulationResult(reports, fincon)
+        }
     }
 
     private enum class PowerState { OFF, WARMUP, ON }
 
     @Test
     fun primitive_discrete_resources_can_be_created() {
-        val setup = setup {
+        runSimulation(HOUR) {
             val intR: MutableResource<Discrete<Int>> = discreteResource("intR", 0)
             val longR: MutableResource<Discrete<Long>> = discreteResource("longR", 1L)
             val boolR: MutableResource<Discrete<Boolean>> = discreteResource("boolR", false)
@@ -48,13 +70,11 @@ class SparkSimulationTest {
             val floatR: MutableResource<Discrete<Float>> = discreteResource("floatR", 3.0f)
             val enumR: MutableResource<Discrete<PowerState>> = discreteResource("enumR", PowerState.OFF)
         }
-
-        assertDoesNotThrow { Simulation.run(setup) }
     }
 
     @Test
     fun primitive_discrete_resources_can_be_read() {
-        val setup = setup {
+        val results = runSimulation(HOUR) {
             val intR: MutableResource<Discrete<Int>> = discreteResource("intR", 0)
             val longR: MutableResource<Discrete<Long>> = discreteResource("longR", 1L)
             val boolR: MutableResource<Discrete<Boolean>> = discreteResource("boolR", false)
@@ -84,10 +104,8 @@ class SparkSimulationTest {
             })
         }
 
-        assertDoesNotThrow { Simulation.run(setup) }
-
         // Ensure we simulated to the end, and therefore ran all the asserts, by seeing the "Done" message
-        with (JsonArray(reports)) {
+        with (JsonArray(results.reports)) {
             array {
                 element { assertEquals("Done", string()) }
                 assert(atEnd())
@@ -97,7 +115,7 @@ class SparkSimulationTest {
 
     @Test
     fun primitive_discrete_resources_can_be_changed() {
-        val setup = setup {
+        val results = runSimulation(HOUR) {
             val intR: MutableResource<Discrete<Int>> = discreteResource("intR", 0)
             val longR: MutableResource<Discrete<Long>> = discreteResource("longR", 1L)
             val boolR: MutableResource<Discrete<Boolean>> = discreteResource("boolR", false)
@@ -139,10 +157,8 @@ class SparkSimulationTest {
             })
         }
 
-        assertDoesNotThrow { Simulation.run(setup) }
-
         // Ensure we simulated to the end, and therefore ran all the asserts, by seeing the "Done" message
-        with (JsonArray(reports)) {
+        with (JsonArray(results.reports)) {
             array {
                 element { assertEquals("Done", string()) }
                 assert(atEnd())
@@ -155,7 +171,7 @@ class SparkSimulationTest {
 
     @Test
     fun primitive_discrete_resources_can_be_derived() {
-        val setup = setup {
+        runSimulation(HOUR) {
             val state = discreteResource("power", PowerState.OFF)
             val warmupPower = discreteResource("warmupPower", 3.0)
             val onPower = discreteResource("onPower", 10.0)
@@ -201,28 +217,24 @@ class SparkSimulationTest {
                 assertEquals(13.0, totalPower.getValue())
             })
         }
-
-        assertDoesNotThrow { Simulation.run(setup) }
     }
 
     @Test
     fun coroutine_tasks_can_restart() {
-        val setup = setup {
+        val results = runSimulation(endTime=10.5 roundTimes MINUTE) {
             spawn("Report periodically", repeatingTask {
                 delay(MINUTE)
                 report(JsonString("Report"))
             })
-        }.copy(endTime=10.5 roundTimes MINUTE)
+        }
 
-        assertDoesNotThrow { Simulation.run(setup) }
-
-        assertEquals(10, reports.size)
-        reports.forEach { assertEquals(JsonString("Report"), it) }
+        assertEquals(10, results.reports.size)
+        results.reports.forEach { assertEquals(JsonString("Report"), it) }
     }
 
     @Test
     fun tasks_can_await_condition_on_resources() {
-        val setup = setup {
+        val results = runSimulation(HOUR) {
             val x = discreteResource("x", 1)
             val y = discreteResource("y", 5)
 
@@ -243,9 +255,7 @@ class SparkSimulationTest {
             })
         }
 
-        assertDoesNotThrow { Simulation.run(setup) }
-
-        with (JsonArray(reports)) {
+        with (JsonArray(results.reports)) {
             array {
                 element { assertEquals("Condition triggered: 5 > 4", string())}
                 assert(atEnd())
@@ -255,7 +265,7 @@ class SparkSimulationTest {
 
     @Test
     fun reactions_against_discrete_resources() {
-        val setup = setup {
+        val results = runSimulation(HOUR) {
             val minimum = discreteResource("minimum", 1)
             val maximum = discreteResource("maximum", 10)
             val setting = discreteResource("setting", 5)
@@ -276,9 +286,7 @@ class SparkSimulationTest {
             })
         }
 
-        assertDoesNotThrow { Simulation.run(setup) }
-
-        with (JsonArray(reports)) {
+        with (JsonArray(results.reports)) {
             array {
                 element { assertEquals("Maximum violated: 11 > 10", string()) }
                 element { assertEquals("Maximum violated: 11 > 10", string()) }

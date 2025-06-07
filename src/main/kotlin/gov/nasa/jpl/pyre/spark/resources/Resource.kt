@@ -1,8 +1,7 @@
 package gov.nasa.jpl.pyre.spark.resources
 
 import gov.nasa.jpl.pyre.coals.suspend
-import gov.nasa.jpl.pyre.spark.CellsReadableScope
-import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
+import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
 
 fun interface ThinResource<D> {
     // TODO: Factor out a "ResourceReadScope", which we use for ConditionScope, and from which TaskScope derives.

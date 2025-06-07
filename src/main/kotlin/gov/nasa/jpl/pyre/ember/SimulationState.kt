@@ -26,38 +26,44 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
      * These are the actions allowed during "initialization", before the simulation starts running.
      * Note that this is the only time we're allowed to allocate cells.
      */
-    interface SimulationInitializer {
+    interface SimulationInitContext {
         fun <T: Any, E> allocate(cell: Cell<T, E>): CellHandle<T, E>
-        fun spawn(task: Task<*>)
-        // Convenience signature to align root task and child task spawning
-        fun <T> spawn(name: String, step: () -> PureStepResult<T>) = spawn(Task.of(name, step))
+        fun <T> spawn(name: String, step: () -> PureStepResult<T>)
     }
 
-    fun initializer() = object : SimulationInitializer {
+    fun initContext() = object : SimulationInitContext {
         override fun <T: Any, E> allocate(cell: Cell<T, E>) = cells.allocate(cell)
-        override fun spawn(task: Task<*>) = addTask(task)
+        override fun <T> spawn(name: String, step: () -> PureStepResult<T>) = addTask(name, step)
     }
 
     fun time() = time
 
-    fun addTask(task: Task<*>, time: Duration = time()) {
+    fun <T> addTask(name: String, step: PureTaskStep<T>, time: Duration = time()) {
+        addTask(Task.of(name, step), time)
+    }
+
+    private fun addTask(task: Task<*>, time: Duration) {
         tasks += TaskEntry(time, task)
     }
 
     fun stepTo(endTime: Duration) {
         val batchTime = tasks.peek()?.time
-        if (batchTime != null && batchTime == time) {
+        if (batchTime != null && batchTime == time && batchTime <= endTime) {
             // Collect a batch of tasks, prior to running any of those tasks,
             // since running the tasks may add new tasks that should logically come after this batch.
             val taskBatch = mutableListOf<Task<*>>()
             while (tasks.peek()?.time == batchTime) taskBatch += tasks.remove().task
             runTaskBatch(taskBatch)
         } else {
-            val stepTime = batchTime ?: endTime
-            InternalLogger.log("Step time to $stepTime")
-            require(stepTime >= time) { "Requested step time $stepTime is earlier than current time $time" }
-            cells.stepBy(stepTime - time)
-            time = stepTime
+            val stepTime = minOf(batchTime ?: endTime, endTime)
+            if (time == stepTime) {
+                InternalLogger.log("Simulation already at $stepTime with no tasks to do.")
+            } else {
+                InternalLogger.log("Step time to $stepTime")
+                require(stepTime >= time) { "Requested step time $stepTime is earlier than current time $time" }
+                cells.stepBy(stepTime - time)
+                time = stepTime
+            }
         }
     }
 
