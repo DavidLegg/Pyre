@@ -5,6 +5,8 @@ import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.JsonValue.*
 import gov.nasa.jpl.pyre.ember.Serializer
 
+// TODO: Consider letting a plan use Activity, not ActivityDirective, - the fully-constructed, runnable class.
+//   Maybe equip Activity with a Serializer? Not sure how the save/restore in that situation works...
 data class Plan(
     val name: String,
     val startTime: Duration,
@@ -14,7 +16,6 @@ data class Plan(
 
 data class ActivityDirective(
     val time: Duration,
-    val name: String,
     val activitySpec: ActivitySpec,
 ) {
     companion object {
@@ -23,7 +24,7 @@ data class ActivityDirective(
             {
                 JsonMap(mapOf(
                     "time" to Duration.serializer().serialize(it.time),
-                    "name" to JsonString(it.name),
+                    "name" to JsonString(it.activitySpec.name),
                     "type" to JsonString(it.activitySpec.typeName),
                     "args" to it.activitySpec.arguments
                 ))
@@ -32,8 +33,8 @@ data class ActivityDirective(
                 with ((it as JsonMap).values) {
                     ActivityDirective(
                         Duration.serializer().deserialize(requireNotNull(get("time"))),
-                        (get("name") as JsonString).value,
                         ActivitySpec(
+                            (get("name") as JsonString).value,
                             (get("type") as JsonString).value,
                             (get("args") as JsonMap?) ?: JsonMap.empty()
                         )
@@ -45,6 +46,7 @@ data class ActivityDirective(
 }
 
 data class ActivitySpec(
-    val typeName: String,
-    val arguments: JsonMap
+    val name: String,
+    val typeName: String = name,
+    val arguments: JsonMap = JsonMap.empty(),
 )

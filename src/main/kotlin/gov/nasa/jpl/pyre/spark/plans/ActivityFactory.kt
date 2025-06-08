@@ -1,18 +1,18 @@
 package gov.nasa.jpl.pyre.spark.plans
 
-import gov.nasa.jpl.pyre.ember.JsonValue.JsonMap
 
 class ActivityFactory<M> {
-    private val constructors: MutableMap<String, (JsonMap) -> Activity<M, *>> = mutableMapOf()
+    private val constructors: MutableMap<String, (ActivitySpec) -> Activity<M, *>> = mutableMapOf()
 
-    fun addConstructor(name: String, constructor: (JsonMap) -> Activity<M, *>) {
-        constructors[name] = constructor
+    fun addConstructor(typeName: String, constructor: (ActivitySpec) -> Activity<M, *>): ActivityFactory<M> {
+        constructors[typeName] = constructor
+        return this
     }
 
     fun constructActivity(spec: ActivitySpec): Activity<M, *> {
         val ctor = requireNotNull(constructors[spec.typeName]) {
             "No constructors found for type ${spec.typeName}"
         }
-        return ctor(spec.arguments)
+        return ctor(spec)
     }
 }

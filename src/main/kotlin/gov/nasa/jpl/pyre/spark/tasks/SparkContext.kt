@@ -1,10 +1,13 @@
 package gov.nasa.jpl.pyre.spark.tasks
 
 import gov.nasa.jpl.pyre.ember.Duration
+import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.JsonValue.*
 import gov.nasa.jpl.pyre.ember.Serializer
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
+import gov.nasa.jpl.pyre.ember.minus
+import gov.nasa.jpl.pyre.spark.plans.Activity
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.getValue
@@ -14,15 +17,20 @@ import gov.nasa.jpl.pyre.spark.resources.timer.Timer
  * A context for all the "global" conveniences offered by Spark during simulation.
  */
 interface SparkContext {
-    val SIMULATION_CLOCK: Resource<Timer>
+    val simulationClock: Resource<Timer>
 }
 
 interface SparkInitContext : SparkContext, SimulationInitContext
 interface SparkTaskScope<T> : SparkContext, TaskScope<T>
 
 context (SparkContext, TaskScope<T>)
-fun <T> sparkContext(): SparkTaskScope<T> =
+fun <T> sparkTaskScope(): SparkTaskScope<T> =
     object : SparkTaskScope<T>, SparkContext by this@SparkContext, TaskScope<T> by this@TaskScope {}
+
+/**
+ * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]
+ */
+suspend fun SparkTaskScope<*>.delayUntil(time: Duration) = delay(time - simulationClock.getValue())
 
 /**
  * Wraps the simple simulation report function with more structured report,
@@ -31,7 +39,7 @@ fun <T> sparkContext(): SparkTaskScope<T> =
 suspend fun SparkTaskScope<*>.report(channel: String, data: JsonValue) {
     report(JsonMap(mapOf(
         "channel" to JsonString(channel),
-        "time" to Duration.serializer().serialize(SIMULATION_CLOCK.getValue()),
+        "time" to Duration.serializer().serialize(simulationClock.getValue()),
         "data" to data,
     )))
 }
@@ -41,9 +49,35 @@ fun <V, D : Dynamics<V, D>> SparkInitContext.register(
     resource: Resource<D>,
     serializer: Serializer<D>) {
     spawn("Report initial value for resource $name", task {
-        sparkContext().report(name, serializer.serialize(resource.getDynamics().data))
+        sparkTaskScope().report(name, serializer.serialize(resource.getDynamics().data))
     })
     spawn("Report resource $name", wheneverChanges(resource) {
-        sparkContext().report(name, serializer.serialize(resource.getDynamics().data))
+        report(name, serializer.serialize(resource.getDynamics().data))
     })
 }
+
+suspend fun <M, R> SparkTaskScope<*>.spawn(activity: Activity<M, R>, model: M) =
+    defer(ZERO, activity, model)
+
+suspend fun <M, R> SparkTaskScope<*>.defer(time: Duration, activity: Activity<M, R>, model: M) {
+    spawn(activity.name, task {
+        with (sparkTaskScope()) {
+            delay(time)
+            report("activities", JsonMap(mapOf(
+                "name" to JsonString(activity.name),
+                "type" to JsonString(activity.typeName),
+                "event" to JsonString("start")
+            )))
+            val result = activity.effectModel(model)
+            report("activities", JsonMap(mapOf(
+                "name" to JsonString(activity.name),
+                "type" to JsonString(activity.typeName),
+                "event" to JsonString("end")
+            )))
+            result
+        }
+    })
+}
+
+suspend fun <M, R> SparkTaskScope<*>.deferUntil(time: Duration, activity: Activity<M, R>, model: M) =
+    defer(time - simulationClock.getValue(), activity, model)

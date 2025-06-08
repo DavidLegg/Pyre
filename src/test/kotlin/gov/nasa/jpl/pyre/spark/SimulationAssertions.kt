@@ -1,8 +1,11 @@
 package gov.nasa.jpl.pyre.spark
 
+import gov.nasa.jpl.pyre.boolean
+import gov.nasa.jpl.pyre.double
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.JsonValue.*
+import gov.nasa.jpl.pyre.int
 import gov.nasa.jpl.pyre.spark.ChannelizedReports.Report
 import gov.nasa.jpl.pyre.string
 import kotlin.collections.plusAssign
@@ -51,6 +54,40 @@ class ChannelAssertContext(val channel: List<Report>) {
         report.data.block()
     }
     fun atEnd() = n >= channel.size
+}
+
+fun ChannelAssertContext.end() {
+    assert(atEnd())
+}
+fun ChannelAssertContext.activityStart(name: String, typeName: String = name) {
+    element {
+        assertEquals(name, string("name"))
+        assertEquals(typeName, string("type"))
+        assertEquals("start", string("event"))
+    }
+}
+fun ChannelAssertContext.activityEnd(name: String, typeName: String = name) {
+    element {
+        assertEquals(name, string("name"))
+        assertEquals(typeName, string("type"))
+        assertEquals("end", string("event"))
+    }
+}
+fun ChannelAssertContext.log(message: String) {
+    element { assertEquals(message, string()) }
+}
+
+fun ChannelAssertContext.value(v: String) {
+    element { assertEquals(v, string()) }
+}
+fun ChannelAssertContext.value(v: Long) {
+    element { assertEquals(v, int()) }
+}
+fun ChannelAssertContext.value(v: Double) {
+    element { assertEquals(v, double()) }
+}
+fun ChannelAssertContext.value(v: Boolean) {
+    element { assertEquals(v, boolean()) }
 }
 
 // TODO: write assertions to inspect channelized outputs

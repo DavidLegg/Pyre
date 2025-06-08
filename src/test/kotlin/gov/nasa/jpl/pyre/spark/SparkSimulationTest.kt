@@ -5,6 +5,7 @@ import gov.nasa.jpl.pyre.ember.*
 import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.JsonValue.JsonArray
@@ -13,11 +14,22 @@ import gov.nasa.jpl.pyre.ember.SimpleSimulation
 import gov.nasa.jpl.pyre.ember.SimpleSimulation.SimulationSetup
 import gov.nasa.jpl.pyre.ember.SimulationState
 import gov.nasa.jpl.pyre.spark.resources.MutableResource
+import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.discrete.*
+import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.FloatResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.StringResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
+import gov.nasa.jpl.pyre.spark.resources.resource
+import gov.nasa.jpl.pyre.spark.resources.timer.Timer
+import gov.nasa.jpl.pyre.spark.tasks.SparkContext
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.onceWhenever
 import gov.nasa.jpl.pyre.spark.tasks.repeatingTask
+import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.task
 import gov.nasa.jpl.pyre.string
 import org.junit.jupiter.api.assertDoesNotThrow
@@ -270,20 +282,25 @@ class SparkSimulationTest {
             val maximum = discreteResource("maximum", 10)
             val setting = discreteResource("setting", 5)
 
-            spawn("Minimum Monitor", onceWhenever(setting lessThan minimum) {
-                report(JsonString("Minimum violated: ${setting.getValue()} < ${minimum.getValue()}"))
-            })
+            val sparkContext = object : SparkContext {
+                override val simulationClock: Resource<Timer> = resource("simulationClock", Timer(ZERO, 1), Timer.serializer())
+            }
+            with (sparkContext) {
+                spawn("Minimum Monitor", onceWhenever(setting lessThan minimum) {
+                    report(JsonString("Minimum violated: ${setting.getValue()} < ${minimum.getValue()}"))
+                })
 
-            spawn("Maximum Monitor", onceWhenever(setting greaterThan maximum) {
-                report(JsonString("Maximum violated: ${setting.getValue()} > ${maximum.getValue()}"))
-            })
+                spawn("Maximum Monitor", onceWhenever(setting greaterThan maximum) {
+                    report(JsonString("Maximum violated: ${setting.getValue()} > ${maximum.getValue()}"))
+                })
 
-            spawn("Change Setting", task {
-                for (s in listOf(6, 7, 9, 10, 11, 12, 10, 11, 6, 1, 0, -1, 0, 1, -4)) {
-                    delay(SECOND)
-                    setting.set(s)
-                }
-            })
+                spawn("Change Setting", task {
+                    for (s in listOf(6, 7, 9, 10, 11, 12, 10, 11, 6, 1, 0, -1, 0, 1, -4)) {
+                        delay(SECOND)
+                        setting.set(s)
+                    }
+                })
+            }
         }
 
         with (JsonArray(results.reports)) {

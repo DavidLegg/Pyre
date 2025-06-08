@@ -17,14 +17,11 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.set
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.resources.timer.Timer
-import gov.nasa.jpl.pyre.spark.tasks.SparkContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.coroutineTask
-import gov.nasa.jpl.pyre.spark.tasks.task
+import gov.nasa.jpl.pyre.spark.tasks.deferUntil
 import gov.nasa.jpl.pyre.spark.tasks.whenever
 
 /**
@@ -71,7 +68,7 @@ class PlanSimulation<M>(setup: PlanSimulationSetup<M>) : Simulation {
 
             val initContext = state.initContext()
             val sparkContext = object : SparkInitContext, SimulationInitContext by initContext {
-                override val SIMULATION_CLOCK = resource("SIMULATION_CLOCK", Timer(Duration.ZERO, 1), Timer.serializer())
+                override val simulationClock = resource("SIMULATION_CLOCK", Timer(Duration.ZERO, 1), Timer.serializer())
             }
             with (sparkContext) {
                 // Construct the model itself
@@ -86,15 +83,17 @@ class PlanSimulation<M>(setup: PlanSimulationSetup<M>) : Simulation {
                 activityDirectiveResource = discreteResource("activityDirective", null, directiveSerializer)
                 spawn("activities", whenever(activityDirectiveResource notEquals null) {
                     val directive = requireNotNull(activityDirectiveResource.getValue())
-                    val activityName = "${directive.name} @ ${directive.time}"
+                    activityDirectiveResource.set(null)
+                    val spec = directive.activitySpec
+                    val activityName = "${spec.name} @ ${directive.time}"
                     InternalLogger.log("Constructing activity $activityName")
-                    val activity = constructActivity(directive.activitySpec)
-                    InternalLogger.log("Spawning activity $activityName")
-                    spawn(activityName, task {
-                        with (sparkTaskScope(sparkContext)) {
-                            activity.effectModel(model)
-                        }
-                    })
+                    val activity = constructActivity(spec)
+                    require(activity.name == spec.name && activity.typeName == spec.typeName) {
+                        "Activity construction error: Requested type ${spec.typeName} and name ${spec.name}" +
+                                "do not match constructed type ${activity.typeName} and name ${activity.name}"
+                    }
+                    InternalLogger.log("Scheduling activity $activityName")
+                    deferUntil(directive.time, activity, model)
                 })
             }
 
@@ -102,9 +101,6 @@ class PlanSimulation<M>(setup: PlanSimulationSetup<M>) : Simulation {
             inconProvider?.let(state::restore)
         }
     }
-
-    private fun <R> TaskScope<R>.sparkTaskScope(sparkContext: SparkContext): SparkTaskScope<R> =
-        object : SparkTaskScope<R>, TaskScope<R> by this, SparkContext by sparkContext {}
 
     override fun runUntil(time: Duration) {
         require(time >= state.time()) {
@@ -124,36 +120,39 @@ class PlanSimulation<M>(setup: PlanSimulationSetup<M>) : Simulation {
     }
 
     fun addActivities(activities: List<ActivityDirective>) {
-        // TODO: Test this activityDirective trickery
-        // TODO: If it works, consider formalizing it a bit more as a way to "safely" ingest info into the sim.
-        val directivesToLoad = activities.toMutableList()
-        var directiveLoaderActive = true
+        InternalLogger.block("Loading ${activities.size} activities") {
+            // TODO: Test this activityDirective trickery
+            // TODO: If it works, consider formalizing it a bit more as a way to "safely" ingest info into the sim.
+            val directivesToLoad = activities.toMutableList()
+            var directiveLoaderActive = true
 
-        // The directive loader will iteratively pull directives off the queue
-        // and set them in the activityDirectiveResource.
-        // The activity launcher will react to this by constructing and launching the activity.
-        // That nulls out the resource, allowing this task to load the next resource.
+            // The directive loader will iteratively pull directives off the queue
+            // and set them in the activityDirectiveResource.
+            // The activity launcher will react to this by constructing and launching the activity.
+            // That nulls out the resource, allowing this task to load the next resource.
 
-        // Note that because this task depends on state not captured in a cell, it is not "safe" for simulation.
-        // However, because it works in conjunction with the activity launcher, it will always complete
-        // before the simulation advances in time.
-        // Combined with the loop below to exercise this task to completion, thereby unloading this unsafe task,
-        // the simulation is always in a safe state to save/restore when this function returns.
-        state.addTask("directive loader", coroutineTask {
-            if (directivesToLoad.isEmpty()) {
-                directiveLoaderActive = false
-                TaskScopeResult.Complete(Unit)
-            } else {
-                await(activityDirectiveResource equals null)
-                val d = directivesToLoad.removeFirst()
-                InternalLogger.log("Loading directive ${d.name} @ ${d.time}")
-                activityDirectiveResource.set(d)
-                TaskScopeResult.Restart()
-            }
-        })
+            // Note that because this task depends on state not captured in a cell, it is not "safe" for simulation.
+            // However, because it works in conjunction with the activity launcher, it will always complete
+            // before the simulation advances in time.
+            // Combined with the loop below to exercise this task to completion, thereby unloading this unsafe task,
+            // the simulation is always in a safe state to save/restore when this function returns.
+            state.addTask("directive loader", coroutineTask {
+                if (directivesToLoad.isEmpty()) {
+                    directiveLoaderActive = false
+                    TaskScopeResult.Complete(Unit)
+                } else {
+                    await(activityDirectiveResource equals null)
+                    val d = directivesToLoad.removeFirst()
+                    InternalLogger.log("Loading directive ${d.activitySpec.name} @ ${d.time}")
+                    activityDirectiveResource.set(d)
+                    TaskScopeResult.Restart()
+                }
+            })
 
-        // Now, actually load the plan by cycling the simulation without advancing it.
-        while (directiveLoaderActive) state.stepTo(state.time())
+            // Now, actually load the plan by cycling the simulation without advancing it.
+            while (directiveLoaderActive) state.stepTo(state.time())
+        }
+        InternalLogger.log("Finished loading ${activities.size} activities")
     }
 
     fun runPlan(plan: Plan) {
