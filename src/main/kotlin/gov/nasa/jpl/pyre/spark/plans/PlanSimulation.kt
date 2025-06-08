@@ -8,7 +8,7 @@ import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.Simulation
 import gov.nasa.jpl.pyre.ember.SimulationState
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
-import gov.nasa.jpl.pyre.spark.BasicSerializers
+import gov.nasa.jpl.pyre.spark.BasicSerializers.nullable
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.equals
@@ -21,7 +21,7 @@ import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.coroutineTask
-import gov.nasa.jpl.pyre.spark.tasks.deferUntil
+import gov.nasa.jpl.pyre.spark.tasks.spawn
 import gov.nasa.jpl.pyre.spark.tasks.whenever
 
 /**
@@ -39,12 +39,11 @@ import gov.nasa.jpl.pyre.spark.tasks.whenever
  * 3. simulating until the end of this cycle, and
  * 4. cutting a fincon in preparation for the next cycle.
  */
-class PlanSimulation<M>(setup: PlanSimulationSetup<M>) : Simulation {
+class PlanSimulation<M : Model<M>>(setup: PlanSimulationSetup<M>) : Simulation {
     data class PlanSimulationSetup<M>(
         val reportHandler: (JsonValue) -> Unit,
         val inconProvider: InconProvider?,
         val constructModel: SparkInitContext.() -> M,
-        val constructActivity: (ActivitySpec) -> Activity<M, *>,
     )
 
     companion object {
@@ -58,21 +57,20 @@ class PlanSimulation<M>(setup: PlanSimulationSetup<M>) : Simulation {
     }
 
     private val state: SimulationState
-    private val activityDirectiveResource: MutableDiscreteResource<ActivityDirective?>
+    private val activityResource: MutableDiscreteResource<GroundedActivity<M, *>?>
 
     init {
         with (setup) {
-            val directiveSerializer = BasicSerializers.nullable(ActivityDirective.serializer())
-
             state = SimulationState(reportHandler)
 
             val initContext = state.initContext()
             val sparkContext = object : SparkInitContext, SimulationInitContext by initContext {
-                override val simulationClock = resource("SIMULATION_CLOCK", Timer(Duration.ZERO, 1), Timer.serializer())
+                override val simulationClock = resource("simulation_clock", Timer(Duration.ZERO, 1), Timer.serializer())
             }
             with (sparkContext) {
                 // Construct the model itself
                 val model = constructModel()
+                val activitySerializer = nullable(model.activitySerializer())
 
                 // Construct the activity daemon
                 // This reaction loop will build an activity whenever the directive resource is loaded.
@@ -80,20 +78,12 @@ class PlanSimulation<M>(setup: PlanSimulationSetup<M>) : Simulation {
                 // is a function of the resource value (activity directive) read on that iteration.
                 // If the activity is captured by a fincon, it will record the directive's serialization
                 // in the task history, such that it can be re-launched when the simulation is restored.
-                activityDirectiveResource = discreteResource("activityDirective", null, directiveSerializer)
-                spawn("activities", whenever(activityDirectiveResource notEquals null) {
-                    val directive = requireNotNull(activityDirectiveResource.getValue())
-                    activityDirectiveResource.set(null)
-                    val spec = directive.activitySpec
-                    val activityName = "${spec.name} @ ${directive.time}"
-                    InternalLogger.log("Constructing activity $activityName")
-                    val activity = constructActivity(spec)
-                    require(activity.name == spec.name && activity.typeName == spec.typeName) {
-                        "Activity construction error: Requested type ${spec.typeName} and name ${spec.name}" +
-                                "do not match constructed type ${activity.typeName} and name ${activity.name}"
-                    }
-                    InternalLogger.log("Scheduling activity $activityName")
-                    deferUntil(directive.time, activity, model)
+                activityResource = discreteResource("activity_to_schedule", null, activitySerializer)
+                spawn("activities", whenever(activityResource notEquals null) {
+                    val groundedActivity = requireNotNull(activityResource.getValue())
+                    activityResource.set(null)
+                    InternalLogger.log("Scheduling activity ${groundedActivity.name} @ ${groundedActivity.time}")
+                    spawn(groundedActivity, model)
                 })
             }
 
@@ -119,12 +109,12 @@ class PlanSimulation<M>(setup: PlanSimulationSetup<M>) : Simulation {
         state.save(finconCollector)
     }
 
-    fun addActivities(activities: List<ActivityDirective>) {
+    fun addActivities(activities: List<GroundedActivity<M, *>>) {
         InternalLogger.block("Loading ${activities.size} activities") {
             // TODO: Test this activityDirective trickery
             // TODO: If it works, consider formalizing it a bit more as a way to "safely" ingest info into the sim.
-            val directivesToLoad = activities.toMutableList()
-            var directiveLoaderActive = true
+            val activitiesToLoad = activities.toMutableList()
+            var activityLoaderActive = true
 
             // The directive loader will iteratively pull directives off the queue
             // and set them in the activityDirectiveResource.
@@ -136,26 +126,26 @@ class PlanSimulation<M>(setup: PlanSimulationSetup<M>) : Simulation {
             // before the simulation advances in time.
             // Combined with the loop below to exercise this task to completion, thereby unloading this unsafe task,
             // the simulation is always in a safe state to save/restore when this function returns.
-            state.addTask("directive loader", coroutineTask {
-                if (directivesToLoad.isEmpty()) {
-                    directiveLoaderActive = false
+            state.addTask("activity loader", coroutineTask {
+                if (activitiesToLoad.isEmpty()) {
+                    activityLoaderActive = false
                     TaskScopeResult.Complete(Unit)
                 } else {
-                    await(activityDirectiveResource equals null)
-                    val d = directivesToLoad.removeFirst()
-                    InternalLogger.log("Loading directive ${d.activitySpec.name} @ ${d.time}")
-                    activityDirectiveResource.set(d)
+                    await(activityResource equals null)
+                    val a = activitiesToLoad.removeFirst()
+                    InternalLogger.log("Loading activity ${a.name} @ ${a.time}")
+                    activityResource.set(a)
                     TaskScopeResult.Restart()
                 }
             })
 
             // Now, actually load the plan by cycling the simulation without advancing it.
-            while (directiveLoaderActive) state.stepTo(state.time())
+            while (activityLoaderActive) state.stepTo(state.time())
         }
         InternalLogger.log("Finished loading ${activities.size} activities")
     }
 
-    fun runPlan(plan: Plan) {
+    fun runPlan(plan: Plan<M>) {
         InternalLogger.block("Running plan ${plan.name}") {
             require(plan.startTime < plan.endTime) {
                 "Mal-formed plan starts at ${plan.startTime}, after it ends at ${plan.endTime}"

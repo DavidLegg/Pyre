@@ -14,19 +14,20 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.discr
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.register
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.*
+import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.JsonValue.*
+import gov.nasa.jpl.pyre.ember.Serializer
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.ember.times
 import gov.nasa.jpl.pyre.spark.activityEnd
 import gov.nasa.jpl.pyre.spark.activityStart
 import gov.nasa.jpl.pyre.spark.end
 import gov.nasa.jpl.pyre.spark.log
+import gov.nasa.jpl.pyre.spark.plans.PlanSimulationTest.ModelWithResources.DummyActivity
 import gov.nasa.jpl.pyre.spark.plans.PlanSimulationTest.PowerState.*
-import gov.nasa.jpl.pyre.spark.plans.PlanSimulationTest.TestModel.DeviceActivate
-import gov.nasa.jpl.pyre.spark.plans.PlanSimulationTest.TestModel.DeviceBoot
-import gov.nasa.jpl.pyre.spark.plans.PlanSimulationTest.TestModel.DeviceShutdown
+import gov.nasa.jpl.pyre.spark.plans.PlanSimulationTest.TestModel.*
 import gov.nasa.jpl.pyre.spark.resources.discrete.*
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.increase
@@ -43,6 +44,13 @@ import org.junit.jupiter.api.Assertions.*
 import kotlin.test.Test
 
 class PlanSimulationTest {
+    class EmptyModel: Model<EmptyModel> {
+        constructor(context: SparkInitContext)
+
+        override fun activitySerializer(): Serializer<GroundedActivity<EmptyModel, *>> =
+            Serializer.of(InvertibleFunction.of({ fail() }, { fail() }))
+    }
+
     @Test
     fun empty_model_can_be_created() {
         assertDoesNotThrow {
@@ -50,15 +58,14 @@ class PlanSimulationTest {
                 PlanSimulationSetup(
                     reportHandler = { },
                     inconProvider = null,
-                    constructModel = { },
-                    constructActivity = { fail() },
+                    constructModel = ::EmptyModel,
                 )
             )
             simulation.runUntil(HOUR)
         }
     }
 
-    class ModelWithResources {
+    class ModelWithResources : Model<ModelWithResources> {
         val x: MutableDiscreteResource<Int>
         val y: MutableDiscreteResource<String>
 
@@ -71,6 +78,31 @@ class PlanSimulationTest {
                 register("y", y)
             }
         }
+
+        class DummyActivity() : Activity<ModelWithResources, Unit> {
+            context(SparkTaskScope<Unit>)
+            override suspend fun effectModel(model: ModelWithResources) {}
+        }
+
+        override fun activitySerializer(): Serializer<GroundedActivity<ModelWithResources, *>> {
+            return Serializer.of(InvertibleFunction.of(
+                {
+                    JsonMap(mapOf(
+                        "time" to Duration.serializer().serialize(it.time),
+                        "name" to JsonString(it.name),
+                        "type" to JsonString(it.typeName),
+                    ))
+                },
+                {
+                    GroundedActivity(
+                        Duration.serializer().deserialize(requireNotNull((it as JsonMap).values["time"])),
+                        DummyActivity(),
+                        (it.values["type"] as JsonString).value,
+                        (it.values["name"] as JsonString).value,
+                    )
+                }
+            ))
+        }
     }
 
     @Test
@@ -81,7 +113,6 @@ class PlanSimulationTest {
                 reportHandler = reports::add,
                 inconProvider = null,
                 constructModel = ::ModelWithResources,
-                constructActivity = { fail() },
             )
         )
         simulation.runUntil(HOUR)
@@ -108,17 +139,6 @@ class PlanSimulationTest {
                 reportHandler = reports::add,
                 inconProvider = null,
                 constructModel = ::ModelWithResources,
-                constructActivity = {
-                    object : Activity<ModelWithResources, Unit> {
-                        override val name: String = it.name
-                        override val typeName: String = it.typeName
-
-                        context(SparkTaskScope<Unit>)
-                        override suspend fun effectModel(model: ModelWithResources) {
-                            report("activities", JsonString("Running ${it.name}"))
-                        }
-                    }
-                },
             )
         )
         simulation.runPlan(Plan(
@@ -126,30 +146,9 @@ class PlanSimulationTest {
             ZERO,
             HOUR,
             listOf(
-                ActivityDirective(
-                    5 * MINUTE,
-                    ActivitySpec(
-                        "Activity 1",
-                        "Type A",
-                        JsonMap(emptyMap())
-                    )
-                ),
-                ActivityDirective(
-                    15 * MINUTE,
-                    ActivitySpec(
-                        "Activity 2",
-                        "Type B",
-                        JsonMap(emptyMap())
-                    )
-                ),
-                ActivityDirective(
-                    45 * MINUTE,
-                    ActivitySpec(
-                        "Activity 3",
-                        "Type C",
-                        JsonMap(emptyMap())
-                    )
-                ),
+                GroundedActivity(5 * MINUTE, DummyActivity(), "Type A", "Activity 1"),
+                GroundedActivity(15 * MINUTE, DummyActivity(), "Type B", "Activity 2"),
+                GroundedActivity(45 * MINUTE, DummyActivity(), "Type C", "Activity 3"),
             )
         ))
         simulation.runUntil(HOUR)
@@ -168,15 +167,12 @@ class PlanSimulationTest {
             channel("activities") {
                 at(5 * MINUTE)
                 activityStart("Activity 1", "Type A")
-                log("Running Activity 1")
                 activityEnd("Activity 1", "Type A")
                 at(15 * MINUTE)
                 activityStart("Activity 2", "Type B")
-                log("Running Activity 2")
                 activityEnd("Activity 2", "Type B")
                 at(45 * MINUTE)
                 activityStart("Activity 3", "Type C")
-                log("Running Activity 3")
                 activityEnd("Activity 3", "Type C")
                 end()
             }
@@ -185,7 +181,7 @@ class PlanSimulationTest {
 
     enum class PowerState { OFF, WARMUP, STANDBY, ON, SHUTDOWN }
 
-    class TestModel {
+    class TestModel : Model<TestModel> {
         val deviceState: MutableDiscreteResource<PowerState>
         val powerTable: Map<PowerState, Double>
         val miscPower: MutableDoubleResource
@@ -217,11 +213,7 @@ class PlanSimulationTest {
             }
         }
 
-        class DeviceBoot(override val name: String = "DeviceBoot") : Activity<TestModel, Unit> {
-            override val typeName = "DeviceBoot"
-
-            constructor(spec: ActivitySpec) : this(spec.name)
-
+        class DeviceBoot() : Activity<TestModel, Unit> {
             context(SparkTaskScope<Unit>)
             override suspend fun effectModel(model: TestModel) {
                 when (model.deviceState.getValue()) {
@@ -233,15 +225,16 @@ class PlanSimulationTest {
                     else -> model.deviceState.set(STANDBY)
                 }
             }
+
+            companion object {
+                fun serializer(): Serializer<DeviceBoot> = Serializer.of(InvertibleFunction.of(
+                    { JsonMap.empty() },
+                    { DeviceBoot() }
+                ))
+            }
         }
 
-        class DeviceActivate(override val name: String = "DeviceActivate", val duration: Duration) : Activity<TestModel, Unit> {
-            override val typeName = "DeviceActivate"
-
-            constructor(spec: ActivitySpec) : this(
-                spec.name,
-                Duration.serializer().deserialize(requireNotNull(spec.arguments.values["duration"])))
-
+        class DeviceActivate(val duration: Duration) : Activity<TestModel, Unit> {
             context(SparkTaskScope<Unit>)
             override suspend fun effectModel(model: TestModel) {
                 if (model.deviceState.getValue() != STANDBY) {
@@ -256,41 +249,62 @@ class PlanSimulationTest {
                 delay(duration)
                 model.deviceState.set(STANDBY)
             }
+
+            companion object {
+                fun serializer(): Serializer<DeviceActivate> = Serializer.of(InvertibleFunction.of(
+                    {
+                        JsonMap(mapOf(
+                            "duration" to Duration.serializer().serialize(it.duration)
+                        ))
+                    },
+                    {
+                        DeviceActivate(Duration.serializer().deserialize(requireNotNull((it as JsonMap).values["duration"])))
+                    }
+                ))
+            }
         }
 
-        class DeviceShutdown(override val name: String = "DeviceShutdown") : Activity<TestModel, Unit> {
-            override val typeName = "DeviceShutdown"
-
-            constructor(spec: ActivitySpec) : this(spec.name)
-
+        class DeviceShutdown() : Activity<TestModel, Unit> {
             context(SparkTaskScope<Unit>)
             override suspend fun effectModel(model: TestModel) {
                 model.deviceState.set(SHUTDOWN)
                 delay(5 * MINUTE)
                 model.deviceState.set(OFF)
             }
+
+            companion object {
+                fun serializer(): Serializer<DeviceShutdown> = Serializer.of(InvertibleFunction.of(
+                    { JsonMap.empty() }, { DeviceShutdown() }
+                ))
+            }
         }
 
-        class AddMiscPower(override val name: String = "AddMiscPower", val amount: Double) : Activity<TestModel, Unit> {
-            override val typeName = "AddMiscPower"
-
-            constructor(spec: ActivitySpec) : this(
-                spec.name,
-                (spec.arguments.values["amount"] as JsonDouble).value
-            )
-
+        class AddMiscPower(val amount: Double) : Activity<TestModel, Unit> {
             context(SparkTaskScope<Unit>)
             override suspend fun effectModel(model: TestModel) {
                 model.miscPower.increase(amount)
             }
+
+            companion object {
+                fun serializer(): Serializer<AddMiscPower> = Serializer.of(InvertibleFunction.of(
+                    {
+                        JsonMap(mapOf(
+                            "amount" to JsonDouble(it.amount)
+                        ))
+                    },
+                    {
+                        AddMiscPower(((it as JsonMap).values["amount"] as JsonDouble).value)
+                    }
+                ))
+            }
         }
 
-        companion object {
-            val activityFactory = ActivityFactory<TestModel>()
-                .addConstructor("DeviceBoot", ::DeviceBoot)
-                .addConstructor("DeviceActivate", ::DeviceActivate)
-                .addConstructor("DeviceShutdown", ::DeviceShutdown)
-                .addConstructor("AddMiscPower", ::AddMiscPower)
+        override fun activitySerializer(): Serializer<GroundedActivity<TestModel, *>> {
+            return ActivitySerializer<TestModel>()
+                .add("DeviceBoot", DeviceBoot.serializer())
+                .add("DeviceActivate", DeviceActivate.serializer())
+                .add("DeviceShutdown", DeviceShutdown.serializer())
+                .add("AddMiscPower", AddMiscPower.serializer())
         }
     }
 
@@ -302,7 +316,6 @@ class PlanSimulationTest {
                 reportHandler = reports::add,
                 inconProvider = null,
                 constructModel = ::TestModel,
-                constructActivity = TestModel.activityFactory::constructActivity,
             )
         )
         simulation.runPlan(Plan(
@@ -310,55 +323,14 @@ class PlanSimulationTest {
             ZERO,
             2 * HOUR + 5 * MINUTE,
             listOf(
-                ActivityDirective(
-                    5 * MINUTE,
-                    ActivitySpec("DeviceBoot")),
-                ActivityDirective(
-                    15 * MINUTE,
-                    ActivitySpec(
-                        "Observation 1",
-                        "DeviceActivate",
-                        JsonMap(mapOf(
-                            "duration" to JsonString("00:10:00.000000")
-                        )))),
-                ActivityDirective(
-                    26 * MINUTE,
-                    ActivitySpec("DeviceShutdown")
-                ),
-                ActivityDirective(
-                    60 * MINUTE,
-                    ActivitySpec(
-                        "Observation 2",
-                        "DeviceActivate",
-                        JsonMap(mapOf(
-                            "duration" to JsonString("00:20:00.000000")
-                        )))),
-                ActivityDirective(
-                    90 * MINUTE,
-                    ActivitySpec("DeviceShutdown")
-                ),
-                ActivityDirective(
-                    100 * MINUTE,
-                    ActivitySpec(
-                        "Observation 3",
-                        "DeviceActivate",
-                        JsonMap(mapOf(
-                            "duration" to JsonString("01:00:00.000000")
-                        )))),
-                ActivityDirective(
-                    110 * MINUTE,
-                    ActivitySpec(
-                        "AddMiscPower",
-                        arguments=JsonMap(mapOf(
-                            "amount" to JsonDouble(3.0)
-                        )))),
-                ActivityDirective(
-                    115 * MINUTE,
-                    ActivitySpec(
-                        "AddMiscPower",
-                        arguments=JsonMap(mapOf(
-                            "amount" to JsonDouble(3.0)
-                        )))),
+                GroundedActivity(5 * MINUTE, DeviceBoot()),
+                GroundedActivity(15 * MINUTE, DeviceActivate(10 * MINUTE), name="Observation 1"),
+                GroundedActivity(26 * MINUTE, DeviceShutdown()),
+                GroundedActivity(60 * MINUTE, DeviceActivate(20 * MINUTE), name="Observation 2"),
+                GroundedActivity(90 * MINUTE, DeviceShutdown()),
+                GroundedActivity(100 * MINUTE, DeviceActivate(60 * MINUTE), name="Observation 3"),
+                GroundedActivity(110 * MINUTE, AddMiscPower(3.0)),
+                GroundedActivity(115 * MINUTE, AddMiscPower(3.0)),
             ),
         ))
 

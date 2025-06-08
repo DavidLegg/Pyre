@@ -5,13 +5,11 @@ import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.JsonValue.*
 import gov.nasa.jpl.pyre.ember.Serializer
 
-// TODO: Consider letting a plan use Activity, not ActivityDirective, - the fully-constructed, runnable class.
-//   Maybe equip Activity with a Serializer? Not sure how the save/restore in that situation works...
-data class Plan(
+data class Plan<M>(
     val name: String,
     val startTime: Duration,
     val endTime: Duration,
-    val activities: List<ActivityDirective>,
+    val activities: List<GroundedActivity<M, *>>,
 )
 
 data class ActivityDirective(
