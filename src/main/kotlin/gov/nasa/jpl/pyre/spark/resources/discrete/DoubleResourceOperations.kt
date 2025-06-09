@@ -3,6 +3,12 @@ package gov.nasa.jpl.pyre.spark.resources.discrete
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.spark.BasicSerializers.DOUBLE_SERIALIZER
 import gov.nasa.jpl.pyre.spark.resources.autoEffects
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.pyre.spark.resources.discrete.FloatResourceOperations.div
+import gov.nasa.jpl.pyre.spark.resources.discrete.FloatResourceOperations.minus
+import gov.nasa.jpl.pyre.spark.resources.discrete.FloatResourceOperations.plus
+import gov.nasa.jpl.pyre.spark.resources.discrete.FloatResourceOperations.rem
+import gov.nasa.jpl.pyre.spark.resources.discrete.FloatResourceOperations.times
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
@@ -32,6 +38,18 @@ object DoubleResourceOperations {
         DiscreteResourceMonad.map(this, other) { x, y -> x / y }
     operator fun DoubleResource.rem(other: DoubleResource): DoubleResource =
         DiscreteResourceMonad.map(this, other) { x, y -> x % y }
+
+    operator fun DoubleResource.plus(other: Double): DoubleResource = this + pure(other)
+    operator fun DoubleResource.minus(other: Double): DoubleResource = this - pure(other)
+    operator fun DoubleResource.times(other: Double): DoubleResource = this * pure(other)
+    operator fun DoubleResource.div(other: Double): DoubleResource = this / pure(other)
+    operator fun DoubleResource.rem(other: Double): DoubleResource = this % pure(other)
+
+    operator fun Double.plus(other: DoubleResource): DoubleResource = pure(this) + other
+    operator fun Double.minus(other: DoubleResource): DoubleResource = pure(this) - other
+    operator fun Double.times(other: DoubleResource): DoubleResource = pure(this) * other
+    operator fun Double.div(other: DoubleResource): DoubleResource = pure(this) / other
+    operator fun Double.rem(other: DoubleResource): DoubleResource = pure(this) % other
 
     context(TaskScope<*>)
     suspend fun MutableDoubleResource.increase(amount: Double) {

@@ -1,6 +1,8 @@
 package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.ember.JsonValue.*
+import kotlin.math.abs
+import kotlin.math.absoluteValue
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToLong
@@ -82,3 +84,5 @@ infix fun Duration.floorTimes(scale: Double) = Duration(floor(ticks * scale).rou
 infix fun Double.floorTimes(scale: Duration) = Duration(floor(scale.ticks * this).roundToLong())
 infix fun Duration.ceilTimes(scale: Double) = Duration(ceil(ticks * scale).roundToLong())
 infix fun Double.ceilTimes(scale: Duration) = Duration(ceil(scale.ticks * this).roundToLong())
+
+fun abs(duration: Duration): Duration = Duration(abs(duration.ticks))

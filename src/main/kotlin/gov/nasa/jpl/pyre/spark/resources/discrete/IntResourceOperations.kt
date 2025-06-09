@@ -3,6 +3,12 @@ package gov.nasa.jpl.pyre.spark.resources.discrete
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.spark.BasicSerializers
 import gov.nasa.jpl.pyre.spark.BasicSerializers.INT_SERIALIZER
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.div
+import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.minus
+import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.plus
+import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.rem
+import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.times
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
@@ -29,6 +35,18 @@ object IntResourceOperations {
         DiscreteResourceMonad.map(this, other) { x, y -> x / y }
     operator fun IntResource.rem(other: IntResource): IntResource =
         DiscreteResourceMonad.map(this, other) { x, y -> x % y }
+
+    operator fun IntResource.plus(other: Int): IntResource = this + pure(other)
+    operator fun IntResource.minus(other: Int): IntResource = this - pure(other)
+    operator fun IntResource.times(other: Int): IntResource = this * pure(other)
+    operator fun IntResource.div(other: Int): IntResource = this / pure(other)
+    operator fun IntResource.rem(other: Int): IntResource = this % pure(other)
+
+    operator fun Int.plus(other: IntResource): IntResource = pure(this) + other
+    operator fun Int.minus(other: IntResource): IntResource = pure(this) - other
+    operator fun Int.times(other: IntResource): IntResource = pure(this) * other
+    operator fun Int.div(other: IntResource): IntResource = pure(this) / other
+    operator fun Int.rem(other: IntResource): IntResource = pure(this) % other
 
     context(TaskScope<*>)
     suspend fun MutableIntResource.increment(amount: Int = 1) {

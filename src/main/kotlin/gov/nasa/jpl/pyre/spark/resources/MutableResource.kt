@@ -7,6 +7,9 @@ import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.ember.Cell.EffectTrait
 import gov.nasa.jpl.pyre.ember.*
 import gov.nasa.jpl.pyre.ember.JsonValue.JsonMap
+import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
+import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
+import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
@@ -15,6 +18,11 @@ interface MutableResource<D> : Resource<D> {
     suspend fun emit(effect: ResourceEffect<D>)
 }
 typealias ResourceEffect<D> = (FullDynamics<D>) -> FullDynamics<D>
+
+context (TaskScope<*>)
+suspend fun <D> MutableResource<D>.emit(effect: (D) -> D) = this.emit {
+    Expiring(effect(it.data), NEVER)
+}
 
 fun <D> dynamicsSerializer(serializer: Serializer<D>): Serializer<FullDynamics<D>> = Serializer.of(InvertibleFunction.of(
     { JsonMap(mapOf(

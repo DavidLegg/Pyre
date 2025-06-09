@@ -3,6 +3,12 @@ package gov.nasa.jpl.pyre.spark.resources.discrete
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.spark.BasicSerializers.FLOAT_SERIALIZER
 import gov.nasa.jpl.pyre.spark.resources.autoEffects
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.div
+import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.minus
+import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.plus
+import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.rem
+import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.times
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
@@ -32,6 +38,18 @@ object FloatResourceOperations {
         DiscreteResourceMonad.map(this, other) { x, y -> x / y }
     operator fun FloatResource.rem(other: FloatResource): FloatResource =
         DiscreteResourceMonad.map(this, other) { x, y -> x % y }
+
+    operator fun FloatResource.plus(other: Float): FloatResource = this + pure(other)
+    operator fun FloatResource.minus(other: Float): FloatResource = this - pure(other)
+    operator fun FloatResource.times(other: Float): FloatResource = this * pure(other)
+    operator fun FloatResource.div(other: Float): FloatResource = this / pure(other)
+    operator fun FloatResource.rem(other: Float): FloatResource = this % pure(other)
+
+    operator fun Float.plus(other: FloatResource): FloatResource = pure(this) + other
+    operator fun Float.minus(other: FloatResource): FloatResource = pure(this) - other
+    operator fun Float.times(other: FloatResource): FloatResource = pure(this) * other
+    operator fun Float.div(other: FloatResource): FloatResource = pure(this) / other
+    operator fun Float.rem(other: FloatResource): FloatResource = pure(this) % other
 
     context(TaskScope<*>)
     suspend fun MutableFloatResource.increase(amount: Float) {

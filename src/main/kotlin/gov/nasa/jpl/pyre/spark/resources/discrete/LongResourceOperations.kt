@@ -2,9 +2,8 @@ package gov.nasa.jpl.pyre.spark.resources.discrete
 
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.spark.BasicSerializers.LONG_SERIALIZER
-import gov.nasa.jpl.pyre.spark.resources.resource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 typealias LongResource = DiscreteResource<Long>
@@ -28,6 +27,18 @@ object LongResourceOperations {
         DiscreteResourceMonad.map(this, other) { x, y -> x / y }
     operator fun LongResource.rem(other: LongResource): LongResource =
         DiscreteResourceMonad.map(this, other) { x, y -> x % y }
+
+    operator fun LongResource.plus(other: Long): LongResource = this + pure(other)
+    operator fun LongResource.minus(other: Long): LongResource = this - pure(other)
+    operator fun LongResource.times(other: Long): LongResource = this * pure(other)
+    operator fun LongResource.div(other: Long): LongResource = this / pure(other)
+    operator fun LongResource.rem(other: Long): LongResource = this % pure(other)
+
+    operator fun Long.plus(other: LongResource): LongResource = pure(this) + other
+    operator fun Long.minus(other: LongResource): LongResource = pure(this) - other
+    operator fun Long.times(other: LongResource): LongResource = pure(this) * other
+    operator fun Long.div(other: LongResource): LongResource = pure(this) / other
+    operator fun Long.rem(other: LongResource): LongResource = pure(this) % other
 
     context(TaskScope<*>)
     suspend fun MutableLongResource.increment(amount: Long = 1) {

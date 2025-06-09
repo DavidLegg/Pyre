@@ -10,6 +10,7 @@ import gov.nasa.jpl.pyre.spark.resources.Expiring
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.pyre.spark.resources.emit
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.register
@@ -33,9 +34,7 @@ inline fun <reified E : Enum<E>> SimulationInitContext.discreteResource(name: St
 // Generic read/write operations, specialized to discrete resources
 
 context (TaskScope<*>)
-suspend fun <V> MutableDiscreteResource<V>.emit(effect: (V) -> V) = this.emit {
-    Expiring(Discrete(effect(it.data.value)), NEVER)
-}
+suspend fun <V> MutableDiscreteResource<V>.emit(effect: (V) -> V) = this.emit(DiscreteMonad.map(effect))
 
 context (TaskScope<*>)
 suspend fun <V> MutableDiscreteResource<V>.set(value: V) = this.emit { _: V -> value }
