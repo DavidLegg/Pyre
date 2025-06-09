@@ -2,6 +2,8 @@ package gov.nasa.jpl.pyre
 
 import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.JsonValue.*
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 // The getter functions below use (_ as T?) instead of (_ as? T)
 // This lets us return null if the requested value is missing,
@@ -22,7 +24,13 @@ fun JsonValue.boolean(vararg keys: String): Boolean? = (get(*keys) as JsonBoolea
 fun JsonValue.int(vararg keys: String): Long? = (get(*keys) as JsonInt?)?.value
 fun JsonValue.double(vararg keys: String): Double? = (get(*keys) as JsonDouble?)?.value
 fun JsonValue.within(vararg keys: String, block: JsonValue.() -> Unit) {
-    get(*keys)!!.block()
+    assertNotNull(get(*keys)).block()
+}
+fun JsonValue.assertNull(vararg keys: String) {
+    assertEquals(JsonNull, get(*keys))
+}
+fun JsonValue.assertNullOrMissing(vararg keys: String) {
+    get(*keys)?.let { assertEquals(JsonNull, it) }
 }
 
 fun JsonValue.get(vararg indices: Int): JsonValue? {
@@ -39,6 +47,12 @@ fun JsonValue.within(vararg indices: Int, block: JsonValue.() -> Unit) {
 }
 fun JsonValue.forEach(block: JsonValue.() -> Unit) {
     (this as JsonArray).values.forEach(block)
+}
+fun JsonValue.assertNull(vararg indices: Int) {
+    assertEquals(JsonNull, get(*indices))
+}
+fun JsonValue.assertNullOrMissing(vararg indices: Int) {
+    get(*indices)?.let { assertEquals(JsonNull, it) }
 }
 
 class JsonArrayScope(private val subject: JsonArray) {

@@ -17,8 +17,10 @@ import gov.nasa.jpl.pyre.*
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
+import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonValue.*
 import gov.nasa.jpl.pyre.ember.Serializer
+import gov.nasa.jpl.pyre.ember.minus
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.ember.times
 import gov.nasa.jpl.pyre.spark.activityEnd
@@ -460,6 +462,90 @@ class PlanSimulationTest {
                 value(7.0)
                 at(120 * MINUTE)
                 value(6.0)
+                end()
+            }
+        }
+    }
+
+    @Test
+    fun activities_can_be_saved_and_restored() {
+        val reports1 = ChannelizedReports()
+        val simulation1 = PlanSimulation(
+            PlanSimulationSetup(
+                reportHandler = reports1::add,
+                inconProvider = null,
+                constructModel = ::TestModel,
+            )
+        )
+        // Use addActivities and runUntil to force a state with finished, running, and unstarted activities
+        simulation1.addActivities(
+            listOf(
+                GroundedActivity(3 * MINUTE, DeviceBoot()),
+                GroundedActivity(10 * MINUTE, DeviceActivate(60 * MINUTE)),
+                GroundedActivity(80 * MINUTE, DeviceShutdown()),
+            )
+        )
+        simulation1.runUntil(20 * MINUTE)
+        with (reports1) {
+            channel("activities") {
+                at(3 * MINUTE)
+                activityStart("DeviceBoot")
+                at(8 * MINUTE)
+                activityEnd("DeviceBoot")
+                at(10 * MINUTE)
+                activityStart("DeviceActivate")
+                end()
+            }
+        }
+
+        val fincon1 = JsonConditions.serializer().serialize(JsonConditions().also(simulation1::save))
+
+        val reports2 = ChannelizedReports()
+        val simulation2 = PlanSimulation(
+            PlanSimulationSetup(
+                reportHandler = reports2::add,
+                inconProvider = JsonConditions.serializer().deserialize(fincon1),
+                constructModel = ::TestModel,
+            )
+        )
+        // Add an activity which will spawn a child, which will be active during the next fincon cycle
+        simulation2.addActivities(listOf(
+            GroundedActivity(2 * HOUR - 2 * MINUTE, DeviceActivate(20 * MINUTE))
+        ))
+        simulation2.runUntil(2 * HOUR)
+
+        with (reports2) {
+            channel("activities") {
+                at(70 * MINUTE)
+                activityEnd("DeviceActivate")
+                at(80 * MINUTE)
+                activityStart("DeviceShutdown")
+                at(85 * MINUTE)
+                activityEnd("DeviceShutdown")
+                at(2 * HOUR - 2 * MINUTE)
+                activityStart("DeviceActivate")
+                activityStart("DeviceBoot")
+                end()
+            }
+        }
+
+        val fincon2 = JsonConditions.serializer().serialize(JsonConditions().also(simulation2::save))
+
+        val reports3 = ChannelizedReports()
+        val simulation3 = PlanSimulation(
+            PlanSimulationSetup(
+                reportHandler = reports3::add,
+                inconProvider = JsonConditions.serializer().deserialize(fincon2),
+                constructModel = ::TestModel,
+            )
+        )
+        simulation3.runUntil(3 * HOUR)
+        with(reports3) {
+            channel("activities") {
+                at(2 * HOUR + 3 * MINUTE)
+                activityEnd("DeviceBoot")
+                at(2 * HOUR + 23 * MINUTE)
+                activityEnd("DeviceActivate")
                 end()
             }
         }
