@@ -7,10 +7,10 @@ import gov.nasa.jpl.pyre.ember.JsonValue.*
 import gov.nasa.jpl.pyre.ember.Serializer
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.ember.minus
-import gov.nasa.jpl.pyre.spark.plans.Activity
-import gov.nasa.jpl.pyre.spark.plans.FloatingActivity
-import gov.nasa.jpl.pyre.spark.plans.GroundedActivity
-import gov.nasa.jpl.pyre.spark.plans.float
+import gov.nasa.jpl.pyre.flame.plans.Activity
+import gov.nasa.jpl.pyre.flame.plans.FloatingActivity
+import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
+import gov.nasa.jpl.pyre.flame.plans.float
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.getValue

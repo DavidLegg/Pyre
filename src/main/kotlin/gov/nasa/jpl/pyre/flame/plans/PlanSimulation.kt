@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.spark.plans
+package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.FinconCollector
@@ -23,6 +23,8 @@ import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.coroutineTask
 import gov.nasa.jpl.pyre.spark.tasks.spawn
 import gov.nasa.jpl.pyre.spark.tasks.whenever
+
+// TODO: Consider pulling PlanSimulation out of spark and into the next higher level (flame?)
 
 /**
  * Factors a simulation into a model and activities.

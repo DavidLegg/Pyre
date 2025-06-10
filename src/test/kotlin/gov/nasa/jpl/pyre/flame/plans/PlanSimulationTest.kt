@@ -1,11 +1,11 @@
-package gov.nasa.jpl.pyre.spark.plans
+package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.int
 import gov.nasa.jpl.pyre.spark.ChannelizedReports
 import gov.nasa.jpl.pyre.spark.channel
-import gov.nasa.jpl.pyre.spark.plans.PlanSimulation.PlanSimulationSetup
+import gov.nasa.jpl.pyre.flame.plans.PlanSimulation.PlanSimulationSetup
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.StringResourceOperations.discreteResource
@@ -27,9 +27,9 @@ import gov.nasa.jpl.pyre.spark.activityEnd
 import gov.nasa.jpl.pyre.spark.activityStart
 import gov.nasa.jpl.pyre.spark.end
 import gov.nasa.jpl.pyre.spark.log
-import gov.nasa.jpl.pyre.spark.plans.PlanSimulationTest.ModelWithResources.DummyActivity
-import gov.nasa.jpl.pyre.spark.plans.PlanSimulationTest.PowerState.*
-import gov.nasa.jpl.pyre.spark.plans.PlanSimulationTest.TestModel.*
+import gov.nasa.jpl.pyre.flame.plans.PlanSimulationTest.ModelWithResources.DummyActivity
+import gov.nasa.jpl.pyre.flame.plans.PlanSimulationTest.PowerState.*
+import gov.nasa.jpl.pyre.flame.plans.PlanSimulationTest.TestModel.*
 import gov.nasa.jpl.pyre.spark.resources.discrete.*
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.increase
@@ -143,16 +143,18 @@ class PlanSimulationTest {
                 constructModel = ::ModelWithResources,
             )
         )
-        simulation.runPlan(Plan(
-            "Test Plan",
-            ZERO,
-            HOUR,
-            listOf(
-                GroundedActivity(5 * MINUTE, DummyActivity(), "Type A", "Activity 1"),
-                GroundedActivity(15 * MINUTE, DummyActivity(), "Type B", "Activity 2"),
-                GroundedActivity(45 * MINUTE, DummyActivity(), "Type C", "Activity 3"),
+        simulation.runPlan(
+            Plan(
+                "Test Plan",
+                ZERO,
+                HOUR,
+                listOf(
+                    GroundedActivity(5 * MINUTE, DummyActivity(), "Type A", "Activity 1"),
+                    GroundedActivity(15 * MINUTE, DummyActivity(), "Type B", "Activity 2"),
+                    GroundedActivity(45 * MINUTE, DummyActivity(), "Type C", "Activity 3"),
+                )
             )
-        ))
+        )
         simulation.runUntil(HOUR)
 
         with (reports) {
@@ -320,21 +322,23 @@ class PlanSimulationTest {
                 constructModel = ::TestModel,
             )
         )
-        simulation.runPlan(Plan(
-            "Test Plan",
-            ZERO,
-            2 * HOUR + 5 * MINUTE,
-            listOf(
-                GroundedActivity(5 * MINUTE, DeviceBoot()),
-                GroundedActivity(15 * MINUTE, DeviceActivate(10 * MINUTE), name="Observation 1"),
-                GroundedActivity(26 * MINUTE, DeviceShutdown()),
-                GroundedActivity(60 * MINUTE, DeviceActivate(20 * MINUTE), name="Observation 2"),
-                GroundedActivity(90 * MINUTE, DeviceShutdown()),
-                GroundedActivity(100 * MINUTE, DeviceActivate(60 * MINUTE), name="Observation 3"),
-                GroundedActivity(110 * MINUTE, AddMiscPower(3.0)),
-                GroundedActivity(115 * MINUTE, AddMiscPower(3.0)),
-            ),
-        ))
+        simulation.runPlan(
+            Plan(
+                "Test Plan",
+                ZERO,
+                2 * HOUR + 5 * MINUTE,
+                listOf(
+                    GroundedActivity(5 * MINUTE, DeviceBoot()),
+                    GroundedActivity(15 * MINUTE, DeviceActivate(10 * MINUTE), name = "Observation 1"),
+                    GroundedActivity(26 * MINUTE, DeviceShutdown()),
+                    GroundedActivity(60 * MINUTE, DeviceActivate(20 * MINUTE), name = "Observation 2"),
+                    GroundedActivity(90 * MINUTE, DeviceShutdown()),
+                    GroundedActivity(100 * MINUTE, DeviceActivate(60 * MINUTE), name = "Observation 3"),
+                    GroundedActivity(110 * MINUTE, AddMiscPower(3.0)),
+                    GroundedActivity(115 * MINUTE, AddMiscPower(3.0)),
+                ),
+            )
+        )
 
         with (reports) {
             channel("activities") {

@@ -29,7 +29,6 @@ import gov.nasa.jpl.pyre.spark.tasks.SparkContext
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.onceWhenever
 import gov.nasa.jpl.pyre.spark.tasks.repeatingTask
-import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.task
 import gov.nasa.jpl.pyre.string
 import org.junit.jupiter.api.assertDoesNotThrow
