@@ -51,6 +51,12 @@ Several kinds of dynamics are provided, including
 
 [//]: # (TODO: Polynomial resources? Unit awareness?)
 
+Finally, to help construct derived resources, many of the resource classes are equipped with monad structure.
+This gives us standard operators including `pure`, `map`, `apply`, and `bind`, which help us quickly and correctly
+define a derived resource.
+
+[//]: # (TODO: Write a md file just describing monads, in general and in this framework in particular.)
+
 ## Conditions and Reactions
 
 The last important concept introduced by Spark is "reactions".

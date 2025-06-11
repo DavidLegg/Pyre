@@ -1,7 +1,13 @@
 package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.ember.Duration
+import gov.nasa.jpl.pyre.ember.JsonValue
+import gov.nasa.jpl.pyre.ember.minus
+import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.report
+import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.task
 
 /**
  * Base unit of planned simulation behavior.
@@ -33,3 +39,43 @@ data class GroundedActivity<M, R>(
 
 fun <M, R> GroundedActivity<M, R>.float() = FloatingActivity(activity, typeName, name)
 fun <M, R> FloatingActivity<M, R>.ground(time: Duration) = GroundedActivity(time, activity, typeName, name)
+
+suspend fun <M, R> SparkTaskScope<*>.defer(time: Duration, activity: FloatingActivity<M, R>, model: M) {
+    spawn(activity.name, task {
+        with(sparkTaskScope()) {
+            delay(time)
+            report(
+                "activities", JsonValue.JsonMap(
+                    mapOf(
+                        "name" to JsonValue.JsonString(activity.name),
+                        "type" to JsonValue.JsonString(activity.typeName),
+                        "event" to JsonValue.JsonString("start")
+                    )
+                )
+            )
+            val result = activity.activity.effectModel(model)
+            report(
+                "activities", JsonValue.JsonMap(
+                    mapOf(
+                        "name" to JsonValue.JsonString(activity.name),
+                        "type" to JsonValue.JsonString(activity.typeName),
+                        "event" to JsonValue.JsonString("end")
+                    )
+                )
+            )
+            result
+        }
+    })
+}
+
+suspend fun <M, R> SparkTaskScope<*>.deferUntil(time: Duration, activity: FloatingActivity<M, R>, model: M) =
+    defer(time - simulationClock.getValue(), activity, model)
+
+suspend fun <M, R> SparkTaskScope<*>.spawn(activity: GroundedActivity<M, R>, model: M) =
+    deferUntil(activity.time, activity.float(), model)
+
+suspend fun <M, R> SparkTaskScope<*>.spawn(activity: FloatingActivity<M, R>, model: M) =
+    defer(Duration.Companion.ZERO, activity, model)
+
+suspend fun <M, R> SparkTaskScope<*>.spawn(activity: Activity<M, R>, model: M) =
+    spawn(FloatingActivity(activity), model)

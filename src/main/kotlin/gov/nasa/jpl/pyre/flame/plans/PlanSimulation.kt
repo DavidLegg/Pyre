@@ -21,7 +21,6 @@ import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.coroutineTask
-import gov.nasa.jpl.pyre.spark.tasks.spawn
 import gov.nasa.jpl.pyre.spark.tasks.whenever
 
 // TODO: Consider pulling PlanSimulation out of spark and into the next higher level (flame?)

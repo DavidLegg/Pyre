@@ -1,16 +1,11 @@
 package gov.nasa.jpl.pyre.spark.tasks
 
 import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.JsonValue.*
 import gov.nasa.jpl.pyre.ember.Serializer
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.ember.minus
-import gov.nasa.jpl.pyre.flame.plans.Activity
-import gov.nasa.jpl.pyre.flame.plans.FloatingActivity
-import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
-import gov.nasa.jpl.pyre.flame.plans.float
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.getValue
@@ -59,34 +54,3 @@ fun <V, D : Dynamics<V, D>> SparkInitContext.register(
     })
 }
 
-suspend fun <M, R> SparkTaskScope<*>.defer(time: Duration, activity: FloatingActivity<M, R>, model: M) {
-    spawn(activity.name, task {
-        with (sparkTaskScope()) {
-            delay(time)
-            report("activities", JsonMap(mapOf(
-                "name" to JsonString(activity.name),
-                "type" to JsonString(activity.typeName),
-                "event" to JsonString("start")
-            )))
-            val result = activity.activity.effectModel(model)
-            report("activities", JsonMap(mapOf(
-                "name" to JsonString(activity.name),
-                "type" to JsonString(activity.typeName),
-                "event" to JsonString("end")
-            )))
-            result
-        }
-    })
-}
-
-suspend fun <M, R> SparkTaskScope<*>.deferUntil(time: Duration, activity: FloatingActivity<M, R>, model: M) =
-    defer(time - simulationClock.getValue(), activity, model)
-
-suspend fun <M, R> SparkTaskScope<*>.spawn(activity: GroundedActivity<M, R>, model: M) =
-    deferUntil(activity.time, activity.float(), model)
-
-suspend fun <M, R> SparkTaskScope<*>.spawn(activity: FloatingActivity<M, R>, model: M) =
-    defer(ZERO, activity, model)
-
-suspend fun <M, R> SparkTaskScope<*>.spawn(activity: Activity<M, R>, model: M) =
-    spawn(FloatingActivity(activity), model)

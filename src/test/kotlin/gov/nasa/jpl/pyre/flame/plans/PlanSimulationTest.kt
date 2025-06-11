@@ -39,7 +39,6 @@ import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.report
-import gov.nasa.jpl.pyre.spark.tasks.spawn
 import gov.nasa.jpl.pyre.spark.tasks.whenever
 import gov.nasa.jpl.pyre.spark.value
 import org.junit.jupiter.api.Assertions.*
