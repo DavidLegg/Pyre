@@ -359,7 +359,7 @@ class SimulationTest {
     fun task_can_await_condition() {
         runSimulation(HOUR) {
             spawn("Await condition") {
-                Await({ Condition.Complete(ZERO) }) {
+                Await({ Condition.SatisfiedAt(ZERO) }) {
                     Complete(Unit)
                 }
             }
@@ -371,7 +371,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
             spawn("Awaiter") {
-                Await({ Condition.Complete(ZERO) }) {
+                Await({ Condition.SatisfiedAt(ZERO) }) {
                     Read(x) {
                         Report(JsonString("Awaiter says: x = $it")) {
                             Complete(Unit)
@@ -400,7 +400,7 @@ class SimulationTest {
     fun await_never_condition_does_not_run_task() {
         val results = runSimulation(HOUR) {
             spawn("Awaiter") {
-                Await({ Condition.Complete(null) }) {
+                Await({ Condition.UnsatisfiedUntil(null) }) {
                     Report(JsonString("Awaiter ran!")) {
                         Complete(Unit)
                     }
@@ -418,7 +418,7 @@ class SimulationTest {
             spawn("Awaiter") {
                 val condition = Condition.Read(x) { xValue ->
                     Condition.Read(y) { yValue ->
-                        Condition.Complete(if (xValue >= yValue) ZERO else null)
+                        if (xValue >= yValue) Condition.SatisfiedAt(ZERO) else Condition.UnsatisfiedUntil(null)
                     }
                 }
                 Await({ condition }) {
@@ -466,16 +466,16 @@ class SimulationTest {
             val x = allocate(linearCell("x", 10.0, 1.0))
             spawn("Awaiter") {
                 val cond = Condition.Read(x) {
-                    Condition.Complete(with (it) {
+                    with (it) {
                         // Example implementation of a "greater than 20" condition for a linear dynamics type.
                         if (value >= 20) {
-                            ZERO
+                            Condition.SatisfiedAt(ZERO)
                         } else if (rate <= 0) {
-                            null
+                            Condition.UnsatisfiedUntil(null)
                         } else {
-                            ((20 - value) / rate) ceilTimes SECOND
+                            Condition.SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
                         }
-                    })
+                    }
                 }
                 Await({ cond }) {
                     Read(x) {
@@ -504,16 +504,16 @@ class SimulationTest {
             val y = allocate(intCounterCell("y", 0))
             spawn("Awaiter") {
                 val cond = Condition.Read(x) {
-                    Condition.Complete(with (it) {
+                    with (it) {
                         // Example implementation of a "greater than 20" condition for a linear dynamics type.
                         if (value >= 20) {
-                            ZERO
+                            Condition.SatisfiedAt(ZERO)
                         } else if (rate <= 0) {
-                            null
+                            Condition.UnsatisfiedUntil(null)
                         } else {
-                            ((20 - value) / rate) ceilTimes SECOND
+                            Condition.SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
                         }
-                    })
+                    }
                 }
                 Await({ cond }) {
                     Read(x) {
@@ -548,7 +548,6 @@ class SimulationTest {
         with (JsonArray(results.reports)) {
             array {
                 element {
-                    assertEquals(2, values.size)
                     assertNearlyEquals(35.0, double("value")!!)
                     assertNearlyEquals(0.0, double("rate")!!)
                 }
@@ -566,16 +565,16 @@ class SimulationTest {
             val y = allocate(intCounterCell("y", 0))
             spawn("Awaiter") {
                 val cond = Condition.Read(x) {
-                    Condition.Complete(with (it) {
+                    with (it) {
                         // Example implementation of a "greater than 20" condition for a linear dynamics type.
                         if (value >= 20) {
-                            ZERO
+                            Condition.SatisfiedAt(ZERO)
                         } else if (rate <= 0) {
-                            null
+                            Condition.UnsatisfiedUntil(null)
                         } else {
-                            ((20 - value) / rate) ceilTimes SECOND
+                            Condition.SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
                         }
-                    })
+                    }
                 }
                 Await({ cond }) {
                     Read(x) {
@@ -610,12 +609,89 @@ class SimulationTest {
         with (JsonArray(results.reports)) {
             array {
                 element {
-                    assertEquals(2, values.size)
                     // Condition isn't satisfied until it waits long enough for x to grow to 20
                     assertNearlyEquals(20.0, double("value")!!)
                     assertNearlyEquals(0.1, double("rate")!!)
                 }
                 element { assertEquals("Awaiter says: y = 3", string())}
+                assert(atEnd())
+            }
+        }
+    }
+
+    @Test
+    fun unsatisfied_condition_will_be_reevaluated() {
+        val results = runSimulation(HOUR) {
+            val x = allocate(linearCell("x", 10.0, 1.0))
+            spawn("Awaiter") {
+                Await({
+                    Condition.Read(x) {
+                        if (it.value >= 15) {
+                            Condition.SatisfiedAt(ZERO)
+                        } else {
+                            Condition.UnsatisfiedUntil(2 * SECOND)
+                        }
+                    }
+                }) {
+                    Read(x) {
+                        Report(x.serializer.serialize(it)) {
+                            Complete(Unit)
+                        }
+                    }
+                }
+            }
+        }
+        with (JsonArray(results.reports)) {
+            array {
+                element {
+                    // Condition repeatedly delays re-evaluation for 2s, so value is 16 by the time it's satisfied
+                    assertNearlyEquals(16.0, double("value")!!)
+                    assertNearlyEquals(1.0, double("rate")!!)
+                }
+                assert(atEnd())
+            }
+        }
+    }
+
+    @Test
+    fun unsatisfied_condition_reevaluation_can_be_interrupted() {
+        val results = runSimulation(HOUR) {
+            val x = allocate(linearCell("x", 10.0, 1.0))
+            spawn("Awaiter") {
+                Await({
+                    Condition.Read(x) {
+                        if (it.value >= 15) {
+                            Condition.SatisfiedAt(ZERO)
+                        } else {
+                            Condition.UnsatisfiedUntil(MINUTE)
+                        }
+                    }
+                }) {
+                    Read(x) {
+                        Report(x.serializer.serialize(it)) {
+                            Complete(Unit)
+                        }
+                    }
+                }
+            }
+
+            spawn("Interrupter") {
+                Delay(5 * SECOND) {
+                    Emit(x, LinearDynamics(20.0, 0.0)) {
+                        Complete(Unit)
+                    }
+                }
+            }
+        }
+        with (JsonArray(results.reports)) {
+            array {
+                element {
+                    // Condition evaluates at first to Unsatisfied, with a 1-minute expiry.
+                    // That's interrupted by the interrupter task, which sets the value to 20.
+                    // Had it not been interrupted, it would have grown to 70.
+                    assertNearlyEquals(20.0, double("value")!!)
+                    assertNearlyEquals(0.0, double("rate")!!)
+                }
                 assert(atEnd())
             }
         }

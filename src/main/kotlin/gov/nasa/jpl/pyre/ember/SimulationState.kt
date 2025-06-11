@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.ember.Task.TaskStepResult.*
 import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
+import gov.nasa.jpl.pyre.ember.Condition.ConditionResult
 import gov.nasa.jpl.pyre.ember.Task.PureStepResult
 import java.util.Comparator.comparing
 import java.util.PriorityQueue
@@ -115,7 +116,7 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
             }
 
             // Evaluate the condition
-            val (cellsRead, readyTime) = evaluateCondition(stepResult.condition(), cellSet)
+            val (cellsRead, result) = evaluateCondition(stepResult.condition(), cellSet)
 
             // Schedule listeners to re-evaluate condition
             for (cell in cellsRead) {
@@ -123,18 +124,29 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
             }
             listeningTasks[rewaitTask] = cellsRead
 
-            if (readyTime != null) {
-                // Add conditional task to resume the awaiting task when the condition is satisfied
-                val continuationTask = object : Task<T> by stepResult.continuation {
-                    override fun runStep(): Task.TaskStepResult<T> {
-                        // Remove all listeners before continuing so we don't re-trigger the condition
-                        reset(rewaitTask)
-                        return stepResult.continuation.runStep()
+            when (result) {
+                is Condition.SatisfiedAt -> {
+                    // Add conditional task to resume the awaiting task when the condition is satisfied
+                    val continuationTask = object : Task<T> by stepResult.continuation {
+                        override fun runStep(): Task.TaskStepResult<T> {
+                            // Remove all listeners before continuing so we don't re-trigger the condition
+                            reset(rewaitTask)
+                            return stepResult.continuation.runStep()
+                        }
+                    }
+                    val continuationEntry = TaskEntry(time + result.time, continuationTask)
+                    tasks += continuationEntry
+                    conditionalTasks[rewaitTask] = continuationEntry
+                }
+                is Condition.UnsatisfiedUntil -> {
+                    if (result.time != null) {
+                        // Schedule the rewait task to re-evaluate the condition once this unsatisfied result expires
+                        val rewaitEntry = TaskEntry(time + result.time, rewaitTask)
+                        tasks += rewaitEntry
+                        // Also register this scheduled run to be canceled, if an effect re-evaluates the condition sooner
+                        conditionalTasks[rewaitTask] = rewaitEntry
                     }
                 }
-                val continuationEntry = TaskEntry(time + readyTime, continuationTask)
-                tasks += continuationEntry
-                conditionalTasks[rewaitTask] = continuationEntry
             }
         }
 
@@ -175,13 +187,13 @@ class SimulationState(private val reportHandler: (JsonValue) -> Unit) {
         InternalLogger.endBlock()
     }
 
-    private fun evaluateCondition(condition: Condition, cellSet: CellSet): Pair<Set<CellHandle<*, *>>, Duration?> {
+    private fun evaluateCondition(condition: Condition, cellSet: CellSet): Pair<Set<CellHandle<*, *>>, ConditionResult> {
         InternalLogger.log("Eval condition $condition")
         fun <V> evaluateRead(read: Condition.Read<V>) =
             with (evaluateCondition(read.continuation(cellSet[read.cell].value), cellSet)) { copy(first = first + read.cell) }
 
         return when (condition) {
-            is Condition.Complete -> Pair(emptySet(), condition.time)
+            is Condition.SatisfiedAt, is Condition.UnsatisfiedUntil -> Pair(emptySet(), condition)
             is Condition.Read<*> -> evaluateRead(condition)
         }
     }

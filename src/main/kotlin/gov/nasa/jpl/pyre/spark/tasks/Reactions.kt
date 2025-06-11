@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.spark.tasks
 
 import gov.nasa.jpl.pyre.ember.Condition
+import gov.nasa.jpl.pyre.ember.Condition.*
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.PureTaskStep
 import gov.nasa.jpl.pyre.ember.minus
@@ -10,9 +11,13 @@ import gov.nasa.jpl.pyre.spark.resources.*
 
 // Conditions are isomorphic to boolean discrete resources.
 // Realize this isomorphism through the whenTrue function, and apply it implicitly by overloading await.
+// In practice, most modelers will use conditions this way, by building up a boolean resource derivation.
+// Doing so reduces maintenance burden by letting maintainers focus only on resource derivation.
 
 fun whenTrue(resource: BooleanResource): () -> Condition = condition {
-    if (resource.getValue()) ZERO else null
+    with (resource.getDynamics()) {
+        if (data.value) SatisfiedAt(ZERO) else UnsatisfiedUntil(expiry.time)
+    }
 }
 
 suspend fun TaskScope<*>.await(condition: BooleanResource) = await(whenTrue(condition))
@@ -52,7 +57,8 @@ suspend fun <V, D : Dynamics<V, D>> SparkTaskScope<*>.dynamicsChange(resource: R
     return condition {
         val dynamics2 = resource.getDynamics()
         val time2 = simulationClock.getValue()
-        if (dynamics1.data.step(time2 - time1) != dynamics2.data) ZERO else dynamics2.expiry.time
+        if (dynamics1.data.step(time2 - time1) != dynamics2.data) SatisfiedAt(ZERO)
+        else dynamics2.expiry.time?.let(::SatisfiedAt) ?: UnsatisfiedUntil(null)
     }
 }
 

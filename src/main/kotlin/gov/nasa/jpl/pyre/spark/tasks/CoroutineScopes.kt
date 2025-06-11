@@ -3,6 +3,7 @@ package gov.nasa.jpl.pyre.spark.tasks
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
 import gov.nasa.jpl.pyre.ember.Condition
+import gov.nasa.jpl.pyre.ember.Condition.ConditionResult
 import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.PureTaskStep
 import gov.nasa.jpl.pyre.ember.Task
@@ -44,13 +45,13 @@ interface ConditionScope : CellsReadableScope
  * ```
  */
 // Reconstruct the ConditionBuilder with each re-evaluation of the condition
-fun condition(block: suspend ConditionScope.() -> Duration?): () -> Condition = { ConditionBuilder(block).getCondition() }
+fun condition(block: suspend ConditionScope.() -> ConditionResult): () -> Condition = { ConditionBuilder(block).getCondition() }
 
-private class ConditionBuilder : ConditionScope, Continuation<Duration?> {
+private class ConditionBuilder : ConditionScope, Continuation<ConditionResult> {
     private val start: Continuation<Unit>
     private var nextResult: Condition? = null
 
-    constructor(block: suspend ConditionScope.() -> Duration?) {
+    constructor(block: suspend ConditionScope.() -> ConditionResult) {
         start = block.createCoroutineUnintercepted(this, this)
     }
 
@@ -68,8 +69,8 @@ private class ConditionBuilder : ConditionScope, Continuation<Duration?> {
         get() = EmptyCoroutineContext
 
     // Completion continuation implementation
-    override fun resumeWith(result: Result<Duration?>) {
-        nextResult = Condition.Complete(result.getOrThrow())
+    override fun resumeWith(result: Result<ConditionResult>) {
+        nextResult = result.getOrThrow()
     }
 
     fun getCondition(): Condition {
