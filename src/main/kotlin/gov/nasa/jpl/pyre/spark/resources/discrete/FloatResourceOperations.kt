@@ -1,17 +1,14 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
-import gov.nasa.jpl.pyre.spark.BasicSerializers.FLOAT_SERIALIZER
+import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.FLOAT_SERIALIZER
 import gov.nasa.jpl.pyre.spark.resources.autoEffects
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.div
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.minus
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.plus
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.rem
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.times
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteSerializer
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.register
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlin.math.abs
 

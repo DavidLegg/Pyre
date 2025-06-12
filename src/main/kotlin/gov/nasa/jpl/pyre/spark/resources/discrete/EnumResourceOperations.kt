@@ -4,6 +4,8 @@ import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.JsonValue.*
 import gov.nasa.jpl.pyre.ember.Serializer
 import gov.nasa.jpl.pyre.ember.SimulationState
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.register
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 
 // No type alias, just use (Mutable)DiscreteResource<E>

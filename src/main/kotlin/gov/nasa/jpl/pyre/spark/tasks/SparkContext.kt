@@ -29,28 +29,3 @@ fun <T> sparkTaskScope(): SparkTaskScope<T> =
  * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]
  */
 suspend fun SparkTaskScope<*>.delayUntil(time: Duration) = delay(time - simulationClock.getValue())
-
-/**
- * Wraps the simple simulation report function with more structured report,
- * including a channel to report on and a time of the report.
- */
-suspend fun SparkTaskScope<*>.report(channel: String, data: JsonValue) {
-    report(JsonMap(mapOf(
-        "channel" to JsonString(channel),
-        "time" to Duration.serializer().serialize(simulationClock.getValue()),
-        "data" to data,
-    )))
-}
-
-fun <V, D : Dynamics<V, D>> SparkInitContext.register(
-    name: String,
-    resource: Resource<D>,
-    serializer: Serializer<D>) {
-    spawn("Report initial value for resource $name", task {
-        sparkTaskScope().report(name, serializer.serialize(resource.getDynamics().data))
-    })
-    spawn("Report resource $name", wheneverChanges(resource) {
-        report(name, serializer.serialize(resource.getDynamics().data))
-    })
-}
-

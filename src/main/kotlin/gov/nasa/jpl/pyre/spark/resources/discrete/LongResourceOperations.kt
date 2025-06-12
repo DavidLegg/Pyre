@@ -1,8 +1,11 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
-import gov.nasa.jpl.pyre.spark.BasicSerializers.LONG_SERIALIZER
+import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.LONG_SERIALIZER
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.register
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 

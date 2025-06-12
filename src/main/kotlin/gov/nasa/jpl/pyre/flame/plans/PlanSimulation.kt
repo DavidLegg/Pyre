@@ -8,12 +8,12 @@ import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.Simulation
 import gov.nasa.jpl.pyre.ember.SimulationState
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
-import gov.nasa.jpl.pyre.spark.BasicSerializers.nullable
+import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.nullable
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.equals
-import gov.nasa.jpl.pyre.spark.resources.discrete.notEquals
-import gov.nasa.jpl.pyre.spark.resources.discrete.set
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.equals
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.notEquals
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.resources.timer.Timer

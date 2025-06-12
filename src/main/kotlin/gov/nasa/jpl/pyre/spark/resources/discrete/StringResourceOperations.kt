@@ -1,7 +1,9 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
-import gov.nasa.jpl.pyre.spark.BasicSerializers.STRING_SERIALIZER
+import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.STRING_SERIALIZER
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.register
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 
 typealias StringResource = DiscreteResource<String>

@@ -3,12 +3,13 @@ package gov.nasa.jpl.pyre.spark
 import gov.nasa.jpl.pyre.boolean
 import gov.nasa.jpl.pyre.double
 import gov.nasa.jpl.pyre.ember.Duration
+import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.JsonValue
-import gov.nasa.jpl.pyre.ember.JsonValue.*
 import gov.nasa.jpl.pyre.int
 import gov.nasa.jpl.pyre.spark.ChannelizedReports.Report
+import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReportHandler
+import gov.nasa.jpl.pyre.spark.reporting.ReportHandler
 import gov.nasa.jpl.pyre.string
-import kotlin.collections.plusAssign
 import kotlin.test.assertEquals
 
 class ChannelizedReports {
@@ -17,21 +18,14 @@ class ChannelizedReports {
     private val channelizedReports: MutableMap<String, MutableList<Report>> = mutableMapOf()
     private val unchannelizedReports: MutableList<JsonValue> = mutableListOf()
 
-    fun add(report: JsonValue) {
-        try {
-            val values = (report as JsonMap).values
-            val channel = (values["channel"] as JsonString).value
-            val time = Duration.serializer().deserialize(requireNotNull(values["time"]))
-            val data = requireNotNull(values["data"])
-            channelizedReports.getOrPut(channel, ::mutableListOf) += Report(time, data)
-        } catch (e: Exception) {
-            when (e) {
-                is IllegalArgumentException, is IllegalStateException ->
-                    unchannelizedReports.add(report)
-                else -> throw e
-            }
-        }
-    }
+    fun handler(): ReportHandler = ChannelizedReportHandler(
+        { channel ->
+            val reports = mutableListOf<Report>()
+            channelizedReports[channel] = reports
+            { t, v -> reports.add(Report(t, v)) }
+        },
+        unchannelizedReports::add
+    )
 
     operator fun get(channel: String) =
         channelizedReports[channel]?.toList() ?: emptyList()

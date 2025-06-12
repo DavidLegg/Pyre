@@ -4,7 +4,7 @@ import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.*
 import gov.nasa.jpl.pyre.ember.JsonValue.*
-import gov.nasa.jpl.pyre.spark.BasicSerializers.INT_SERIALIZER
+import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.INT_SERIALIZER
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 
 data class Timer(val time: Duration, val rate: Int) : Dynamics<Duration, Timer> {

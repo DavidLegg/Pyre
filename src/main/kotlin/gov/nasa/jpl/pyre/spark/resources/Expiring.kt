@@ -4,8 +4,8 @@ import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.coals.curry
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.*
-import gov.nasa.jpl.pyre.spark.BasicSerializers.alias
-import gov.nasa.jpl.pyre.spark.BasicSerializers.nullable
+import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.alias
+import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.nullable
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
 
 data class Expiring<T>(val data: T, val expiry: Expiry)

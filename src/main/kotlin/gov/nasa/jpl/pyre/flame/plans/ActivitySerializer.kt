@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.JsonValue.*
 import gov.nasa.jpl.pyre.ember.Serializer
-import gov.nasa.jpl.pyre.spark.BasicSerializers.alias
+import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.alias
 
 
 class ActivitySerializer<M> : Serializer<GroundedActivity<M, *>> {

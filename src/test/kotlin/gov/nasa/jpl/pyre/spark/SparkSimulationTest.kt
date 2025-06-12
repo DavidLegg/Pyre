@@ -22,6 +22,11 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.discrete
 import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.StringResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThan
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.lessThan
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.resources.timer.Timer

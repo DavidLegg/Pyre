@@ -1,17 +1,12 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
-import gov.nasa.jpl.pyre.spark.BasicSerializers
-import gov.nasa.jpl.pyre.spark.BasicSerializers.INT_SERIALIZER
+import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.INT_SERIALIZER
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
-import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.div
-import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.minus
-import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.plus
-import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.rem
-import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.times
-import gov.nasa.jpl.pyre.spark.resources.resource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.register
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 typealias IntResource = DiscreteResource<Int>
@@ -22,7 +17,7 @@ object IntResourceOperations {
         discreteResource(name, value, INT_SERIALIZER)
 
     fun SparkInitContext.register(name: String, resource: DiscreteResource<Int>) {
-        register(name, resource, BasicSerializers.INT_SERIALIZER)
+        register(name, resource, INT_SERIALIZER)
     }
 
     operator fun IntResource.plus(other: IntResource): IntResource =

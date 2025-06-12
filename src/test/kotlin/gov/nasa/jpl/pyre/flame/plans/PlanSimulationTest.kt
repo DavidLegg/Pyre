@@ -30,15 +30,20 @@ import gov.nasa.jpl.pyre.spark.log
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulationTest.ModelWithResources.DummyActivity
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulationTest.PowerState.*
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulationTest.TestModel.*
+import gov.nasa.jpl.pyre.spark.reporting.report
 import gov.nasa.jpl.pyre.spark.resources.discrete.*
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.equals
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThan
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.notEquals
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.plus
+import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.register
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.await
-import gov.nasa.jpl.pyre.spark.tasks.report
 import gov.nasa.jpl.pyre.spark.tasks.whenever
 import gov.nasa.jpl.pyre.spark.value
 import org.junit.jupiter.api.Assertions.*
@@ -111,7 +116,7 @@ class PlanSimulationTest {
         val reports = ChannelizedReports()
         val simulation = PlanSimulation(
             PlanSimulationSetup(
-                reportHandler = reports::add,
+                reportHandler = reports.handler(),
                 inconProvider = null,
                 constructModel = ::ModelWithResources,
             )
@@ -137,7 +142,7 @@ class PlanSimulationTest {
         val reports = ChannelizedReports()
         val simulation = PlanSimulation(
             PlanSimulationSetup(
-                reportHandler = reports::add,
+                reportHandler = reports.handler(),
                 inconProvider = null,
                 constructModel = ::ModelWithResources,
             )
@@ -316,7 +321,7 @@ class PlanSimulationTest {
         val reports = ChannelizedReports()
         val simulation = PlanSimulation(
             PlanSimulationSetup(
-                reportHandler = reports::add,
+                reportHandler = reports.handler(),
                 inconProvider = null,
                 constructModel = ::TestModel,
             )
@@ -475,7 +480,7 @@ class PlanSimulationTest {
         val reports1 = ChannelizedReports()
         val simulation1 = PlanSimulation(
             PlanSimulationSetup(
-                reportHandler = reports1::add,
+                reportHandler = reports1.handler(),
                 inconProvider = null,
                 constructModel = ::TestModel,
             )
@@ -506,7 +511,7 @@ class PlanSimulationTest {
         val reports2 = ChannelizedReports()
         val simulation2 = PlanSimulation(
             PlanSimulationSetup(
-                reportHandler = reports2::add,
+                reportHandler = reports2.handler(),
                 inconProvider = JsonConditions.serializer().deserialize(fincon1),
                 constructModel = ::TestModel,
             )
@@ -537,7 +542,7 @@ class PlanSimulationTest {
         val reports3 = ChannelizedReports()
         val simulation3 = PlanSimulation(
             PlanSimulationSetup(
-                reportHandler = reports3::add,
+                reportHandler = reports3.handler(),
                 inconProvider = JsonConditions.serializer().deserialize(fincon2),
                 constructModel = ::TestModel,
             )
