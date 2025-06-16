@@ -5,11 +5,12 @@ package gov.nasa.jpl.pyre.ember
  * Output from this logger is not meant to be viewed by users of Pyre, and should only be used to debug Pyre itself.
  */
 object InternalLogger {
-    private val indent = "  "
+    private const val ENABLED: Boolean = false
+    private const val INDENT = "  "
     private var indentLevel = 0
 
     fun log(msg: String) {
-        println(indent.repeat(indentLevel) + msg)
+        if (ENABLED) println(INDENT.repeat(indentLevel) + msg)
     }
 
     fun indent() {

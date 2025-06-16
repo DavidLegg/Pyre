@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.ember.Duration
+import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.FinconCollector
 import gov.nasa.jpl.pyre.ember.InconProvider
 import gov.nasa.jpl.pyre.ember.InternalLogger
@@ -93,16 +94,21 @@ class PlanSimulation<M : Model<M>>(setup: PlanSimulationSetup<M>) : Simulation {
         }
     }
 
-    override fun runUntil(time: Duration) {
-        require(time >= state.time()) {
-            "Simulation time is currently ${state.time()}, cannot step backwards to $time"
+    override fun runUntil(endTime: Duration) {
+        require(endTime >= state.time()) {
+            "Simulation time is currently ${state.time()}, cannot step backwards to $endTime"
         }
         var n = 0
-        while (state.time() < time) {
-            if (++n > SIMULATION_STALL_LIMIT) {
+        var lastStepTime = ZERO
+        while (state.time() < endTime) {
+            if (++n >= SIMULATION_STALL_LIMIT) {
                 throw IllegalStateException("Simulation has stalled at ${state.time()} after $n iterations.")
             }
-            state.stepTo(time)
+            state.stepTo(endTime)
+            if (lastStepTime < state.time()) {
+                lastStepTime = state.time()
+                n = 0
+            }
         }
     }
 

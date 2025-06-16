@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.spark.tasks
 
 import gov.nasa.jpl.pyre.ember.Condition
 import gov.nasa.jpl.pyre.ember.Condition.*
+import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.PureTaskStep
 import gov.nasa.jpl.pyre.ember.minus
@@ -65,6 +66,13 @@ suspend fun <V, D : Dynamics<V, D>> SparkTaskScope<*>.dynamicsChange(resource: R
 fun <V, D : Dynamics<V, D>> SparkContext.wheneverChanges(resource: Resource<D>, block: suspend SparkTaskScope<Unit>.() -> Unit): PureTaskStep<Unit> = repeatingTask {
     with (sparkTaskScope()) {
         await(dynamicsChange(resource))
+        block()
+    }
+}
+
+fun SparkContext.every(interval: Duration, block: suspend SparkTaskScope<Unit>.() -> Unit): PureTaskStep<Unit> = repeatingTask {
+    with (sparkTaskScope()) {
+        delay(interval)
         block()
     }
 }

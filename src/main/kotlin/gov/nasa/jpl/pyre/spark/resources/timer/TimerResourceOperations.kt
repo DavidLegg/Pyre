@@ -3,6 +3,8 @@ package gov.nasa.jpl.pyre.spark.resources.timer
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.EPSILON
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
+import gov.nasa.jpl.pyre.ember.SimulationState
+import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.ember.abs
 import gov.nasa.jpl.pyre.ember.div
 import gov.nasa.jpl.pyre.ember.minus
@@ -22,10 +24,14 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResource
 import gov.nasa.jpl.pyre.spark.resources.emit
+import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlin.math.abs
 
 object TimerResourceOperations {
+    fun SimulationInitContext.timer(name: String, initialTime: Duration = ZERO, initialRate: Int = 1) =
+        resource(name, Timer(initialTime, initialRate), Timer.serializer())
+
     /**
      * Reset this timer to time, not running.
      */
