@@ -6,7 +6,6 @@ import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
 import gov.nasa.jpl.pyre.flame.plans.ActivitySerializer
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.Model
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.DOUBLE_ARRAY_SERIALIZER
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.register
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
