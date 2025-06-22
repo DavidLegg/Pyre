@@ -7,8 +7,6 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad
 import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
 
 fun interface ThinResource<D> {
-    // TODO: Factor out a "ResourceReadScope", which we use for ConditionScope, and from which TaskScope derives.
-    //  Use that scope here, so we can derive conditions from resources
     context (CellsReadableScope)
     suspend fun getDynamics() : D
 }
