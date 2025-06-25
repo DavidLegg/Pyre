@@ -7,6 +7,7 @@ import gov.nasa.jpl.pyre.ember.JsonValue.JsonMap
 import gov.nasa.jpl.pyre.ember.JsonValue.JsonNull
 import gov.nasa.jpl.pyre.ember.JsonValue.JsonString
 import gov.nasa.jpl.pyre.ember.Serializer
+import gov.nasa.jpl.pyre.ember.toKotlinDuration
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.getValue
@@ -15,6 +16,8 @@ import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.task
 import gov.nasa.jpl.pyre.spark.tasks.wheneverChanges
+import kotlin.time.Instant
+import kotlin.time.toJavaInstant
 
 typealias Channel = String
 
@@ -25,7 +28,7 @@ typealias Channel = String
 suspend fun SparkTaskScope<*>.report(channel: Channel, data: JsonValue) {
     report(JsonMap(mapOf(
         "channel" to JsonString(channel),
-        "time" to Duration.serializer().serialize(simulationClock.getValue()),
+        "time" to JsonString((simulationEpoch + simulationClock.getValue().toKotlinDuration()).toString()),
         "data" to data,
     )))
 }
@@ -56,7 +59,7 @@ fun <V, D : Dynamics<V, D>> SparkInitContext.register(
 }
 
 typealias ReportHandler = (JsonValue) -> Unit
-typealias ChannelHandler = (Duration, JsonValue) -> Unit
+typealias ChannelHandler = (Instant, JsonValue) -> Unit
 
 /**
  * Splits out reports by channel, for all reports in standard channel format.
@@ -68,7 +71,7 @@ class ChannelizedReportHandler(
     private val channelHandlers: MutableMap<String, ChannelHandler> = mutableMapOf()
     override fun invoke(p1: JsonValue) {
         val channel = ((p1 as? JsonMap)?.values["channel"] as? JsonString)?.value
-        val time = (p1 as? JsonMap)?.values["time"]?.let(Duration.serializer()::deserialize)
+        val time = ((p1 as? JsonMap)?.values["time"] as JsonString?)?.value?.let(Instant::parse)
         if (channel != null && time != null) {
             channelHandlers.computeIfAbsent(channel, createChannelHandler)(time, p1.values["data"] ?: JsonNull)
         } else {

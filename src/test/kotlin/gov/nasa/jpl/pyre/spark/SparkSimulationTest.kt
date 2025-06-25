@@ -39,6 +39,7 @@ import gov.nasa.jpl.pyre.string
 import org.junit.jupiter.api.assertDoesNotThrow
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 
 class SparkSimulationTest {
     private data class SimulationResult(
@@ -288,6 +289,7 @@ class SparkSimulationTest {
 
             val sparkContext = object : SparkContext {
                 override val simulationClock: Resource<Timer> = resource("simulationClock", Timer(ZERO, 1), Timer.serializer())
+                override val simulationEpoch: Instant = Instant.parse("2020-01-01T00:00:00.00Z")
             }
             with (sparkContext) {
                 spawn("Minimum Monitor", onceWhenever(setting lessThan minimum) {

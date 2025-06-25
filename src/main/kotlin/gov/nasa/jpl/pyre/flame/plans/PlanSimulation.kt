@@ -6,9 +6,11 @@ import gov.nasa.jpl.pyre.ember.FinconCollector
 import gov.nasa.jpl.pyre.ember.InconProvider
 import gov.nasa.jpl.pyre.ember.InternalLogger
 import gov.nasa.jpl.pyre.ember.JsonValue
+import gov.nasa.jpl.pyre.ember.JsonValue.JsonString
 import gov.nasa.jpl.pyre.ember.Simulation
 import gov.nasa.jpl.pyre.ember.SimulationState
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
+import gov.nasa.jpl.pyre.ember.toPyreDuration
 import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.nullable
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
@@ -23,6 +25,7 @@ import gov.nasa.jpl.pyre.spark.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.coroutineTask
 import gov.nasa.jpl.pyre.spark.tasks.whenever
+import kotlin.time.Instant
 
 // TODO: Consider pulling PlanSimulation out of spark and into the next higher level (flame?)
 
@@ -41,12 +44,62 @@ import gov.nasa.jpl.pyre.spark.tasks.whenever
  * 3. simulating until the end of this cycle, and
  * 4. cutting a fincon in preparation for the next cycle.
  */
-class PlanSimulation<M : Model<M>>(setup: PlanSimulationSetup<M>) : Simulation {
-    data class PlanSimulationSetup<M>(
-        val reportHandler: (JsonValue) -> Unit,
-        val inconProvider: InconProvider?,
-        val constructModel: SparkInitContext.() -> M,
-    )
+class PlanSimulation<M : Model<M>> : Simulation {
+    private val simulationEpoch: Instant
+    private val state: SimulationState
+    private val activityResource: MutableDiscreteResource<GroundedActivity<M, *>?>
+
+    constructor(
+        reportHandler: (JsonValue) -> Unit,
+        inconProvider: InconProvider,
+        constructModel: SparkInitContext.() -> M,
+    ) : this(reportHandler, null, null, inconProvider, constructModel)
+
+    constructor(
+        reportHandler: (JsonValue) -> Unit,
+        simulationEpoch: Instant,
+        simulationStart: Instant,
+        constructModel: SparkInitContext.() -> M,
+    ) : this(reportHandler, simulationEpoch, (simulationStart - simulationEpoch).toPyreDuration(), null, constructModel)
+
+    private constructor(
+        reportHandler: (JsonValue) -> Unit,
+        simulationEpoch: Instant?,
+        simulationStart: Duration?,
+        inconProvider: InconProvider?,
+        constructModel: SparkInitContext.() -> M,
+    ) {
+        this.simulationEpoch = requireNotNull(simulationEpoch ?: (inconProvider?.get("simulation", "epoch") as JsonString?)?.value?.let(Instant::parse))
+        var start = requireNotNull(simulationStart ?: inconProvider?.get("simulation", "time")?.let(Duration.serializer()::deserialize))
+        state = SimulationState(reportHandler)
+        val initContext = state.initContext()
+        val sparkContext = object : SparkInitContext, SimulationInitContext by initContext {
+            override val simulationClock = resource("simulation_clock", Timer(start, 1), Timer.serializer())
+            override val simulationEpoch = this@PlanSimulation.simulationEpoch
+        }
+        with(sparkContext) {
+            // Construct the model itself
+            val model = constructModel()
+            val activitySerializer = nullable(model.activitySerializer())
+
+            // Construct the activity daemon
+            // This reaction loop will build an activity whenever the directive resource is loaded.
+            // Reacting to a resource like this plays nicely with the fincon - each iteration of the loop
+            // is a function of the resource value (activity directive) read on that iteration.
+            // If the activity is captured by a fincon, it will record the directive's serialization
+            // in the task history, such that it can be re-launched when the simulation is restored.
+            activityResource = discreteResource("activity_to_schedule", null, activitySerializer)
+            spawn("activities", whenever(activityResource notEquals null) {
+                val groundedActivity = requireNotNull(activityResource.getValue())
+                activityResource.set(null)
+                InternalLogger.log("Scheduling activity ${groundedActivity.name} @ ${groundedActivity.time}")
+                spawn(groundedActivity, model)
+            })
+        }
+
+        // Now that the root tasks are in place, we can restore the simulation
+        inconProvider?.let(state::restore)
+    }
 
     companion object {
         /**
@@ -58,41 +111,7 @@ class PlanSimulation<M : Model<M>>(setup: PlanSimulationSetup<M>) : Simulation {
         var SIMULATION_STALL_LIMIT: Int = 100
     }
 
-    private val state: SimulationState
-    private val activityResource: MutableDiscreteResource<GroundedActivity<M, *>?>
-
-    init {
-        with (setup) {
-            state = SimulationState(reportHandler)
-
-            val initContext = state.initContext()
-            val sparkContext = object : SparkInitContext, SimulationInitContext by initContext {
-                override val simulationClock = resource("simulation_clock", Timer(Duration.ZERO, 1), Timer.serializer())
-            }
-            with (sparkContext) {
-                // Construct the model itself
-                val model = constructModel()
-                val activitySerializer = nullable(model.activitySerializer())
-
-                // Construct the activity daemon
-                // This reaction loop will build an activity whenever the directive resource is loaded.
-                // Reacting to a resource like this plays nicely with the fincon - each iteration of the loop
-                // is a function of the resource value (activity directive) read on that iteration.
-                // If the activity is captured by a fincon, it will record the directive's serialization
-                // in the task history, such that it can be re-launched when the simulation is restored.
-                activityResource = discreteResource("activity_to_schedule", null, activitySerializer)
-                spawn("activities", whenever(activityResource notEquals null) {
-                    val groundedActivity = requireNotNull(activityResource.getValue())
-                    activityResource.set(null)
-                    InternalLogger.log("Scheduling activity ${groundedActivity.name} @ ${groundedActivity.time}")
-                    spawn(groundedActivity, model)
-                })
-            }
-
-            // Now that the root tasks are in place, we can restore the simulation
-            inconProvider?.let(state::restore)
-        }
-    }
+    fun runUntil(endTime: Instant) = runUntil((endTime - simulationEpoch).toPyreDuration())
 
     override fun runUntil(endTime: Duration) {
         require(endTime >= state.time()) {
@@ -114,6 +133,7 @@ class PlanSimulation<M : Model<M>>(setup: PlanSimulationSetup<M>) : Simulation {
 
     override fun save(finconCollector: FinconCollector) {
         state.save(finconCollector)
+        finconCollector.report("simulation", "epoch", value=JsonString(simulationEpoch.toString()))
     }
 
     fun addActivities(activities: List<GroundedActivity<M, *>>) {
@@ -126,7 +146,7 @@ class PlanSimulation<M : Model<M>>(setup: PlanSimulationSetup<M>) : Simulation {
             // The directive loader will iteratively pull directives off the queue
             // and set them in the activityDirectiveResource.
             // The activity launcher will react to this by constructing and launching the activity.
-            // That nulls out the resource, allowing this task to load the next resource.
+            // That nulls out the resource, allowing this task to load the next activity.
 
             // Note that because this task depends on state not captured in a cell, it is not "safe" for simulation.
             // However, because it works in conjunction with the activity launcher, it will always complete

@@ -5,15 +5,18 @@ import gov.nasa.jpl.pyre.double
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.JsonValue
+import gov.nasa.jpl.pyre.ember.toJavaDuration
+import gov.nasa.jpl.pyre.ember.toKotlinDuration
 import gov.nasa.jpl.pyre.int
 import gov.nasa.jpl.pyre.spark.ChannelizedReports.Report
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReportHandler
 import gov.nasa.jpl.pyre.spark.reporting.ReportHandler
 import gov.nasa.jpl.pyre.string
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 
 class ChannelizedReports {
-    data class Report(val time: Duration, val data: JsonValue)
+    data class Report(val time: Instant, val data: JsonValue)
 
     private val channelizedReports: MutableMap<String, MutableList<Report>> = mutableMapOf()
     private val unchannelizedReports: MutableList<JsonValue> = mutableListOf()
@@ -38,10 +41,13 @@ fun ChannelizedReports.channel(channel: String, block: ChannelAssertContext.() -
 }
 
 class ChannelAssertContext(val channel: List<Report>) {
-    private var time = Duration.ZERO
+    private var epoch: Instant = Instant.DISTANT_PAST
+    private var time: Instant = Instant.DISTANT_PAST
     private var n: Int = 0
 
-    fun at(time: Duration) { this.time = time }
+    fun withEpoch(time: Instant) { this.epoch = time}
+    fun at(time: Duration) = at(epoch + time.toKotlinDuration())
+    fun at(time: Instant) { this.time = time }
     fun element(block: JsonValue.() -> Unit) {
         val report = channel[n++]
         assertEquals(time, report.time)

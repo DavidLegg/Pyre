@@ -5,7 +5,6 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.int
 import gov.nasa.jpl.pyre.spark.ChannelizedReports
 import gov.nasa.jpl.pyre.spark.channel
-import gov.nasa.jpl.pyre.flame.plans.PlanSimulation.PlanSimulationSetup
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.StringResourceOperations.discreteResource
@@ -48,6 +47,7 @@ import gov.nasa.jpl.pyre.spark.tasks.whenever
 import gov.nasa.jpl.pyre.spark.value
 import org.junit.jupiter.api.Assertions.*
 import kotlin.test.Test
+import kotlin.time.Instant
 
 class PlanSimulationTest {
     class EmptyModel: Model<EmptyModel> {
@@ -61,11 +61,10 @@ class PlanSimulationTest {
     fun empty_model_can_be_created() {
         assertDoesNotThrow {
             val simulation = PlanSimulation(
-                PlanSimulationSetup(
-                    reportHandler = { },
-                    inconProvider = null,
-                    constructModel = ::EmptyModel,
-                )
+                reportHandler = { },
+                simulationStart = Instant.parse("2020-01-01T00:00:00Z"),
+                simulationEpoch = Instant.parse("2020-01-01T00:00:00Z"),
+                constructModel = ::EmptyModel,
             )
             simulation.runUntil(HOUR)
         }
@@ -114,22 +113,24 @@ class PlanSimulationTest {
     @Test
     fun model_with_resources_can_be_created() {
         val reports = ChannelizedReports()
+        val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation = PlanSimulation(
-            PlanSimulationSetup(
-                reportHandler = reports.handler(),
-                inconProvider = null,
-                constructModel = ::ModelWithResources,
-            )
+            reportHandler = reports.handler(),
+            simulationStart = epoch,
+            simulationEpoch = epoch,
+            constructModel = ::ModelWithResources,
         )
         simulation.runUntil(HOUR)
 
         with (reports) {
             channel("x") {
+                withEpoch(epoch)
                 at(ZERO)
                 element { assertEquals(0, int()) }
                 assert(atEnd())
             }
             channel("y") {
+                withEpoch(epoch)
                 at(ZERO)
                 element { assertEquals("XYZ", string()) }
                 assert(atEnd())
@@ -140,12 +141,12 @@ class PlanSimulationTest {
     @Test
     fun activities_can_be_created() {
         val reports = ChannelizedReports()
+        val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation = PlanSimulation(
-            PlanSimulationSetup(
-                reportHandler = reports.handler(),
-                inconProvider = null,
-                constructModel = ::ModelWithResources,
-            )
+            reportHandler = reports.handler(),
+            simulationStart = epoch,
+            simulationEpoch = epoch,
+            constructModel = ::ModelWithResources,
         )
         simulation.runPlan(
             Plan(
@@ -163,16 +164,19 @@ class PlanSimulationTest {
 
         with (reports) {
             channel("x") {
+                withEpoch(epoch)
                 at(ZERO)
                 element { assertEquals(0, int()) }
                 assert(atEnd())
             }
             channel("y") {
+                withEpoch(epoch)
                 at(ZERO)
                 element { assertEquals("XYZ", string()) }
                 assert(atEnd())
             }
             channel("activities") {
+                withEpoch(epoch)
                 at(5 * MINUTE)
                 activityStart("Activity 1", "Type A")
                 activityEnd("Activity 1", "Type A")
@@ -319,12 +323,12 @@ class PlanSimulationTest {
     @Test
     fun activities_can_interact_with_model() {
         val reports = ChannelizedReports()
+        val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation = PlanSimulation(
-            PlanSimulationSetup(
-                reportHandler = reports.handler(),
-                inconProvider = null,
-                constructModel = ::TestModel,
-            )
+            reportHandler = reports.handler(),
+            simulationStart = epoch,
+            simulationEpoch = epoch,
+            constructModel = ::TestModel,
         )
         simulation.runPlan(
             Plan(
@@ -346,6 +350,7 @@ class PlanSimulationTest {
 
         with (reports) {
             channel("activities") {
+                withEpoch(epoch)
                 at(5 * MINUTE)
                 activityStart("DeviceBoot")
                 at(10 * MINUTE)
@@ -386,11 +391,13 @@ class PlanSimulationTest {
                 end()
             }
             channel("warning") {
+                withEpoch(epoch)
                 at(115 * MINUTE)
                 log("Overheat Protection triggered!")
                 end()
             }
             channel("deviceState") {
+                withEpoch(epoch)
                 at(ZERO)
                 value("OFF")
                 at(5 * MINUTE)
@@ -428,6 +435,7 @@ class PlanSimulationTest {
                 end()
             }
             channel("miscPower") {
+                withEpoch(epoch)
                 at(ZERO)
                 value(0.0)
                 at(110 * MINUTE)
@@ -437,6 +445,7 @@ class PlanSimulationTest {
                 end()
             }
             channel("totalPower") {
+                withEpoch(epoch)
                 at(ZERO)
                 value(0.0)
                 at(5 * MINUTE)
@@ -478,12 +487,12 @@ class PlanSimulationTest {
     @Test
     fun activities_can_be_saved_and_restored() {
         val reports1 = ChannelizedReports()
+        val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation1 = PlanSimulation(
-            PlanSimulationSetup(
-                reportHandler = reports1.handler(),
-                inconProvider = null,
-                constructModel = ::TestModel,
-            )
+            reportHandler = reports1.handler(),
+            simulationStart = epoch,
+            simulationEpoch = epoch,
+            constructModel = ::TestModel,
         )
         // Use addActivities and runUntil to force a state with finished, running, and unstarted activities
         simulation1.addActivities(
@@ -496,6 +505,7 @@ class PlanSimulationTest {
         simulation1.runUntil(20 * MINUTE)
         with (reports1) {
             channel("activities") {
+                withEpoch(epoch)
                 at(3 * MINUTE)
                 activityStart("DeviceBoot")
                 at(8 * MINUTE)
@@ -510,11 +520,9 @@ class PlanSimulationTest {
 
         val reports2 = ChannelizedReports()
         val simulation2 = PlanSimulation(
-            PlanSimulationSetup(
-                reportHandler = reports2.handler(),
-                inconProvider = JsonConditions.serializer().deserialize(fincon1),
-                constructModel = ::TestModel,
-            )
+            reportHandler = reports2.handler(),
+            inconProvider = JsonConditions.serializer().deserialize(fincon1),
+            constructModel = ::TestModel,
         )
         // Add an activity which will spawn a child, which will be active during the next fincon cycle
         simulation2.addActivities(listOf(
@@ -524,6 +532,7 @@ class PlanSimulationTest {
 
         with (reports2) {
             channel("activities") {
+                withEpoch(epoch)
                 at(70 * MINUTE)
                 activityEnd("DeviceActivate")
                 at(80 * MINUTE)
@@ -541,15 +550,14 @@ class PlanSimulationTest {
 
         val reports3 = ChannelizedReports()
         val simulation3 = PlanSimulation(
-            PlanSimulationSetup(
-                reportHandler = reports3.handler(),
-                inconProvider = JsonConditions.serializer().deserialize(fincon2),
-                constructModel = ::TestModel,
-            )
+            reportHandler = reports3.handler(),
+            inconProvider = JsonConditions.serializer().deserialize(fincon2),
+            constructModel = ::TestModel,
         )
         simulation3.runUntil(3 * HOUR)
         with(reports3) {
             channel("activities") {
+                withEpoch(epoch)
                 at(2 * HOUR + 3 * MINUTE)
                 activityEnd("DeviceBoot")
                 at(2 * HOUR + 23 * MINUTE)

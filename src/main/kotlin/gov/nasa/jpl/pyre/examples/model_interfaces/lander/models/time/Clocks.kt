@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.time
 
-import gov.nasa.jpl.pyre.ember.toJavaDuration
 import gov.nasa.jpl.pyre.flame.resources.unstructured.UnstructuredResource
 import gov.nasa.jpl.pyre.flame.resources.unstructured.UnstructuredResourceApplicative.map
 import gov.nasa.jpl.pyre.flame.resources.unstructured.UnstructuredResourceOperations.asUnstructured
@@ -9,11 +8,11 @@ import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.greaterTh
 import gov.nasa.jpl.pyre.spark.tasks.SparkContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import kotlin.time.ExperimentalTime
-import kotlin.time.Instant
 import kotlin.time.toJavaInstant
 
 @OptIn(ExperimentalTime::class)
-class Clocks(context: SparkInitContext, val simStart: Time) {
+class Clocks(context: SparkInitContext) {
+    val epoch: Time
     val time: UnstructuredResource<Time>
     // Convenience functions for looking up the current time in various formats
     val utcTimestamp: UnstructuredResource<String>
@@ -21,12 +20,15 @@ class Clocks(context: SparkInitContext, val simStart: Time) {
 
     init {
         with (context) {
-            time = map(simulationClock.asUnstructured()) { simStart + it }
+            epoch = Time(simulationEpoch.toJavaInstant())
+            time = map(simulationClock.asUnstructured()) { epoch + it }
             utcTimestamp = map(time, Time::utcTimestamp)
             lmstTimestamp = map(time, Time::lmstTimestamp)
         }
     }
 
+    // There may be better ways to do this, like building new dynamics types to represent "absolute clocks"
+    // Using the epoch to pass through to Duration is simple and effective, though.
     context(SparkContext)
-    fun timeReaches(time: Time): BooleanResource = simulationClock greaterThanOrEquals (time - simStart)
+    fun timeReaches(time: Time): BooleanResource = simulationClock greaterThanOrEquals (time - epoch)
 }
