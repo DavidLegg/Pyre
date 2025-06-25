@@ -20,9 +20,12 @@ interface MutableResource<D> : Resource<D> {
 typealias ResourceEffect<D> = (FullDynamics<D>) -> FullDynamics<D>
 
 context (TaskScope<*>)
-suspend fun <D> MutableResource<D>.emit(effect: (D) -> D) = this.emit {
+suspend fun <D> MutableResource<D>.emit(effect: (D) -> D) = emit {
     Expiring(effect(it.data), NEVER)
 }
+
+context (TaskScope<*>)
+suspend fun <D> MutableResource<D>.set(newDynamics: D) = emit { d: D -> newDynamics }
 
 fun <D> dynamicsSerializer(serializer: Serializer<D>): Serializer<FullDynamics<D>> = Serializer.of(InvertibleFunction.of(
     { JsonMap(mapOf(

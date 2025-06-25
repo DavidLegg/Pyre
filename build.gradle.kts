@@ -11,6 +11,7 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
+    api("org.apache.commons:commons-math3:3.6.1")
 }
 
 tasks.test {

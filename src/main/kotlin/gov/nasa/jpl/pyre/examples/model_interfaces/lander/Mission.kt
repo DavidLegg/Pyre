@@ -27,9 +27,7 @@ class Mission(context: SparkInitContext) : Model<Mission> {
     init {
         with (context) {
             config = Configuration()
-            // Mission convention: The first simulation shall be run with this hard-coded start time.
-            // The simulation clock will thereafter be relative to this epoch.
-            clocks = Clocks(context, Time.fromUTC("2020-01-01T00:00:00Z"))
+            clocks = Clocks(context)
         }
     }
 

@@ -39,6 +39,9 @@ data class Duration(val ticks: Long) : Comparable<Duration> {
         // According to https://www.jpl.nasa.gov/_edu/pdfs/leapday_answers.pdf
         val ASTRONOMICAL_YEAR: Duration = 365 * DAY + 5 * HOUR + 48 * MINUTE + 46 * SECOND
 
+        val MIN_VALUE = Duration(Long.MIN_VALUE)
+        val MAX_VALUE = Duration(Long.MAX_VALUE)
+
         fun serializer(): Serializer<Duration> = object : Serializer<Duration> {
             override fun serialize(obj: Duration): JsonValue {
                 return JsonString(obj.toString())
