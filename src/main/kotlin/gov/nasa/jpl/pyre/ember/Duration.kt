@@ -1,11 +1,15 @@
 package gov.nasa.jpl.pyre.ember
 
+import gov.nasa.jpl.pyre.ember.Duration.Companion.MICROSECOND
 import gov.nasa.jpl.pyre.ember.JsonValue.*
+import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 import kotlin.math.absoluteValue
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToLong
+import kotlin.time.Duration.Companion.microseconds
+import kotlin.time.toDuration
 
 data class Duration(val ticks: Long) : Comparable<Duration> {
     override fun compareTo(other: Duration): Int {
@@ -86,3 +90,8 @@ infix fun Duration.ceilTimes(scale: Double) = Duration(ceil(ticks * scale).round
 infix fun Double.ceilTimes(scale: Duration) = Duration(ceil(scale.ticks * this).roundToLong())
 
 fun abs(duration: Duration): Duration = Duration(abs(duration.ticks))
+
+fun Duration.toKotlinDuration(): kotlin.time.Duration = (this / MICROSECOND).microseconds
+fun Duration.toJavaDuration(): java.time.Duration = java.time.Duration.of(this / MICROSECOND, ChronoUnit.MICROS)
+fun kotlin.time.Duration.toPyreDuration(): Duration = this.inWholeMicroseconds * MICROSECOND
+fun java.time.Duration.toPyreDuration(): Duration = this.dividedBy(java.time.Duration.of(1, ChronoUnit.MICROS)) * MICROSECOND
