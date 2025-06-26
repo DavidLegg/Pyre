@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.examples.model_interfaces.lander.config
+package gov.nasa.jpl.pyre.examples.lander.config
 
 data class OrbiterParams(
     val ODY: OrbiterConfiguration = OrbiterConfiguration(),

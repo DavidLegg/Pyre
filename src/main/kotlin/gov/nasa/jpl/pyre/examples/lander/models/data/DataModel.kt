@@ -1,9 +1,5 @@
-package gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.data
+package gov.nasa.jpl.pyre.examples.lander.models.data
 
-import gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.data.DataConfig.ChannelName
-import gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.data.DataConfig.FPT
-import gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.data.DataConfig.APID
-import gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.data.DataConfig.DART
 import gov.nasa.jpl.pyre.flame.resources.polynomial.IntegralResource
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.asPolynomial
@@ -14,7 +10,6 @@ import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.lessThan
@@ -36,12 +31,12 @@ import kotlin.math.min
 
 
 class DataModel(context: SparkInitContext, basePath: String) {
-    private val virtualChannelMap: Map<ChannelName, VirtualChannel>
-    private val apidModelMap: Map<APID, APIDModel>
+    private val virtualChannelMap: Map<DataConfig.ChannelName, VirtualChannel>
+    private val apidModelMap: Map<DataConfig.APID, APIDModel>
 
-    private val activeFPT: DiscreteResource<FPT>
-    val defaultFPT: DiscreteResource<FPT>
-    val defaultDART: DiscreteResource<DART>
+    private val activeFPT: DiscreteResource<DataConfig.FPT>
+    val defaultFPT: DiscreteResource<DataConfig.FPT>
+    val defaultDART: DiscreteResource<DataConfig.DART>
     val hkModel: HKModel
 
     init {
@@ -49,27 +44,27 @@ class DataModel(context: SparkInitContext, basePath: String) {
             hkModel = HKModel(context, "$basePath/hk")
 
             virtualChannelMap = mapOf(
-                ChannelName.RETX to VirtualChannel(context, 1000.0, ChannelName.DISCARD, "$basePath/${ChannelName.RETX}"),
-                ChannelName.VC00 to VirtualChannel(context, 240.0, ChannelName.DISCARD, "$basePath/${ChannelName.VC00}"),
-                ChannelName.VC01 to VirtualChannel(context, 50.0, ChannelName.VC06, "$basePath/${ChannelName.VC01}"),
-                ChannelName.VC02 to VirtualChannel(context, 100.0, ChannelName.VC05, "$basePath/${ChannelName.VC02}"),
-                ChannelName.VC03 to VirtualChannel(context, 50.0, ChannelName.VC06, "$basePath/${ChannelName.VC03}"),
-                ChannelName.VC04 to VirtualChannel(context, 50.0, ChannelName.VC06, "$basePath/${ChannelName.VC04}"),
-                ChannelName.VC05 to VirtualChannel(context, 300.0, ChannelName.VC06, "$basePath/${ChannelName.VC05}"),
-                ChannelName.VC06 to VirtualChannel(context, 50.0, ChannelName.DISCARD, "$basePath/${ChannelName.VC06}"),
-                ChannelName.VC07 to VirtualChannel(context, 200.0, ChannelName.DISCARD, "$basePath/${ChannelName.VC07}"),
-                ChannelName.VC08 to VirtualChannel(context, 100.0, ChannelName.VC05, "$basePath/${ChannelName.VC08}"),
-                ChannelName.VC09 to VirtualChannel(context, 600.0, ChannelName.VC06, "$basePath/${ChannelName.VC09}"),
-                ChannelName.VC10 to VirtualChannel(context, 0.03, ChannelName.DISCARD, "$basePath/${ChannelName.VC10}"),
-                ChannelName.VC11 to VirtualChannel(context, 0.03, ChannelName.DISCARD, "$basePath/${ChannelName.VC11}"),
-                ChannelName.VC12 to VirtualChannel(context, 0.03, ChannelName.DISCARD, "$basePath/${ChannelName.VC12}")
+                DataConfig.ChannelName.RETX to VirtualChannel(context, 1000.0, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.RETX}"),
+                DataConfig.ChannelName.VC00 to VirtualChannel(context, 240.0, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.VC00}"),
+                DataConfig.ChannelName.VC01 to VirtualChannel(context, 50.0, DataConfig.ChannelName.VC06, "$basePath/${DataConfig.ChannelName.VC01}"),
+                DataConfig.ChannelName.VC02 to VirtualChannel(context, 100.0, DataConfig.ChannelName.VC05, "$basePath/${DataConfig.ChannelName.VC02}"),
+                DataConfig.ChannelName.VC03 to VirtualChannel(context, 50.0, DataConfig.ChannelName.VC06, "$basePath/${DataConfig.ChannelName.VC03}"),
+                DataConfig.ChannelName.VC04 to VirtualChannel(context, 50.0, DataConfig.ChannelName.VC06, "$basePath/${DataConfig.ChannelName.VC04}"),
+                DataConfig.ChannelName.VC05 to VirtualChannel(context, 300.0, DataConfig.ChannelName.VC06, "$basePath/${DataConfig.ChannelName.VC05}"),
+                DataConfig.ChannelName.VC06 to VirtualChannel(context, 50.0, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.VC06}"),
+                DataConfig.ChannelName.VC07 to VirtualChannel(context, 200.0, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.VC07}"),
+                DataConfig.ChannelName.VC08 to VirtualChannel(context, 100.0, DataConfig.ChannelName.VC05, "$basePath/${DataConfig.ChannelName.VC08}"),
+                DataConfig.ChannelName.VC09 to VirtualChannel(context, 600.0, DataConfig.ChannelName.VC06, "$basePath/${DataConfig.ChannelName.VC09}"),
+                DataConfig.ChannelName.VC10 to VirtualChannel(context, 0.03, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.VC10}"),
+                DataConfig.ChannelName.VC11 to VirtualChannel(context, 0.03, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.VC11}"),
+                DataConfig.ChannelName.VC12 to VirtualChannel(context, 0.03, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.VC12}")
             )
 
-            apidModelMap = APID.entries.associateWith { APIDModel(context, virtualChannelMap, "$basePath/apids/$it") }
+            apidModelMap = DataConfig.APID.entries.associateWith { APIDModel(context, virtualChannelMap, "$basePath/apids/$it") }
 
-            activeFPT = discreteResource("$basePath/activeFPT", FPT.DEFAULT)
-            defaultFPT = discreteResource("$basePath/defaultFPT", FPT.DEFAULT)
-            defaultDART = discreteResource("$basePath/defaultDART", DART.DEFAULT)
+            activeFPT = discreteResource("$basePath/activeFPT", DataConfig.FPT.Companion.DEFAULT)
+            defaultFPT = discreteResource("$basePath/defaultFPT", DataConfig.FPT.Companion.DEFAULT)
+            defaultDART = discreteResource("$basePath/defaultDART", DataConfig.DART.Companion.DEFAULT)
 
             register("$basePath/activeFPT", activeFPT)
             register("$basePath/defaultFPT", defaultFPT)
@@ -80,7 +75,7 @@ class DataModel(context: SparkInitContext, basePath: String) {
     class VirtualChannel(
         context: SparkInitContext,
         val limit: Double,
-        val overflowChannelId: ChannelName,
+        val overflowChannelId: DataConfig.ChannelName,
         basePath: String
     ) {
         // Opening the type on rate and volume allows outside actors to affect these
@@ -132,7 +127,7 @@ class DataModel(context: SparkInitContext, basePath: String) {
                 val registeredOverflowVolume: PolynomialResource
                 val registeredDiscardRate: DoubleResource
                 val registeredDiscardVolume: PolynomialResource
-                if (overflowChannelId != ChannelName.DISCARD) {
+                if (overflowChannelId != DataConfig.ChannelName.DISCARD) {
                     registeredOverflowRate = overflowRate
                     registeredOverflowVolume = overflow
                     registeredDiscardRate = pure(0.0)
@@ -153,15 +148,15 @@ class DataModel(context: SparkInitContext, basePath: String) {
 
     class APIDModel(
         context: SparkInitContext,
-        private val virtualChannelMap: Map<ChannelName, VirtualChannel>,
+        private val virtualChannelMap: Map<DataConfig.ChannelName, VirtualChannel>,
         basePath: String,
     ) {
-        private val routedVC: MutableDiscreteResource<ChannelName>
+        private val routedVC: MutableDiscreteResource<DataConfig.ChannelName>
         private val dataRate: MutableDoubleResource
 
         init {
             with (context) {
-                routedVC = discreteResource("$basePath/routedVC", ChannelName.VC00)
+                routedVC = discreteResource("$basePath/routedVC", DataConfig.ChannelName.VC00)
                 dataRate = discreteResource("$basePath/dataRate", 0.0)
 
                 register("$basePath/routedVC", routedVC)
@@ -176,7 +171,7 @@ class DataModel(context: SparkInitContext, basePath: String) {
         }
 
         context(SparkTaskScope<*>)
-        suspend fun updateRoute(channelName: ChannelName) {
+        suspend fun updateRoute(channelName: DataConfig.ChannelName) {
             val dRate = dataRate.getValue()
             virtualChannelMap.getValue(routedVC.getValue()).rate.decrease(dRate)
             routedVC.set(channelName)

@@ -1,6 +1,5 @@
-package gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.data
+package gov.nasa.jpl.pyre.examples.lander.models.data
 
-import gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.data.DataConfig.APID
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 
 class HKModel(context: SparkInitContext, basePath: String) {
@@ -30,14 +29,14 @@ class HKModel(context: SparkInitContext, basePath: String) {
     val allChannels: List<InstrumentHKChannel>
 
     init {
-        APSS = InstrumentHKChannel(context, APID.APID_CHAN_003, 0.1872, 0.1872, "$basePath/APSS")
-        IDC = InstrumentHKChannel(context, APID.APID_CHAN_005, 0.0972, 0.0972, "$basePath/IDC")
-        IDA = InstrumentHKChannel(context, APID.APID_CHAN_006, 0.1116, 0.1116, "$basePath/IDA")
-        HeatProbe = InstrumentHKChannel(context, APID.APID_CHAN_004, 0.0576, 0.0576, "$basePath/HeatProbe")
-        HeatProbe_NON_CHAN = InstrumentHKChannel(context, APID.APID_HeatProbe_ENG, 0.0648, 0.0648, "$basePath/HeatProbe_NON_CHAN")
-        SEIS = InstrumentHKChannel(context, APID.APID_CHAN_007, 0.2376, 0.2376, "$basePath/SEIS")
-        SEIS_NON_CHAN = InstrumentHKChannel(context, APID.APID_SEIS_ENG, 0.2268, 0.0, "$basePath/SEIS_NON_CHAN")
-        DUMP_CMD_HISTORY = InstrumentHKChannel(context, APID.APID_DUMP_CMD_HISTORY, 0.3123, 0.3123, "$basePath/DUMP_CMD_HISTORY")
+        APSS = InstrumentHKChannel(context, DataConfig.APID.APID_CHAN_003, 0.1872, 0.1872, "$basePath/APSS")
+        IDC = InstrumentHKChannel(context, DataConfig.APID.APID_CHAN_005, 0.0972, 0.0972, "$basePath/IDC")
+        IDA = InstrumentHKChannel(context, DataConfig.APID.APID_CHAN_006, 0.1116, 0.1116, "$basePath/IDA")
+        HeatProbe = InstrumentHKChannel(context, DataConfig.APID.APID_CHAN_004, 0.0576, 0.0576, "$basePath/HeatProbe")
+        HeatProbe_NON_CHAN = InstrumentHKChannel(context, DataConfig.APID.APID_HeatProbe_ENG, 0.0648, 0.0648, "$basePath/HeatProbe_NON_CHAN")
+        SEIS = InstrumentHKChannel(context, DataConfig.APID.APID_CHAN_007, 0.2376, 0.2376, "$basePath/SEIS")
+        SEIS_NON_CHAN = InstrumentHKChannel(context, DataConfig.APID.APID_SEIS_ENG, 0.2268, 0.0, "$basePath/SEIS_NON_CHAN")
+        DUMP_CMD_HISTORY = InstrumentHKChannel(context, DataConfig.APID.APID_DUMP_CMD_HISTORY, 0.3123, 0.3123, "$basePath/DUMP_CMD_HISTORY")
 
         allChannels = listOf(
             APSS,

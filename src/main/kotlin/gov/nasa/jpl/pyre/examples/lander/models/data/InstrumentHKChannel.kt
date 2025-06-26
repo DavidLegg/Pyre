@@ -1,6 +1,5 @@
-package gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.data
+package gov.nasa.jpl.pyre.examples.lander.models.data
 
-import gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.data.DataConfig.APID
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.register
@@ -8,7 +7,7 @@ import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 
 class InstrumentHKChannel(
     context: SparkInitContext,
-    val apid: APID,
+    val apid: DataConfig.APID,
     val defaultFullWakeRate: Double,
     val defaultDiagnosticWakeRate: Double,
     basePath: String,

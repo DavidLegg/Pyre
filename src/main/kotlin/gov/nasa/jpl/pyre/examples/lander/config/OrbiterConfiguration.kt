@@ -1,6 +1,6 @@
-package gov.nasa.jpl.pyre.examples.model_interfaces.lander.config
+package gov.nasa.jpl.pyre.examples.lander.config
 
-import gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.data.DataConfig
+import gov.nasa.jpl.pyre.examples.lander.models.data.DataConfig
 
 data class OrbiterConfiguration(
     val blockName: String = "uhf",

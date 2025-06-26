@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.time
+package gov.nasa.jpl.pyre.examples.lander.models.time
 
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.toJavaDuration

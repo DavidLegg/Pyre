@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.examples.model_interfaces.lander.config
+package gov.nasa.jpl.pyre.examples.lander.config
 
 data class EngDataParams(
     val AWAKE_ENG_DATA_RATE: Double = 1.0104 / 3600,

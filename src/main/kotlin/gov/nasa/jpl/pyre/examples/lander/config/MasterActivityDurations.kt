@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.examples.model_interfaces.lander.config
+package gov.nasa.jpl.pyre.examples.lander.config
 
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE

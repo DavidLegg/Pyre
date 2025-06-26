@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.data
+package gov.nasa.jpl.pyre.examples.lander.models.data
 
 object DataConfig {
     enum class ChannelName {

@@ -1,8 +1,8 @@
-package gov.nasa.jpl.pyre.examples.model_interfaces.lander
+package gov.nasa.jpl.pyre.examples.lander
 
 import gov.nasa.jpl.pyre.ember.Serializer
-import gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.data.DataModel
-import gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.time.Clocks
+import gov.nasa.jpl.pyre.examples.lander.models.data.DataModel
+import gov.nasa.jpl.pyre.examples.lander.models.time.Clocks
 import gov.nasa.jpl.pyre.flame.plans.ActivitySerializer
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.Model
