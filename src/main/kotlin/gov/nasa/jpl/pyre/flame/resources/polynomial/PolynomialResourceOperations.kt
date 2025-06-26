@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.flame.resources.polynomial
 
 import gov.nasa.jpl.pyre.flame.resources.polynomial.Polynomial.Companion.polynomial
+import gov.nasa.jpl.pyre.spark.reporting.register
 import gov.nasa.jpl.pyre.spark.resources.DynamicsMonad
 import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
 import gov.nasa.jpl.pyre.spark.resources.ResourceMonad.bind
@@ -23,6 +24,8 @@ object PolynomialResourceOperations {
         resource(name, polynomial(*coefficients), Polynomial.serializer())
 
     fun constant(value: Double): PolynomialResource = pure(polynomial(value))
+
+    fun SparkInitContext.register(name: String, resource: PolynomialResource) = register(name, resource, Polynomial.serializer())
 
     fun DiscreteResource<Double>.asPolynomial(): PolynomialResource = map(this) { polynomial(it.value) }
 

@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.examples.model_interfaces.lander
 
 import gov.nasa.jpl.pyre.ember.Serializer
+import gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.data.DataModel
 import gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.time.Clocks
-import gov.nasa.jpl.pyre.examples.model_interfaces.lander.models.time.Time
 import gov.nasa.jpl.pyre.flame.plans.ActivitySerializer
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.Model
@@ -13,7 +13,7 @@ import kotlin.time.ExperimentalTime
 class Mission(context: SparkInitContext) : Model<Mission> {
     val config: Configuration
     val clocks: Clocks
-    // val dataModel: DataModel
+    val dataModel: DataModel
     // val dsnModel: DSNModel
     // val wakeModel: WakeModel
     // val commModel: CommModel
@@ -25,10 +25,11 @@ class Mission(context: SparkInitContext) : Model<Mission> {
     // val seisModel: SeisModel
 
     init {
-        with (context) {
-            config = Configuration()
-            clocks = Clocks(context)
-        }
+        // TODO: Consider how to load configuration from environment with each run?
+        //   Is this something that even makes sense in Pyre?
+        config = Configuration()
+        clocks = Clocks(context)
+        dataModel = DataModel(context, "/data")
     }
 
     override fun activitySerializer(): Serializer<GroundedActivity<Mission, *>> {
