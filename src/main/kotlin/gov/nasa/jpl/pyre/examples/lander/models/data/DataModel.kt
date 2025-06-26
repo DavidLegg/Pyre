@@ -1,5 +1,7 @@
 package gov.nasa.jpl.pyre.examples.lander.models.data
 
+import gov.nasa.jpl.pyre.examples.lander.models.data.DataConfig.ChannelName
+import gov.nasa.jpl.pyre.flame.composition.subContext
 import gov.nasa.jpl.pyre.flame.resources.polynomial.IntegralResource
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.asPolynomial
@@ -30,8 +32,8 @@ import gov.nasa.jpl.pyre.spark.tasks.whenever
 import kotlin.math.min
 
 
-class DataModel(context: SparkInitContext, basePath: String) {
-    private val virtualChannelMap: Map<DataConfig.ChannelName, VirtualChannel>
+class DataModel(context: SparkInitContext) {
+    private val virtualChannelMap: Map<ChannelName, VirtualChannel>
     private val apidModelMap: Map<DataConfig.APID, APIDModel>
 
     private val activeFPT: DiscreteResource<DataConfig.FPT>
@@ -41,42 +43,42 @@ class DataModel(context: SparkInitContext, basePath: String) {
 
     init {
         with (context) {
-            hkModel = HKModel(context, "$basePath/hk")
+            hkModel = HKModel(subContext("hk"))
 
             virtualChannelMap = mapOf(
-                DataConfig.ChannelName.RETX to VirtualChannel(context, 1000.0, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.RETX}"),
-                DataConfig.ChannelName.VC00 to VirtualChannel(context, 240.0, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.VC00}"),
-                DataConfig.ChannelName.VC01 to VirtualChannel(context, 50.0, DataConfig.ChannelName.VC06, "$basePath/${DataConfig.ChannelName.VC01}"),
-                DataConfig.ChannelName.VC02 to VirtualChannel(context, 100.0, DataConfig.ChannelName.VC05, "$basePath/${DataConfig.ChannelName.VC02}"),
-                DataConfig.ChannelName.VC03 to VirtualChannel(context, 50.0, DataConfig.ChannelName.VC06, "$basePath/${DataConfig.ChannelName.VC03}"),
-                DataConfig.ChannelName.VC04 to VirtualChannel(context, 50.0, DataConfig.ChannelName.VC06, "$basePath/${DataConfig.ChannelName.VC04}"),
-                DataConfig.ChannelName.VC05 to VirtualChannel(context, 300.0, DataConfig.ChannelName.VC06, "$basePath/${DataConfig.ChannelName.VC05}"),
-                DataConfig.ChannelName.VC06 to VirtualChannel(context, 50.0, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.VC06}"),
-                DataConfig.ChannelName.VC07 to VirtualChannel(context, 200.0, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.VC07}"),
-                DataConfig.ChannelName.VC08 to VirtualChannel(context, 100.0, DataConfig.ChannelName.VC05, "$basePath/${DataConfig.ChannelName.VC08}"),
-                DataConfig.ChannelName.VC09 to VirtualChannel(context, 600.0, DataConfig.ChannelName.VC06, "$basePath/${DataConfig.ChannelName.VC09}"),
-                DataConfig.ChannelName.VC10 to VirtualChannel(context, 0.03, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.VC10}"),
-                DataConfig.ChannelName.VC11 to VirtualChannel(context, 0.03, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.VC11}"),
-                DataConfig.ChannelName.VC12 to VirtualChannel(context, 0.03, DataConfig.ChannelName.DISCARD, "$basePath/${DataConfig.ChannelName.VC12}")
+                ChannelName.RETX to VirtualChannel(subContext(ChannelName.RETX.toString()), 1000.0, ChannelName.DISCARD),
+                ChannelName.VC00 to VirtualChannel(subContext(ChannelName.VC00.toString()), 240.0, ChannelName.DISCARD),
+                ChannelName.VC01 to VirtualChannel(subContext(ChannelName.VC01.toString()), 50.0, ChannelName.VC06),
+                ChannelName.VC02 to VirtualChannel(subContext(ChannelName.VC02.toString()), 100.0, ChannelName.VC05),
+                ChannelName.VC03 to VirtualChannel(subContext(ChannelName.VC03.toString()), 50.0, ChannelName.VC06),
+                ChannelName.VC04 to VirtualChannel(subContext(ChannelName.VC04.toString()), 50.0, ChannelName.VC06),
+                ChannelName.VC05 to VirtualChannel(subContext(ChannelName.VC05.toString()), 300.0, ChannelName.VC06),
+                ChannelName.VC06 to VirtualChannel(subContext(ChannelName.VC06.toString()), 50.0, ChannelName.DISCARD),
+                ChannelName.VC07 to VirtualChannel(subContext(ChannelName.VC07.toString()), 200.0, ChannelName.DISCARD),
+                ChannelName.VC08 to VirtualChannel(subContext(ChannelName.VC08.toString()), 100.0, ChannelName.VC05),
+                ChannelName.VC09 to VirtualChannel(subContext(ChannelName.VC09.toString()), 600.0, ChannelName.VC06),
+                ChannelName.VC10 to VirtualChannel(subContext(ChannelName.VC10.toString()), 0.03, ChannelName.DISCARD),
+                ChannelName.VC11 to VirtualChannel(subContext(ChannelName.VC11.toString()), 0.03, ChannelName.DISCARD),
+                ChannelName.VC12 to VirtualChannel(subContext(ChannelName.VC12.toString()), 0.03, ChannelName.DISCARD)
             )
 
-            apidModelMap = DataConfig.APID.entries.associateWith { APIDModel(context, virtualChannelMap, "$basePath/apids/$it") }
+            val apidContext = subContext("apids")
+            apidModelMap = DataConfig.APID.entries.associateWith { APIDModel(apidContext.subContext(it.toString()), virtualChannelMap) }
 
-            activeFPT = discreteResource("$basePath/activeFPT", DataConfig.FPT.Companion.DEFAULT)
-            defaultFPT = discreteResource("$basePath/defaultFPT", DataConfig.FPT.Companion.DEFAULT)
-            defaultDART = discreteResource("$basePath/defaultDART", DataConfig.DART.Companion.DEFAULT)
+            activeFPT = discreteResource("activeFPT", DataConfig.FPT.Companion.DEFAULT)
+            defaultFPT = discreteResource("defaultFPT", DataConfig.FPT.Companion.DEFAULT)
+            defaultDART = discreteResource("defaultDART", DataConfig.DART.Companion.DEFAULT)
 
-            register("$basePath/activeFPT", activeFPT)
-            register("$basePath/defaultFPT", defaultFPT)
-            register("$basePath/defaultDART", defaultDART)
+            register("activeFPT", activeFPT)
+            register("defaultFPT", defaultFPT)
+            register("defaultDART", defaultDART)
         }
     }
 
     class VirtualChannel(
         context: SparkInitContext,
         val limit: Double,
-        val overflowChannelId: DataConfig.ChannelName,
-        basePath: String
+        val overflowChannelId: ChannelName
     ) {
         // Opening the type on rate and volume allows outside actors to affect these
         val rate: MutableDoubleResource
@@ -87,16 +89,16 @@ class DataModel(context: SparkInitContext, basePath: String) {
 
         init {
             with (context) {
-                rate = discreteResource("$basePath/rate", 0.0)
-                volume = rate.asPolynomial().integral("$basePath/volume", 0.0)
+                rate = discreteResource("rate", 0.0)
+                volume = rate.asPolynomial().integral("volume", 0.0)
 
-                overflowRate = discreteResource("$basePath/overflowRate", 0.0)
-                overflow = overflowRate.asPolynomial().integral("$basePath/volume", 0.0)
+                overflowRate = discreteResource("overflowRate", 0.0)
+                overflow = overflowRate.asPolynomial().integral("volume", 0.0)
 
                 val isFull = volume greaterThanOrEquals limit
                 val isOverflowing = overflowRate greaterThan 0.0
 
-                spawn("Monitor $basePath for overflow", whenever(isFull and (rate greaterThan 0.0)) {
+                spawn("Monitor for overflow", whenever(isFull and (rate greaterThan 0.0)) {
                     // Transfer flow to overflow
                     val r = rate.getValue()
                     overflowRate.increase(r)
@@ -105,7 +107,7 @@ class DataModel(context: SparkInitContext, basePath: String) {
                 })
 
                 spawn(
-                    "Monitor $basePath for limiting overflow reduction",
+                    "Monitor for limiting overflow reduction",
                     whenever(isOverflowing and isFull and (rate lessThan 0.0)) {
                         // Transfer some overflow back to normal flow.
                         // Clamp the amount of flow transferred by the available margin in rate.
@@ -114,20 +116,20 @@ class DataModel(context: SparkInitContext, basePath: String) {
                         rate.increase(r)
                     })
 
-                spawn("Monitor $basePath for unlimited overflow reduction", whenever(isOverflowing and isFull.not()) {
+                spawn("Monitor for unlimited overflow reduction", whenever(isOverflowing and isFull.not()) {
                     // Since volume is not full, all overflow can be transferred back to normal flow
                     val r = overflow.getValue()
                     overflowRate.decrease(r)
                     rate.increase(r)
                 })
 
-                register("$basePath/rate", rate)
-                register("$basePath/volume", volume)
+                register("rate", rate)
+                register("volume", volume)
                 val registeredOverflowRate: DoubleResource
                 val registeredOverflowVolume: PolynomialResource
                 val registeredDiscardRate: DoubleResource
                 val registeredDiscardVolume: PolynomialResource
-                if (overflowChannelId != DataConfig.ChannelName.DISCARD) {
+                if (overflowChannelId != ChannelName.DISCARD) {
                     registeredOverflowRate = overflowRate
                     registeredOverflowVolume = overflow
                     registeredDiscardRate = pure(0.0)
@@ -138,29 +140,28 @@ class DataModel(context: SparkInitContext, basePath: String) {
                     registeredDiscardRate = overflowRate
                     registeredDiscardVolume = overflow
                 }
-                register("$basePath/overflow/rate", registeredOverflowRate)
-                register("$basePath/overflow/volume", registeredOverflowVolume)
-                register("$basePath/discard/rate", registeredDiscardRate)
-                register("$basePath/discard/volume", registeredDiscardVolume)
+                register("overflow/rate", registeredOverflowRate)
+                register("overflow/volume", registeredOverflowVolume)
+                register("discard/rate", registeredDiscardRate)
+                register("discard/volume", registeredDiscardVolume)
             }
         }
     }
 
     class APIDModel(
         context: SparkInitContext,
-        private val virtualChannelMap: Map<DataConfig.ChannelName, VirtualChannel>,
-        basePath: String,
+        private val virtualChannelMap: Map<ChannelName, VirtualChannel>,
     ) {
-        private val routedVC: MutableDiscreteResource<DataConfig.ChannelName>
+        private val routedVC: MutableDiscreteResource<ChannelName>
         private val dataRate: MutableDoubleResource
 
         init {
             with (context) {
-                routedVC = discreteResource("$basePath/routedVC", DataConfig.ChannelName.VC00)
-                dataRate = discreteResource("$basePath/dataRate", 0.0)
+                routedVC = discreteResource("routedVC", ChannelName.VC00)
+                dataRate = discreteResource("dataRate", 0.0)
 
-                register("$basePath/routedVC", routedVC)
-                register("$basePath/dataRate", dataRate)
+                register("routedVC", routedVC)
+                register("dataRate", dataRate)
             }
         }
 
@@ -171,7 +172,7 @@ class DataModel(context: SparkInitContext, basePath: String) {
         }
 
         context(SparkTaskScope<*>)
-        suspend fun updateRoute(channelName: DataConfig.ChannelName) {
+        suspend fun updateRoute(channelName: ChannelName) {
             val dRate = dataRate.getValue()
             virtualChannelMap.getValue(routedVC.getValue()).rate.decrease(dRate)
             routedVC.set(channelName)

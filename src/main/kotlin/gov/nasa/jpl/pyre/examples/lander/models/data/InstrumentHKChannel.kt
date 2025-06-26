@@ -10,18 +10,17 @@ class InstrumentHKChannel(
     val apid: DataConfig.APID,
     val defaultFullWakeRate: Double,
     val defaultDiagnosticWakeRate: Double,
-    basePath: String,
 ) {
     val fullWakeRate: DoubleResource
     val diagnosticWakeRate: DoubleResource
 
     init {
         with (context) {
-            fullWakeRate = discreteResource("$basePath/FullWakeRate", defaultFullWakeRate)
-            diagnosticWakeRate = discreteResource("$basePath/DiagnosticWakeRate", defaultDiagnosticWakeRate)
+            fullWakeRate = discreteResource("FullWakeRate", defaultFullWakeRate)
+            diagnosticWakeRate = discreteResource("DiagnosticWakeRate", defaultDiagnosticWakeRate)
 
-            register("$basePath/FullWakeRate", fullWakeRate)
-            register("$basePath/DiagnosticWakeRate", diagnosticWakeRate)
+            register("FullWakeRate", fullWakeRate)
+            register("DiagnosticWakeRate", diagnosticWakeRate)
         }
     }
 }

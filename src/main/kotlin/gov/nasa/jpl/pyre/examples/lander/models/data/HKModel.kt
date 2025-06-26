@@ -1,8 +1,9 @@
 package gov.nasa.jpl.pyre.examples.lander.models.data
 
+import gov.nasa.jpl.pyre.flame.composition.subContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 
-class HKModel(context: SparkInitContext, basePath: String) {
+class HKModel(context: SparkInitContext) {
     // 52 bits/second; 0.1872 Mbits/hour
     val APSS: InstrumentHKChannel
 
@@ -29,24 +30,26 @@ class HKModel(context: SparkInitContext, basePath: String) {
     val allChannels: List<InstrumentHKChannel>
 
     init {
-        APSS = InstrumentHKChannel(context, DataConfig.APID.APID_CHAN_003, 0.1872, 0.1872, "$basePath/APSS")
-        IDC = InstrumentHKChannel(context, DataConfig.APID.APID_CHAN_005, 0.0972, 0.0972, "$basePath/IDC")
-        IDA = InstrumentHKChannel(context, DataConfig.APID.APID_CHAN_006, 0.1116, 0.1116, "$basePath/IDA")
-        HeatProbe = InstrumentHKChannel(context, DataConfig.APID.APID_CHAN_004, 0.0576, 0.0576, "$basePath/HeatProbe")
-        HeatProbe_NON_CHAN = InstrumentHKChannel(context, DataConfig.APID.APID_HeatProbe_ENG, 0.0648, 0.0648, "$basePath/HeatProbe_NON_CHAN")
-        SEIS = InstrumentHKChannel(context, DataConfig.APID.APID_CHAN_007, 0.2376, 0.2376, "$basePath/SEIS")
-        SEIS_NON_CHAN = InstrumentHKChannel(context, DataConfig.APID.APID_SEIS_ENG, 0.2268, 0.0, "$basePath/SEIS_NON_CHAN")
-        DUMP_CMD_HISTORY = InstrumentHKChannel(context, DataConfig.APID.APID_DUMP_CMD_HISTORY, 0.3123, 0.3123, "$basePath/DUMP_CMD_HISTORY")
+        with (context) {
+            APSS = InstrumentHKChannel(subContext("APSS"), DataConfig.APID.APID_CHAN_003, 0.1872, 0.1872)
+            IDC = InstrumentHKChannel(subContext("IDC"), DataConfig.APID.APID_CHAN_005, 0.0972, 0.0972)
+            IDA = InstrumentHKChannel(subContext("IDA"), DataConfig.APID.APID_CHAN_006, 0.1116, 0.1116)
+            HeatProbe = InstrumentHKChannel(subContext("HeatProbe"), DataConfig.APID.APID_CHAN_004, 0.0576, 0.0576)
+            HeatProbe_NON_CHAN = InstrumentHKChannel(subContext("HeatProbe_NON_CHAN"), DataConfig.APID.APID_HeatProbe_ENG, 0.0648, 0.0648)
+            SEIS = InstrumentHKChannel(subContext("SEIS"), DataConfig.APID.APID_CHAN_007, 0.2376, 0.2376)
+            SEIS_NON_CHAN = InstrumentHKChannel(subContext("SEIS_NON_CHAN"), DataConfig.APID.APID_SEIS_ENG, 0.2268, 0.0)
+            DUMP_CMD_HISTORY = InstrumentHKChannel(subContext("DUMP_CMD_HISTORY"), DataConfig.APID.APID_DUMP_CMD_HISTORY, 0.3123, 0.3123)
 
-        allChannels = listOf(
-            APSS,
-            IDC,
-            IDA,
-            HeatProbe,
-            HeatProbe_NON_CHAN,
-            SEIS,
-            SEIS_NON_CHAN,
-            DUMP_CMD_HISTORY
-        )
+            allChannels = listOf(
+                APSS,
+                IDC,
+                IDA,
+                HeatProbe,
+                HeatProbe_NON_CHAN,
+                SEIS,
+                SEIS_NON_CHAN,
+                DUMP_CMD_HISTORY
+            )
+        }
     }
 }
