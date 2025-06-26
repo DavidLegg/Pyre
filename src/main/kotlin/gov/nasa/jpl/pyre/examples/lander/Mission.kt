@@ -4,6 +4,7 @@ import gov.nasa.jpl.pyre.ember.Serializer
 import gov.nasa.jpl.pyre.examples.lander.models.data.DataModel
 import gov.nasa.jpl.pyre.examples.lander.models.dsn.DSNModel
 import gov.nasa.jpl.pyre.examples.lander.models.time.Clocks
+import gov.nasa.jpl.pyre.examples.lander.models.wake.WakeModel
 import gov.nasa.jpl.pyre.flame.composition.subContext
 import gov.nasa.jpl.pyre.flame.plans.ActivitySerializer
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
@@ -17,7 +18,7 @@ class Mission(context: SparkInitContext) : Model<Mission> {
     val clocks: Clocks
     val dataModel: DataModel
     val dsnModel: DSNModel
-    // val wakeModel: WakeModel
+    val wakeModel: WakeModel
     // val commModel: CommModel
     // val powerModel: PowerModel
     // val engModel: EngModel
@@ -34,6 +35,7 @@ class Mission(context: SparkInitContext) : Model<Mission> {
             clocks = Clocks(subContext("time"))
             dataModel = DataModel(subContext("data"))
             dsnModel = DSNModel(subContext("dsn"))
+            wakeModel = WakeModel(subContext("wake"))
         }
 
     }
