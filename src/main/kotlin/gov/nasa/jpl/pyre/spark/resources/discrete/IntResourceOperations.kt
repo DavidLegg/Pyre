@@ -20,6 +20,9 @@ object IntResourceOperations {
         register(name, resource, INT_SERIALIZER)
     }
 
+    fun SparkInitContext.registeredDiscreteResource(name: String, value: Int) =
+        discreteResource(name, value).also { register(name, it) }
+
     operator fun IntResource.plus(other: IntResource): IntResource =
         DiscreteResourceMonad.map(this, other) { x, y -> x + y }
     operator fun IntResource.minus(other: IntResource): IntResource =

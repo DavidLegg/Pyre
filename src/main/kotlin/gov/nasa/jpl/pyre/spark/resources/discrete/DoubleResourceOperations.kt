@@ -25,6 +25,9 @@ object DoubleResourceOperations {
         register(name, resource, DOUBLE_SERIALIZER)
     }
 
+    fun SparkInitContext.registeredDiscreteResource(name: String, value: Double) =
+        discreteResource(name, value).also { register(name, it) }
+
     operator fun DoubleResource.plus(other: DoubleResource): DoubleResource =
         DiscreteResourceMonad.map(this, other) { x, y -> x + y }
     operator fun DoubleResource.minus(other: DoubleResource): DoubleResource =

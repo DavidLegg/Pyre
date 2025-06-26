@@ -18,6 +18,9 @@ object EnumResourceOperations {
         register(name, resource, enumSerializer())
     }
 
+    inline fun <reified E : Enum<E>> SparkInitContext.registeredDiscreteResource(name: String, value: E) =
+        discreteResource(name, value).also { register(name, it) }
+
     inline fun <reified E : Enum<E>> enumSerializer(): Serializer<E> = Serializer.of(InvertibleFunction.of(
         { JsonString(it.name) },
         { enumValueOf((it as JsonString).value) }

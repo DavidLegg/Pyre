@@ -21,14 +21,10 @@ object ListResourceOperations {
         discreteResource(name, initialValue, listSerializer(elementSerializer))
 
     context (SparkTaskScope<*>)
-    suspend fun <E> MutableListResource<E>.push(element: E) {
-        emit { it: List<E> -> it + element }
-    }
+    suspend fun <E> MutableListResource<E>.push(element: E) = emit { it: List<E> -> it + element }
 
     context (SparkTaskScope<*>)
-    suspend operator fun <E> MutableListResource<E>.plusAssign(element: E) {
-        this.push(element)
-    }
+    suspend operator fun <E> MutableListResource<E>.plusAssign(element: E) = this.push(element)
 
     context (SparkTaskScope<*>)
     suspend fun <E> MutableListResource<E>.pop(): E {

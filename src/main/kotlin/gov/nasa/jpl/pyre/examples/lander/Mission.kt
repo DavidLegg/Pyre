@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.examples.lander
 
 import gov.nasa.jpl.pyre.ember.Serializer
+import gov.nasa.jpl.pyre.examples.lander.models.comm.CommModel
 import gov.nasa.jpl.pyre.examples.lander.models.data.DataModel
 import gov.nasa.jpl.pyre.examples.lander.models.dsn.DSNModel
 import gov.nasa.jpl.pyre.examples.lander.models.time.Clocks
@@ -19,7 +20,7 @@ class Mission(context: SparkInitContext) : Model<Mission> {
     val dataModel: DataModel
     val dsnModel: DSNModel
     val wakeModel: WakeModel
-    // val commModel: CommModel
+    val commModel: CommModel
     // val powerModel: PowerModel
     // val engModel: EngModel
     // val HeatProbeModel: HeatProbeModel
@@ -36,6 +37,7 @@ class Mission(context: SparkInitContext) : Model<Mission> {
             dataModel = DataModel(subContext("data"))
             dsnModel = DSNModel(subContext("dsn"))
             wakeModel = WakeModel(subContext("wake"))
+            commModel = CommModel(subContext("comm"))
         }
 
     }

@@ -27,6 +27,9 @@ object PolynomialResourceOperations {
 
     fun SparkInitContext.register(name: String, resource: PolynomialResource) = register(name, resource, Polynomial.serializer())
 
+    fun SparkInitContext.registeredPolynomialResource(name: String, vararg coefficients: Double) =
+        polynomialResource(name, *coefficients).also { register(name, it) }
+
     fun DiscreteResource<Double>.asPolynomial(): PolynomialResource = map(this) { polynomial(it.value) }
 
     fun PolynomialResource.derivative(): PolynomialResource = map(this, Polynomial::derivative)
@@ -47,6 +50,10 @@ object PolynomialResourceOperations {
             override suspend fun increase(amount: Double) = integral.increase(amount)
         }
     }
+
+    context(SparkInitContext)
+    fun PolynomialResource.registeredIntegral(name: String, startingValue: Double) =
+        integral(name, startingValue).also { register(name, it) }
 
     infix fun PolynomialResource.greaterThan(other: PolynomialResource): BooleanResource =
         bind(this, other) { p, q -> ThinResourceMonad.pure(p greaterThan q) }

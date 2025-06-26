@@ -8,7 +8,6 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.register
-import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 
@@ -22,6 +21,9 @@ object BooleanResourceOperations {
     fun SparkInitContext.register(name: String, resource: DiscreteResource<Boolean>) {
         register(name, resource, BOOLEAN_SERIALIZER)
     }
+
+    fun SparkInitContext.registeredDiscreteResource(name: String, value: Boolean) =
+        discreteResource(name, value).also { register(name, it) }
 
     operator fun BooleanResource.not(): BooleanResource =
         map(this@not) { !it }

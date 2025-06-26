@@ -1,8 +1,7 @@
 package gov.nasa.jpl.pyre.examples.lander.models.data
 
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.register
+import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 
 class InstrumentHKChannel(
@@ -16,11 +15,8 @@ class InstrumentHKChannel(
 
     init {
         with (context) {
-            fullWakeRate = discreteResource("FullWakeRate", defaultFullWakeRate)
-            diagnosticWakeRate = discreteResource("DiagnosticWakeRate", defaultDiagnosticWakeRate)
-
-            register("FullWakeRate", fullWakeRate)
-            register("DiagnosticWakeRate", diagnosticWakeRate)
+            fullWakeRate = registeredDiscreteResource("FullWakeRate", defaultFullWakeRate)
+            diagnosticWakeRate = registeredDiscreteResource("DiagnosticWakeRate", defaultDiagnosticWakeRate)
         }
     }
 }

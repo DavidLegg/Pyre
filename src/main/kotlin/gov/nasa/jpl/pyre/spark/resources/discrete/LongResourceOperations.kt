@@ -20,6 +20,9 @@ object LongResourceOperations {
         register(name, resource, LONG_SERIALIZER)
     }
 
+    fun SparkInitContext.registeredDiscreteResource(name: String, value: Long) =
+        discreteResource(name, value).also { register(name, it) }
+
     operator fun LongResource.plus(other: LongResource): LongResource =
         DiscreteResourceMonad.map(this, other) { x, y -> x + y }
     operator fun LongResource.minus(other: LongResource): LongResource =

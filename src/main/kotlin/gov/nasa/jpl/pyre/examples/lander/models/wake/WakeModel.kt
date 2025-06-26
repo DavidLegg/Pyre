@@ -1,8 +1,7 @@
 package gov.nasa.jpl.pyre.examples.lander.models.wake
 
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.register
+import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 
 class WakeModel(
@@ -18,9 +17,7 @@ class WakeModel(
 
     init {
         with (context) {
-            wakeType = discreteResource("wakeType", WakeType.NONE)
-
-            register("wakeType", wakeType)
+            wakeType = registeredDiscreteResource("wakeType", WakeType.NONE)
         }
     }
 }

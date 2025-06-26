@@ -24,6 +24,9 @@ object DiscreteResourceOperations {
         register(name, resource, discreteSerializer(serializer))
     }
 
+    fun <V> SparkInitContext.registeredDiscreteResource(name: String, value: V, serializer: Serializer<V>) =
+        discreteResource(name, value, serializer).also { register(name, it, serializer) }
+
     // Generic read/write operations, specialized to discrete resources
 
     context (TaskScope<*>)

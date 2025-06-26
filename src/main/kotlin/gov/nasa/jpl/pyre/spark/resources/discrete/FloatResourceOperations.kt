@@ -25,6 +25,9 @@ object FloatResourceOperations {
         register(name, resource, FLOAT_SERIALIZER)
     }
 
+    fun SparkInitContext.registeredDiscreteResource(name: String, value: Float) =
+        discreteResource(name, value).also { register(name, it) }
+
     operator fun FloatResource.plus(other: FloatResource): FloatResource =
         DiscreteResourceMonad.map(this, other) { x, y -> x + y }
     operator fun FloatResource.minus(other: FloatResource): FloatResource =

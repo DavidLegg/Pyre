@@ -16,4 +16,7 @@ object StringResourceOperations {
     fun SparkInitContext.register(name: String, resource: DiscreteResource<String>) {
         register(name, resource, STRING_SERIALIZER)
     }
+
+    fun SparkInitContext.registeredDiscreteResource(name: String, value: String) =
+        discreteResource(name, value).also { register(name, it) }
 }

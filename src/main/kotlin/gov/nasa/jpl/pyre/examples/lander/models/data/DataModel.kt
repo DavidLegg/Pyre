@@ -9,6 +9,7 @@ import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.integral
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.register
+import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.registeredIntegral
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
@@ -21,8 +22,8 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.decre
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.register
-import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.register
+import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
@@ -65,13 +66,9 @@ class DataModel(context: SparkInitContext) {
             val apidContext = subContext("apids")
             apidModelMap = DataConfig.APID.entries.associateWith { APIDModel(apidContext.subContext(it.toString()), virtualChannelMap) }
 
-            activeFPT = discreteResource("activeFPT", DataConfig.FPT.Companion.DEFAULT)
-            defaultFPT = discreteResource("defaultFPT", DataConfig.FPT.Companion.DEFAULT)
-            defaultDART = discreteResource("defaultDART", DataConfig.DART.Companion.DEFAULT)
-
-            register("activeFPT", activeFPT)
-            register("defaultFPT", defaultFPT)
-            register("defaultDART", defaultDART)
+            activeFPT = registeredDiscreteResource("activeFPT", DataConfig.FPT.Companion.DEFAULT)
+            defaultFPT = registeredDiscreteResource("defaultFPT", DataConfig.FPT.Companion.DEFAULT)
+            defaultDART = registeredDiscreteResource("defaultDART", DataConfig.DART.Companion.DEFAULT)
         }
     }
 
@@ -89,8 +86,8 @@ class DataModel(context: SparkInitContext) {
 
         init {
             with (context) {
-                rate = discreteResource("rate", 0.0)
-                volume = rate.asPolynomial().integral("volume", 0.0)
+                rate = registeredDiscreteResource("rate", 0.0)
+                volume = rate.asPolynomial().registeredIntegral("volume", 0.0)
 
                 overflowRate = discreteResource("overflowRate", 0.0)
                 overflow = overflowRate.asPolynomial().integral("volume", 0.0)
@@ -123,8 +120,6 @@ class DataModel(context: SparkInitContext) {
                     rate.increase(r)
                 })
 
-                register("rate", rate)
-                register("volume", volume)
                 val registeredOverflowRate: DoubleResource
                 val registeredOverflowVolume: PolynomialResource
                 val registeredDiscardRate: DoubleResource
@@ -140,10 +135,14 @@ class DataModel(context: SparkInitContext) {
                     registeredDiscardRate = overflowRate
                     registeredDiscardVolume = overflow
                 }
-                register("overflow/rate", registeredOverflowRate)
-                register("overflow/volume", registeredOverflowVolume)
-                register("discard/rate", registeredDiscardRate)
-                register("discard/volume", registeredDiscardVolume)
+                with (subContext("overflow")) {
+                    register("rate", registeredOverflowRate)
+                    register("volume", registeredOverflowVolume)
+                }
+                with (subContext("discard")) {
+                    register("rate", registeredDiscardRate)
+                    register("volume", registeredDiscardVolume)
+                }
             }
         }
     }
@@ -157,11 +156,8 @@ class DataModel(context: SparkInitContext) {
 
         init {
             with (context) {
-                routedVC = discreteResource("routedVC", ChannelName.VC00)
-                dataRate = discreteResource("dataRate", 0.0)
-
-                register("routedVC", routedVC)
-                register("dataRate", dataRate)
+                routedVC = registeredDiscreteResource("routedVC", ChannelName.VC00)
+                dataRate = registeredDiscreteResource("dataRate", 0.0)
             }
         }
 
