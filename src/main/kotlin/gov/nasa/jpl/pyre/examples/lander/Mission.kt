@@ -1,6 +1,12 @@
 package gov.nasa.jpl.pyre.examples.lander
 
 import gov.nasa.jpl.pyre.ember.Serializer
+import gov.nasa.jpl.pyre.examples.lander.activities.apss.APSSChangeAcqConfig
+import gov.nasa.jpl.pyre.examples.lander.activities.apss.APSSContinuousConfigFileUpdate
+import gov.nasa.jpl.pyre.examples.lander.activities.apss.APSSGeneric
+import gov.nasa.jpl.pyre.examples.lander.activities.apss.APSSPaeDataRecovery
+import gov.nasa.jpl.pyre.examples.lander.activities.apss.APSSProcessContinuousData
+import gov.nasa.jpl.pyre.examples.lander.activities.apss.APSSTwinsBoomSwap
 import gov.nasa.jpl.pyre.examples.lander.models.apss.APSSModel
 import gov.nasa.jpl.pyre.examples.lander.models.comm.CommModel
 import gov.nasa.jpl.pyre.examples.lander.models.data.DataModel
@@ -55,7 +61,13 @@ class Mission(context: SparkInitContext) : Model<Mission> {
     }
 
     override fun activitySerializer(): Serializer<GroundedActivity<Mission, *>> {
-        return ActivitySerializer()
+        return ActivitySerializer<Mission>()
+            .add(APSSChangeAcqConfig.SERIALIZER)
+            .add(APSSContinuousConfigFileUpdate.SERIALIZER)
+            .add(APSSGeneric.SERIALIZER)
+            .add(APSSPaeDataRecovery.SERIALIZER)
+            .add(APSSProcessContinuousData.SERIALIZER)
+            .add(APSSTwinsBoomSwap.SERIALIZER)
         // TODO: Add activities
     }
 }

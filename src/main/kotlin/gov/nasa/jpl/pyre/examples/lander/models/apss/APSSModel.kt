@@ -149,4 +149,8 @@ class APSSModel(
     suspend fun dumpInternalData(duration: Duration) {
         dumpInternalData(duration, internalVolume.getValue(), volumeToSendToVC.getValue())
     }
+
+    companion object {
+        val LIMIT_RESOLUTION = 0.0001
+    }
 }

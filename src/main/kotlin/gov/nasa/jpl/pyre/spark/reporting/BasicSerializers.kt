@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.spark.reporting
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
+import gov.nasa.jpl.pyre.coals.InvertibleFunction.Companion.identity
 import gov.nasa.jpl.pyre.coals.InvertibleFunction.Companion.withInverse
 import gov.nasa.jpl.pyre.coals.compose
 import gov.nasa.jpl.pyre.ember.JsonValue.*
@@ -45,6 +46,24 @@ object BasicSerializers {
         .alias(DoubleArray::toList withInverse List<Double>::toDoubleArray)
     val BOOLEAN_ARRAY_SERIALIZER = listSerializer(BOOLEAN_SERIALIZER)
         .alias(BooleanArray::toList withInverse List<Boolean>::toBooleanArray)
+
+    fun <K, V> mapSerializer(keySerializer: InvertibleFunction<K, String>, valueSerializer: Serializer<V>): Serializer<Map<K, V>> =
+        Serializer.of(
+            InvertibleFunction.of(
+            {
+                JsonMap(it.entries.associate { (k, v) ->
+                    Pair(keySerializer(k), valueSerializer.serialize(v))
+                })
+            },
+            {
+                (it as JsonMap).values.entries.associate { (k, v) ->
+                    Pair(keySerializer.inverse()(k), valueSerializer.deserialize(v))
+                }
+            }
+        ))
+
+    fun <V> mapSerializer(valueSerializer: Serializer<V>): Serializer<Map<String, V>> =
+        mapSerializer(identity(), valueSerializer)
 
     fun <T> Serializer<T>.asFunction() = InvertibleFunction.of(::serialize, ::deserialize)
     fun <T, S> Serializer<T>.alias(equivalence: InvertibleFunction<S, T>) = Serializer.of(this.asFunction() compose equivalence)

@@ -19,6 +19,10 @@ class ActivitySerializer<M> : Serializer<GroundedActivity<M, *>> {
         return this
     }
 
+    inline fun <reified A : Activity<M, *>> add(activitySerializer: Serializer<A>): ActivitySerializer<M> {
+        return add(requireNotNull(A::class.simpleName), activitySerializer)
+    }
+
     override fun serialize(obj: GroundedActivity<M, *>): JsonValue {
         return JsonMap(mapOf(
             "time" to Duration.serializer().serialize(obj.time),

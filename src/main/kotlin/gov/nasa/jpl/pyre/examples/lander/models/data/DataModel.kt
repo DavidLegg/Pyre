@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.examples.lander.models.data
 
 import gov.nasa.jpl.pyre.examples.lander.models.data.DataConfig.ChannelName
+import gov.nasa.jpl.pyre.examples.lander.models.wake.WakeModel.WakeType
 import gov.nasa.jpl.pyre.flame.composition.subContext
 import gov.nasa.jpl.pyre.flame.resources.polynomial.IntegralResource
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResource
@@ -35,7 +36,7 @@ import kotlin.math.min
 
 class DataModel(context: SparkInitContext) {
     private val virtualChannelMap: Map<ChannelName, VirtualChannel>
-    private val apidModelMap: Map<DataConfig.APID, APIDModel>
+    val apidModelMap: Map<DataConfig.APID, APIDModel>
 
     private val activeFPT: DiscreteResource<DataConfig.FPT>
     val defaultFPT: DiscreteResource<DataConfig.FPT>
@@ -71,6 +72,26 @@ class DataModel(context: SparkInitContext) {
             defaultDART = registeredDiscreteResource("defaultDART", DataConfig.DART.Companion.DEFAULT)
         }
     }
+
+    context(SparkTaskScope<*>)
+    suspend fun setInstrumentHKRate(
+        wakeType: WakeType,
+        hkChannel: InstrumentHKChannel,
+        fullRate: Double,
+        diagnosticRate: Double
+    ) {
+        val deltaRate = when (wakeType) {
+            WakeType.FULL -> fullRate - hkChannel.fullWakeRate.getValue()
+            WakeType.DIAGNOSTIC -> diagnosticRate - hkChannel.diagnosticWakeRate.getValue()
+            WakeType.NONE -> 0.0
+        }
+
+        apidModelMap.getValue(hkChannel.apid).increaseDataRate(deltaRate)
+
+        hkChannel.fullWakeRate.set(fullRate)
+        hkChannel.diagnosticWakeRate.set(diagnosticRate)
+    }
+
 
     class VirtualChannel(
         context: SparkInitContext,
