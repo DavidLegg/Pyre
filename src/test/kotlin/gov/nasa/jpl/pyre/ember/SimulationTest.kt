@@ -7,8 +7,16 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.ember.JsonValue.*
 import gov.nasa.jpl.pyre.ember.Task.PureStepResult.*
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.serializer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
@@ -17,22 +25,22 @@ import kotlin.test.assertContains
 
 class SimulationTest {
     private data class SimulationResult(
-        val reports: List<JsonValue>,
-        val fincon: JsonValue?,
+        val reports: List<JsonElement>,
+        val fincon: JsonElement?,
     )
 
     private fun runSimulation(
         endTime: Duration,
-        incon: JsonValue? = null,
+        incon: JsonElement? = null,
         takeFincon: Boolean = false,
         initialize: SimulationState.SimulationInitContext.() -> Unit,
     ): SimulationResult {
         assertDoesNotThrow {
             // Build a simulation that'll write reports to memory
-            val reports = mutableListOf<JsonValue>()
+            val reports = mutableListOf<JsonElement>()
             val simulation = SimpleSimulation(SimulationSetup(
                 reportHandler = { reports.add(it) },
-                inconProvider = incon?.let { JsonConditions.serializer().deserialize(it) },
+                inconProvider = incon?.let { Json.decodeFromJsonElement(it) },
                 initialize = initialize,
             ))
             // Run the simulation to the end
@@ -41,7 +49,7 @@ class SimulationTest {
             val fincon = if (takeFincon) {
                 val finconCollector = JsonConditions()
                 simulation.save(finconCollector)
-                JsonConditions.serializer().serialize(finconCollector)
+                Json.encodeToJsonElement(finconCollector)
             } else null
             // Return all results, and let the simulation itself be garbage collected
             return SimulationResult(reports, fincon)
@@ -51,7 +59,7 @@ class SimulationTest {
     private fun intCounterCell(name: String, value: Int) = Cell(
         name,
         value,
-        INT_SERIALIZER,
+        serializer(),
         { x, _ -> x },
         { x, n -> x + n },
         object : EffectTrait<Int> {
@@ -72,24 +80,13 @@ class SimulationTest {
         override fun sequential(first: T?, second: T?): T? = second ?: first
     }
 
+    @Serializable
     private data class LinearDynamics(val value: Double, val rate: Double)
-    private val linearDynamicsSerializer : Serializer<LinearDynamics> = Serializer.of(
-        InvertibleFunction.Companion.of(
-            { d: LinearDynamics -> JsonMap(mapOf("value" to JsonDouble(d.value), "rate" to JsonDouble(d.rate))) },
-            {
-                with((it as JsonMap).values) {
-                    LinearDynamics(
-                        (get("value") as JsonDouble).value,
-                        (get("rate") as JsonDouble).value
-                    )
-                }
-            })
-    )
     private fun linearDynamicsStep(d: LinearDynamics, t: Duration) = LinearDynamics(d.value + d.rate * (t ratioOver SECOND), d.rate)
     private fun linearCell(name: String, value: Double, rate: Double) = Cell(
         name,
         LinearDynamics(value, rate),
-        linearDynamicsSerializer,
+        serializer(),
         ::linearDynamicsStep,
         { d, e -> e ?: d },
         setEffectTrait<LinearDynamics>()
@@ -113,12 +110,12 @@ class SimulationTest {
     fun task_can_report_result() {
         val results = runSimulation(HOUR) {
             spawn("report result") {
-                Report(JsonString("result")) {
+                Report(JsonPrimitive("result")) {
                     Complete(Unit)
                 }
             }
         }
-        assertEquals(mutableListOf(JsonString("result")), results.reports)
+        assertEquals(mutableListOf(JsonPrimitive("result")), results.reports)
     }
 
     @Test
@@ -134,13 +131,13 @@ class SimulationTest {
             val x = allocate(intCounterCell("x", 42))
             spawn("read cell") {
                 Read(x) {
-                    Report(JsonString("x = $it")) {
+                    Report(JsonPrimitive("x = $it")) {
                         Complete(Unit)
                     }
                 }
             }
         }
-        assertEquals(mutableListOf(JsonString("x = 42")), results.reports)
+        assertEquals(mutableListOf(JsonPrimitive("x = 42")), results.reports)
     }
 
     @Test
@@ -150,14 +147,14 @@ class SimulationTest {
             spawn("emit effect") {
                 Emit(x, 13) {
                     Read(x) {
-                        Report(JsonString("x = $it")) {
+                        Report(JsonPrimitive("x = $it")) {
                             Complete(Unit)
                         }
                     }
                 }
             }
         }
-        assertEquals(mutableListOf(JsonString("x = 55")), results.reports)
+        assertEquals(mutableListOf(JsonPrimitive("x = 55")), results.reports)
     }
 
     @Test
@@ -177,17 +174,17 @@ class SimulationTest {
             // This is *not* a good way to implement stepping, since multiple steps, each < 1 minute,
             // will not change the value, but a single >1 minute step would.
             // It's fine for this test, though.
-            val x = allocate(Cell("x", 0, INT_SERIALIZER, { x, t -> x + (t / MINUTE).toInt() }, { x, n -> x + n }, object : EffectTrait<Int> {
+            val x = allocate(Cell("x", 0, serializer(), { x, t -> x + (t / MINUTE).toInt() }, { x, n -> x + n }, object : EffectTrait<Int> {
                 override fun empty() = 0
                 override fun concurrent(left: Int, right: Int) = left + right
                 override fun sequential(first: Int, second: Int) = first + second
             }))
             spawn("step cell") {
                 Read(x) {
-                    Report(JsonString("now x = $it")) {
+                    Report(JsonPrimitive("now x = $it")) {
                         Delay(30 * MINUTE) {
                             Read(x) {
-                                Report(JsonString("later x = $it")) {
+                                Report(JsonPrimitive("later x = $it")) {
                                     Complete(Unit)
                                 }
                             }
@@ -212,7 +209,7 @@ class SimulationTest {
             spawn("Task A") {
                 Emit(x, 5) {
                     Read(x) {
-                        Report(JsonString("A says: x = $it")) {
+                        Report(JsonPrimitive("A says: x = $it")) {
                             Complete(Unit)
                         }
                     }
@@ -221,7 +218,7 @@ class SimulationTest {
             spawn("Task B") {
                 Emit(x, 3) {
                     Read(x) {
-                        Report(JsonString("B says: x = $it")) {
+                        Report(JsonPrimitive("B says: x = $it")) {
                             Complete(Unit)
                         }
                     }
@@ -229,9 +226,9 @@ class SimulationTest {
             }
             spawn("Task C") {
                 Read(x) {
-                    Report(JsonString("C says: x = $it")) {
+                    Report(JsonPrimitive("C says: x = $it")) {
                         Read(x) {
-                            Report(JsonString("C still says: x = $it")) {
+                            Report(JsonPrimitive("C still says: x = $it")) {
                                 Complete(Unit)
                             }
                         }
@@ -242,10 +239,10 @@ class SimulationTest {
         with (results) {
             assert(reports.size == 4)
             // Order of reports is largely non-deterministic because these tasks are running in parallel
-            assertContains(reports, JsonString("A says: x = 15"))
-            assertContains(reports, JsonString("B says: x = 13"))
-            assertContains(reports, JsonString("C says: x = 10"))
-            assertContains(reports, JsonString("C still says: x = 10"))
+            assertContains(reports, JsonPrimitive("A says: x = 15"))
+            assertContains(reports, JsonPrimitive("B says: x = 13"))
+            assertContains(reports, JsonPrimitive("C says: x = 10"))
+            assertContains(reports, JsonPrimitive("C still says: x = 10"))
         }
     }
 
@@ -256,7 +253,7 @@ class SimulationTest {
             spawn("Task A") {
                 Emit(x, 5) {
                     Read(x) {
-                        Report(JsonString("A says: x = $it")) {
+                        Report(JsonPrimitive("A says: x = $it")) {
                             Complete(Unit)
                         }
                     }
@@ -264,10 +261,10 @@ class SimulationTest {
             }
             spawn("Task B") {
                 Read(x) {
-                    Report(JsonString("B first says: x = $it")) {
+                    Report(JsonPrimitive("B first says: x = $it")) {
                         Delay(ZERO) {
                             Read(x) {
-                                Report(JsonString("B next says: x = $it")) {
+                                Report(JsonPrimitive("B next says: x = $it")) {
                                     Complete(Unit)
                                 }
                             }
@@ -279,9 +276,9 @@ class SimulationTest {
         with (results) {
             assert(reports.size == 3)
             // Order of reports is largely non-deterministic because these tasks are running in parallel
-            assertContains(reports, JsonString("A says: x = 15"))
-            assertContains(reports, JsonString("B first says: x = 10"))
-            assertContains(reports, JsonString("B next says: x = 15"))
+            assertContains(reports, JsonPrimitive("A says: x = 15"))
+            assertContains(reports, JsonPrimitive("B first says: x = 10"))
+            assertContains(reports, JsonPrimitive("B next says: x = 15"))
         }
     }
 
@@ -289,7 +286,7 @@ class SimulationTest {
     fun sequential_unobserved_effects_are_joined_using_effect_trait() {
         val results = runSimulation(HOUR) {
             // Note: This is *not* a correct effect trait, but it's simple and lets us observe what's happening better.
-            val x = allocate(Cell("x", 10, INT_SERIALIZER, { x, _ -> x }, { x, n -> x + n }, object : EffectTrait<Int> {
+            val x = allocate(Cell("x", 10, serializer(), { x, _ -> x }, { x, n -> x + n }, object : EffectTrait<Int> {
                 override fun empty() = 0
                 override fun concurrent(left: Int, right: Int) = 0
                 override fun sequential(first: Int, second: Int) = first + second + 100
@@ -298,7 +295,7 @@ class SimulationTest {
                 Emit(x, 5) {
                     Emit(x, 6) {
                         Read(x) {
-                            Report(JsonString("x = $it")) {
+                            Report(JsonPrimitive("x = $it")) {
                                 Complete(Unit)
                             }
                         }
@@ -309,14 +306,14 @@ class SimulationTest {
         // Note: The 221 here comes from the violation of the "empty" part of the effect trait
         // - sequential(empty(), e) != e, because we add 100 every time we join effects.
         // This could change in future versions, but this is fine for the current test.
-        assertEquals(mutableListOf(JsonString("x = 221")), results.reports)
+        assertEquals(mutableListOf(JsonPrimitive("x = 221")), results.reports)
     }
 
     @Test
     fun concurrent_effects_are_joined_using_effect_trait() {
         val results = runSimulation(HOUR) {
             // Note: This is *not* a correct effect trait, but it's simple and lets us observe what's happening better.
-            val x = allocate(Cell("x", 10, INT_SERIALIZER, { x, _ -> x }, { x, n -> x + n }, object : EffectTrait<Int> {
+            val x = allocate(Cell("x", 10, serializer(), { x, _ -> x }, { x, n -> x + n }, object : EffectTrait<Int> {
                 override fun empty() = 0
                 override fun concurrent(left: Int, right: Int) = left + right + 100
                 override fun sequential(first: Int, second: Int) = first + second
@@ -324,7 +321,7 @@ class SimulationTest {
             spawn("Task A") {
                 Emit(x, 5) {
                     Read(x) {
-                        Report(JsonString("A says: x = $it")) {
+                        Report(JsonPrimitive("A says: x = $it")) {
                             Complete(Unit)
                         }
                     }
@@ -333,7 +330,7 @@ class SimulationTest {
             spawn("Task B") {
                 Emit(x, 3) {
                     Read(x) {
-                        Report(JsonString("B says: x = $it")) {
+                        Report(JsonPrimitive("B says: x = $it")) {
                             Complete(Unit)
                         }
                     }
@@ -342,7 +339,7 @@ class SimulationTest {
             spawn("Task C") {
                 Delay(ZERO) {
                     Read(x) {
-                        Report(JsonString("C says: x = $it")) {
+                        Report(JsonPrimitive("C says: x = $it")) {
                             Complete(Unit)
                         }
                     }
@@ -352,12 +349,12 @@ class SimulationTest {
         with (results) {
             assert(reports.size == 3)
             // Order of reports is largely non-deterministic because these tasks are running in parallel
-            assertContains(reports, JsonString("A says: x = 15"))
-            assertContains(reports, JsonString("B says: x = 13"))
+            assertContains(reports, JsonPrimitive("A says: x = 15"))
+            assertContains(reports, JsonPrimitive("B says: x = 13"))
             // Note: The 218 here comes from the violation of the "empty" part of the effect trait
             // - concurrent(empty(), e) != e, because we add 100 every time we join effects.
             // This could change in future versions, but this is fine for the current test.
-            assertContains(reports, JsonString("C says: x = 218"))
+            assertContains(reports, JsonPrimitive("C says: x = 218"))
         }
     }
 
@@ -379,7 +376,7 @@ class SimulationTest {
             spawn("Awaiter") {
                 Await({ Condition.SatisfiedAt(ZERO) }) {
                     Read(x) {
-                        Report(JsonString("Awaiter says: x = $it")) {
+                        Report(JsonPrimitive("Awaiter says: x = $it")) {
                             Complete(Unit)
                         }
                     }
@@ -399,7 +396,7 @@ class SimulationTest {
                 }
             }
         }
-        assertEquals(mutableListOf(JsonString("Awaiter says: x = 11")), results.reports)
+        assertEquals(mutableListOf(JsonPrimitive("Awaiter says: x = 11")), results.reports)
     }
 
     @Test
@@ -407,7 +404,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             spawn("Awaiter") {
                 Await({ Condition.UnsatisfiedUntil(null) }) {
-                    Report(JsonString("Awaiter ran!")) {
+                    Report(JsonPrimitive("Awaiter ran!")) {
                         Complete(Unit)
                     }
                 }
@@ -429,9 +426,9 @@ class SimulationTest {
                 }
                 Await({ condition }) {
                     Read(x) {
-                        Report(JsonString("Awaiter says: x = $it")) {
+                        Report(JsonPrimitive("Awaiter says: x = $it")) {
                             Read(y) {
-                                Report(JsonString("Awaiter says: y = $it")) {
+                                Report(JsonPrimitive("Awaiter says: y = $it")) {
                                     Complete(Unit)
                                 }
                             }
@@ -485,7 +482,7 @@ class SimulationTest {
                 }
                 Await({ cond }) {
                     Read(x) {
-                        Report(x.serializer.serialize(it)) {
+                        Report(Json.encodeToJsonElement(it)) {
                             Complete(Unit)
                         }
                     }
@@ -523,9 +520,9 @@ class SimulationTest {
                 }
                 Await({ cond }) {
                     Read(x) {
-                        Report(x.serializer.serialize(it)) {
+                        Report(Json.encodeToJsonElement(it)) {
                             Read(y) {
-                                Report(JsonString("Awaiter says: y = $it")) {
+                                Report(JsonPrimitive("Awaiter says: y = $it")) {
                                     Complete(Unit)
                                 }
                             }
@@ -584,9 +581,9 @@ class SimulationTest {
                 }
                 Await({ cond }) {
                     Read(x) {
-                        Report(x.serializer.serialize(it)) {
+                        Report(Json.encodeToJsonElement(it)) {
                             Read(y) {
-                                Report(JsonString("Awaiter says: y = $it")) {
+                                Report(JsonPrimitive("Awaiter says: y = $it")) {
                                     Complete(Unit)
                                 }
                             }
@@ -640,7 +637,7 @@ class SimulationTest {
                     }
                 }) {
                     Read(x) {
-                        Report(x.serializer.serialize(it)) {
+                        Report(Json.encodeToJsonElement(it)) {
                             Complete(Unit)
                         }
                     }
@@ -674,7 +671,7 @@ class SimulationTest {
                     }
                 }) {
                     Read(x) {
-                        Report(x.serializer.serialize(it)) {
+                        Report(Json.encodeToJsonElement(it)) {
                             Complete(Unit)
                         }
                     }
@@ -706,7 +703,7 @@ class SimulationTest {
     @Test
     fun empty_simulation_can_be_saved() {
         val results = runSimulation(MINUTE, takeFincon = true) {}
-        with (results.fincon as JsonMap) {
+        with (results.fincon!!) {
             within("simulation") {
                 assertEquals("00:01:00.000000", string("time", "$"))
             }
@@ -759,10 +756,10 @@ class SimulationTest {
             spawn("Single Batch Task") {
                 Read(x) { xDynamics ->
                     Read(y) { yDynamics ->
-                        Report(JsonMap(mapOf(
-                            "tag" to JsonString("Single Batch Task"),
-                            "x" to x.serializer.serialize(xDynamics),
-                            "y" to y.serializer.serialize(yDynamics),
+                        Report(JsonObject(mapOf(
+                            "tag" to JsonPrimitive("Single Batch Task"),
+                            "x" to Json.encodeToJsonElement(xDynamics),
+                            "y" to Json.encodeToJsonElement(yDynamics),
                         ))) {
                             Complete(Unit)
                         }
@@ -772,18 +769,18 @@ class SimulationTest {
             spawn("Multi Batch Task") {
                 Read(x) { xDynamics ->
                     Read(y) { yDynamics ->
-                        Report(JsonMap(mapOf(
-                            "tag" to JsonString("Multi Batch Task - 1"),
-                            "x" to x.serializer.serialize(xDynamics),
-                            "y" to y.serializer.serialize(yDynamics),
+                        Report(JsonObject(mapOf(
+                            "tag" to JsonPrimitive("Multi Batch Task - 1"),
+                            "x" to Json.encodeToJsonElement(xDynamics),
+                            "y" to Json.encodeToJsonElement(yDynamics),
                         ))) {
                             Delay(90 * SECOND) {
                                 Read(x) { xDynamics ->
                                     Read(y) { yDynamics ->
-                                        Report(JsonMap(mapOf(
-                                            "tag" to JsonString("Multi Batch Task - 2"),
-                                            "x" to x.serializer.serialize(xDynamics),
-                                            "y" to y.serializer.serialize(yDynamics),
+                                        Report(JsonObject(mapOf(
+                                            "tag" to JsonPrimitive("Multi Batch Task - 2"),
+                                            "x" to Json.encodeToJsonElement(xDynamics),
+                                            "y" to Json.encodeToJsonElement(yDynamics),
                                         ))) {
                                             Complete(Unit)
                                         }
@@ -855,10 +852,10 @@ class SimulationTest {
                     Read(y) { yDynamics ->
                         // Add a delay 0 to make the report order deterministic, for easier verification
                         Delay(ZERO) {
-                            Report(JsonMap(mapOf(
-                                "tag" to JsonString("Single Batch Task"),
-                                "x" to x.serializer.serialize(xDynamics),
-                                "y" to y.serializer.serialize(yDynamics),
+                            Report(JsonObject(mapOf(
+                                "tag" to JsonPrimitive("Single Batch Task"),
+                                "x" to Json.encodeToJsonElement(xDynamics),
+                                "y" to Json.encodeToJsonElement(yDynamics),
                             ))) {
                                 Complete(Unit)
                             }
@@ -869,19 +866,23 @@ class SimulationTest {
             spawn("Multi Batch Task") {
                 Read(x) { xDynamics ->
                     Read(y) { yDynamics ->
-                        Report(JsonMap(mapOf(
-                            "tag" to JsonString("Multi Batch Task - 1"),
-                            "x" to x.serializer.serialize(xDynamics),
-                            "y" to y.serializer.serialize(yDynamics),
+                        Report(JsonObject(mapOf(
+                            "tag" to JsonPrimitive("Multi Batch Task - 1"),
+                            "x" to Json.encodeToJsonElement(xDynamics),
+                            "y" to Json.encodeToJsonElement(yDynamics),
                         ))) {
                             Delay(90 * SECOND) {
                                 Read(x) { xDynamics ->
                                     Read(y) { yDynamics ->
-                                        Report(JsonMap(mapOf(
-                                            "tag" to JsonString("Multi Batch Task - 2"),
-                                            "x" to x.serializer.serialize(xDynamics),
-                                            "y" to y.serializer.serialize(yDynamics),
-                                        ))) {
+                                        Report(
+                                            JsonObject(
+                                                mapOf(
+                                                    "tag" to JsonPrimitive("Multi Batch Task - 2"),
+                                                    "x" to Json.encodeToJsonElement(xDynamics),
+                                                    "y" to Json.encodeToJsonElement(yDynamics),
+                                                )
+                                            )
+                                        ) {
                                             Complete(Unit)
                                         }
                                     }
@@ -958,7 +959,7 @@ class SimulationTest {
                     Emit(x, 1) {
                         Read(clock) { time ->
                             Read(x) {
-                                Report(JsonString("x = $it at $time")) {
+                                Report(JsonPrimitive("x = $it at $time")) {
                                     Restart<Unit>()
                                 }
                             }
@@ -989,7 +990,7 @@ class SimulationTest {
                     Emit(x, 1) {
                         Read(clock) { time ->
                             Read(x) {
-                                Report(JsonString("x = $it at $time")) {
+                                Report(JsonPrimitive("x = $it at $time")) {
                                     Restart<Unit>()
                                 }
                             }
@@ -1033,7 +1034,7 @@ class SimulationTest {
                     Emit(x, 1) {
                         Read(clock) { time ->
                             Read(x) {
-                                Report(JsonString("x = $it at $time")) {
+                                Report(JsonPrimitive("x = $it at $time")) {
                                     Restart<Unit>()
                                 }
                             }
@@ -1057,9 +1058,9 @@ class SimulationTest {
     fun tasks_can_spawn_children() {
         val results = runSimulation(HOUR) {
             spawn("Parent") {
-                Report(JsonString("Parent's report")) {
+                Report(JsonPrimitive("Parent's report")) {
                     Spawn("Child", {
-                        Report(JsonString("Child's report")) {
+                        Report(JsonPrimitive("Child's report")) {
                             Complete(Unit)
                         }
                     }) {
@@ -1102,13 +1103,13 @@ class SimulationTest {
 
             spawn("P") {
                 Read(x) {
-                    Report(JsonString("Tick 0: P says: x = $it")) {
+                    Report(JsonPrimitive("Tick 0: P says: x = $it")) {
                         Spawn("C1", {
                             Read(x) {
-                                Report(JsonString("Tick 1: C1 says: x = $it")) {
+                                Report(JsonPrimitive("Tick 1: C1 says: x = $it")) {
                                     Delay(ZERO) {
                                         Read(x) {
-                                            Report(JsonString("Tick 2: C1 says: x = $it")) {
+                                            Report(JsonPrimitive("Tick 2: C1 says: x = $it")) {
                                                 Complete(Unit)
                                             }
                                         }
@@ -1118,10 +1119,10 @@ class SimulationTest {
                         }) {
                             Spawn("C2", {
                                 Read(x) {
-                                    Report(JsonString("Tick 1: C2 says: x = $it")) {
+                                    Report(JsonPrimitive("Tick 1: C2 says: x = $it")) {
                                         Delay(ZERO) {
                                             Read(x) {
-                                                Report(JsonString("Tick 2: C2 says: x = $it")) {
+                                                Report(JsonPrimitive("Tick 2: C2 says: x = $it")) {
                                                     Complete(Unit)
                                                 }
                                             }
@@ -1131,10 +1132,10 @@ class SimulationTest {
                             }) {
                                 Delay(ZERO) {
                                     Read(x) {
-                                        Report(JsonString("Tick 1: P says: x = $it")) {
+                                        Report(JsonPrimitive("Tick 1: P says: x = $it")) {
                                             Delay(ZERO) {
                                                 Read(x) {
-                                                    Report(JsonString("Tick 2: P says: x = $it")) {
+                                                    Report(JsonPrimitive("Tick 2: P says: x = $it")) {
                                                         Complete(Unit)
                                                     }
                                                 }
@@ -1151,20 +1152,20 @@ class SimulationTest {
 
         with (results) {
             assertEquals(7, reports.size)
-            assertEquals(JsonString("Tick 0: P says: x = 0"), reports[0])
+            assertEquals(JsonPrimitive("Tick 0: P says: x = 0"), reports[0])
             // Ordering of reports in the same tick is non-deterministic
             assertEquals(
                 setOf(
-                    JsonString("Tick 1: P says: x = 1"),
-                    JsonString("Tick 1: C1 says: x = 1"),
-                    JsonString("Tick 1: C2 says: x = 1"),
+                    JsonPrimitive("Tick 1: P says: x = 1"),
+                    JsonPrimitive("Tick 1: C1 says: x = 1"),
+                    JsonPrimitive("Tick 1: C2 says: x = 1"),
                 ),
                 reports.subList(1, 4).toSet())
             assertEquals(
                 setOf(
-                    JsonString("Tick 2: P says: x = 2"),
-                    JsonString("Tick 2: C1 says: x = 2"),
-                    JsonString("Tick 2: C2 says: x = 2"),
+                    JsonPrimitive("Tick 2: P says: x = 2"),
+                    JsonPrimitive("Tick 2: C1 says: x = 2"),
+                    JsonPrimitive("Tick 2: C2 says: x = 2"),
                 ),
                 reports.subList(4, 7).toSet())
         }
@@ -1174,12 +1175,12 @@ class SimulationTest {
     fun child_tasks_can_be_saved() {
         val results = runSimulation(HOUR, takeFincon = true) {
             spawn("P") {
-                Report(JsonString("P -- 1")) {
+                Report(JsonPrimitive("P -- 1")) {
                     Spawn("C", {
-                        Report(JsonString("C -- 1")) {
+                        Report(JsonPrimitive("C -- 1")) {
                             Delay(45 * MINUTE) {
                                 // 00:45:00
-                                Report(JsonString("C -- 2")) {
+                                Report(JsonPrimitive("C -- 2")) {
                                     Complete(Unit)
                                 }
                             }
@@ -1187,12 +1188,12 @@ class SimulationTest {
                     }) {
                         Delay(30 * MINUTE) {
                             // 00:30:00
-                            Report(JsonString("P -- 2")) {
+                            Report(JsonPrimitive("P -- 2")) {
                                 Spawn("D", {
-                                    Report(JsonString("D -- 1")) {
+                                    Report(JsonPrimitive("D -- 1")) {
                                         Delay(45 * MINUTE) {
                                             // 01:15:00
-                                            Report(JsonString("D -- 2")) {
+                                            Report(JsonPrimitive("D -- 2")) {
                                                 Complete(Unit)
                                             }
                                         }
@@ -1200,7 +1201,7 @@ class SimulationTest {
                                 }) {
                                     Delay(HOUR) {
                                         // 01:30:00
-                                        Report(JsonString("P -- 3")) {
+                                        Report(JsonPrimitive("P -- 3")) {
                                             Complete(Unit)
                                         }
                                     }
@@ -1282,12 +1283,12 @@ class SimulationTest {
     fun child_tasks_can_be_restored() {
         fun SimulationState.SimulationInitContext.initialize() {
             spawn("P") {
-                Report(JsonString("P -- 1")) {
+                Report(JsonPrimitive("P -- 1")) {
                     Spawn("C", {
-                        Report(JsonString("C -- 1")) {
+                        Report(JsonPrimitive("C -- 1")) {
                             Delay(45 * MINUTE) {
                                 // 00:45:00
-                                Report(JsonString("C -- 2")) {
+                                Report(JsonPrimitive("C -- 2")) {
                                     Complete(Unit)
                                 }
                             }
@@ -1295,12 +1296,12 @@ class SimulationTest {
                     }) {
                         Delay(30 * MINUTE) {
                             // 00:30:00
-                            Report(JsonString("P -- 2")) {
+                            Report(JsonPrimitive("P -- 2")) {
                                 Spawn("D", {
-                                    Report(JsonString("D -- 1")) {
+                                    Report(JsonPrimitive("D -- 1")) {
                                         Delay(45 * MINUTE) {
                                             // 01:15:00
-                                            Report(JsonString("D -- 2")) {
+                                            Report(JsonPrimitive("D -- 2")) {
                                                 Complete(Unit)
                                             }
                                         }
@@ -1308,7 +1309,7 @@ class SimulationTest {
                                 }) {
                                     Delay(HOUR) {
                                         // 01:30:00
-                                        Report(JsonString("P -- 3")) {
+                                        Report(JsonPrimitive("P -- 3")) {
                                             Complete(Unit)
                                         }
                                     }
@@ -1354,10 +1355,10 @@ class SimulationTest {
                     Read(n) { nValue ->
                         Spawn("Child $nValue", {
                             Read(clock) { time ->
-                                Report(JsonString("Child $nValue start at $time")) {
+                                Report(JsonPrimitive("Child $nValue start at $time")) {
                                     Delay(45 * MINUTE) {
                                         Read(clock) { time ->
-                                            Report(JsonString("Child $nValue end at $time")) {
+                                            Report(JsonPrimitive("Child $nValue end at $time")) {
                                                 Complete(Unit)
                                             }
                                         }
@@ -1420,7 +1421,7 @@ class SimulationTest {
                         Delay(10 * MINUTE) {
                             Read(clock) { time ->
                                 Read(n) {
-                                    Report(JsonString("Iteration $it at $time")) {
+                                    Report(JsonPrimitive("Iteration $it at $time")) {
                                         Emit(n, 1) {
                                             Restart<Unit>()
                                         }
@@ -1467,25 +1468,25 @@ class SimulationTest {
     fun grandchild_tasks_can_be_restored() {
         fun SimulationState.SimulationInitContext.initialize() {
             spawn("P") {
-                Report(JsonString("P -- 1")) {
+                Report(JsonPrimitive("P -- 1")) {
                     Spawn("C", {
-                        Report(JsonString("C -- 1")) {
+                        Report(JsonPrimitive("C -- 1")) {
                             Spawn("GC", {
-                                Report(JsonString("GC -- 1")) {
+                                Report(JsonPrimitive("GC -- 1")) {
                                     Delay(90 * MINUTE) {
-                                        Report(JsonString("GC -- 2")) {
+                                        Report(JsonPrimitive("GC -- 2")) {
                                             Complete(Unit)
                                         }
                                     }
                                 }
                             }) {
-                                Report(JsonString("C -- 2")) {
+                                Report(JsonPrimitive("C -- 2")) {
                                     Complete(Unit)
                                 }
                             }
                         }
                     }) {
-                        Report(JsonString("P -- 2")) {
+                        Report(JsonPrimitive("P -- 2")) {
                             Complete(Unit)
                         }
                     }
@@ -1524,11 +1525,11 @@ class SimulationTest {
             for (i in 1..100) {
                 // Case A - Task delays directly to fincon time
                 spawn("A$i") {
-                    Report(JsonString("A$i -- 1")) {
+                    Report(JsonPrimitive("A$i -- 1")) {
                         Delay(MINUTE) {
-                            Report(JsonString("A$i -- 2")) {
+                            Report(JsonPrimitive("A$i -- 2")) {
                                 Delay(10 * SECOND) {
-                                    Report(JsonString("A$i -- 3")) {
+                                    Report(JsonPrimitive("A$i -- 3")) {
                                         Complete(Unit)
                                     }
                                 }
@@ -1541,12 +1542,12 @@ class SimulationTest {
                 //   Fincon task delays to fincon time directly, so if there are effects due to the order that tasks
                 //   are added to the queue, this hopes to provoke those effects.
                 spawn("B$i") {
-                    Report(JsonString("B$i -- 1")) {
+                    Report(JsonPrimitive("B$i -- 1")) {
                         Delay(30 * SECOND) {
                             Delay(30 * SECOND) {
-                                Report(JsonString("B$i -- 2")) {
+                                Report(JsonPrimitive("B$i -- 2")) {
                                     Delay(10 * SECOND) {
-                                        Report(JsonString("B$i -- 3")) {
+                                        Report(JsonPrimitive("B$i -- 3")) {
                                             Complete(Unit)
                                         }
                                     }
@@ -1558,12 +1559,12 @@ class SimulationTest {
 
                 // Case C - Children spawned at fincon time
                 spawn("C$i") {
-                    Report(JsonString("C$i -- 1")) {
+                    Report(JsonPrimitive("C$i -- 1")) {
                         Delay(MINUTE) {
                             Spawn("C$i.child", {
-                                Report(JsonString("C$i -- 2")) {
+                                Report(JsonPrimitive("C$i -- 2")) {
                                     Delay(10 * SECOND) {
-                                        Report(JsonString("C$i -- 3")) {
+                                        Report(JsonPrimitive("C$i -- 3")) {
                                             Complete(Unit)
                                         }
                                     }
@@ -1584,18 +1585,11 @@ class SimulationTest {
         // For every task, assert that it was properly saved and restored by seeing the 3rd report from it.
         for (i in 1..100) {
             for (t in listOf("A", "B", "C")) {
-                assertContains(nextResults.reports, JsonString("$t$i -- 3"))
+                assertContains(nextResults.reports, JsonPrimitive("$t$i -- 3"))
             }
         }
     }
 }
-
-// Copied from BasicSerializers, for the sake of testing ember without relying on spark
-private val INT_SERIALIZER = Serializer.of(
-    InvertibleFunction.Companion.of(
-        { i: Int -> JsonInt(i.toLong()) },
-        { (it as JsonInt).value.toInt() })
-)
 
 private fun assertNearlyEquals(expected: Double, actual: Double) {
     assert(abs(expected - actual) < 1e-5)

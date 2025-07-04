@@ -7,26 +7,17 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.JsonConditions
-import gov.nasa.jpl.pyre.ember.JsonValue
-import gov.nasa.jpl.pyre.ember.JsonValue.JsonArray
-import gov.nasa.jpl.pyre.ember.JsonValue.JsonString
 import gov.nasa.jpl.pyre.ember.SimpleSimulation
 import gov.nasa.jpl.pyre.ember.SimpleSimulation.SimulationSetup
 import gov.nasa.jpl.pyre.ember.SimulationState
 import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.discrete.*
-import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.FloatResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.StringResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.lessThan
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.resources.timer.Timer
@@ -36,6 +27,12 @@ import gov.nasa.jpl.pyre.spark.tasks.onceWhenever
 import gov.nasa.jpl.pyre.spark.tasks.repeatingTask
 import gov.nasa.jpl.pyre.spark.tasks.task
 import gov.nasa.jpl.pyre.string
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
 import org.junit.jupiter.api.assertDoesNotThrow
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -43,22 +40,22 @@ import kotlin.time.Instant
 
 class SparkSimulationTest {
     private data class SimulationResult(
-        val reports: List<JsonValue>,
-        val fincon: JsonValue?,
+        val reports: List<JsonElement>,
+        val fincon: JsonElement?,
     )
 
     private fun runSimulation(
         endTime: Duration,
-        incon: JsonValue? = null,
+        incon: JsonElement? = null,
         takeFincon: Boolean = false,
         initialize: SimulationState.SimulationInitContext.() -> Unit,
     ): SimulationResult {
         assertDoesNotThrow {
             // Build a simulation that'll write reports to memory
-            val reports = mutableListOf<JsonValue>()
+            val reports = mutableListOf<JsonElement>()
             val simulation = SimpleSimulation(SimulationSetup(
                 reportHandler = { reports.add(it) },
-                inconProvider = incon?.let { JsonConditions.serializer().deserialize(it) },
+                inconProvider = incon?.let { Json.decodeFromJsonElement(it) },
                 initialize = initialize,
             ))
             // Run the simulation to the end
@@ -67,7 +64,7 @@ class SparkSimulationTest {
             val fincon = if (takeFincon) {
                 val finconCollector = JsonConditions()
                 simulation.save(finconCollector)
-                JsonConditions.serializer().serialize(finconCollector)
+                Json.encodeToJsonElement(finconCollector)
             } else null
             // Return all results, and let the simulation itself be garbage collected
             return SimulationResult(reports, fincon)
@@ -117,7 +114,7 @@ class SparkSimulationTest {
                 assertEquals(3.0f, f)
                 assertEquals(PowerState.OFF, e)
 
-                report(JsonString("Done"))
+                report(JsonPrimitive("Done"))
             })
         }
 
@@ -170,7 +167,7 @@ class SparkSimulationTest {
                 assertEquals(6.0f, f)
                 assertEquals(PowerState.WARMUP, e)
 
-                report(JsonString("Done"))
+                report(JsonPrimitive("Done"))
             })
         }
 
@@ -241,12 +238,12 @@ class SparkSimulationTest {
         val results = runSimulation(endTime=10.5 roundTimes MINUTE) {
             spawn("Report periodically", repeatingTask {
                 delay(MINUTE)
-                report(JsonString("Report"))
+                report(JsonPrimitive("Report"))
             })
         }
 
         assertEquals(10, results.reports.size)
-        results.reports.forEach { assertEquals(JsonString("Report"), it) }
+        results.reports.forEach { assertEquals(JsonPrimitive("Report"), it) }
     }
 
     @Test
@@ -257,7 +254,7 @@ class SparkSimulationTest {
 
             spawn("Report x > y", task {
                 await(x greaterThan y)
-                report(JsonString("Condition triggered: ${x.getValue()} > ${y.getValue()}"))
+                report(JsonPrimitive("Condition triggered: ${x.getValue()} > ${y.getValue()}"))
             })
 
             spawn("Change values", task {
@@ -293,11 +290,11 @@ class SparkSimulationTest {
             }
             with (sparkContext) {
                 spawn("Minimum Monitor", onceWhenever(setting lessThan minimum) {
-                    report(JsonString("Minimum violated: ${setting.getValue()} < ${minimum.getValue()}"))
+                    report(JsonPrimitive("Minimum violated: ${setting.getValue()} < ${minimum.getValue()}"))
                 })
 
                 spawn("Maximum Monitor", onceWhenever(setting greaterThan maximum) {
-                    report(JsonString("Maximum violated: ${setting.getValue()} > ${maximum.getValue()}"))
+                    report(JsonPrimitive("Maximum violated: ${setting.getValue()} > ${maximum.getValue()}"))
                 })
 
                 spawn("Change Setting", task {

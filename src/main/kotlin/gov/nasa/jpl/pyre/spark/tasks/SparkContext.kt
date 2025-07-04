@@ -27,9 +27,9 @@ interface SparkContext {
 interface SparkInitContext : SparkContext, SimulationInitContext
 interface SparkTaskScope<T> : SparkContext, TaskScope<T>
 
-context (SparkContext, TaskScope<T>)
+context (sparkContext: SparkContext, scope: TaskScope<T>)
 fun <T> sparkTaskScope(): SparkTaskScope<T> =
-    object : SparkTaskScope<T>, SparkContext by this@SparkContext, TaskScope<T> by this@TaskScope {}
+    object : SparkTaskScope<T>, SparkContext by sparkContext, TaskScope<T> by scope {}
 
 /**
  * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]

@@ -31,12 +31,12 @@ object DoubleResourceOperations {
     operator fun Double.div(other: DoubleResource): DoubleResource = pure(this) / other
     operator fun Double.rem(other: DoubleResource): DoubleResource = pure(this) % other
 
-    context(TaskScope<*>)
+    context(scope: TaskScope<*>)
     suspend fun MutableDoubleResource.increase(amount: Double) {
         emit { n: Double -> n + amount }
     }
 
-    context(TaskScope<*>)
+    context(scope: TaskScope<*>)
     suspend fun MutableDoubleResource.decrease(amount: Double) {
         emit { n: Double -> n - amount }
     }

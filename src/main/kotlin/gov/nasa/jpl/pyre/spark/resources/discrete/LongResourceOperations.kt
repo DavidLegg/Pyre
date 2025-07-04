@@ -31,12 +31,12 @@ object LongResourceOperations {
     operator fun Long.div(other: LongResource): LongResource = pure(this) / other
     operator fun Long.rem(other: LongResource): LongResource = pure(this) % other
 
-    context(TaskScope<*>)
+    context(scope: TaskScope<*>)
     suspend fun MutableLongResource.increment(amount: Long = 1) {
         emit { n: Long -> n + amount }
     }
 
-    context(TaskScope<*>)
+    context(scope: TaskScope<*>)
     suspend fun MutableLongResource.decrement(amount: Long = 1) {
         emit { n: Long -> n - amount }
     }

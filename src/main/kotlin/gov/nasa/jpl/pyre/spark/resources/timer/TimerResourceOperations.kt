@@ -34,37 +34,37 @@ object TimerResourceOperations {
     /**
      * Reset this timer to time, not running.
      */
-    context (TaskScope<*>)
+    context (scope: TaskScope<*>)
     suspend fun MutableResource<Timer>.reset(time: Duration = ZERO) = this.emit { t: Timer -> Timer(time, 0) }
 
     /**
      * Reset this timer to time, running forward.
      */
-    context (TaskScope<*>)
+    context (scope: TaskScope<*>)
     suspend fun MutableResource<Timer>.restart(time: Duration = ZERO) = this.emit { t: Timer -> Timer(time, 1) }
 
     /**
      * Reset this timer to time, running backward.
      */
-    context (TaskScope<*>)
+    context (scope: TaskScope<*>)
     suspend fun MutableResource<Timer>.restartCountdown(time: Duration) = this.emit { t: Timer -> Timer(time, -1) }
 
     /**
      * Pause this timer, but preserve the recorded time.
      */
-    context (TaskScope<*>)
+    context (scope: TaskScope<*>)
     suspend fun MutableResource<Timer>.pause() = this.emit { t: Timer -> Timer(t.time, 0) }
 
     /**
      * Resume this timer, running forward from the current time.
      */
-    context (TaskScope<*>)
+    context (scope: TaskScope<*>)
     suspend fun MutableResource<Timer>.resume() = this.emit { t: Timer -> Timer(t.time, 1) }
 
     /**
      * Resume this timer, running backward from the current time.
      */
-    context (TaskScope<*>)
+    context (scope: TaskScope<*>)
     suspend fun MutableResource<Timer>.resumeCountdown() = this.emit { t: Timer -> Timer(t.time, -1) }
 
     operator fun Resource<Timer>.plus(other: Resource<Timer>): Resource<Timer> = map(this, other, Timer::plus)

@@ -24,6 +24,6 @@ object BooleanResourceOperations {
     infix fun BooleanResource.and(other: Boolean): BooleanResource = other and this
     infix fun BooleanResource.or(other: Boolean): BooleanResource = other or this
 
-    context(SparkTaskScope<*>)
+    context(scope: SparkTaskScope<*>)
     suspend fun MutableBooleanResource.toggle() = this.emit { b: Boolean -> !b }
 }

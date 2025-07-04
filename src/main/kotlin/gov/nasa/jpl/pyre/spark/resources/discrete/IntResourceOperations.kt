@@ -31,12 +31,12 @@ object IntResourceOperations {
     operator fun Int.div(other: IntResource): IntResource = pure(this) / other
     operator fun Int.rem(other: IntResource): IntResource = pure(this) % other
 
-    context(TaskScope<*>)
+    context(scope: TaskScope<*>)
     suspend fun MutableIntResource.increment(amount: Int = 1) {
         emit { n: Int -> n + amount }
     }
 
-    context(TaskScope<*>)
+    context(scope: TaskScope<*>)
     suspend fun MutableIntResource.decrement(amount: Int = 1) {
         emit { n: Int -> n - amount }
     }

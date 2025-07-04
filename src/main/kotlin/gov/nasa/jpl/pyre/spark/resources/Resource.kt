@@ -7,7 +7,7 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad
 import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
 
 fun interface ThinResource<D> {
-    context (CellsReadableScope)
+    context (scope: CellsReadableScope)
     suspend fun getDynamics() : D
 }
 // TODO: Consider wrapping this in Result (equiv. to ErrorCatching), building ResultMonad, and updating DynamicsMonad
@@ -18,7 +18,7 @@ typealias Resource<D> = ThinResource<FullDynamics<D>>
  * Helpers
  */
 
-context (CellsReadableScope)
+context (scope: CellsReadableScope)
 suspend fun <V, D : Dynamics<V, D>> Resource<D>.getValue(): V = this.getDynamics().data.value()
 
 /*

@@ -13,17 +13,17 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.serializer
 
 interface MutableResource<D> : Resource<D> {
-    context (TaskScope<*>)
+    context (scope: TaskScope<*>)
     suspend fun emit(effect: ResourceEffect<D>)
 }
 typealias ResourceEffect<D> = (FullDynamics<D>) -> FullDynamics<D>
 
-context (TaskScope<*>)
+context (scope: TaskScope<*>)
 suspend fun <D> MutableResource<D>.emit(effect: (D) -> D) = emit {
     Expiring(effect(it.data), NEVER)
 }
 
-context (TaskScope<*>)
+context (scope: TaskScope<*>)
 suspend fun <D> MutableResource<D>.set(newDynamics: D) = emit { d: D -> newDynamics }
 
 inline fun <V, reified D : Dynamics<V, D>> SimulationInitContext.resource(
@@ -49,11 +49,11 @@ fun <V, D : Dynamics<V, D>> SimulationInitContext.resource(
     ))
 
     return object : MutableResource<D> {
-        context(TaskScope<*>)
-        override suspend fun emit(effect: (FullDynamics<D>) -> FullDynamics<D>) = emit(cell, effect)
+        context(scope: TaskScope<*>)
+        override suspend fun emit(effect: (FullDynamics<D>) -> FullDynamics<D>) = scope.emit(cell, effect)
 
-        context(CellsReadableScope)
-        override suspend fun getDynamics(): FullDynamics<D> = read(cell)
+        context(scope: CellsReadableScope)
+        override suspend fun getDynamics(): FullDynamics<D> = scope.read(cell)
     }
 }
 

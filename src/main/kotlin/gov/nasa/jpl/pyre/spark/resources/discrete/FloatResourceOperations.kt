@@ -31,12 +31,12 @@ object FloatResourceOperations {
     operator fun Float.div(other: FloatResource): FloatResource = pure(this) / other
     operator fun Float.rem(other: FloatResource): FloatResource = pure(this) % other
 
-    context(TaskScope<*>)
+    context(scope: TaskScope<*>)
     suspend fun MutableFloatResource.increase(amount: Float) {
         emit { n: Float -> n + amount }
     }
 
-    context(TaskScope<*>)
+    context(scope: TaskScope<*>)
     suspend fun MutableFloatResource.decrease(amount: Float) {
         emit { n: Float -> n - amount }
     }
