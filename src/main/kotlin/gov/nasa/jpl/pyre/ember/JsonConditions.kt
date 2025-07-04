@@ -86,6 +86,7 @@ class JsonConditions private constructor(private val conditions: ConditionsTreeN
             require(encoder is JsonEncoder)
             encoder.encodeJsonElement(buildJsonObject {
                 value.value?.let { put("$", it) }
+                value.accruedValue?.let { put("$", JsonArray(it)) }
                 for ((key, child) in value.children) {
                     put(key, encoder.json.encodeToJsonElement(this@NodeSerializer, child))
                 }

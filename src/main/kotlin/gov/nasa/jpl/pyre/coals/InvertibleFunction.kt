@@ -6,7 +6,7 @@ interface InvertibleFunction<A, B> : (A) -> B {
     companion object {
         fun <A, B> of(forward: (A) -> B, reverse: (B) -> A): InvertibleFunction<A, B> =
             object : InvertibleFunction<A, B> {
-                override val inverse = of(reverse, forward)
+                override val inverse get() = of(reverse, forward)
                 override fun invoke(p1: A) = forward(p1)
             }
 

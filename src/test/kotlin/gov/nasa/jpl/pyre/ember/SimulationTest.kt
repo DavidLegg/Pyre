@@ -40,7 +40,7 @@ class SimulationTest {
             val reports = mutableListOf<JsonElement>()
             val simulation = SimpleSimulation(SimulationSetup(
                 reportHandler = { reports.add(it) },
-                inconProvider = incon?.let { Json.decodeFromJsonElement(it) },
+                inconProvider = incon?.let { Json.decodeFromJsonElement(JsonConditions.serializer(),it) },
                 initialize = initialize,
             ))
             // Run the simulation to the end
