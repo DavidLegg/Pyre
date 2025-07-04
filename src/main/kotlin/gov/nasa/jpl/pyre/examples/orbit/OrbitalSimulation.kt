@@ -1,13 +1,10 @@
 package gov.nasa.jpl.pyre.examples.orbit
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction.Companion.withInverse
 import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.Serializer
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.DOUBLE_ARRAY_SERIALIZER
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.alias
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import kotlinx.serialization.Serializable
 import kotlin.math.sqrt
 
 class OrbitalSimulation(
@@ -27,16 +24,10 @@ class OrbitalSimulation(
         val initialVelocity: Vector,
         val mass: Double,
     )
+
+    @Serializable
     data class Vector(val x: Double, val y: Double, val z: Double) {
         fun asSequence() = sequenceOf(x, y, z)
-
-        companion object {
-            fun serializer(): Serializer<Vector> = DOUBLE_ARRAY_SERIALIZER.alias(
-                { v: Vector -> doubleArrayOf(v.x, v.y, v.z) }
-                withInverse
-                { a: DoubleArray -> Vector(a[0], a[1], a[2]) }
-            )
-        }
     }
 
     private val integrator: VerletIntegrator

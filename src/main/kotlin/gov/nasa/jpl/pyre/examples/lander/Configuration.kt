@@ -5,7 +5,9 @@ import gov.nasa.jpl.pyre.examples.lander.config.EngDataParams
 import gov.nasa.jpl.pyre.examples.lander.config.MasterActivityDurations
 import gov.nasa.jpl.pyre.examples.lander.config.OrbiterParams
 import gov.nasa.jpl.pyre.examples.lander.config.SchedulingParams
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class Configuration(
     val engDataParams: EngDataParams = EngDataParams(),
     val schedulingParams: SchedulingParams = SchedulingParams(),

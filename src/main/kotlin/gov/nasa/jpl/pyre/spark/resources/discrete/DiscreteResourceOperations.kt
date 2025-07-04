@@ -1,30 +1,30 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
-import gov.nasa.jpl.pyre.ember.Serializer
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.alias
 import gov.nasa.jpl.pyre.spark.reporting.register
+import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete.DiscreteSerializer
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.emit
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.serializer
 
 object DiscreteResourceOperations {
-    fun <V> SimulationInitContext.discreteResource(name: String, value: V, serializer: Serializer<V>) =
-        resource(name, Discrete(value), discreteSerializer(serializer))
+    inline fun <reified V> SimulationInitContext.discreteResource(name: String, value: V, serializer: KSerializer<V> = serializer()) =
+        resource(name, Discrete(value), DiscreteSerializer(serializer))
 
-    fun <V> SparkInitContext.register(
+    inline fun <reified V> SparkInitContext.register(
         name: String,
         resource: DiscreteResource<V>,
-        serializer: Serializer<V>,
+        serializer: KSerializer<V> = serializer(),
     ) {
-        register(name, resource, discreteSerializer(serializer))
+        register(name, resource, DiscreteSerializer(serializer))
     }
 
-    fun <V> SparkInitContext.registeredDiscreteResource(name: String, value: V, serializer: Serializer<V>) =
+    inline fun <reified V> SparkInitContext.registeredDiscreteResource(name: String, value: V, serializer: KSerializer<V> = serializer()) =
         discreteResource(name, value, serializer).also { register(name, it, serializer) }
 
     // Generic read/write operations, specialized to discrete resources
@@ -58,9 +58,6 @@ object DiscreteResourceOperations {
         map(this, other) { x, y -> x != y }
     infix fun <T> DiscreteResource<T>.equals(other: T): BooleanResource = this equals pure(other)
     infix fun <T> DiscreteResource<T>.notEquals(other: T): BooleanResource = this notEquals pure(other)
-
-    fun <V> discreteSerializer(serializer: Serializer<V>): Serializer<Discrete<V>> =
-        serializer.alias(InvertibleFunction.of({ it.value }, ::Discrete))
 }
 
 

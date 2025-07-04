@@ -1,9 +1,13 @@
 package gov.nasa.jpl.pyre.ember
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
+
 @Suppress("UNCHECKED_CAST")
 class CellSet {
     // CellHandle is class, not data class, because we *want* to use object-identity equality
-    class CellHandle<T, E>(val name: String, val serializer: Serializer<T>) {
+    class CellHandle<T, E>(val name: String, val serializer: KSerializer<T>) {
         override fun toString() = name
     }
     data class CellState<T, E>(val cell: Cell<T, E>, val effect: E)
@@ -41,7 +45,7 @@ class CellSet {
 
     fun save(finconCollector: FinconCollector) {
         fun <T, E> saveCell(state: CellState<T, E>) = with(state.cell) {
-            finconCollector.report(name, value = serializer.serialize(applyEffect(value, state.effect)))
+            finconCollector.report(name, value = Json.encodeToJsonElement(serializer, applyEffect(value, state.effect)))
         }
         map.values.forEach { saveCell(it) }
     }
@@ -51,7 +55,7 @@ class CellSet {
             // If incon is missing, ignore it and move on
             inconProvider.get(name)?.let {
                 // But if the incon is there and fails to deserialize, that's an error.
-                map[handle] = CellState(copy(value = serializer.deserialize(it)), effectTrait.empty())
+                map[handle] = CellState(copy(value = Json.decodeFromJsonElement(serializer, it)), effectTrait.empty())
             }
         }
         map.keys.forEach { restoreCell(it) }

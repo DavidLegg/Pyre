@@ -1,30 +1,15 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
-import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.BOOLEAN_SERIALIZER
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.bind
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.register
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 
 typealias BooleanResource = DiscreteResource<Boolean>
 typealias MutableBooleanResource = MutableDiscreteResource<Boolean>
 
 object BooleanResourceOperations {
-    fun SimulationInitContext.discreteResource(name: String, value: Boolean) =
-        discreteResource(name, value, BOOLEAN_SERIALIZER)
-
-    fun SparkInitContext.register(name: String, resource: DiscreteResource<Boolean>) {
-        register(name, resource, BOOLEAN_SERIALIZER)
-    }
-
-    fun SparkInitContext.registeredDiscreteResource(name: String, value: Boolean) =
-        discreteResource(name, value).also { register(name, it) }
-
     operator fun BooleanResource.not(): BooleanResource =
         map(this@not) { !it }
     // Do short-circuiting in resource operations for efficiency

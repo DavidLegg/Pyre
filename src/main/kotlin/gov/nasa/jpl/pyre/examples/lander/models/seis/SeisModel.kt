@@ -10,17 +10,12 @@ import gov.nasa.jpl.pyre.flame.composition.subContext
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.registeredIntegral
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.listSerializer
 import gov.nasa.jpl.pyre.spark.resources.discrete.*
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.decrease
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.increase
-import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.registeredDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
@@ -69,7 +64,7 @@ class SeisModel(
             vbbMode = registeredDiscreteResource("vbb_mode", VBBMode.SCI)
             with (subContext("channel")) {
                 channelRates = Channel.entries.associateWith {
-                    registeredDiscreteResource(it.toString(), ChannelRate(0.0, 0.0), ChannelRate.SERIALIZER)
+                    registeredDiscreteResource(it.toString(), ChannelRate(0.0, 0.0))
                 }
             }
             with (subContext("device_type")) {
@@ -82,11 +77,7 @@ class SeisModel(
                     discreteResource(it.toString(), false)
                 }
             }
-            combinedChannelOutRates = discreteResource(
-                "combined_channel_out_rates",
-                emptyList(),
-                listSerializer(ChannelOutRateGroup.SERIALIZER)
-            )
+            combinedChannelOutRates = discreteResource("combined_channel_out_rates", emptyList())
         }
     }
 

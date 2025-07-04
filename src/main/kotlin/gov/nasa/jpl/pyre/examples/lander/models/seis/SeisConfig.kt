@@ -1,20 +1,11 @@
 package gov.nasa.jpl.pyre.examples.lander.models.seis
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
-import gov.nasa.jpl.pyre.ember.JsonValue
-import gov.nasa.jpl.pyre.ember.JsonValue.*
-import gov.nasa.jpl.pyre.ember.Serializer
-import gov.nasa.jpl.pyre.flame.serialization.asDouble
-import gov.nasa.jpl.pyre.flame.serialization.get
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.enumSerializer
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.listSerializer
-import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.registeredDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import kotlinx.serialization.Serializable
 
 class SeisConfig {
     enum class Gain(val abbrev: String) {
@@ -116,42 +107,11 @@ class SeisConfig {
         ENG("EN");
     }
 
-    data class ChannelRate(val inRate: Double, val outRate: Double) {
-        companion object {
-            val SERIALIZER: Serializer<ChannelRate> = Serializer.of(InvertibleFunction.of(
-                {
-                    JsonMap(mapOf(
-                        "inRate" to JsonDouble(it.inRate),
-                        "outRate" to JsonDouble(it.outRate)
-                    ))
-                },
-                {
-                    ChannelRate(it["inRate"].asDouble(), it["outRate"].asDouble())
-                }
-            ))
-        }
-    }
+    @Serializable
+    data class ChannelRate(val inRate: Double, val outRate: Double)
 
-    data class ChannelOutRateGroup(val outRate: Double, val channels: List<Channel>) {
-        companion object {
-            private val channelsSerializer: Serializer<List<Channel>> = listSerializer(enumSerializer())
-
-            val SERIALIZER: Serializer<ChannelOutRateGroup> = Serializer.of(InvertibleFunction.of(
-                {
-                    JsonMap(mapOf(
-                        "outRate" to JsonDouble(it.outRate),
-                        "channels" to channelsSerializer.serialize(it.channels),
-                    ))
-                },
-                {
-                    ChannelOutRateGroup(
-                        it["outRate"].asDouble(),
-                        channelsSerializer.deserialize(it["channels"]),
-                    )
-                }
-            ))
-        }
-    }
+    @Serializable
+    data class ChannelOutRateGroup(val outRate: Double, val channels: List<Channel>)
 
     class DeviceTypeMetrics(
         context: SparkInitContext,

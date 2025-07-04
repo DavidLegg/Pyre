@@ -63,6 +63,56 @@ suspend fun <V, D : Dynamics<V, D>> SparkTaskScope<*>.dynamicsChange(resource: R
     }
 }
 
+
+/**
+ * Specialized Condition disjunction operator.
+ *
+ * When possible, prefer using boolean resource derivation and [whenTrue].
+ * This method is primarily for incorporating [dynamicsChange] conditions in specialized cases.
+ */
+infix fun (() -> Condition).or(other: () -> Condition): () -> Condition =
+    conditionMap(this, other) { r1, r2 ->
+        // We must take the minimum-time result. If it's a satisfaction, we're satisfied then.
+        // If it's an unsatisfied-until, we need to reevaluate then anyways.
+        if (r1.expiry() < r2.expiry()) r1 else r2
+    }
+
+/**
+ * Specialized Condition conjunction operator.
+ *
+ * When possible, prefer using boolean resource derivation and [whenTrue].
+ * This method is primarily for incorporating [dynamicsChange] conditions in specialized cases.
+ */
+infix fun (() -> Condition).and(other: () -> Condition): () -> Condition =
+    // If both are satisfied at the same time, the conjunction is satisfied at that time.
+    // Otherwise, the conjunction is unsatisfied until the later operand time.
+    // This is because that operand is unsatisfied at least until that time, so there's no need to evaluate again earlier than that.
+    // At that time, even if that operand is satisfied, the other operand needs to be re-evaluated anyways.
+
+    conditionMap(this, other) { r1, r2 ->
+        if (r1 is SatisfiedAt && r2 is SatisfiedAt && r1.time == r2.time)
+            r1
+        else
+            UnsatisfiedUntil(maxOf(r1.expiry(), r2.expiry()).time)
+    }
+
+private fun conditionMap(c1: () -> Condition, c2: () -> Condition, f: (ConditionResult, ConditionResult) -> Condition): () -> Condition =
+    conditionMap(c1) { r1 -> conditionMap(c2) { r2 -> f(r1, r2) }() }
+private fun conditionMap(c1: () -> Condition, f: (ConditionResult) -> Condition): () -> Condition {
+    fun <V> mapRead(r: Read<V>) = Read(r.cell) { v -> conditionMap({ r.continuation(v) }, f)() }
+    return {
+        when (val it = c1()) {
+            is ConditionResult -> f(it)
+            is Read<*> -> mapRead(it)
+        }
+    }
+}
+
+private fun ConditionResult.expiry() = when(this) {
+    is SatisfiedAt -> Expiry(time)
+    is UnsatisfiedUntil -> Expiry(time)
+}
+
 fun <V, D : Dynamics<V, D>> SparkContext.wheneverChanges(resource: Resource<D>, block: suspend SparkTaskScope<Unit>.() -> Unit): PureTaskStep<Unit> = repeatingTask {
     with (sparkTaskScope()) {
         await(dynamicsChange(resource))

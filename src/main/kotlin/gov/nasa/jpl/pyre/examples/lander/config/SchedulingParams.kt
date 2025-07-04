@@ -3,7 +3,9 @@ package gov.nasa.jpl.pyre.examples.lander.config
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.times
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class SchedulingParams(
     val SEIS_SCI_RUNOUT_FRAC: Double = 0.5,
     val APSS_SCI_RUNOUT_FRAC: Double = 0.5,

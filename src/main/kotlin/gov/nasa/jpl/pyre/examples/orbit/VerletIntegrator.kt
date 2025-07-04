@@ -3,7 +3,6 @@ package gov.nasa.jpl.pyre.examples.orbit
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.ember.ratioOver
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.DOUBLE_ARRAY_SERIALIZER
 import gov.nasa.jpl.pyre.spark.resources.FullDynamics
 import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
@@ -30,7 +29,7 @@ class VerletIntegrator(
 
     init {
         with (context) {
-            position = discreteResource("$name.position", initialPosition, DOUBLE_ARRAY_SERIALIZER)
+            position = discreteResource("$name.position", initialPosition)
             // This calculation of prior position ignores acceleration, introducing a small error.
             // That's good enough for now.
             val delta_t = stepSize.ratioOver(SECOND)
@@ -38,7 +37,7 @@ class VerletIntegrator(
             for (i in initialPosition.indices) {
                 initialPriorPosition[i] = initialPosition[i] - initialVelocity[i] * delta_t
             }
-            priorPosition = discreteResource("$name.priorPosition", initialPriorPosition, DOUBLE_ARRAY_SERIALIZER)
+            priorPosition = discreteResource("$name.priorPosition", initialPriorPosition)
 
             spawn("Run $name", every(stepSize) {
                 val x_1 = position.getValue()

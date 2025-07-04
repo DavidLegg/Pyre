@@ -1,13 +1,14 @@
 package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.minus
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.reporting.report
 import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.task
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * Base unit of planned simulation behavior.
@@ -45,23 +46,19 @@ suspend fun <M, R> SparkTaskScope<*>.defer(time: Duration, activity: FloatingAct
         with(sparkTaskScope()) {
             delay(time)
             report(
-                "activities", JsonValue.JsonMap(
-                    mapOf(
-                        "name" to JsonValue.JsonString(activity.name),
-                        "type" to JsonValue.JsonString(activity.typeName),
-                        "event" to JsonValue.JsonString("start")
-                    )
-                )
+                "activities", JsonObject(mapOf(
+                    "name" to JsonPrimitive(activity.name),
+                    "type" to JsonPrimitive(activity.typeName),
+                    "event" to JsonPrimitive("start")
+                ))
             )
             val result = activity.activity.effectModel(model)
             report(
-                "activities", JsonValue.JsonMap(
-                    mapOf(
-                        "name" to JsonValue.JsonString(activity.name),
-                        "type" to JsonValue.JsonString(activity.typeName),
-                        "event" to JsonValue.JsonString("end")
-                    )
-                )
+                "activities", JsonObject(mapOf(
+                    "name" to JsonPrimitive(activity.name),
+                    "type" to JsonPrimitive(activity.typeName),
+                    "event" to JsonPrimitive("end")
+                ))
             )
             result
         }

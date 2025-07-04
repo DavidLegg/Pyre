@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.examples.lander.models.eng
 
 import gov.nasa.jpl.pyre.flame.composition.subContext
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 

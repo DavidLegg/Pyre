@@ -1,5 +1,8 @@
 package gov.nasa.jpl.pyre.examples.lander.config
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class OrbiterParams(
     val ODY: OrbiterConfiguration = OrbiterConfiguration(),
     val MRO: OrbiterConfiguration = OrbiterConfiguration(),

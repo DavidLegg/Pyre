@@ -1,28 +1,13 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
-import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.LONG_SERIALIZER
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.register
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 typealias LongResource = DiscreteResource<Long>
 typealias MutableLongResource = MutableDiscreteResource<Long>
 
 object LongResourceOperations {
-    fun SimulationInitContext.discreteResource(name: String, value: Long) =
-        discreteResource(name, value, LONG_SERIALIZER)
-
-    fun SparkInitContext.register(name: String, resource: DiscreteResource<Long>) {
-        register(name, resource, LONG_SERIALIZER)
-    }
-
-    fun SparkInitContext.registeredDiscreteResource(name: String, value: Long) =
-        discreteResource(name, value).also { register(name, it) }
-
     operator fun LongResource.plus(other: LongResource): LongResource =
         DiscreteResourceMonad.map(this, other) { x, y -> x + y }
     operator fun LongResource.minus(other: LongResource): LongResource =

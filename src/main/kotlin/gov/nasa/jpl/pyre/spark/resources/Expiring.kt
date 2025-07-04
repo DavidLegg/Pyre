@@ -4,14 +4,18 @@ import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.coals.curry
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.*
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.alias
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.nullable
+import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.nullable
 
+@Serializable
 data class Expiring<T>(val data: T, val expiry: Expiry)
 
 fun <D : Dynamics<*, D>> Expiring<D>.step(time: Duration) = Expiring(data.step(time), expiry - time)
 
+@Serializable(with = ExpirySerializer::class)
 data class Expiry(val time: Duration?): Comparable<Expiry> {
     override fun compareTo(other: Expiry): Int {
         return if (this.time == null && other.time == null) 0
@@ -27,9 +31,13 @@ data class Expiry(val time: Duration?): Comparable<Expiry> {
     companion object {
         val NOW = Expiry(Duration.ZERO)
         val NEVER = Expiry(null)
-        fun serializer() = nullable(Duration.serializer()).alias(InvertibleFunction.of(Expiry::time, ::Expiry))
     }
 }
+
+class ExpirySerializer: KSerializer<Expiry> by Duration.serializer().nullable.alias(InvertibleFunction.of(
+    ::Expiry,
+    { it.time }
+))
 
 operator fun Expiry.plus(other: Expiry) = Expiry(other.time?.let { this.time?.plus(it) })
 operator fun Expiry.plus(other: Duration) = Expiry(this.time?.plus(other))

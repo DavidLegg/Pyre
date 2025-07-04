@@ -6,12 +6,11 @@ import gov.nasa.jpl.pyre.coals.identity
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.ember.Cell.EffectTrait
 import gov.nasa.jpl.pyre.ember.*
-import gov.nasa.jpl.pyre.ember.JsonValue.JsonMap
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
-import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.serializer
 
 interface MutableResource<D> : Resource<D> {
     context (TaskScope<*>)
@@ -27,30 +26,17 @@ suspend fun <D> MutableResource<D>.emit(effect: (D) -> D) = emit {
 context (TaskScope<*>)
 suspend fun <D> MutableResource<D>.set(newDynamics: D) = emit { d: D -> newDynamics }
 
-fun <D> dynamicsSerializer(serializer: Serializer<D>): Serializer<FullDynamics<D>> = Serializer.of(InvertibleFunction.of(
-    { JsonMap(mapOf(
-        "data" to serializer.serialize(it.data),
-        "expiry" to Expiry.serializer().serialize(it.expiry)))
-    },
-    {
-        Expiring(
-            serializer.deserialize(requireNotNull((it as JsonMap).values["data"])),
-            Expiry.serializer().deserialize(requireNotNull(it.values["expiry"]))
-        )
-    }
-))
-
-fun <V, D : Dynamics<V, D>> SimulationInitContext.resource(
+inline fun <V, reified D : Dynamics<V, D>> SimulationInitContext.resource(
     name: String,
     initialDynamics: D,
-    serializer: Serializer<D>,
+    serializer: KSerializer<D> = serializer<D>(),
     effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
-) = resource(name, DynamicsMonad.pure(initialDynamics), dynamicsSerializer(serializer), effectTrait)
+) = resource(name, DynamicsMonad.pure(initialDynamics), FullDynamics.serializer(serializer), effectTrait)
 
 fun <V, D : Dynamics<V, D>> SimulationInitContext.resource(
     name: String,
     initialDynamics: FullDynamics<D>,
-    serializer: Serializer<FullDynamics<D>>,
+    serializer: KSerializer<FullDynamics<D>>,
     effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
 ): MutableResource<D> {
     val cell = allocate(Cell(

@@ -1,30 +1,24 @@
 package gov.nasa.jpl.pyre.examples.lander.models.apss
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.ember.JsonValue.JsonDouble
-import gov.nasa.jpl.pyre.ember.JsonValue.JsonMap
-import gov.nasa.jpl.pyre.ember.Serializer
 import gov.nasa.jpl.pyre.ember.ratioOver
 import gov.nasa.jpl.pyre.flame.composition.subContext
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.registeredIntegral
-import gov.nasa.jpl.pyre.flame.serialization.asDouble
-import gov.nasa.jpl.pyre.flame.serialization.get
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.decrease
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.increase
-import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import kotlinx.serialization.Serializable
 
 class APSSModel(
     context: SparkInitContext,
@@ -37,28 +31,12 @@ class APSSModel(
         APSS_BUS_V
     }
 
+    @Serializable
     data class ComponentRate(
         val defaultRate: Double,
         val bothBoomsOnRate: Double,
     ) {
         fun activeRate(bothBoomsOn: Boolean) = if (bothBoomsOn) bothBoomsOnRate else defaultRate
-
-        companion object {
-            val SERIALIZER: Serializer<ComponentRate> = Serializer.of(InvertibleFunction.of(
-                {
-                    JsonMap(mapOf(
-                        "defaultRate" to JsonDouble(it.defaultRate),
-                        "bothBoomsOnRate" to JsonDouble(it.bothBoomsOnRate),
-                    ))
-                },
-                {
-                    ComponentRate(
-                        it["defaultRate"].asDouble(),
-                        it["bothBoomsOnRate"].asDouble()
-                    )
-                }
-            ))
-        }
     }
 
     class ComponentModel(
@@ -74,8 +52,8 @@ class APSSModel(
         init {
             with (context) {
                 state = registeredDiscreteResource("state", initialState)
-                inRate = discreteResource("inRate", initialInRate, ComponentRate.SERIALIZER)
-                outRate = discreteResource("outRate", initialOutRate, ComponentRate.SERIALIZER)
+                inRate = discreteResource("inRate", initialInRate)
+                outRate = discreteResource("outRate", initialOutRate)
             }
         }
     }

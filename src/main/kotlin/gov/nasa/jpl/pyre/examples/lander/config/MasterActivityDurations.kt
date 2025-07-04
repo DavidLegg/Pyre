@@ -5,7 +5,9 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.ember.times
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class MasterActivityDurations(
     val GV_WAKEUP_TIME_OFFSET: Duration = 35 * SECOND,
     val BOOT_INIT_DURATION: Duration = 2 * MINUTE,

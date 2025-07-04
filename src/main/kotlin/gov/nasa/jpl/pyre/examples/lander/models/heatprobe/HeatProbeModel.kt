@@ -10,11 +10,9 @@ import gov.nasa.jpl.pyre.flame.composition.subContext
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.registeredIntegral
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.registeredDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.EnumResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
@@ -84,12 +82,12 @@ class HeatProbeModel(
             radState = registeredDiscreteResource("radState", RADState.Off)
             with (subContext("tableParams")) {
                 parametersInTable = HeatProbeParameter.entries.associateWith {
-                    registeredDiscreteResource(it.toString(), defaultParameters.getValue(it), Duration.serializer())
+                    registeredDiscreteResource(it.toString(), defaultParameters.getValue(it))
                 }
             }
             with (subContext("currentParams")) {
                 parametersCurrent = HeatProbeParameter.entries.associateWith {
-                    registeredDiscreteResource(it.toString(), defaultParameters.getValue(it), Duration.serializer())
+                    registeredDiscreteResource(it.toString(), defaultParameters.getValue(it))
                 }
             }
         }

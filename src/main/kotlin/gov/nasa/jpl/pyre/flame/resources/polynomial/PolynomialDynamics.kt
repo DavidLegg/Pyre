@@ -1,16 +1,19 @@
 package gov.nasa.jpl.pyre.flame.resources.polynomial
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
+import gov.nasa.jpl.pyre.coals.compose
 import gov.nasa.jpl.pyre.ember.*
 import gov.nasa.jpl.pyre.ember.Duration.Companion.EPSILON
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.DOUBLE_ARRAY_SERIALIZER
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.alias
+import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.spark.resources.*
 import gov.nasa.jpl.pyre.spark.resources.ExpiringMonad.map
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
 import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.DoubleArraySerializer
 import org.apache.commons.math3.analysis.polynomials.PolynomialsUtils.shift
 import org.apache.commons.math3.analysis.solvers.LaguerreSolver
 import java.util.*
@@ -29,6 +32,7 @@ typealias MutablePolynomialResource = MutableResource<Polynomial>
  *
  * @apiNote The units of `t` are seconds
  */
+@Serializable(with = Polynomial.PolynomialSerializer::class)
 class Polynomial private constructor(private val coefficients: DoubleArray) : Dynamics<Double, Polynomial> {
     override fun value(): Double = coefficients[0]
 
@@ -67,6 +71,15 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
     }.filterNotNull().joinToString(" + ")
 
     operator fun get(i: Int) = if (i in coefficients.indices) coefficients[i] else 0.0
+    fun setCoefficient(i: Int, value: Double): Polynomial {
+        val newCoef = DoubleArray(max(i + 1, coefficients.size))
+        coefficients.copyInto(newCoef)
+        newCoef[i] = value
+        return _polynomial(newCoef)
+    }
+
+    operator fun unaryPlus() = this
+    operator fun unaryMinus(): Polynomial = _polynomial(coefficients.map(Double::unaryMinus).toDoubleArray())
 
     operator fun plus(other: Polynomial): Polynomial {
         val minLength = min(coefficients.size, other.coefficients.size)
@@ -81,8 +94,15 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
             other.coefficients.copyInto(newCoef, minLength, minLength)
         return _polynomial(newCoef)
     }
+    operator fun plus(other: Double): Polynomial {
+        val newCoef = coefficients.copyOf()
+        newCoef[0] += other
+        return _polynomial(newCoef)
+    }
 
-    operator fun minus(other: Polynomial): Polynomial = this + (other * -1.0)
+    operator fun minus(other: Polynomial): Polynomial = this + (-other)
+    operator fun minus(other: Double): Polynomial = this + (-other)
+
     operator fun times(other: Double): Polynomial = _polynomial(coefficients.map { it * other }.toDoubleArray())
     operator fun times(other: Polynomial): Polynomial {
         // Length = degree + 1, so
@@ -152,7 +172,7 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
      * Intuitively, P dominates Q when max(P, Q) = P, potentially with a shorter expiry if Q crosses P sometime in the future.
      * Consider using [Polynomial.dominates] instead to get this expiry / crossover time as well.
      */
-    private fun _dominates(other: Polynomial): Boolean {
+    fun _dominates(other: Polynomial): Boolean {
         for (i in 0..max(this.degree(), other.degree())) {
             if (this[i] > other[i]) return true
             if (this[i] < other[i]) return false
@@ -298,13 +318,14 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
                 if (reuseIfNormalized && n == coefficients.size) coefficients
                 else coefficients.copyOf(n))
         }
-
-        fun serializer(): Serializer<Polynomial> {
-            return DOUBLE_ARRAY_SERIALIZER.alias(
-                InvertibleFunction.of({ it.coefficients }, ::polynomial))
-
-        }
     }
+
+    class PolynomialSerializer : KSerializer<Polynomial> by DoubleArraySerializer().alias(InvertibleFunction.of(
+        ::polynomial,
+        { it.coefficients }
+    ))
 }
 
+operator fun Double.plus(other: Polynomial) = other + this
+operator fun Double.minus(other: Polynomial) = (-other) + this
 operator fun Double.times(other: Polynomial) = other * this

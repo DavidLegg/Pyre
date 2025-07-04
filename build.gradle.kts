@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "2.1.21"
+    kotlin("plugin.serialization") version "2.2.0"
 }
 
 group = "gov.nasa.jpl.pyre"
@@ -12,6 +13,9 @@ repositories {
 dependencies {
     testImplementation(kotlin("test"))
     api("org.apache.commons:commons-math3:3.6.1")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.0")
 }
 
 tasks.test {

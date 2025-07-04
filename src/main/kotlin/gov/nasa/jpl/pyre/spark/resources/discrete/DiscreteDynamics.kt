@@ -1,17 +1,29 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
+import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.coals.curry
 import gov.nasa.jpl.pyre.ember.Duration
+import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.DynamicsMonad
 import gov.nasa.jpl.pyre.spark.resources.FullDynamics
 import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
 
+@Serializable(with = Discrete.DiscreteSerializer::class)
 data class Discrete<A>(val value: A) : Dynamics<A, Discrete<A>> {
     override fun value() = value
     override fun step(t: Duration) = this
+
+    class DiscreteSerializer<A>(valueSerializer: KSerializer<A>) : KSerializer<Discrete<A>> by valueSerializer.alias(
+        InvertibleFunction.of(
+            ::Discrete,
+            { it.value },
+        )
+    )
 }
 
 typealias DiscreteResource<V> = Resource<Discrete<V>>

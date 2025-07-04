@@ -5,7 +5,9 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.times
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class CommParameters(
     val XBAND_PRE_COMM_MARGIN: Duration = 5 * MINUTE,
     val XBAND_POST_COMM_MARGIN: Duration = 5 * MINUTE,

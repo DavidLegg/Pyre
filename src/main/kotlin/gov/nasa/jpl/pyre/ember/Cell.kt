@@ -1,9 +1,11 @@
 package gov.nasa.jpl.pyre.ember
 
+import kotlinx.serialization.KSerializer
+
 data class Cell<T, E>(
     val name: String,
     val value: T,
-    val serializer: Serializer<T>,
+    val serializer: KSerializer<T>,
     val stepBy: (T, Duration) -> T,
     val applyEffect: (T, E) -> T,
     val effectTrait: EffectTrait<E>,

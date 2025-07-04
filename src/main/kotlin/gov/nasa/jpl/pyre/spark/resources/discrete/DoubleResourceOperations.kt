@@ -1,33 +1,13 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
-import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.DOUBLE_SERIALIZER
-import gov.nasa.jpl.pyre.spark.resources.autoEffects
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteSerializer
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.register
-import gov.nasa.jpl.pyre.spark.resources.resource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import kotlin.math.abs
 
 typealias DoubleResource = DiscreteResource<Double>
 typealias MutableDoubleResource = MutableDiscreteResource<Double>
 
 object DoubleResourceOperations {
-    fun SimulationInitContext.discreteResource(name: String, value: Double) =
-        resource(name, Discrete(value), discreteSerializer(DOUBLE_SERIALIZER), autoEffects({ x, y ->
-            x.expiry == y.expiry && abs(x.data.value - y.data.value) <= maxOf(abs(x.data.value), abs(y.data.value)) * 1e-14
-        }))
-
-    fun SparkInitContext.register(name: String, resource: DiscreteResource<Double>) {
-        register(name, resource, DOUBLE_SERIALIZER)
-    }
-
-    fun SparkInitContext.registeredDiscreteResource(name: String, value: Double) =
-        discreteResource(name, value).also { register(name, it) }
-
     operator fun DoubleResource.plus(other: DoubleResource): DoubleResource =
         DiscreteResourceMonad.map(this, other) { x, y -> x + y }
     operator fun DoubleResource.minus(other: DoubleResource): DoubleResource =

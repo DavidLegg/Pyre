@@ -1,18 +1,14 @@
 package gov.nasa.jpl.pyre.examples.orbit
 
 import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
-import gov.nasa.jpl.pyre.ember.Serializer
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
-import gov.nasa.jpl.pyre.flame.plans.ActivitySerializer
-import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
-import gov.nasa.jpl.pyre.flame.plans.Model
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.register
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 
 class EarthOrbit(
     context: SparkInitContext,
-) : Model<EarthOrbit> {
+) {
     private val orbitalSimulation: OrbitalSimulation
     val earthPosition: DiscreteResource<Vector>
     val moonPosition: DiscreteResource<Vector>
@@ -41,10 +37,8 @@ class EarthOrbit(
             earthPosition = requireNotNull(orbitalSimulation.bodyPositions[earth])
             moonPosition = requireNotNull(orbitalSimulation.bodyPositions[moon])
 
-            register("earth_position", earthPosition, Vector.serializer())
-            register("moon_position", moonPosition, Vector.serializer())
+            register("earth_position", earthPosition)
+            register("moon_position", moonPosition)
         }
     }
-
-    override fun activitySerializer(): Serializer<GroundedActivity<EarthOrbit, *>> = ActivitySerializer()
 }

@@ -1,16 +1,25 @@
 package gov.nasa.jpl.pyre.ember
 
+import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MICROSECOND
-import gov.nasa.jpl.pyre.ember.JsonValue.*
+import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
+import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.serializer
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
-import kotlin.math.absoluteValue
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToLong
 import kotlin.time.Duration.Companion.microseconds
-import kotlin.time.toDuration
 
+@Serializable(with = DurationSerializer::class)
 data class Duration(val ticks: Long) : Comparable<Duration> {
     override fun compareTo(other: Duration): Int {
         return ticks.compareTo(other.ticks)
@@ -41,33 +50,33 @@ data class Duration(val ticks: Long) : Comparable<Duration> {
 
         val MIN_VALUE = Duration(Long.MIN_VALUE)
         val MAX_VALUE = Duration(Long.MAX_VALUE)
+    }
+}
 
-        fun serializer(): Serializer<Duration> = object : Serializer<Duration> {
-            override fun serialize(obj: Duration): JsonValue {
-                return JsonString(obj.toString())
-            }
+class DurationSerializer: KSerializer<Duration> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor(Duration::class.qualifiedName!!, PrimitiveKind.STRING)
 
-            override fun deserialize(jsonValue: JsonValue): Duration {
-                var s = (jsonValue as JsonString).value
-                var signum = 1
-                if (s[0] == '-') {
-                    signum = -1
-                    s = s.substring(1)
-                }
+    override fun serialize(encoder: Encoder, value: Duration) = encoder.encodeString(value.toString())
 
-                val parts = s.split(':')
-                require(parts.size == 3)
-                val hours = parts[0].toInt()
-                val minutes = parts[1].toInt()
-                val secondsParts = parts[2].split('.')
-                require(secondsParts.size == 2)
-                val seconds = secondsParts[0].toInt()
-                require(secondsParts[1].length == 6)
-                val microseconds = secondsParts[1].toInt()
-
-                return signum * (hours * HOUR + minutes * MINUTE + seconds * SECOND + microseconds * MICROSECOND)
-            }
+    override fun deserialize(decoder: Decoder): Duration {
+        var s = decoder.decodeString()
+        var signum = 1
+        if (s[0] == '-') {
+            signum = -1
+            s = s.substring(1)
         }
+
+        val parts = s.split(':')
+        require(parts.size == 3)
+        val hours = parts[0].toInt()
+        val minutes = parts[1].toInt()
+        val secondsParts = parts[2].split('.')
+        require(secondsParts.size == 2)
+        val seconds = secondsParts[0].toInt()
+        require(secondsParts[1].length == 6)
+        val microseconds = secondsParts[1].toInt()
+
+        return signum * (hours * HOUR + minutes * MINUTE + seconds * SECOND + microseconds * MICROSECOND)
     }
 }
 

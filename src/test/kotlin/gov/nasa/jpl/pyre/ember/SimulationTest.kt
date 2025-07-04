@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.*
-import gov.nasa.jpl.pyre.coals.InvertibleFunction.Companion.withInverse
 import gov.nasa.jpl.pyre.ember.Cell.EffectTrait
 import gov.nasa.jpl.pyre.ember.SimpleSimulation.SimulationSetup
 import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
@@ -75,9 +74,16 @@ class SimulationTest {
 
     private data class LinearDynamics(val value: Double, val rate: Double)
     private val linearDynamicsSerializer : Serializer<LinearDynamics> = Serializer.of(
-        { d: LinearDynamics -> JsonMap(mapOf("value" to JsonDouble(d.value), "rate" to JsonDouble(d.rate))) }
-                withInverse
-                { with((it as JsonMap).values) { LinearDynamics((get("value") as JsonDouble).value, (get("rate") as JsonDouble).value) } }
+        InvertibleFunction.Companion.of(
+            { d: LinearDynamics -> JsonMap(mapOf("value" to JsonDouble(d.value), "rate" to JsonDouble(d.rate))) },
+            {
+                with((it as JsonMap).values) {
+                    LinearDynamics(
+                        (get("value") as JsonDouble).value,
+                        (get("rate") as JsonDouble).value
+                    )
+                }
+            })
     )
     private fun linearDynamicsStep(d: LinearDynamics, t: Duration) = LinearDynamics(d.value + d.rate * (t ratioOver SECOND), d.rate)
     private fun linearCell(name: String, value: Double, rate: Double) = Cell(
@@ -1585,7 +1591,11 @@ class SimulationTest {
 }
 
 // Copied from BasicSerializers, for the sake of testing ember without relying on spark
-private val INT_SERIALIZER = Serializer.of({ i: Int -> JsonInt(i.toLong()) } withInverse { (it as JsonInt).value.toInt() })
+private val INT_SERIALIZER = Serializer.of(
+    InvertibleFunction.Companion.of(
+        { i: Int -> JsonInt(i.toLong()) },
+        { (it as JsonInt).value.toInt() })
+)
 
 private fun assertNearlyEquals(expected: Double, actual: Double) {
     assert(abs(expected - actual) < 1e-5)

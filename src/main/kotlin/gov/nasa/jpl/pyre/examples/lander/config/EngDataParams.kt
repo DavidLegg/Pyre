@@ -1,5 +1,8 @@
 package gov.nasa.jpl.pyre.examples.lander.config
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class EngDataParams(
     val AWAKE_ENG_DATA_RATE: Double = 1.0104 / 3600,
     val UHF_PREP_DATA_DUMP_DIAG: Double = 1.532,

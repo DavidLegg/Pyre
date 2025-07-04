@@ -1,25 +1,17 @@
 package gov.nasa.jpl.pyre.flame.resources.discrete
 
-import gov.nasa.jpl.pyre.ember.Serializer
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.listSerializer
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 
 typealias ListResource<E> = DiscreteResource<List<E>>
 typealias MutableListResource<E> = MutableDiscreteResource<List<E>>
 
 object ListResourceOperations {
-    context (SparkInitContext)
-    fun <E> listResource(name: String, initialValue: List<E> = emptyList(), elementSerializer: Serializer<E>) =
-        discreteResource(name, initialValue, listSerializer(elementSerializer))
-
     context (SparkTaskScope<*>)
     suspend fun <E> MutableListResource<E>.push(element: E) = emit { it: List<E> -> it + element }
 

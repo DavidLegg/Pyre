@@ -1,28 +1,13 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
-import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
-import gov.nasa.jpl.pyre.spark.reporting.BasicSerializers.INT_SERIALIZER
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.register
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 typealias IntResource = DiscreteResource<Int>
 typealias MutableIntResource = MutableDiscreteResource<Int>
 
 object IntResourceOperations {
-    fun SimulationInitContext.discreteResource(name: String, value: Int) =
-        discreteResource(name, value, INT_SERIALIZER)
-
-    fun SparkInitContext.register(name: String, resource: DiscreteResource<Int>) {
-        register(name, resource, INT_SERIALIZER)
-    }
-
-    fun SparkInitContext.registeredDiscreteResource(name: String, value: Int) =
-        discreteResource(name, value).also { register(name, it) }
-
     operator fun IntResource.plus(other: IntResource): IntResource =
         DiscreteResourceMonad.map(this, other) { x, y -> x + y }
     operator fun IntResource.minus(other: IntResource): IntResource =

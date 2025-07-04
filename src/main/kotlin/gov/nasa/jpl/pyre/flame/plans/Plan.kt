@@ -1,50 +1,31 @@
+@file:UseSerializers(InstantSerializer::class)
+
 package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.JsonValue.*
-import gov.nasa.jpl.pyre.ember.Serializer
+import gov.nasa.jpl.pyre.ember.Serialization.alias
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.UseSerializers
+import kotlinx.serialization.builtins.serializer
+import kotlin.time.Instant
 
+@Serializable
 data class Plan<M>(
     val name: String,
-    val startTime: Duration,
-    val endTime: Duration,
-    val activities: List<GroundedActivity<M, *>>,
-)
-
-data class ActivityDirective(
-    val time: Duration,
-    val activitySpec: ActivitySpec,
+    val startTime: Instant,
+    val endTime: Instant,
+    val activities: List<@Contextual GroundedActivity<M, *>>,
 ) {
-    companion object {
-        // TODO: Build up automatic record serialization somehow
-        fun serializer(): Serializer<ActivityDirective> = Serializer.of(InvertibleFunction.of(
-            {
-                JsonMap(mapOf(
-                    "time" to Duration.serializer().serialize(it.time),
-                    "name" to JsonString(it.activitySpec.name),
-                    "type" to JsonString(it.activitySpec.typeName),
-                    "args" to it.activitySpec.arguments
-                ))
-            },
-            {
-                with ((it as JsonMap).values) {
-                    ActivityDirective(
-                        Duration.serializer().deserialize(requireNotNull(get("time"))),
-                        ActivitySpec(
-                            (get("name") as JsonString).value,
-                            (get("type") as JsonString).value,
-                            (get("args") as JsonMap?) ?: JsonMap.empty()
-                        )
-                    )
-                }
-            }
-        ))
+    init {
+        require(startTime <= endTime) {
+            "Malformed plan starts at $startTime, after it ends at $endTime"
+        }
     }
 }
 
-data class ActivitySpec(
-    val name: String,
-    val typeName: String = name,
-    val arguments: JsonMap = JsonMap.empty(),
-)
+class InstantSerializer : KSerializer<Instant> by String.serializer().alias(InvertibleFunction.of(
+    Instant::parse,
+    Instant::toString
+))

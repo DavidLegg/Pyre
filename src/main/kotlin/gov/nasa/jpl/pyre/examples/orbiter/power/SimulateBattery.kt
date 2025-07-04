@@ -1,0 +1,73 @@
+package gov.nasa.jpl.pyre.examples.orbiter.power
+
+import gov.nasa.jpl.pyre.ember.JsonConditions
+import gov.nasa.jpl.pyre.flame.composition.subContext
+import gov.nasa.jpl.pyre.flame.plans.Activity
+import gov.nasa.jpl.pyre.flame.plans.Plan
+import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.encodeToStream
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.modules.subclass
+import kotlinx.serialization.serializer
+import java.io.FileInputStream
+import java.io.FileOutputStream
+
+/**
+ * Run [BatteryModel] as a standalone simulation.
+ */
+class SimulateBattery {
+    @OptIn(ExperimentalSerializationApi::class)
+    fun main(args: Array<String>) {
+        val planFile = args[0]
+        val finconFile = args[1]
+
+        val activitySerializersModule = SerializersModule {
+            polymorphic(Activity::class) {
+                subclass(ChangePowerDemand::class)
+            }
+        }
+        val activityJson = Json {
+            serializersModule = activitySerializersModule
+        }
+        val plan: Plan<StandaloneBatteryModel> = activityJson.decodeFromStream(FileInputStream(planFile))
+
+        val simulation = PlanSimulation(
+            { println(it) },
+            plan.startTime,
+            plan.startTime,
+            ::StandaloneBatteryModel,
+            activitySerializersModule.serializer(),
+        )
+
+        simulation.runPlan(plan)
+        val fincon = JsonConditions().also(simulation::save)
+        Json.encodeToStream(fincon, FileOutputStream(finconFile))
+    }
+}
+
+/**
+ * Dummy interface wrapping the battery model.
+ * Directly constructs the inputs for the battery model, to be poked directly by activities.
+ */
+class StandaloneBatteryModel(
+    context: SparkInitContext,
+) {
+    val powerDemand: MutableDoubleResource
+    val powerProduction: MutableDoubleResource
+    val battery: BatteryModel
+
+    init {
+        with (context) {
+            powerDemand = discreteResource("powerDemand", 0.0)
+            powerProduction = discreteResource("powerDemand", 0.0)
+            battery = BatteryModel(subContext("battery"), BatterySimConfig(), powerDemand, powerProduction)
+        }
+    }
+}

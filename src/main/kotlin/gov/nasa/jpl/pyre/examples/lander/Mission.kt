@@ -1,12 +1,5 @@
 package gov.nasa.jpl.pyre.examples.lander
 
-import gov.nasa.jpl.pyre.ember.Serializer
-import gov.nasa.jpl.pyre.examples.lander.activities.apss.APSSChangeAcqConfig
-import gov.nasa.jpl.pyre.examples.lander.activities.apss.APSSContinuousConfigFileUpdate
-import gov.nasa.jpl.pyre.examples.lander.activities.apss.APSSGeneric
-import gov.nasa.jpl.pyre.examples.lander.activities.apss.APSSPaeDataRecovery
-import gov.nasa.jpl.pyre.examples.lander.activities.apss.APSSProcessContinuousData
-import gov.nasa.jpl.pyre.examples.lander.activities.apss.APSSTwinsBoomSwap
 import gov.nasa.jpl.pyre.examples.lander.models.apss.APSSModel
 import gov.nasa.jpl.pyre.examples.lander.models.comm.CommModel
 import gov.nasa.jpl.pyre.examples.lander.models.data.DataModel
@@ -19,14 +12,11 @@ import gov.nasa.jpl.pyre.examples.lander.models.seis.SeisModel
 import gov.nasa.jpl.pyre.examples.lander.models.time.Clocks
 import gov.nasa.jpl.pyre.examples.lander.models.wake.WakeModel
 import gov.nasa.jpl.pyre.flame.composition.subContext
-import gov.nasa.jpl.pyre.flame.plans.ActivitySerializer
-import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
-import gov.nasa.jpl.pyre.flame.plans.Model
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
-class Mission(context: SparkInitContext) : Model<Mission> {
+class Mission(context: SparkInitContext) {
     val config: Configuration
     val clocks: Clocks
     val dataModel: DataModel
@@ -58,16 +48,5 @@ class Mission(context: SparkInitContext) : Model<Mission> {
             seisModel = SeisModel(subContext("seis"))
         }
 
-    }
-
-    override fun activitySerializer(): Serializer<GroundedActivity<Mission, *>> {
-        return ActivitySerializer<Mission>()
-            .add(APSSChangeAcqConfig.SERIALIZER)
-            .add(APSSContinuousConfigFileUpdate.SERIALIZER)
-            .add(APSSGeneric.SERIALIZER)
-            .add(APSSPaeDataRecovery.SERIALIZER)
-            .add(APSSProcessContinuousData.SERIALIZER)
-            .add(APSSTwinsBoomSwap.SERIALIZER)
-        // TODO: Add activities
     }
 }

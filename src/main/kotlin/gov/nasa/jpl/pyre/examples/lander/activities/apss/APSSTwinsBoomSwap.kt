@@ -1,26 +1,20 @@
 package gov.nasa.jpl.pyre.examples.lander.activities.apss
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.ember.JsonValue
-import gov.nasa.jpl.pyre.ember.JsonValue.*
-import gov.nasa.jpl.pyre.ember.Serializer
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.ember.times
 import gov.nasa.jpl.pyre.examples.lander.Mission
 import gov.nasa.jpl.pyre.examples.lander.models.apss.APSSModel.Component.*
-import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel.PelItem
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel.PelItem.*
 import gov.nasa.jpl.pyre.flame.plans.Activity
-import gov.nasa.jpl.pyre.flame.serialization.get
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.resources.set
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.delayUntil
-import java.util.function.Consumer
+import kotlinx.serialization.Serializable
 
+@Serializable
 class APSSTwinsBoomSwap(
     val duration: Duration = 20 * MINUTE,
 ): Activity<Mission, Unit> {
@@ -62,20 +56,5 @@ class APSSTwinsBoomSwap(
         }
 
         delayUntil(end)
-    }
-
-    companion object {
-        val SERIALIZER: Serializer<APSSTwinsBoomSwap> = Serializer.of(InvertibleFunction.of(
-            {
-                JsonMap(mapOf(
-                    "duration" to Duration.serializer().serialize(it.duration),
-                ))
-            },
-            {
-                APSSTwinsBoomSwap(
-                    Duration.serializer().deserialize(it["duration"]),
-                )
-            }
-        ))
     }
 }

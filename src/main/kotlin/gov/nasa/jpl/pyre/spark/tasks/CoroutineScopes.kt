@@ -4,10 +4,10 @@ import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
 import gov.nasa.jpl.pyre.ember.Condition
 import gov.nasa.jpl.pyre.ember.Condition.ConditionResult
-import gov.nasa.jpl.pyre.ember.JsonValue
 import gov.nasa.jpl.pyre.ember.PureTaskStep
 import gov.nasa.jpl.pyre.ember.Task
 import gov.nasa.jpl.pyre.ember.Task.PureStepResult.*
+import kotlinx.serialization.json.JsonElement
 import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
 
@@ -87,7 +87,7 @@ sealed interface TaskScopeResult<T> {
 
 interface TaskScope<T> : CellsReadableScope {
     suspend fun <V, E> emit(cell: CellHandle<V, E>, effect: E)
-    suspend fun report(value: JsonValue)
+    suspend fun report(value: JsonElement)
     suspend fun delay(time: Duration)
     suspend fun await(condition: () -> Condition)
     suspend fun <S> spawn(childName: String, child: PureTaskStep<S>)
@@ -159,7 +159,7 @@ private class TaskBuilder<T> : TaskScope<T>, Continuation<TaskScopeResult<T>> {
             COROUTINE_SUSPENDED
         }
 
-    override suspend fun report(value: JsonValue) =
+    override suspend fun report(value: JsonElement) =
         suspendCoroutineUninterceptedOrReturn { c ->
             nextResult = Report(value, continueWith(c))
             COROUTINE_SUSPENDED

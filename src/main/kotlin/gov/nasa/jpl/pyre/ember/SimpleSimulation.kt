@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
+import kotlinx.serialization.json.JsonElement
 
 interface Simulation {
     fun runUntil(time: Duration)
@@ -14,7 +15,7 @@ interface Simulation {
  */
 class SimpleSimulation(setup: SimulationSetup) : Simulation {
     data class SimulationSetup(
-        val reportHandler: (JsonValue) -> Unit,
+        val reportHandler: (JsonElement) -> Unit,
         val inconProvider: InconProvider?,
         val startingTime: Duration = ZERO,
         val initialize: SimulationInitContext.() -> Unit,

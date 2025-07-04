@@ -1,8 +1,17 @@
 package gov.nasa.jpl.pyre.ember
 
-import gov.nasa.jpl.pyre.ember.JsonValue.*
 import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
 import gov.nasa.jpl.pyre.ember.Task.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 typealias PureTaskStep<T> = () -> PureStepResult<T>
 
@@ -58,7 +67,7 @@ interface Task<T> {
         data class Emit<V, E, T>(val cell: CellHandle<V, E>, val effect: E, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Emit(${cell.name}, $effect)"
         }
-        data class Report<T>(val value: JsonValue, val continuation: PureTaskStep<T>) : PureStepResult<T> {
+        data class Report<T>(val value: JsonElement, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Report($value)"
         }
         data class Delay<T>(val time: Duration, val continuation: PureTaskStep<T>) : PureStepResult<T> {
@@ -86,7 +95,7 @@ interface Task<T> {
         data class Emit<V, E, T>(val cell: CellHandle<V, E>, val effect: E, val continuation: Task<T>) : TaskStepResult<T> {
             override fun toString() = "Emit(${cell.name}, $effect)"
         }
-        data class Report<T>(val value: JsonValue, val continuation: Task<T>) : TaskStepResult<T> {
+        data class Report<T>(val value: JsonElement, val continuation: Task<T>) : TaskStepResult<T> {
             override fun toString() = "Report($value)"
         }
         data class Delay<T>(val time: Duration, val continuation: Task<T>) : TaskStepResult<T> {
@@ -117,7 +126,7 @@ interface Task<T> {
 private class PureTask<T>(
     override val id: TaskId,
     private val step: PureTaskStep<T>,
-    private val saveData: () -> List<JsonValue>,
+    private val saveData: () -> List<JsonElement>,
     rootTask: PureTask<T>?
 ) : Task<T> {
     private val rootTask: PureTask<T> = rootTask ?: this
@@ -151,7 +160,7 @@ private class PureTask<T>(
             // This means the outer Read.continuation can safely be called immediately after reading,
             // without invoking client code prematurely.
             { step.continuation(it) },
-            { saveData() + conditionReadEntry(step.cell.serializer.serialize(it)) },
+            { saveData() + conditionReadEntry(Json.encodeToJsonElement(step.cell.serializer, it)) },
             rootTask,
         )
     }
@@ -170,13 +179,13 @@ private class PureTask<T>(
     override fun save(finconCollector: FinconCollector) {
         // Report my fincon state
         val conditionKeys = id.rootId.conditionKeys()
-        finconCollector.report(conditionKeys, value=JsonArray(saveData()))
+        finconCollector.report(conditionKeys, value= JsonArray(saveData()))
         // If this is a child task, report to root task that I need to be spawned
         if (id.rootId.parent != null) {
             var taskId = id.rootId
             while (taskId.parent != null) taskId = taskId.parent
             finconCollector.accrue(taskId.conditionKeys() + "children",
-                value=JsonArray(conditionKeys.map { JsonString(it) }.toList()))
+                value=JsonArray(conditionKeys.map { JsonPrimitive(it) }.toList()))
         }
     }
 
@@ -186,15 +195,15 @@ private class PureTask<T>(
         val targetConditionKeys = targetTaskId.rootId.conditionKeys()
         val result = mutableListOf<Task<*>>()
         // Restore this task itself, if there's incon data for it.
-        (inconProvider.get(targetConditionKeys) as JsonArray?)?.apply {
-            result.add(restoreSingle(values))
+        inconProvider.get(targetConditionKeys)?.jsonArray?.let {
+            result.add(restoreSingle(it))
         }
         // For any child reported in the fincon, call restore again, using that child's id
         // to get the state history which spawned and later ran that child.
-        (inconProvider.get(targetConditionKeys + "children") as JsonArray?)?.values?.forEach {
+        inconProvider.get(targetConditionKeys + "children")?.jsonArray?.forEach {
             // Since that child is reported as needing to be restored, throw an error if there's no incon data for it
             result.addAll(requireNotNull(rootTask.restore(
-                inconProvider, constructTaskId((it as JsonArray).values.map { (it as JsonString).value }))))
+                inconProvider, constructTaskId(it.jsonArray.map { it.jsonPrimitive.content }))))
         }
         return result.asSequence()
     }
@@ -206,11 +215,11 @@ private class PureTask<T>(
         return TaskId(rootId, 0)
     }
 
-    private fun restoreSingle(restoreData: List<JsonValue>): Task<*> {
+    private fun restoreSingle(restoreData: List<JsonElement>): Task<*> {
         // If there's no incon data left, we've reached the active step
         val restoreDatum = restoreData.firstOrNull() ?: return this
-        val restoreDatumMap = (restoreDatum as JsonMap).values
-        val restoreDatumType = (restoreDatumMap["type"] as JsonString).value
+        val restoreDatumMap = restoreDatum.jsonObject
+        val restoreDatumType = restoreDatumMap.getValue("type").jsonPrimitive.content
         val remainingRestoreData = restoreData.subList(1, restoreData.size)
 
         fun requireType(requiredType: String) =
@@ -243,9 +252,9 @@ private class PureTask<T>(
                 }
                 is TaskStepResult.Spawn<*, T> -> {
                     requireType("spawn")
-                    when (val branch = restoreDatumMap["branch"]) {
-                        JsonString("child") -> requireNotNull((child as PureTask<*>).restoreSingle(remainingRestoreData))
-                        JsonString("parent") -> requireNotNull((continuation as PureTask<T>).restoreSingle(remainingRestoreData))
+                    when (val branch = restoreDatumMap.getValue("branch").jsonPrimitive.content) {
+                        "child" -> requireNotNull((child as PureTask<*>).restoreSingle(remainingRestoreData))
+                        "parent" -> requireNotNull((continuation as PureTask<T>).restoreSingle(remainingRestoreData))
                         else -> throw IllegalArgumentException("Branch $branch should be \"child\" or \"parent\"")
                     }
                 }
@@ -255,9 +264,9 @@ private class PureTask<T>(
 
     private fun <V, E> restoreRead(
         step: TaskStepResult.Read<V, E, T>,
-        restoreDatum: JsonValue,
-        remainingRestoreData: List<JsonValue>,
-    ) = (step.continuation(step.cell.serializer.deserialize(restoreDatum)) as PureTask<T>).restoreSingle(remainingRestoreData)
+        restoreDatum: JsonElement,
+        remainingRestoreData: List<JsonElement>,
+    ) = (step.continuation(Json.decodeFromJsonElement(step.cell.serializer, restoreDatum)) as PureTask<T>).restoreSingle(remainingRestoreData)
 
     companion object {
         private val EMIT_MARKER = conditionEntry("emit")
@@ -265,12 +274,12 @@ private class PureTask<T>(
         private val DELAY_MARKER = conditionEntry("delay")
         private val AWAIT_MARKER = conditionEntry("await")
 
-        private fun conditionEntry(type: String) = JsonMap(mapOf("type" to JsonString(type)))
-        private fun conditionReadEntry(value: JsonValue) = JsonMap(mapOf(
-            "type" to JsonString("read"),
+        private fun conditionEntry(type: String) = JsonObject(mapOf("type" to JsonPrimitive(type)))
+        private fun conditionReadEntry(value: JsonElement) = JsonObject(mapOf(
+            "type" to JsonPrimitive("read"),
             "value" to value))
-        private fun conditionSpawnEntry(onChild: Boolean) = JsonMap(mapOf(
-            "type" to JsonString("spawn"),
-            "branch" to JsonString(if (onChild) "child" else "parent")))
+        private fun conditionSpawnEntry(onChild: Boolean) = JsonObject(mapOf(
+            "type" to JsonPrimitive("spawn"),
+            "branch" to JsonPrimitive(if (onChild) "child" else "parent")))
     }
 }
