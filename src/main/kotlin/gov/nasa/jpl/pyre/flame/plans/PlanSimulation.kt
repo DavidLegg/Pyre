@@ -49,13 +49,13 @@ import kotlin.time.Instant
 class PlanSimulation<M> : Simulation {
     private val simulationEpoch: Instant
     private val state: SimulationState
-    private val activityResource: MutableDiscreteResource<GroundedActivity<M, *>?>
+    private val activityResource: MutableDiscreteResource<GroundedActivity<M>?>
 
     constructor(
         reportHandler: (JsonElement) -> Unit,
         inconProvider: InconProvider,
         constructModel: SparkInitContext.() -> M,
-        activitySerializer: KSerializer<GroundedActivity<M, *>>,
+        activitySerializer: KSerializer<GroundedActivity<M>>,
     ) : this(
         reportHandler,
         null,
@@ -70,7 +70,7 @@ class PlanSimulation<M> : Simulation {
         simulationEpoch: Instant,
         simulationStart: Instant,
         constructModel: SparkInitContext.() -> M,
-        activitySerializer: KSerializer<GroundedActivity<M, *>>,
+        activitySerializer: KSerializer<GroundedActivity<M>>,
     ) : this(
         reportHandler,
         simulationEpoch,
@@ -86,7 +86,7 @@ class PlanSimulation<M> : Simulation {
         simulationStart: Duration?,
         inconProvider: InconProvider?,
         constructModel: SparkInitContext.() -> M,
-        activitySerializer: KSerializer<GroundedActivity<M, *>>,
+        activitySerializer: KSerializer<GroundedActivity<M>>,
     ) {
         this.simulationEpoch = requireNotNull(simulationEpoch ?: inconProvider?.get("simulation", "epoch")?.jsonPrimitive?.content?.let(Instant::parse))
         var start: Duration = requireNotNull(simulationStart ?: inconProvider?.get("simulation", "time")?.let {
@@ -156,7 +156,7 @@ class PlanSimulation<M> : Simulation {
         finconCollector.report("simulation", "epoch", value= JsonPrimitive(simulationEpoch.toString()))
     }
 
-    fun addActivities(activities: List<GroundedActivity<M, *>>) {
+    fun addActivities(activities: List<GroundedActivity<M>>) {
         InternalLogger.block("Loading ${activities.size} activities") {
             // TODO: Test this activityDirective trickery
             // TODO: If it works, consider formalizing it a bit more as a way to "safely" ingest info into the sim.

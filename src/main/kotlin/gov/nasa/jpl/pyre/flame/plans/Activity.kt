@@ -7,23 +7,25 @@ import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.reporting.report
 import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.task
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * Base unit of planned simulation behavior.
  */
-interface Activity<M, R> {
-    context (scope: SparkTaskScope<R>)
-    suspend fun effectModel(model: M): R
+interface Activity<M> {
+    context (scope: SparkTaskScope<Unit>)
+    suspend fun effectModel(model: M)
 }
 
 /**
  * An activity, with all supplemental information attached, except for the start time.
  * This activity "floats" in time until it is grounded by choosing a start time.
  */
-data class FloatingActivity<M, R>(
-    val activity: Activity<M, R>,
+@Serializable
+data class FloatingActivity<M>(
+    val activity: Activity<M>,
     val typeName: String = activity::class.simpleName ?: throw IllegalArgumentException("Activity must have a typeName"),
     val name: String = typeName,
 )
@@ -31,17 +33,18 @@ data class FloatingActivity<M, R>(
 /**
  * An activity with all supplemental information attached, including the start time.
  */
-data class GroundedActivity<M, R>(
+@Serializable
+data class GroundedActivity<M>(
     val time: Duration,
-    val activity: Activity<M, R>,
+    val activity: Activity<M>,
     val typeName: String = activity::class.simpleName ?: throw IllegalArgumentException("Activity must have a typeName"),
     val name: String = typeName,
 )
 
-fun <M, R> GroundedActivity<M, R>.float() = FloatingActivity(activity, typeName, name)
-fun <M, R> FloatingActivity<M, R>.ground(time: Duration) = GroundedActivity(time, activity, typeName, name)
+fun <M> GroundedActivity<M>.float() = FloatingActivity(activity, typeName, name)
+fun <M> FloatingActivity<M>.ground(time: Duration) = GroundedActivity(time, activity, typeName, name)
 
-suspend fun <M, R> SparkTaskScope<*>.defer(time: Duration, activity: FloatingActivity<M, R>, model: M) {
+suspend fun <M> SparkTaskScope<*>.defer(time: Duration, activity: FloatingActivity<M>, model: M) {
     spawn(activity.name, task {
         with(sparkTaskScope()) {
             delay(time)
@@ -65,14 +68,14 @@ suspend fun <M, R> SparkTaskScope<*>.defer(time: Duration, activity: FloatingAct
     })
 }
 
-suspend fun <M, R> SparkTaskScope<*>.deferUntil(time: Duration, activity: FloatingActivity<M, R>, model: M) =
+suspend fun <M> SparkTaskScope<*>.deferUntil(time: Duration, activity: FloatingActivity<M>, model: M) =
     defer(time - simulationClock.getValue(), activity, model)
 
-suspend fun <M, R> SparkTaskScope<*>.spawn(activity: GroundedActivity<M, R>, model: M) =
+suspend fun <M> SparkTaskScope<*>.spawn(activity: GroundedActivity<M>, model: M) =
     deferUntil(activity.time, activity.float(), model)
 
-suspend fun <M, R> SparkTaskScope<*>.spawn(activity: FloatingActivity<M, R>, model: M) =
+suspend fun <M> SparkTaskScope<*>.spawn(activity: FloatingActivity<M>, model: M) =
     defer(Duration.Companion.ZERO, activity, model)
 
-suspend fun <M, R> SparkTaskScope<*>.spawn(activity: Activity<M, R>, model: M) =
+suspend fun <M> SparkTaskScope<*>.spawn(activity: Activity<M>, model: M) =
     spawn(FloatingActivity(activity), model)
