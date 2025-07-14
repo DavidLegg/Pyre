@@ -8,6 +8,7 @@ import gov.nasa.jpl.pyre.ember.InternalLogger
 import gov.nasa.jpl.pyre.ember.Simulation
 import gov.nasa.jpl.pyre.ember.SimulationState
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
+import gov.nasa.jpl.pyre.ember.toKotlinDuration
 import gov.nasa.jpl.pyre.ember.toPyreDuration
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
@@ -22,6 +23,7 @@ import gov.nasa.jpl.pyre.spark.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.coroutineTask
 import gov.nasa.jpl.pyre.spark.tasks.whenever
+import gov.nasa.jpl.pyre.flame.plans.ActivityActionsByContext.spawn
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.nullable
 import kotlinx.serialization.json.Json
@@ -29,6 +31,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.modules.SerializersModule
 import kotlin.time.Instant
 
 /**
@@ -50,19 +53,20 @@ class PlanSimulation<M> : Simulation {
     private val simulationEpoch: Instant
     private val state: SimulationState
     private val activityResource: MutableDiscreteResource<GroundedActivity<M>?>
+    private val jsonFormat: Json
 
     constructor(
         reportHandler: (JsonElement) -> Unit,
         inconProvider: InconProvider,
         constructModel: SparkInitContext.() -> M,
-        activitySerializer: KSerializer<GroundedActivity<M>>,
+        activitySerializersModule: SerializersModule,
     ) : this(
         reportHandler,
         null,
         null,
         inconProvider,
         constructModel,
-        activitySerializer
+        activitySerializersModule,
     )
 
     constructor(
@@ -70,14 +74,14 @@ class PlanSimulation<M> : Simulation {
         simulationEpoch: Instant,
         simulationStart: Instant,
         constructModel: SparkInitContext.() -> M,
-        activitySerializer: KSerializer<GroundedActivity<M>>,
+        activitySerializersModule: SerializersModule,
     ) : this(
         reportHandler,
         simulationEpoch,
         (simulationStart - simulationEpoch).toPyreDuration(),
         null,
         constructModel,
-        activitySerializer
+        activitySerializersModule,
     )
 
     private constructor(
@@ -86,8 +90,9 @@ class PlanSimulation<M> : Simulation {
         simulationStart: Duration?,
         inconProvider: InconProvider?,
         constructModel: SparkInitContext.() -> M,
-        activitySerializer: KSerializer<GroundedActivity<M>>,
+        activitySerializersModule: SerializersModule,
     ) {
+        this.jsonFormat = Json { serializersModule = activitySerializersModule }
         this.simulationEpoch = requireNotNull(simulationEpoch ?: inconProvider?.get("simulation", "epoch")?.jsonPrimitive?.content?.let(Instant::parse))
         var start: Duration = requireNotNull(simulationStart ?: inconProvider?.get("simulation", "time")?.let {
             Json.decodeFromJsonElement(it)
@@ -108,7 +113,7 @@ class PlanSimulation<M> : Simulation {
             // is a function of the resource value (activity directive) read on that iteration.
             // If the activity is captured by a fincon, it will record the directive's serialization
             // in the task history, such that it can be re-launched when the simulation is restored.
-            activityResource = discreteResource("activity_to_schedule", null, activitySerializer.nullable)
+            activityResource = discreteResource("activity_to_schedule", null)
             spawn("activities", whenever(activityResource notEquals null) {
                 val groundedActivity = requireNotNull(activityResource.getValue())
                 activityResource.set(null)
@@ -194,8 +199,9 @@ class PlanSimulation<M> : Simulation {
 
     fun runPlan(plan: Plan<M>) {
         InternalLogger.block("Running plan ${plan.name}") {
-            require(plan.startTime == state.time()) {
-                "Cannot run plan starting at ${plan.startTime}. Simulation is at ${state.time()}"
+            val absoluteSimulationTime = simulationEpoch + state.time().toKotlinDuration()
+            require(plan.startTime == absoluteSimulationTime) {
+                "Cannot run plan starting at ${plan.startTime}. Simulation is at $absoluteSimulationTime"
             }
             addActivities(plan.activities)
             runUntil(plan.endTime)

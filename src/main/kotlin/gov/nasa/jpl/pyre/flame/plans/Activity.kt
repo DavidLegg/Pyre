@@ -1,15 +1,23 @@
 package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.minus
-import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.reporting.report
 import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.task
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
+import kotlinx.serialization.serializer
+import kotlin.reflect.KClass
 
 /**
  * Base unit of planned simulation behavior.
@@ -68,14 +76,38 @@ suspend fun <M> SparkTaskScope<*>.defer(time: Duration, activity: FloatingActivi
     })
 }
 
-suspend fun <M> SparkTaskScope<*>.deferUntil(time: Duration, activity: FloatingActivity<M>, model: M) =
-    defer(time - simulationClock.getValue(), activity, model)
+inline fun <reified M : Any> activitySerializer(block: ActivitySerializerBuilder<M>.() -> Unit): KSerializer<GroundedActivity<M>> {
+    return SerializersModule {
+        // Because Activity takes Model as a type parameter, we must specify a serializer for the model type.
+        // This is despite never needing to serialize or deserialize a model.
+        // Handle this transparently by specifying a dummy contextual serializer here.
+        contextual(M::class, object : KSerializer<M> {
+            override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor(M::class.qualifiedName!!, PrimitiveKind.BOOLEAN)
 
-suspend fun <M> SparkTaskScope<*>.spawn(activity: GroundedActivity<M>, model: M) =
-    deferUntil(activity.time, activity.float(), model)
+            override fun serialize(encoder: Encoder, value: M) {
+                throw UnsupportedOperationException("Cannot serialize model ${M::class.simpleName}")
+            }
 
-suspend fun <M> SparkTaskScope<*>.spawn(activity: FloatingActivity<M>, model: M) =
-    defer(Duration.Companion.ZERO, activity, model)
+            override fun deserialize(decoder: Decoder): M {
+                throw UnsupportedOperationException("Cannot deserialize model ${M::class.simpleName}")
+            }
+        })
 
-suspend fun <M> SparkTaskScope<*>.spawn(activity: Activity<M>, model: M) =
-    spawn(FloatingActivity(activity), model)
+        // Present a restricted interface to the caller, who can just call activity(A) for each activity type A
+        // to register all the activity types. We'll collect them all as implementations of the polymorphic Activity type.
+        polymorphic(Activity::class) {
+            object : ActivitySerializerBuilder<M> {
+                override fun <A : Activity<M>> activity(clazz: KClass<A>, serializer: KSerializer<A>) {
+                    this@polymorphic.subclass(clazz, serializer)
+                }
+            }.block()
+        }
+    }.serializer()
+}
+
+interface ActivitySerializerBuilder<M> {
+    fun <A : Activity<M>> activity(clazz: KClass<A>, serializer: KSerializer<A>)
+}
+
+inline fun <M, reified A : Activity<M>> ActivitySerializerBuilder<M>.activity(clazz: KClass<A>) =
+    activity(clazz, serializer())

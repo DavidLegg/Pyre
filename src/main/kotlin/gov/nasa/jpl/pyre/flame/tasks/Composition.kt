@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.flame.composition
+package gov.nasa.jpl.pyre.flame.tasks
 
 import gov.nasa.jpl.pyre.ember.Cell
 import gov.nasa.jpl.pyre.ember.CellSet
