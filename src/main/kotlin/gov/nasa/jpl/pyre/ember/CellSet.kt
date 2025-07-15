@@ -1,29 +1,21 @@
 package gov.nasa.jpl.pyre.ember
 
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.decodeFromJsonElement
+import kotlin.reflect.KType
 
 @Suppress("UNCHECKED_CAST")
-class CellSet {
+class CellSet private constructor(
+    private val map: MutableMap<CellHandle<*, *>, CellState<*, *>>
+) {
     // CellHandle is class, not data class, because we *want* to use object-identity equality
-    class CellHandle<T, E>(val name: String, val serializer: KSerializer<T>) {
+    class CellHandle<T, E>(val name: String, val valueType: KType) {
         override fun toString() = name
     }
     data class CellState<T, E>(val cell: Cell<T, E>, val effect: E)
 
-    private val map: MutableMap<CellHandle<*, *>, CellState<*, *>>
-
-    public constructor() {
-        this.map = mutableMapOf()
-    }
-
-    private constructor(map: MutableMap<CellHandle<*, *>, CellState<*, *>>) {
-        this.map = map
-    }
+    constructor() : this(mutableMapOf())
 
     fun <T: Any, E> allocate(cell: Cell<T, E>) =
-        CellHandle<T, E>(cell.name, cell.serializer)
+        CellHandle<T, E>(cell.name, cell.valueType)
             .also { map[it] = CellState(cell, cell.effectTrait.empty()) }
 
     operator fun <T, E> get(cellHandle: CellHandle<T, E>): Cell<T, E> {
@@ -45,7 +37,7 @@ class CellSet {
 
     fun save(finconCollector: FinconCollector) {
         fun <T, E> saveCell(state: CellState<T, E>) = with(state.cell) {
-            finconCollector.report(name, value = Json.encodeToJsonElement(serializer, applyEffect(value, state.effect)))
+            finconCollector.report(sequenceOf(name), applyEffect(value, state.effect), type=valueType)
         }
         map.values.forEach { saveCell(it) }
     }
@@ -53,9 +45,8 @@ class CellSet {
     fun restore(inconProvider: InconProvider) {
         fun <T, E> restoreCell(handle: CellHandle<T, E>) = with(this[handle]) {
             // If incon is missing, ignore it and move on
-            inconProvider.get(name)?.let {
-                // But if the incon is there and fails to deserialize, that's an error.
-                map[handle] = CellState(copy(value = Json.decodeFromJsonElement(serializer, it)), effectTrait.empty())
+            inconProvider.get<T>(sequenceOf(name), valueType)?.let {
+                map[handle] = CellState(copy(value=it), effectTrait.empty())
             }
         }
         map.keys.forEach { restoreCell(it) }

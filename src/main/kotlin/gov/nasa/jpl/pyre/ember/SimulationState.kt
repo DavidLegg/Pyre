@@ -3,11 +3,14 @@ package gov.nasa.jpl.pyre.ember
 import gov.nasa.jpl.pyre.ember.Task.TaskStepResult.*
 import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
 import gov.nasa.jpl.pyre.ember.Condition.ConditionResult
+import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.withPrefix
+import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.report
+import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.withSuffix
+import gov.nasa.jpl.pyre.ember.InconProvider.Companion.get
+import gov.nasa.jpl.pyre.ember.InconProvider.Companion.withPrefix
+import gov.nasa.jpl.pyre.ember.InconProvider.Companion.withSuffix
 import gov.nasa.jpl.pyre.ember.Task.PureStepResult
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.encodeToJsonElement
 import java.util.Comparator.comparing
 import java.util.PriorityQueue
 
@@ -207,7 +210,7 @@ class SimulationState(private val reportHandler: (JsonElement) -> Unit) {
 
     fun save(finconCollector: FinconCollector) {
         with (finconCollector.withPrefix("simulation")) {
-            report("time", value=Json.encodeToJsonElement(time))
+            report("time", value=time)
         }
         cells.save(finconCollector.withPrefix("cells"))
         val taskCollector = finconCollector.withPrefix("tasks")
@@ -217,18 +220,18 @@ class SimulationState(private val reportHandler: (JsonElement) -> Unit) {
         val excludedTasks: Set<Task<*>> = conditionalTasks.mapTo(mutableSetOf()) { it.value.task }
         tasks.forEach {
             it.task.takeUnless(excludedTasks::contains)?.save(taskCollector)
-            taskTimeCollector.report(it.task.id.rootId.conditionKeys(), Json.encodeToJsonElement(it.time))
+            taskTimeCollector.report(it.task.id.rootId.conditionKeys(), it.time)
         }
         // Save all the awaiting tasks
         listeningTasks.keys.forEach {
             it.save(taskCollector)
-            taskTimeCollector.report(it.id.rootId.conditionKeys(), Json.encodeToJsonElement(time))
+            taskTimeCollector.report(it.id.rootId.conditionKeys(), time)
         }
     }
 
     fun restore(inconProvider: InconProvider) {
         with (inconProvider.withPrefix("simulation")) {
-            time = Json.decodeFromJsonElement(requireNotNull(get("time")))
+            time = requireNotNull(get("time"))
         }
         cells.restore(inconProvider.withPrefix("cells"))
         val taskProvider = inconProvider.withPrefix("tasks")
@@ -237,8 +240,7 @@ class SimulationState(private val reportHandler: (JsonElement) -> Unit) {
         tasks.clear()
         for (rootTask in rootTasks) {
             for (restoredTask in rootTask.task.restore(taskProvider)) {
-                val restoredTime: Duration = Json.decodeFromJsonElement(
-                    requireNotNull(taskTimeProvider.get(restoredTask.id.rootId.conditionKeys())))
+                val restoredTime: Duration = requireNotNull(taskTimeProvider.get(restoredTask.id.rootId.conditionKeys()))
                 tasks += TaskEntry(restoredTime, restoredTask)
             }
         }

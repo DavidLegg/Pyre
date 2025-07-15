@@ -1,28 +1,18 @@
 package gov.nasa.jpl.pyre.ember
 
-import kotlinx.serialization.json.JsonElement
+import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.withPrefix
+import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.withSuffix
+import gov.nasa.jpl.pyre.ember.InconProvider.Companion.withPrefix
+import gov.nasa.jpl.pyre.ember.InconProvider.Companion.withSuffix
 
 interface Conditions : FinconCollector, InconProvider {
-    override fun withPrefix(key: String): Conditions {
-        val original = this
-        return object : Conditions {
-            override fun report(keys: Sequence<String>, value: JsonElement) =
-                original.report(sequenceOf(key) + keys, value)
-            override fun accrue(keys: Sequence<String>, value: JsonElement) =
-                original.accrue(sequenceOf(key) + keys, value)
-            override fun get(keys: Sequence<String>) =
-                original.get(sequenceOf(key) + keys)
-        }
-    }
-    override fun withSuffix(key: String): Conditions {
-        val original = this
-        return object : Conditions {
-            override fun report(keys: Sequence<String>, value: JsonElement) =
-                original.report(keys + key, value)
-            override fun accrue(keys: Sequence<String>, value: JsonElement) =
-                original.report(keys + key, value)
-            override fun get(keys: Sequence<String>) =
-                original.get(keys + key)
-        }
+    companion object {
+        fun Conditions.withPrefix(key: String): Conditions = object : Conditions,
+            FinconCollector by (this as FinconCollector).withPrefix(key),
+            InconProvider by (this as InconProvider).withPrefix(key) {}
+
+        fun Conditions.withSuffix(key: String): Conditions = object : Conditions,
+            FinconCollector by (this as FinconCollector).withSuffix(key),
+            InconProvider by (this as InconProvider).withSuffix(key) {}
     }
 }

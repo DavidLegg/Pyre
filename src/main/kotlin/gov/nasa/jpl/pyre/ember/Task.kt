@@ -1,19 +1,34 @@
 package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
+import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.accrue
+import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.withPrefix
+import gov.nasa.jpl.pyre.ember.InconProvider.Companion.get
+import gov.nasa.jpl.pyre.ember.PureTask.TaskHistoryStep.*
 import gov.nasa.jpl.pyre.ember.Task.*
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 typealias PureTaskStep<T> = () -> PureStepResult<T>
+
+/*
+    TODO: Consider ways to refactor Task history collection and restoration.
+
+    Right now, task history is built up in a callback as the task runs, and serialized in two passes.
+    The first pass serializes the read values, and the second pass the full task history.
+    Conversely, task restoration first deserializes the task history, then the read values.
+
+    This works, but it requires some ugly warts on the incon/fincon interfaces.
+
+    Consider a different approach, where a task can serialize its history in a single pass, by using ReadMarker<V>
+    with the actual (not serialized to JsonElement) value in it.
+    Then, consider a custom task deserializer, or else an incremental deserialize method for InconProvider, inverse to `accrue` for FinconCollector.
+
+    In fact, perhaps these incremental incon/fincon methods could be utility interfaces on top of the basic incon/fincon interfaces...
+    Something where you incrementally report to the incremental interface, which does a single final report to the base interface?
+    Then they could be written as just an extension method on the interfaces, and JsonCondition could be simplified.
+ */
 
 /**
  * A Task is a unit of action in the simulation.
@@ -113,7 +128,7 @@ interface Task<T> {
 
     companion object {
         fun <T> of(name: String, step: PureTaskStep<T>): Task<T> {
-            return PureTask(TaskId(RootTaskId(name, null), 0), step, { emptyList() }, null)
+            return PureTask(TaskId(RootTaskId(name, null), 0), step, {}, null)
         }
     }
 }
@@ -126,7 +141,7 @@ interface Task<T> {
 private class PureTask<T>(
     override val id: TaskId,
     private val step: PureTaskStep<T>,
-    private val saveData: () -> List<JsonElement>,
+    private val saveData: (FinconCollector) -> Unit,
     rootTask: PureTask<T>?
 ) : Task<T> {
     private val rootTask: PureTask<T> = rootTask ?: this
@@ -138,29 +153,32 @@ private class PureTask<T>(
             is PureStepResult.Emit<*, *, T> -> runEmit(stepResult)
             is PureStepResult.Report -> TaskStepResult.Report(
                 stepResult.value,
-                PureTask(id.nextStep(), stepResult.continuation, { saveData() + REPORT_MARKER }, rootTask)
+                PureTask(id.nextStep(), stepResult.continuation, { saveData(it); it.accrue(value=ReportMarker) }, rootTask)
             )
             is PureStepResult.Delay -> TaskStepResult.Delay(
                 stepResult.time,
-                PureTask(id.nextStep(), stepResult.continuation, { saveData() + DELAY_MARKER }, rootTask)
+                PureTask(id.nextStep(), stepResult.continuation, { saveData(it); it.accrue(value=DelayMarker) }, rootTask)
             )
             is PureStepResult.Await -> TaskStepResult.Await(
                 stepResult.condition,
-                PureTask(id.nextStep(), stepResult.continuation, { saveData() + AWAIT_MARKER }, rootTask)
+                PureTask(id.nextStep(), stepResult.continuation, { saveData(it); it.accrue(value=AwaitMarker) }, rootTask)
             )
             is PureStepResult.Spawn<*, T> -> runSpawn(stepResult)
             is PureStepResult.Restart -> rootTask.runStep()
         }
     }
 
-    private fun <V, E> runRead(step: PureStepResult.Read<V, E, T>) = TaskStepResult.Read(step.cell) {
+    private fun <V, E> runRead(step: PureStepResult.Read<V, E, T>) = TaskStepResult.Read(step.cell) { value ->
         PureTask(
             id.nextStep(),
             // Important: step.continuation is deferred to Task.runStep.
             // This means the outer Read.continuation can safely be called immediately after reading,
             // without invoking client code prematurely.
-            { step.continuation(it) },
-            { saveData() + conditionReadEntry(Json.encodeToJsonElement(step.cell.serializer, it)) },
+            { step.continuation(value) },
+            { finconCollector ->
+                saveData(finconCollector)
+                finconCollector.accrue(value=ReadMarker(finconCollector.encode(value, step.cell.valueType)))
+            },
             rootTask,
         )
     }
@@ -168,24 +186,29 @@ private class PureTask<T>(
     private fun <V, E> runEmit(step: PureStepResult.Emit<V, E, T>) = TaskStepResult.Emit(
         step.cell,
         step.effect,
-        PureTask(id.nextStep(), step.continuation, { saveData() + EMIT_MARKER }, rootTask)
+        PureTask(id.nextStep(), step.continuation, { saveData(it); it.accrue(value=EmitMarker) }, rootTask)
     )
 
     private fun <S> runSpawn(step: PureStepResult.Spawn<S, T>) = TaskStepResult.Spawn(
-        PureTask(id.child(step.childName), step.child, { saveData() + conditionSpawnEntry(onChild=true) }, null),
-        PureTask(id.nextStep(), step.continuation, { saveData() + conditionSpawnEntry(onChild=false) }, rootTask)
+        PureTask(id.child(step.childName), step.child, { saveData(it); it.accrue(value=SpawnMarker(true)) }, null),
+        PureTask(id.nextStep(), step.continuation, { saveData(it); it.accrue(value=SpawnMarker(false)) }, rootTask)
     )
 
     override fun save(finconCollector: FinconCollector) {
-        // Report my fincon state
         val conditionKeys = id.rootId.conditionKeys()
-        finconCollector.report(conditionKeys, value= JsonArray(saveData()))
+
+        // Report my fincon state
+        var historyCollector = finconCollector
+        for (key in conditionKeys) {
+            historyCollector = historyCollector.withPrefix(key)
+        }
+        saveData(historyCollector)
+
         // If this is a child task, report to root task that I need to be spawned
         if (id.rootId.parent != null) {
             var taskId = id.rootId
             while (taskId.parent != null) taskId = taskId.parent
-            finconCollector.accrue(taskId.conditionKeys() + "children",
-                value=JsonArray(conditionKeys.map { JsonPrimitive(it) }.toList()))
+            finconCollector.accrue(taskId.conditionKeys() + "children", value=conditionKeys)
         }
     }
 
@@ -195,15 +218,15 @@ private class PureTask<T>(
         val targetConditionKeys = targetTaskId.rootId.conditionKeys()
         val result = mutableListOf<Task<*>>()
         // Restore this task itself, if there's incon data for it.
-        inconProvider.get(targetConditionKeys)?.jsonArray?.let {
-            result.add(restoreSingle(it))
+        inconProvider.get<List<TaskHistoryStep>>(targetConditionKeys)?.let {
+            result.add(restoreSingle(it, inconProvider))
         }
         // For any child reported in the fincon, call restore again, using that child's id
         // to get the state history which spawned and later ran that child.
-        inconProvider.get(targetConditionKeys + "children")?.jsonArray?.forEach {
+        inconProvider.get<List<List<String>>>(targetConditionKeys + "children")?.forEach {
             // Since that child is reported as needing to be restored, throw an error if there's no incon data for it
             result.addAll(requireNotNull(rootTask.restore(
-                inconProvider, constructTaskId(it.jsonArray.map { it.jsonPrimitive.content }))))
+                inconProvider, constructTaskId(it))))
         }
         return result.asSequence()
     }
@@ -215,15 +238,10 @@ private class PureTask<T>(
         return TaskId(rootId, 0)
     }
 
-    private fun restoreSingle(restoreData: List<JsonElement>): Task<*> {
+    private fun restoreSingle(restoreData: List<TaskHistoryStep>, inconProvider: InconProvider): Task<*> {
         // If there's no incon data left, we've reached the active step
-        val restoreDatum = restoreData.firstOrNull() ?: return this
-        val restoreDatumMap = restoreDatum.jsonObject
-        val restoreDatumType = restoreDatumMap.getValue("type").jsonPrimitive.content
+        val historyStep = restoreData.firstOrNull() ?: return this
         val remainingRestoreData = restoreData.subList(1, restoreData.size)
-
-        fun requireType(requiredType: String) =
-            require(restoreDatumType == requiredType) { "Expected restore datum of type \"$requiredType\"" }
 
         return with (this.runStep()) {
             when (this) {
@@ -231,31 +249,31 @@ private class PureTask<T>(
                     throw IllegalArgumentException("Extra restore data for completed task")
                 }
                 is TaskStepResult.Read<*, *, T> -> {
-                    requireType("read")
-                    restoreRead(this, requireNotNull(restoreDatumMap["value"]), remainingRestoreData)
+                    require(historyStep is ReadMarker)
+                    restoreRead(this, historyStep.value, remainingRestoreData, inconProvider)
                 }
                 is TaskStepResult.Emit<*, *, T> -> {
-                    requireType("emit")
-                    (continuation as PureTask<T>).restoreSingle(remainingRestoreData)
+                    require(historyStep is EmitMarker)
+                    (continuation as PureTask<T>).restoreSingle(remainingRestoreData, inconProvider)
                 }
                 is TaskStepResult.Report -> {
-                    requireType("report")
-                    (continuation as PureTask<T>).restoreSingle(remainingRestoreData)
+                    require(historyStep is ReportMarker)
+                    (continuation as PureTask<T>).restoreSingle(remainingRestoreData, inconProvider)
                 }
                 is TaskStepResult.Delay -> {
-                    requireType("delay")
-                    (continuation as PureTask<T>).restoreSingle(remainingRestoreData)
+                    require(historyStep is DelayMarker)
+                    (continuation as PureTask<T>).restoreSingle(remainingRestoreData, inconProvider)
                 }
                 is TaskStepResult.Await -> {
-                    requireType("await")
-                    (continuation as PureTask<T>).restoreSingle(remainingRestoreData)
+                    require(historyStep is AwaitMarker)
+                    (continuation as PureTask<T>).restoreSingle(remainingRestoreData, inconProvider)
                 }
                 is TaskStepResult.Spawn<*, T> -> {
-                    requireType("spawn")
-                    when (val branch = restoreDatumMap.getValue("branch").jsonPrimitive.content) {
-                        "child" -> requireNotNull((child as PureTask<*>).restoreSingle(remainingRestoreData))
-                        "parent" -> requireNotNull((continuation as PureTask<T>).restoreSingle(remainingRestoreData))
-                        else -> throw IllegalArgumentException("Branch $branch should be \"child\" or \"parent\"")
+                    require(historyStep is SpawnMarker)
+                    if (historyStep.onChild) {
+                        requireNotNull((child as PureTask<*>).restoreSingle(remainingRestoreData, inconProvider))
+                    } else {
+                        requireNotNull((continuation as PureTask<T>).restoreSingle(remainingRestoreData, inconProvider))
                     }
                 }
             }
@@ -264,22 +282,35 @@ private class PureTask<T>(
 
     private fun <V, E> restoreRead(
         step: TaskStepResult.Read<V, E, T>,
-        restoreDatum: JsonElement,
-        remainingRestoreData: List<JsonElement>,
-    ) = (step.continuation(Json.decodeFromJsonElement(step.cell.serializer, restoreDatum)) as PureTask<T>).restoreSingle(remainingRestoreData)
+        historyValue: JsonElement,
+        remainingRestoreData: List<TaskHistoryStep>,
+        inconProvider: InconProvider,
+    ) = (step.continuation(inconProvider.decode(historyValue, step.cell.valueType)) as PureTask<T>)
+        .restoreSingle(remainingRestoreData, inconProvider)
 
-    companion object {
-        private val EMIT_MARKER = conditionEntry("emit")
-        private val REPORT_MARKER = conditionEntry("report")
-        private val DELAY_MARKER = conditionEntry("delay")
-        private val AWAIT_MARKER = conditionEntry("await")
+    sealed interface TaskHistoryStep {
+        @Serializable
+        @SerialName("emit")
+        object EmitMarker : TaskHistoryStep
 
-        private fun conditionEntry(type: String) = JsonObject(mapOf("type" to JsonPrimitive(type)))
-        private fun conditionReadEntry(value: JsonElement) = JsonObject(mapOf(
-            "type" to JsonPrimitive("read"),
-            "value" to value))
-        private fun conditionSpawnEntry(onChild: Boolean) = JsonObject(mapOf(
-            "type" to JsonPrimitive("spawn"),
-            "branch" to JsonPrimitive(if (onChild) "child" else "parent")))
+        @Serializable
+        @SerialName("report")
+        object ReportMarker : TaskHistoryStep
+
+        @Serializable
+        @SerialName("delay")
+        object DelayMarker : TaskHistoryStep
+
+        @Serializable
+        @SerialName("await")
+        object AwaitMarker : TaskHistoryStep
+
+        @Serializable
+        @SerialName("read")
+        data class ReadMarker(val value: JsonElement) : TaskHistoryStep
+
+        @Serializable
+        @SerialName("spawn")
+        data class SpawnMarker(val onChild: Boolean) : TaskHistoryStep
     }
 }

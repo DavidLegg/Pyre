@@ -8,6 +8,7 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonElement
@@ -15,20 +16,25 @@ import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.serializer
 import kotlin.collections.set
+import kotlin.reflect.KType
 
 
-@Serializable(with = JsonConditions.JsonConditionsSerializer::class)
-class JsonConditions private constructor(private val conditions: ConditionsTreeNode) : Conditions {
+class JsonConditions private constructor(
+    private val conditions: ConditionsTreeNode,
+    private val jsonFormat: Json,
+) : Conditions {
+    @Serializable(with = NodeSerializer::class)
     private class ConditionsTreeNode(
         var value: JsonElement? = null,
         var accruedValue: MutableList<JsonElement>? = null,
         val children: MutableMap<String, ConditionsTreeNode> = mutableMapOf(),
     )
 
-    constructor() : this(ConditionsTreeNode())
+    constructor(jsonFormat: Json = Json) : this(ConditionsTreeNode(), jsonFormat)
 
-    override fun report(keys: Sequence<String>, value: JsonElement) {
+    override fun <T> report(keys: Sequence<String>, value: T, type: KType) {
         val targetConditions = getNode(keys)
         require(targetConditions.value == null) {
             "Final condition ${keys.joinToString(separator=".")} was already reported, cannot report a new value."
@@ -36,15 +42,15 @@ class JsonConditions private constructor(private val conditions: ConditionsTreeN
         require(targetConditions.accruedValue == null) {
             "Final condition ${keys.joinToString(separator=".")} is already being accrued, cannot report a value."
         }
-        targetConditions.value = value
+        targetConditions.value = encode(value, type)
     }
 
-    override fun accrue(keys: Sequence<String>, value: JsonElement) {
+    override fun <T> accrue(keys: Sequence<String>, value: T, type: KType) {
         val targetConditions = getNode(keys)
         require(targetConditions.value == null) {
             "Final condition ${keys.joinToString(separator=".")} was reported, cannot accrue another value."
         }
-        targetConditions.accruedValue = (targetConditions.accruedValue ?: mutableListOf()).apply { add(value) }
+        targetConditions.accruedValue = (targetConditions.accruedValue ?: mutableListOf()).apply { add(encode(value, type)) }
     }
 
     private fun getNode(keys: Sequence<String>): ConditionsTreeNode {
@@ -56,21 +62,33 @@ class JsonConditions private constructor(private val conditions: ConditionsTreeN
         return targetConditions
     }
 
-    override fun get(keys: Sequence<String>): JsonElement? {
+    override fun <T> get(keys: Sequence<String>, type: KType): T? {
         var targetConditions: ConditionsTreeNode? = conditions
         for (key in keys) {
             targetConditions = targetConditions?.children?.get(key)
         }
-        return targetConditions?.value ?: targetConditions?.accruedValue?.let { JsonArray(it) }
+        var json = targetConditions?.value ?: targetConditions?.accruedValue?.let { JsonArray(it) }
+        return json?.let { decode(it, type) }
     }
+
+    private fun <T> encode(value: T, type: KType): JsonElement =
+        jsonFormat.encodeToJsonElement(jsonFormat.serializersModule.serializer(type), value)
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> decode(json: JsonElement, type: KType): T =
+        jsonFormat.decodeFromJsonElement(jsonFormat.serializersModule.serializer(type), json) as T
 
     companion object {
         const val VALUE_KEY: String = "$"
+
+        fun serializer(jsonFormat: Json): KSerializer<JsonConditions> = JsonConditionsSerializer(jsonFormat)
     }
 
-    private class JsonConditionsSerializer: KSerializer<JsonConditions> by NodeSerializer().alias(
+    private class JsonConditionsSerializer(
+        private val jsonFormat: Json,
+    ): KSerializer<JsonConditions> by NodeSerializer().alias(
         InvertibleFunction.of(
-            ::JsonConditions,
+            { node -> JsonConditions(node, jsonFormat) },
             { it.conditions }
         )
     )
