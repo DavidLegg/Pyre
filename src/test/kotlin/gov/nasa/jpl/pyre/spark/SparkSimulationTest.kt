@@ -6,6 +6,7 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
+import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.decodeJsonConditionsFromJsonElement
 import gov.nasa.jpl.pyre.ember.SimpleSimulation
 import gov.nasa.jpl.pyre.ember.SimpleSimulation.SimulationSetup
 import gov.nasa.jpl.pyre.ember.SimulationState
@@ -31,7 +32,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.serializer
 import org.junit.jupiter.api.assertDoesNotThrow
@@ -61,7 +61,7 @@ class SparkSimulationTest {
                         reports.add(Json.encodeToJsonElement(Json.serializersModule.serializer(type), value))
                     }
                 },
-                inconProvider = incon?.let { Json.decodeFromJsonElement(it) },
+                inconProvider = incon?.let { Json.decodeJsonConditionsFromJsonElement(it) },
                 initialize = initialize,
             ))
             // Run the simulation to the end

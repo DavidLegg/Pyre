@@ -7,6 +7,7 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
+import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.decodeJsonConditionsFromJsonElement
 import gov.nasa.jpl.pyre.ember.Task.PureStepResult.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -14,7 +15,6 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.serializer
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -46,7 +46,7 @@ class SimulationTest {
                         reports.add(Json.encodeToJsonElement(serializer(type), value))
                     }
                 },
-                inconProvider = incon?.let { Json.decodeFromJsonElement<JsonConditions>(it) },
+                inconProvider = incon?.let { Json.decodeJsonConditionsFromJsonElement(it) },
                 initialize = initialize,
             ))
             // Run the simulation to the end

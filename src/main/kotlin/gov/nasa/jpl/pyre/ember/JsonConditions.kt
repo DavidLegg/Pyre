@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.ember.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.ember.InconProvidingContext.Companion.provide
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -14,39 +15,46 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.encodeToStream
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
+import java.io.InputStream
+import java.io.OutputStream
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.iterator
 import kotlin.reflect.KType
 
-// Paradoxically, JsonConditions is not directly @Serializable
-// The caller wishing to serialize/deserialize it must provide the JsonFormat to use
 /**
  * JSON-based [Conditions], fulfilling both [FinconCollector] and [InconProvider] roles.
  *
  * Note that the jsonFormat is not preserved through serialization.
- * Use [gov.nasa.jpl.pyre.ember.JsonConditions.copy] to add jsonFormat to deserialized conditions.
+ * Use [JsonConditions.encodeToJsonElement] and [JsonConditions.decodeJsonConditionsFromJsonElement],
+ * and their string- and stream-based counterparts, to preserve jsonFormat correctly.
  */
 @Serializable(with = JsonConditions.JsonConditionsSerializer::class)
 class JsonConditions private constructor(
     private var value: JsonElement?,
     private val children: MutableMap<String, JsonConditions>,
     private val jsonFormat: Json,
+    private val locationDescription: List<String>,
 ) : Conditions {
 
-    constructor(jsonFormat: Json = Json) : this(null, mutableMapOf(), jsonFormat)
+    constructor(jsonFormat: Json = Json) : this(null, mutableMapOf(), jsonFormat, emptyList())
 
-    fun copy(jsonFormat: Json = this.jsonFormat): JsonConditions {
-        return JsonConditions(
-            value = value,
-            children = children.mapValuesTo(mutableMapOf()) { it.value.copy(jsonFormat) },
-            jsonFormat = jsonFormat,
-        )
+    fun copy(jsonFormat: Json = this.jsonFormat): JsonConditions = JsonConditions(
+        value = value,
+        children = children.mapValuesTo(mutableMapOf()) { it.value.copy(jsonFormat) },
+        jsonFormat = jsonFormat,
+        locationDescription = locationDescription,
+    )
+
+    override fun within(key: String): Conditions = children.getOrPut(key) {
+        JsonConditions(null, mutableMapOf(), jsonFormat, locationDescription + key)
     }
-
-    override fun within(key: String): Conditions = children.getOrPut(key) { JsonConditions(jsonFormat) }
 
     override fun incremental(block: FinconCollectingContext.() -> Unit) {
         val incrementalReports = mutableListOf<JsonElement>()
@@ -64,13 +72,20 @@ class JsonConditions private constructor(
             object : InconProvidingContext {
                 override fun <T> provide(type: KType): T? =
                     it.getOrNull(n++)?.let { decode(it, type) }
+
+                override fun inconExists(): Boolean = n in it.indices
             }.block()
         }
     }
 
     override fun <T> report(value: T, type: KType) {
-        // TODO: Track the location being reported to, for better error reporting.
-        require(this.value == null) { "Duplicate final condition reported" }
+        require(this.value == null) {
+            "Duplicate final condition reported at " +
+                    (locationDescription
+                        .takeUnless { it.isEmpty() }
+                        ?.joinToString(".")
+                        ?: "<top level>")
+        }
         this.value = encode(value, type)
     }
 
@@ -78,12 +93,36 @@ class JsonConditions private constructor(
         return value?.let { decode(it, type) }
     }
 
+    override fun inconExists(): Boolean = value != null
+
     private fun <T> encode(value: T, type: KType): JsonElement =
         jsonFormat.encodeToJsonElement(jsonFormat.serializersModule.serializer(type), value)
 
     @Suppress("UNCHECKED_CAST")
     private fun <T> decode(value: JsonElement, type: KType): T =
         jsonFormat.decodeFromJsonElement(jsonFormat.serializersModule.serializer(type), value) as T
+
+    companion object {
+        fun JsonConditions.encodeToJsonElement() =
+            jsonFormat.encodeToJsonElement(this)
+
+        @OptIn(ExperimentalSerializationApi::class)
+        fun JsonConditions.encodeToStream(stream: OutputStream) =
+            jsonFormat.encodeToStream(this, stream)
+
+        fun JsonConditions.encodeToString() =
+            jsonFormat.encodeToString(this)
+
+        fun Json.decodeJsonConditionsFromJsonElement(json: JsonElement) =
+            decodeFromJsonElement<JsonConditions>(json).copy(jsonFormat = this)
+
+        @OptIn(ExperimentalSerializationApi::class)
+        fun Json.decodeJsonConditionsFromStream(stream: InputStream) =
+            decodeFromStream<JsonConditions>(stream).copy(jsonFormat = this)
+
+        fun Json.decodeJsonConditionsFromString(string: String) =
+            decodeFromString<JsonConditions>(string).copy(jsonFormat = this)
+    }
 
     private class JsonConditionsSerializer: KSerializer<JsonConditions> {
         private val baseSerializer = serializer<JsonObject>()
@@ -113,11 +152,18 @@ class JsonConditions private constructor(
                 if (key == "$") {
                     value = element
                 } else {
-                    children[key] = decoder.json.decodeFromJsonElement(this, element)
+                    children[key] = decoder.json.decodeFromJsonElement(this, element).prependLocation(key)
                 }
             }
 
-            return JsonConditions(value, children, Json)
+            return JsonConditions(value, children, Json, emptyList())
         }
+
+        private fun JsonConditions.prependLocation(key: String): JsonConditions = JsonConditions(
+            value = value,
+            children = children.mapValuesTo(mutableMapOf()) { (_, c) -> c.prependLocation(key) },
+            jsonFormat = jsonFormat,
+            locationDescription = listOf(key) + locationDescription,
+        )
     }
 }

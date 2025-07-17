@@ -5,6 +5,7 @@ import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.reporting.report
 import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.task
+import kotlinx.serialization.Contextual
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -18,6 +19,7 @@ import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.serializer
 import kotlin.reflect.KClass
+import kotlin.time.Instant
 
 /**
  * Base unit of planned simulation behavior.
@@ -43,14 +45,15 @@ data class FloatingActivity<M>(
  */
 @Serializable
 data class GroundedActivity<M>(
-    val time: Duration,
+    @Contextual
+    val time: Instant,
     val activity: Activity<M>,
     val typeName: String = activity::class.simpleName ?: throw IllegalArgumentException("Activity must have a typeName"),
     val name: String = typeName,
 )
 
 fun <M> GroundedActivity<M>.float() = FloatingActivity(activity, typeName, name)
-fun <M> FloatingActivity<M>.ground(time: Duration) = GroundedActivity(time, activity, typeName, name)
+fun <M> FloatingActivity<M>.ground(time: Instant) = GroundedActivity(time, activity, typeName, name)
 
 suspend fun <M> SparkTaskScope<*>.defer(time: Duration, activity: FloatingActivity<M>, model: M) {
     spawn(activity.name, task {

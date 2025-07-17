@@ -27,14 +27,14 @@ class ChannelizedReports(
     fun handler(): ReportHandler = object : ReportHandler {
         override fun <T> handle(value: T, type: KType) {
             (value as? ChannelizedReport<*>)?.let {
-                handleChannelized(it, requireNotNull(type.arguments[0].type))
+                handleChannelized(it, type)
             } ?: unchannelizedReports.add(encode(value, type))
         }
     }
 
     private fun <T> handleChannelized(value: ChannelizedReport<T>, type: KType) {
         channelizedReports.getOrPut(value.channel, ::mutableListOf)
-            .add(Report(value.time, encode(value, type)))
+            .add(Report(value.time, encode(value.data, requireNotNull(type.arguments[0].type))))
     }
 
     private fun <T> encode(value: T, type: KType) =
@@ -51,12 +51,9 @@ fun ChannelizedReports.channel(channel: String, block: ChannelAssertContext.() -
 }
 
 class ChannelAssertContext(val channel: List<Report>) {
-    private var epoch: Instant = Instant.DISTANT_PAST
     private var time: Instant = Instant.DISTANT_PAST
     private var n: Int = 0
 
-    fun withEpoch(time: Instant) { this.epoch = time}
-    fun at(time: Duration) = at(epoch + time.toKotlinDuration())
     fun at(time: Instant) { this.time = time }
     fun element(block: JsonElement.() -> Unit) {
         val report = channel[n++]

@@ -5,6 +5,7 @@ import kotlin.reflect.typeOf
 
 interface InconProvidingContext {
     fun <T> provide(type: KType): T?
+    fun inconExists(): Boolean
 
     companion object {
         inline fun <reified T> InconProvidingContext.provide(): T? = provide(typeOf<T>())

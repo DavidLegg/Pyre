@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.ember
 
+import gov.nasa.jpl.pyre.coals.Reflection.withArg
 import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
 import gov.nasa.jpl.pyre.ember.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.within
@@ -11,8 +12,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlin.reflect.KType
-import kotlin.reflect.KTypeProjection
-import kotlin.reflect.full.createType
 
 typealias PureTaskStep<T> = () -> PureStepResult<T>
 
@@ -233,14 +232,10 @@ private class PureTask<T>(
 
     private fun restoreSingle(inconProvider: InconProvidingContext): Task<*> {
         // If there's no incon data left, we've reached the active step
+        if (!inconProvider.inconExists()) return this
         return with (this.runStep()) {
             when (this) {
-                is TaskStepResult.Complete -> {
-                    require(inconProvider.provide<JsonElement>() == null) {
-                        "Extra restore data for completed task"
-                    }
-                    this@PureTask
-                }
+                is TaskStepResult.Complete -> throw IllegalArgumentException("Extra restore data for completed task")
                 is TaskStepResult.Read<*, *, T> -> restoreRead(this, inconProvider)
                 is TaskStepResult.Emit<*, *, T> -> restoreWith<EmitMarker>(inconProvider) {
                     (continuation as PureTask<T>).restoreSingle(inconProvider)
@@ -308,7 +303,7 @@ private class PureTask<T>(
         @SerialName("read")
         data class ReadMarker<T>(val value: T) : TaskHistoryStepWithValue<T> {
             companion object {
-                fun concreteType(valueType: KType) = TaskHistoryStepWithValue::class.createType(listOf(KTypeProjection.invariant(valueType)))
+                fun concreteType(valueType: KType) = TaskHistoryStepWithValue::class.withArg(valueType)
             }
         }
 

@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.flame.plans
 
+import gov.nasa.jpl.pyre.coals.Reflection.withArg
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.FinconCollectingContext.Companion.report
@@ -10,7 +11,6 @@ import gov.nasa.jpl.pyre.ember.InconProvider.Companion.within
 import gov.nasa.jpl.pyre.ember.InconProvidingContext.Companion.provide
 import gov.nasa.jpl.pyre.ember.InternalLogger
 import gov.nasa.jpl.pyre.ember.ReportHandler
-import gov.nasa.jpl.pyre.ember.Simulation
 import gov.nasa.jpl.pyre.ember.SimulationState
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.ember.toKotlinDuration
@@ -29,8 +29,9 @@ import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.coroutineTask
 import gov.nasa.jpl.pyre.spark.tasks.whenever
 import gov.nasa.jpl.pyre.flame.plans.ActivityActionsByContext.spawn
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.modules.SerializersModule
+import kotlin.reflect.KType
+import kotlin.reflect.full.withNullability
+import kotlin.reflect.typeOf
 import kotlin.time.Instant
 
 /**
@@ -48,40 +49,10 @@ import kotlin.time.Instant
  * 3. simulating until the end of this cycle, and
  * 4. cutting a fincon in preparation for the next cycle.
  */
-class PlanSimulation<M> : Simulation {
+class PlanSimulation<M> {
     private val simulationEpoch: Instant
     private val state: SimulationState
     private val activityResource: MutableDiscreteResource<GroundedActivity<M>?>
-    private val jsonFormat: Json
-
-    constructor(
-        reportHandler: ReportHandler,
-        inconProvider: InconProvider,
-        constructModel: SparkInitContext.() -> M,
-        activitySerializersModule: SerializersModule,
-    ) : this(
-        reportHandler,
-        null,
-        null,
-        inconProvider,
-        constructModel,
-        activitySerializersModule,
-    )
-
-    constructor(
-        reportHandler: ReportHandler,
-        simulationEpoch: Instant,
-        simulationStart: Instant,
-        constructModel: SparkInitContext.() -> M,
-        activitySerializersModule: SerializersModule,
-    ) : this(
-        reportHandler,
-        simulationEpoch,
-        (simulationStart - simulationEpoch).toPyreDuration(),
-        null,
-        constructModel,
-        activitySerializersModule,
-    )
 
     private constructor(
         reportHandler: ReportHandler,
@@ -89,9 +60,8 @@ class PlanSimulation<M> : Simulation {
         simulationStart: Duration?,
         inconProvider: InconProvider?,
         constructModel: SparkInitContext.() -> M,
-        activitySerializersModule: SerializersModule,
+        modelClass: KType,
     ) {
-        this.jsonFormat = Json { serializersModule = activitySerializersModule }
         this.simulationEpoch = requireNotNull(simulationEpoch ?: inconProvider?.within("simulation", "epoch")?.provide<Instant>())
         var start: Duration = requireNotNull(simulationStart ?: inconProvider?.within("simulation", "time")?.provide<Duration>())
         state = SimulationState(reportHandler)
@@ -110,7 +80,8 @@ class PlanSimulation<M> : Simulation {
             // is a function of the resource value (activity directive) read on that iteration.
             // If the activity is captured by a fincon, it will record the directive's serialization
             // in the task history, such that it can be re-launched when the simulation is restored.
-            activityResource = discreteResource<GroundedActivity<M>?>("activity_to_schedule", null)
+            activityResource = discreteResource<GroundedActivity<M>?>("activity_to_schedule", null,
+                GroundedActivity::class.withArg(modelClass).withNullability(true))
             spawn("activities", whenever(activityResource notEquals null) {
                 val groundedActivity = requireNotNull(activityResource.getValue())
                 activityResource.set(null)
@@ -131,29 +102,81 @@ class PlanSimulation<M> : Simulation {
          * This provides protection against some kinds of infinitely looping tasks.
          */
         var SIMULATION_STALL_LIMIT: Int = 100
+
+        inline fun <reified M> withIncon(
+            reportHandler: ReportHandler,
+            inconProvider: InconProvider,
+            noinline constructModel: SparkInitContext.() -> M,
+        ) = withIncon(
+            reportHandler,
+            inconProvider,
+            constructModel,
+            typeOf<M>(),
+        )
+
+        fun <M> withIncon(
+            reportHandler: ReportHandler,
+            inconProvider: InconProvider,
+            constructModel: SparkInitContext.() -> M,
+            modelClass: KType,
+        ) = PlanSimulation(
+            reportHandler = reportHandler,
+            inconProvider = inconProvider,
+            simulationEpoch = null,
+            simulationStart = null,
+            constructModel = constructModel,
+            modelClass = modelClass,
+        )
+
+        inline fun <reified M> withoutIncon(
+            reportHandler: ReportHandler,
+            simulationEpoch: Instant,
+            simulationStart: Instant,
+            noinline constructModel: SparkInitContext.() -> M,
+        ) = withoutIncon(
+            reportHandler,
+            simulationEpoch,
+            simulationStart,
+            constructModel,
+            typeOf<M>(),
+        )
+
+        fun <M> withoutIncon(
+            reportHandler: ReportHandler,
+            simulationEpoch: Instant,
+            simulationStart: Instant,
+            constructModel: SparkInitContext.() -> M,
+            modelClass: KType,
+        ) = PlanSimulation(
+            reportHandler = reportHandler,
+            inconProvider = null,
+            simulationEpoch = simulationEpoch,
+            simulationStart = (simulationStart - simulationEpoch).toPyreDuration(),
+            constructModel = constructModel,
+            modelClass = modelClass,
+        )
     }
 
-    fun runUntil(endTime: Instant) = runUntil((endTime - simulationEpoch).toPyreDuration())
-
-    override fun runUntil(endTime: Duration) {
-        require(endTime >= state.time()) {
-            "Simulation time is currently ${state.time()}, cannot step backwards to $endTime"
+    fun runUntil(endTime: Instant) {
+        val endDuration = (endTime - simulationEpoch).toPyreDuration()
+        require(endDuration >= state.time()) {
+            "Simulation time is currently ${simulationEpoch + state.time().toKotlinDuration()}, cannot step backwards to $endTime"
         }
         var n = 0
         var lastStepTime = ZERO
-        while (state.time() < endTime) {
-            if (++n >= SIMULATION_STALL_LIMIT) {
-                throw IllegalStateException("Simulation has stalled at ${state.time()} after $n iterations.")
+        while (state.time() < endDuration) {
+                if (++n >= SIMULATION_STALL_LIMIT) {
+                    throw IllegalStateException("Simulation has stalled at ${state.time()} after $n iterations.")
+                }
+                state.stepTo(endDuration)
+                if (lastStepTime < state.time()) {
+                    lastStepTime = state.time()
+                    n = 0
+                }
             }
-            state.stepTo(endTime)
-            if (lastStepTime < state.time()) {
-                lastStepTime = state.time()
-                n = 0
-            }
-        }
     }
 
-    override fun save(finconCollector: FinconCollector) {
+    fun save(finconCollector: FinconCollector) {
         state.save(finconCollector)
         finconCollector.within("simulation", "epoch").report(simulationEpoch)
     }

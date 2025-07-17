@@ -7,10 +7,13 @@ import gov.nasa.jpl.pyre.spark.ChannelizedReports
 import gov.nasa.jpl.pyre.spark.channel
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.*
+import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.JsonConditions
+import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.decodeJsonConditionsFromJsonElement
 import gov.nasa.jpl.pyre.ember.ReportHandler
+import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.ember.minus
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.ember.times
@@ -42,10 +45,11 @@ import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.whenever
 import gov.nasa.jpl.pyre.spark.value
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.modules.SerializersModule
 import org.junit.jupiter.api.Assertions.*
 import kotlin.reflect.KType
 import kotlin.test.Test
@@ -57,16 +61,16 @@ class PlanSimulationTest {
     @Test
     fun empty_model_can_be_created() {
         assertDoesNotThrow {
-            val simulation = PlanSimulation(
+            val epoch = Instant.parse("2020-01-01T00:00:00Z")
+            val simulation = PlanSimulation.withoutIncon(
                 reportHandler = object : ReportHandler {
                     override fun <T> handle(value: T, type: KType) {}
                 },
-                simulationStart = Instant.parse("2020-01-01T00:00:00Z"),
-                simulationEpoch = Instant.parse("2020-01-01T00:00:00Z"),
+                simulationStart = epoch,
+                simulationEpoch = epoch,
                 constructModel = ::EmptyModel,
-                activitySerializersModule = activitySerializersModule<EmptyModel> {},
             )
-            simulation.runUntil(HOUR)
+            simulation.runUntil(Instant.parse("2020-01-01T01:00:00Z"))
         }
     }
 
@@ -92,27 +96,22 @@ class PlanSimulationTest {
     fun model_with_resources_can_be_created() {
         val reports = ChannelizedReports()
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
-        val simulation = PlanSimulation(
+        val simulation = PlanSimulation.withoutIncon(
             reportHandler = reports.handler(),
             simulationStart = epoch,
             simulationEpoch = epoch,
             constructModel = ::ModelWithResources,
-            activitySerializersModule = activitySerializersModule {
-                activity(DummyActivity::class)
-            },
         )
-        simulation.runUntil(HOUR)
+        simulation.runUntil(Instant.parse("2020-01-01T01:00:00Z"))
 
         with (reports) {
             channel("x") {
-                withEpoch(epoch)
-                at(ZERO)
+                at(Instant.parse("2020-01-01T00:00:00Z"))
                 element { assertEquals(0, int()) }
                 assert(atEnd())
             }
             channel("y") {
-                withEpoch(epoch)
-                at(ZERO)
+                at(Instant.parse("2020-01-01T00:00:00Z"))
                 element { assertEquals("XYZ", string()) }
                 assert(atEnd())
             }
@@ -123,14 +122,11 @@ class PlanSimulationTest {
     fun activities_can_be_created() {
         val reports = ChannelizedReports()
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
-        val simulation = PlanSimulation(
+        val simulation = PlanSimulation.withoutIncon(
             reportHandler = reports.handler(),
             simulationStart = epoch,
             simulationEpoch = epoch,
             constructModel = ::ModelWithResources,
-            activitySerializersModule = activitySerializersModule {
-                activity(DummyActivity::class)
-            },
         )
         simulation.runPlan(
             Plan(
@@ -138,36 +134,33 @@ class PlanSimulationTest {
                 epoch,
                 epoch + HOUR.toKotlinDuration(),
                 listOf(
-                    GroundedActivity(5 * MINUTE, DummyActivity(), "Type A", "Activity 1"),
-                    GroundedActivity(15 * MINUTE, DummyActivity(), "Type B", "Activity 2"),
-                    GroundedActivity(45 * MINUTE, DummyActivity(), "Type C", "Activity 3"),
+                    GroundedActivity(Instant.parse("2020-01-01T00:05:00Z"), DummyActivity(), "Type A", "Activity 1"),
+                    GroundedActivity(Instant.parse("2020-01-01T00:15:00Z"), DummyActivity(), "Type B", "Activity 2"),
+                    GroundedActivity(Instant.parse("2020-01-01T00:45:00Z"), DummyActivity(), "Type C", "Activity 3"),
                 )
             )
         )
-        simulation.runUntil(HOUR)
+        simulation.runUntil(Instant.parse("2020-01-01T01:00:00Z"))
 
         with (reports) {
             channel("x") {
-                withEpoch(epoch)
-                at(ZERO)
+                at(Instant.parse("2020-01-01T00:00:00Z"))
                 element { assertEquals(0, int()) }
                 assert(atEnd())
             }
             channel("y") {
-                withEpoch(epoch)
-                at(ZERO)
+                at(Instant.parse("2020-01-01T00:00:00Z"))
                 element { assertEquals("XYZ", string()) }
                 assert(atEnd())
             }
             channel("activities") {
-                withEpoch(epoch)
-                at(5 * MINUTE)
+                at(Instant.parse("2020-01-01T00:05:00Z"))
                 activityStart("Activity 1", "Type A")
                 activityEnd("Activity 1", "Type A")
-                at(15 * MINUTE)
+                at(Instant.parse("2020-01-01T00:15:00Z"))
                 activityStart("Activity 2", "Type B")
                 activityEnd("Activity 2", "Type B")
-                at(45 * MINUTE)
+                at(Instant.parse("2020-01-01T00:45:00Z"))
                 activityStart("Activity 3", "Type C")
                 activityEnd("Activity 3", "Type C")
                 end()
@@ -274,12 +267,11 @@ class PlanSimulationTest {
     fun activities_can_interact_with_model() {
         val reports = ChannelizedReports()
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
-        val simulation = PlanSimulation(
+        val simulation = PlanSimulation.withoutIncon(
             reportHandler = reports.handler(),
             simulationStart = epoch,
             simulationEpoch = epoch,
             constructModel = ::TestModel,
-            activitySerializersModule = TestModel.activitySerializersModule,
         )
         simulation.runPlan(
             Plan(
@@ -287,148 +279,143 @@ class PlanSimulationTest {
                 epoch,
                 epoch + (2 * HOUR + 5 * MINUTE).toKotlinDuration(),
                 listOf(
-                    GroundedActivity(5 * MINUTE, DeviceBoot()),
-                    GroundedActivity(15 * MINUTE, DeviceActivate(10 * MINUTE), name = "Observation 1"),
-                    GroundedActivity(26 * MINUTE, DeviceShutdown()),
-                    GroundedActivity(60 * MINUTE, DeviceActivate(20 * MINUTE), name = "Observation 2"),
-                    GroundedActivity(90 * MINUTE, DeviceShutdown()),
-                    GroundedActivity(100 * MINUTE, DeviceActivate(60 * MINUTE), name = "Observation 3"),
-                    GroundedActivity(110 * MINUTE, AddMiscPower(3.0)),
-                    GroundedActivity(115 * MINUTE, AddMiscPower(3.0)),
+                    GroundedActivity(Instant.parse("2020-01-01T00:05:00Z"), DeviceBoot()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:15:00Z"), DeviceActivate(10 * MINUTE), name = "Observation 1"),
+                    GroundedActivity(Instant.parse("2020-01-01T00:26:00Z"), DeviceShutdown()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), DeviceActivate(20 * MINUTE), name = "Observation 2"),
+                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), DeviceShutdown()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:40:00Z"), DeviceActivate(60 * MINUTE), name = "Observation 3"),
+                    GroundedActivity(Instant.parse("2020-01-01T01:50:00Z"), AddMiscPower(3.0)),
+                    GroundedActivity(Instant.parse("2020-01-01T01:55:00Z"), AddMiscPower(3.0)),
                 ),
             )
         )
 
         with (reports) {
             channel("activities") {
-                withEpoch(epoch)
-                at(5 * MINUTE)
+                at(Instant.parse("2020-01-01T00:05:00Z"))
                 activityStart("DeviceBoot")
-                at(10 * MINUTE)
+                at(Instant.parse("2020-01-01T00:10:00Z"))
                 activityEnd("DeviceBoot")
-                at(15 * MINUTE)
+                at(Instant.parse("2020-01-01T00:15:00Z"))
                 activityStart("Observation 1", "DeviceActivate")
-                at(25 * MINUTE)
+                at(Instant.parse("2020-01-01T00:25:00Z"))
                 activityEnd("Observation 1", "DeviceActivate")
-                at(26 * MINUTE)
+                at(Instant.parse("2020-01-01T00:26:00Z"))
                 activityStart("DeviceShutdown")
-                at(31 * MINUTE)
+                at(Instant.parse("2020-01-01T00:31:00Z"))
                 activityEnd("DeviceShutdown")
-                at(60 * MINUTE)
+                at(Instant.parse("2020-01-01T01:00:00Z"))
                 activityStart("Observation 2", "DeviceActivate")
                 activityStart("DeviceBoot")
-                at(65 * MINUTE)
+                at(Instant.parse("2020-01-01T01:05:00Z"))
                 activityEnd("DeviceBoot")
-                at(85 * MINUTE)
+                at(Instant.parse("2020-01-01T01:25:00Z"))
                 activityEnd("Observation 2", "DeviceActivate")
-                at(90 * MINUTE)
+                at(Instant.parse("2020-01-01T01:30:00Z"))
                 activityStart("DeviceShutdown")
-                at(95 * MINUTE)
+                at(Instant.parse("2020-01-01T01:35:00Z"))
                 activityEnd("DeviceShutdown")
-                at(100 * MINUTE)
+                at(Instant.parse("2020-01-01T01:40:00Z"))
                 activityStart("Observation 3", "DeviceActivate")
                 activityStart("DeviceBoot")
-                at(105 * MINUTE)
+                at(Instant.parse("2020-01-01T01:45:00Z"))
                 activityEnd("DeviceBoot")
-                at(110 * MINUTE)
+                at(Instant.parse("2020-01-01T01:50:00Z"))
                 activityStart("AddMiscPower")
                 activityEnd("AddMiscPower")
-                at(115 * MINUTE)
+                at(Instant.parse("2020-01-01T01:55:00Z"))
                 activityStart("AddMiscPower")
                 activityEnd("AddMiscPower")
                 activityStart("DeviceShutdown")
-                at(120 * MINUTE)
+                at(Instant.parse("2020-01-01T02:00:00Z"))
                 activityEnd("DeviceShutdown")
                 end()
             }
             channel("warning") {
-                withEpoch(epoch)
-                at(115 * MINUTE)
+                at(Instant.parse("2020-01-01T01:55:00Z"))
                 log("Overheat Protection triggered!")
                 end()
             }
             channel("deviceState") {
-                withEpoch(epoch)
-                at(ZERO)
+                at(Instant.parse("2020-01-01T00:00:00Z"))
                 value("OFF")
-                at(5 * MINUTE)
+                at(Instant.parse("2020-01-01T00:05:00Z"))
                 value("WARMUP")
-                at(10 * MINUTE)
+                at(Instant.parse("2020-01-01T00:10:00Z"))
                 value("STANDBY")
-                at(15 * MINUTE)
+                at(Instant.parse("2020-01-01T00:15:00Z"))
                 value("ON")
-                at(25 * MINUTE)
+                at(Instant.parse("2020-01-01T00:25:00Z"))
                 value("STANDBY")
-                at(26 * MINUTE)
+                at(Instant.parse("2020-01-01T00:26:00Z"))
                 value("SHUTDOWN")
-                at(31 * MINUTE)
+                at(Instant.parse("2020-01-01T00:31:00Z"))
                 value("OFF")
-                at(60 * MINUTE)
+                at(Instant.parse("2020-01-01T01:00:00Z"))
                 value("WARMUP")
-                at(65 * MINUTE)
-                value("STANDBY")
-                value("ON")
-                at(85 * MINUTE)
-                value("STANDBY")
-                at(90 * MINUTE)
-                value("SHUTDOWN")
-                at(95 * MINUTE)
-                value("OFF")
-                at(100 * MINUTE)
-                value("WARMUP")
-                at(105 * MINUTE)
+                at(Instant.parse("2020-01-01T01:05:00Z"))
                 value("STANDBY")
                 value("ON")
-                at(115 * MINUTE)
+                at(Instant.parse("2020-01-01T01:25:00Z"))
+                value("STANDBY")
+                at(Instant.parse("2020-01-01T01:30:00Z"))
                 value("SHUTDOWN")
-                at(120 * MINUTE)
+                at(Instant.parse("2020-01-01T01:35:00Z"))
+                value("OFF")
+                at(Instant.parse("2020-01-01T01:40:00Z"))
+                value("WARMUP")
+                at(Instant.parse("2020-01-01T01:45:00Z"))
+                value("STANDBY")
+                value("ON")
+                at(Instant.parse("2020-01-01T01:55:00Z"))
+                value("SHUTDOWN")
+                at(Instant.parse("2020-01-01T02:00:00Z"))
                 value("OFF")
                 end()
             }
             channel("miscPower") {
-                withEpoch(epoch)
-                at(ZERO)
+                at(Instant.parse("2020-01-01T00:00:00Z"))
                 value(0.0)
-                at(110 * MINUTE)
+                at(Instant.parse("2020-01-01T01:50:00Z"))
                 value(3.0)
-                at(115 * MINUTE)
+                at(Instant.parse("2020-01-01T01:55:00Z"))
                 value(6.0)
                 end()
             }
             channel("totalPower") {
-                withEpoch(epoch)
-                at(ZERO)
+                at(Instant.parse("2020-01-01T00:00:00Z"))
                 value(0.0)
-                at(5 * MINUTE)
+                at(Instant.parse("2020-01-01T00:05:00Z"))
                 value(5.0)
-                at(10 * MINUTE)
+                at(Instant.parse("2020-01-01T00:10:00Z"))
                 value(1.0)
-                at(15 * MINUTE)
+                at(Instant.parse("2020-01-01T00:15:00Z"))
                 value(10.0)
-                at(25 * MINUTE)
+                at(Instant.parse("2020-01-01T00:25:00Z"))
                 value(1.0)
-                at(31 * MINUTE)
+                at(Instant.parse("2020-01-01T00:31:00Z"))
                 value(0.0)
-                at(60 * MINUTE)
+                at(Instant.parse("2020-01-01T01:00:00Z"))
                 value(5.0)
-                at(65 * MINUTE)
-                value(1.0)
-                value(10.0)
-                at(85 * MINUTE)
-                value(1.0)
-                at(95 * MINUTE)
-                value(0.0)
-                at(100 * MINUTE)
-                value(5.0)
-                at(105 * MINUTE)
+                at(Instant.parse("2020-01-01T01:05:00Z"))
                 value(1.0)
                 value(10.0)
-                at(110 * MINUTE)
+                at(Instant.parse("2020-01-01T01:25:00Z"))
+                value(1.0)
+                at(Instant.parse("2020-01-01T01:35:00Z"))
+                value(0.0)
+                at(Instant.parse("2020-01-01T01:40:00Z"))
+                value(5.0)
+                at(Instant.parse("2020-01-01T01:45:00Z"))
+                value(1.0)
+                value(10.0)
+                at(Instant.parse("2020-01-01T01:50:00Z"))
                 value(13.0)
-                at(115 * MINUTE)
+                at(Instant.parse("2020-01-01T01:55:00Z"))
                 value(16.0)
                 value(7.0)
-                at(120 * MINUTE)
+                at(Instant.parse("2020-01-01T02:00:00Z"))
                 value(6.0)
                 end()
             }
@@ -440,84 +427,85 @@ class PlanSimulationTest {
         val reports1 = ChannelizedReports()
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val jsonFormat = Json {
-            serializersModule = TestModel.activitySerializersModule
+            serializersModule = SerializersModule {
+                include(TestModel.activitySerializersModule)
+                contextual(Instant::class, String.serializer().alias(
+                    InvertibleFunction.of(Instant::parse, Instant::toString)))
+            }
         }
-        val simulation1 = PlanSimulation(
+        val simulation1 = PlanSimulation.withoutIncon(
             reportHandler = reports1.handler(),
             simulationStart = epoch,
             simulationEpoch = epoch,
             constructModel = ::TestModel,
-            activitySerializersModule = TestModel.activitySerializersModule,
         )
         // Use addActivities and runUntil to force a state with finished, running, and unstarted activities
         simulation1.addActivities(
             listOf(
-                GroundedActivity(3 * MINUTE, DeviceBoot()),
-                GroundedActivity(10 * MINUTE, DeviceActivate(60 * MINUTE)),
-                GroundedActivity(80 * MINUTE, DeviceShutdown()),
+                GroundedActivity(Instant.parse("2020-01-01T00:03:00Z"), DeviceBoot()),
+                GroundedActivity(Instant.parse("2020-01-01T00:10:00Z"), DeviceActivate(60 * MINUTE)),
+                GroundedActivity(Instant.parse("2020-01-01T01:20:00Z"), DeviceShutdown()),
             )
         )
-        simulation1.runUntil(20 * MINUTE)
+        simulation1.runUntil(Instant.parse("2020-01-01T00:20:00Z"))
         with (reports1) {
             channel("activities") {
-                withEpoch(epoch)
-                at(3 * MINUTE)
+                at(Instant.parse("2020-01-01T00:03:00Z"))
                 activityStart("DeviceBoot")
-                at(8 * MINUTE)
+                at(Instant.parse("2020-01-01T00:08:00Z"))
                 activityEnd("DeviceBoot")
-                at(10 * MINUTE)
+                at(Instant.parse("2020-01-01T00:10:00Z"))
                 activityStart("DeviceActivate")
                 end()
             }
         }
 
-        val fincon1 = Json.encodeToJsonElement(JsonConditions().also(simulation1::save))
+        val fincon1 = jsonFormat.encodeToJsonElement(JsonConditions(jsonFormat).also(simulation1::save))
 
         val reports2 = ChannelizedReports()
-        val simulation2 = PlanSimulation(
+        val simulation2 = PlanSimulation.withIncon(
             reportHandler = reports2.handler(),
-            inconProvider = jsonFormat.decodeFromJsonElement<JsonConditions>(fincon1),
+            inconProvider = jsonFormat.decodeJsonConditionsFromJsonElement(fincon1),
             constructModel = ::TestModel,
-            activitySerializersModule = TestModel.activitySerializersModule,
         )
         // Add an activity which will spawn a child, which will be active during the next fincon cycle
         simulation2.addActivities(listOf(
-            GroundedActivity(2 * HOUR - 2 * MINUTE, DeviceActivate(20 * MINUTE))
+            GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), DeviceActivate(20 * MINUTE))
         ))
-        simulation2.runUntil(2 * HOUR)
+        simulation2.runUntil(Instant.parse("2020-01-01T02:00:00Z"))
+
+        // TODO: The fincon for the activities task shows a lot of history, when it ought to show only an await after the restart.
+        //   Look into the task history / restart logic to see why that's happening...
 
         with (reports2) {
             channel("activities") {
-                withEpoch(epoch)
-                at(70 * MINUTE)
+                at(Instant.parse("2020-01-01T01:10:00Z"))
                 activityEnd("DeviceActivate")
-                at(80 * MINUTE)
+                at(Instant.parse("2020-01-01T01:20:00Z"))
                 activityStart("DeviceShutdown")
-                at(85 * MINUTE)
+                at(Instant.parse("2020-01-01T01:25:00Z"))
                 activityEnd("DeviceShutdown")
-                at(2 * HOUR - 2 * MINUTE)
+                at(Instant.parse("2020-01-01T01:58:00Z"))
                 activityStart("DeviceActivate")
                 activityStart("DeviceBoot")
                 end()
             }
         }
 
-        val fincon2 = Json.encodeToJsonElement(JsonConditions().also(simulation2::save))
+        val fincon2 = jsonFormat.encodeToJsonElement(JsonConditions(jsonFormat).also(simulation2::save))
 
         val reports3 = ChannelizedReports()
-        val simulation3 = PlanSimulation(
+        val simulation3 = PlanSimulation.withIncon(
             reportHandler = reports3.handler(),
-            inconProvider = Json.decodeFromJsonElement<JsonConditions>(fincon2),
+            inconProvider = jsonFormat.decodeJsonConditionsFromJsonElement(fincon2),
             constructModel = ::TestModel,
-            activitySerializersModule = TestModel.activitySerializersModule,
         )
-        simulation3.runUntil(3 * HOUR)
+        simulation3.runUntil(Instant.parse("2020-01-01T03:00:00Z"))
         with(reports3) {
             channel("activities") {
-                withEpoch(epoch)
-                at(2 * HOUR + 3 * MINUTE)
+                at(Instant.parse("2020-01-01T02:03:00Z"))
                 activityEnd("DeviceBoot")
-                at(2 * HOUR + 23 * MINUTE)
+                at(Instant.parse("2020-01-01T02:23:00Z"))
                 activityEnd("DeviceActivate")
                 end()
             }

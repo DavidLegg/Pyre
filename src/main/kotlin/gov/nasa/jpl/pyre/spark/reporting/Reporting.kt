@@ -1,17 +1,17 @@
 package gov.nasa.jpl.pyre.spark.reporting
 
+import gov.nasa.jpl.pyre.coals.Reflection.withArg
 import gov.nasa.jpl.pyre.ember.toKotlinDuration
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.report
 import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.task
 import gov.nasa.jpl.pyre.spark.tasks.wheneverChanges
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
+import kotlin.reflect.KType
+import kotlin.reflect.typeOf
 import kotlin.time.Instant
 
 typealias Channel = String
@@ -23,30 +23,43 @@ data class ChannelizedReport<T>(
 )
 
 /**
- * Wraps the simple simulation report function with more structured report,
- * including a channel to report on and a time of the report.
+ * Wraps the simple simulation report function with [ChannelizedReport],
+ * categorizing the report on a channel and adding the time of report.
  */
-suspend fun <T> SparkTaskScope<*>.report(channel: Channel, data: T) {
+suspend fun <T> SparkTaskScope<*>.report(channel: Channel, data: T, type: KType) {
     report(ChannelizedReport(
         channel,
         simulationEpoch + simulationClock.getValue().toKotlinDuration(),
         data,
-    ))
+    ), ChannelizedReport::class.withArg(type))
 }
 
 /**
- * Register a resource to be reported whenever it changes, using the standard resource reporting format.
+ * Wraps the simple simulation report function with [ChannelizedReport],
+ * categorizing the report on a channel and adding the time of report.
+ */
+suspend inline fun <reified T> SparkTaskScope<*>.report(channel: Channel, data: T) = report(channel, data, typeOf<T>())
+
+/**
+ * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
  */
 inline fun <V, reified D : Dynamics<V, D>> SparkInitContext.register(
     name: String,
     resource: Resource<D>,
-    ) {
+    dynamicsType: KType,
+) {
     spawn("Report initial value for resource $name", task {
         with (sparkTaskScope()) {
-            report(name, resource.getDynamics().data)
+            report(name, resource.getDynamics().data, dynamicsType)
         }
     })
     spawn("Report resource $name", wheneverChanges(resource) {
-        report(name, resource.getDynamics().data)
+        report(name, resource.getDynamics().data, dynamicsType)
     })
 }
+
+/**
+ * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
+ */
+inline fun <V, reified D : Dynamics<V, D>> SparkInitContext.register(name: String, resource: Resource<D>) =
+    register(name, resource, typeOf<D>())

@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.spark.resources
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
+import gov.nasa.jpl.pyre.coals.Reflection.withArg
 import gov.nasa.jpl.pyre.coals.andThen
 import gov.nasa.jpl.pyre.coals.identity
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
@@ -9,11 +9,11 @@ import gov.nasa.jpl.pyre.ember.*
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
 import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.serializer
 import kotlin.reflect.KType
-import kotlin.reflect.KTypeParameter
 import kotlin.reflect.typeOf
+
+// TODO: Work out some way to make effects more observable, by giving them an observable name.
+//   Need to do this carefully to avoid large performance penalties.
 
 interface MutableResource<D> : Resource<D> {
     context (scope: TaskScope<*>)
@@ -33,18 +33,25 @@ inline fun <V, reified D : Dynamics<V, D>> SimulationInitContext.resource(
     name: String,
     initialDynamics: D,
     effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
-) = resource(name, DynamicsMonad.pure(initialDynamics), typeOf<FullDynamics<D>>(), effectTrait)
+) = resource(name, initialDynamics, typeOf<D>(), effectTrait)
+
+fun <V, D : Dynamics<V, D>> SimulationInitContext.resource(
+    name: String,
+    initialDynamics: D,
+    dynamicsType: KType,
+    effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
+) = resource(name, DynamicsMonad.pure(initialDynamics), FullDynamics::class.withArg(dynamicsType), effectTrait)
 
 fun <V, D : Dynamics<V, D>> SimulationInitContext.resource(
     name: String,
     initialDynamics: FullDynamics<D>,
-    dynamicsType: KType,
+    fullDynamicsType: KType,
     effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
 ): MutableResource<D> {
     val cell = allocate(Cell(
         name,
         initialDynamics,
-        dynamicsType,
+        fullDynamicsType,
         { d, t -> d.step(t) },
         { d, effect -> effect(d) },
         effectTrait,
