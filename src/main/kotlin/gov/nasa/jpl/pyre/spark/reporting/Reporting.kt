@@ -6,33 +6,32 @@ import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.report
 import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.task
 import gov.nasa.jpl.pyre.spark.tasks.wheneverChanges
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.serializer
 import kotlin.time.Instant
 
 typealias Channel = String
+
+data class ChannelizedReport<T>(
+    val channel: String,
+    val time: Instant,
+    val data: T,
+)
 
 /**
  * Wraps the simple simulation report function with more structured report,
  * including a channel to report on and a time of the report.
  */
-suspend fun SparkTaskScope<*>.report(channel: Channel, data: JsonElement) {
-    report(JsonObject(mapOf(
-        "channel" to JsonPrimitive(channel),
-        "time" to JsonPrimitive((simulationEpoch + simulationClock.getValue().toKotlinDuration()).toString()),
-        "data" to data,
-    )))
+suspend fun <T> SparkTaskScope<*>.report(channel: Channel, data: T) {
+    report(ChannelizedReport(
+        channel,
+        simulationEpoch + simulationClock.getValue().toKotlinDuration(),
+        data,
+    ))
 }
 
 /**
@@ -41,36 +40,13 @@ suspend fun SparkTaskScope<*>.report(channel: Channel, data: JsonElement) {
 inline fun <V, reified D : Dynamics<V, D>> SparkInitContext.register(
     name: String,
     resource: Resource<D>,
-    serializer: KSerializer<D> = serializer(),
     ) {
     spawn("Report initial value for resource $name", task {
         with (sparkTaskScope()) {
-            report(name, Json.encodeToJsonElement(resource.getDynamics().data))
+            report(name, resource.getDynamics().data)
         }
     })
     spawn("Report resource $name", wheneverChanges(resource) {
-        report(name, Json.encodeToJsonElement(resource.getDynamics().data))
+        report(name, resource.getDynamics().data)
     })
-}
-
-typealias ReportHandler = (JsonElement) -> Unit
-typealias ChannelHandler = (Instant, JsonElement) -> Unit
-
-/**
- * Splits out reports by channel, for all reports in standard channel format.
- */
-class ChannelizedReportHandler(
-    private val createChannelHandler: (String) -> ChannelHandler,
-    private val unchannelizedReportHandler: ReportHandler
-): ReportHandler {
-    private val channelHandlers: MutableMap<String, ChannelHandler> = mutableMapOf()
-    override fun invoke(p1: JsonElement) {
-        val channel = p1.jsonObject["channel"]?.jsonPrimitive?.content
-        val time = p1.jsonObject["time"]?.jsonPrimitive?.content?.let(Instant::parse)
-        if (channel != null && time != null) {
-            channelHandlers.computeIfAbsent(channel, createChannelHandler)(time, p1.jsonObject["data"] ?: JsonNull)
-        } else {
-            unchannelizedReportHandler(p1)
-        }
-    }
 }

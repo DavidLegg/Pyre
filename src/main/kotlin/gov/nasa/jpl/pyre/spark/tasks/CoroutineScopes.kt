@@ -10,6 +10,8 @@ import gov.nasa.jpl.pyre.ember.Task.PureStepResult.*
 import kotlinx.serialization.json.JsonElement
 import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
+import kotlin.reflect.KType
+import kotlin.reflect.typeOf
 
 
 /*
@@ -87,10 +89,14 @@ sealed interface TaskScopeResult<T> {
 
 interface TaskScope<T> : CellsReadableScope {
     suspend fun <V, E> emit(cell: CellHandle<V, E>, effect: E)
-    suspend fun report(value: JsonElement)
+    suspend fun <T> report(value: T, type: KType)
     suspend fun delay(time: Duration)
     suspend fun await(condition: () -> Condition)
     suspend fun <S> spawn(childName: String, child: PureTaskStep<S>)
+
+    companion object {
+        suspend inline fun <reified T> TaskScope<*>.report(value: T) = report(value, typeOf<T>())
+    }
 }
 
 /**
@@ -159,9 +165,9 @@ private class TaskBuilder<T> : TaskScope<T>, Continuation<TaskScopeResult<T>> {
             COROUTINE_SUSPENDED
         }
 
-    override suspend fun report(value: JsonElement) =
+    override suspend fun <T> report(value: T, type: KType) =
         suspendCoroutineUninterceptedOrReturn { c ->
-            nextResult = Report(value, continueWith(c))
+            nextResult = Report(value, type, continueWith(c))
             COROUTINE_SUSPENDED
         }
 

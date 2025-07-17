@@ -2,9 +2,14 @@ package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
+import gov.nasa.jpl.pyre.ember.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.ember.FinconCollector
+import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.within
 import gov.nasa.jpl.pyre.ember.InconProvider
+import gov.nasa.jpl.pyre.ember.InconProvider.Companion.within
+import gov.nasa.jpl.pyre.ember.InconProvidingContext.Companion.provide
 import gov.nasa.jpl.pyre.ember.InternalLogger
+import gov.nasa.jpl.pyre.ember.ReportHandler
 import gov.nasa.jpl.pyre.ember.Simulation
 import gov.nasa.jpl.pyre.ember.SimulationState
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
@@ -24,13 +29,7 @@ import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.coroutineTask
 import gov.nasa.jpl.pyre.spark.tasks.whenever
 import gov.nasa.jpl.pyre.flame.plans.ActivityActionsByContext.spawn
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.builtins.nullable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.modules.SerializersModule
 import kotlin.time.Instant
 
@@ -56,7 +55,7 @@ class PlanSimulation<M> : Simulation {
     private val jsonFormat: Json
 
     constructor(
-        reportHandler: (JsonElement) -> Unit,
+        reportHandler: ReportHandler,
         inconProvider: InconProvider,
         constructModel: SparkInitContext.() -> M,
         activitySerializersModule: SerializersModule,
@@ -70,7 +69,7 @@ class PlanSimulation<M> : Simulation {
     )
 
     constructor(
-        reportHandler: (JsonElement) -> Unit,
+        reportHandler: ReportHandler,
         simulationEpoch: Instant,
         simulationStart: Instant,
         constructModel: SparkInitContext.() -> M,
@@ -85,7 +84,7 @@ class PlanSimulation<M> : Simulation {
     )
 
     private constructor(
-        reportHandler: (JsonElement) -> Unit,
+        reportHandler: ReportHandler,
         simulationEpoch: Instant?,
         simulationStart: Duration?,
         inconProvider: InconProvider?,
@@ -93,10 +92,8 @@ class PlanSimulation<M> : Simulation {
         activitySerializersModule: SerializersModule,
     ) {
         this.jsonFormat = Json { serializersModule = activitySerializersModule }
-        this.simulationEpoch = requireNotNull(simulationEpoch ?: inconProvider?.get("simulation", "epoch")?.jsonPrimitive?.content?.let(Instant::parse))
-        var start: Duration = requireNotNull(simulationStart ?: inconProvider?.get("simulation", "time")?.let {
-            Json.decodeFromJsonElement(it)
-        })
+        this.simulationEpoch = requireNotNull(simulationEpoch ?: inconProvider?.within("simulation", "epoch")?.provide<Instant>())
+        var start: Duration = requireNotNull(simulationStart ?: inconProvider?.within("simulation", "time")?.provide<Duration>())
         state = SimulationState(reportHandler)
         val initContext = state.initContext()
         val sparkContext = object : SparkInitContext, SimulationInitContext by initContext {
@@ -113,7 +110,7 @@ class PlanSimulation<M> : Simulation {
             // is a function of the resource value (activity directive) read on that iteration.
             // If the activity is captured by a fincon, it will record the directive's serialization
             // in the task history, such that it can be re-launched when the simulation is restored.
-            activityResource = discreteResource("activity_to_schedule", null)
+            activityResource = discreteResource<GroundedActivity<M>?>("activity_to_schedule", null)
             spawn("activities", whenever(activityResource notEquals null) {
                 val groundedActivity = requireNotNull(activityResource.getValue())
                 activityResource.set(null)
@@ -158,7 +155,7 @@ class PlanSimulation<M> : Simulation {
 
     override fun save(finconCollector: FinconCollector) {
         state.save(finconCollector)
-        finconCollector.report("simulation", "epoch", value= JsonPrimitive(simulationEpoch.toString()))
+        finconCollector.within("simulation", "epoch").report(simulationEpoch)
     }
 
     fun addActivities(activities: List<GroundedActivity<M>>) {

@@ -6,7 +6,6 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.SimpleSimulation
 import gov.nasa.jpl.pyre.ember.SimpleSimulation.SimulationSetup
 import gov.nasa.jpl.pyre.ember.SimulationState
@@ -22,6 +21,7 @@ import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.resources.timer.Timer
 import gov.nasa.jpl.pyre.spark.tasks.SparkContext
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.report
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.onceWhenever
 import gov.nasa.jpl.pyre.spark.tasks.repeatingTask
@@ -33,7 +33,9 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.serializer
 import org.junit.jupiter.api.assertDoesNotThrow
+import kotlin.reflect.KType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
@@ -54,7 +56,11 @@ class SparkSimulationTest {
             // Build a simulation that'll write reports to memory
             val reports = mutableListOf<JsonElement>()
             val simulation = SimpleSimulation(SimulationSetup(
-                reportHandler = { reports.add(it) },
+                reportHandler = object : ReportHandler {
+                    override fun <T> handle(value: T, type: KType) {
+                        reports.add(Json.encodeToJsonElement(Json.serializersModule.serializer(type), value))
+                    }
+                },
                 inconProvider = incon?.let { Json.decodeFromJsonElement(it) },
                 initialize = initialize,
             ))
@@ -62,9 +68,7 @@ class SparkSimulationTest {
             simulation.runUntil(endTime)
             // Cut a fincon, if requested
             val fincon = if (takeFincon) {
-                val finconCollector = JsonConditions()
-                simulation.save(finconCollector)
-                Json.encodeToJsonElement(finconCollector)
+                Json.encodeToJsonElement(JsonConditions().also(simulation::save))
             } else null
             // Return all results, and let the simulation itself be garbage collected
             return SimulationResult(reports, fincon)
@@ -114,7 +118,7 @@ class SparkSimulationTest {
                 assertEquals(3.0f, f)
                 assertEquals(PowerState.OFF, e)
 
-                report(JsonPrimitive("Done"))
+                report("Done")
             })
         }
 
@@ -167,7 +171,7 @@ class SparkSimulationTest {
                 assertEquals(6.0f, f)
                 assertEquals(PowerState.WARMUP, e)
 
-                report(JsonPrimitive("Done"))
+                report("Done")
             })
         }
 
@@ -238,7 +242,7 @@ class SparkSimulationTest {
         val results = runSimulation(endTime=10.5 roundTimes MINUTE) {
             spawn("Report periodically", repeatingTask {
                 delay(MINUTE)
-                report(JsonPrimitive("Report"))
+                report("Report")
             })
         }
 
@@ -254,7 +258,7 @@ class SparkSimulationTest {
 
             spawn("Report x > y", task {
                 await(x greaterThan y)
-                report(JsonPrimitive("Condition triggered: ${x.getValue()} > ${y.getValue()}"))
+                report("Condition triggered: ${x.getValue()} > ${y.getValue()}")
             })
 
             spawn("Change values", task {
@@ -285,16 +289,16 @@ class SparkSimulationTest {
             val setting = discreteResource("setting", 5)
 
             val sparkContext = object : SparkContext {
-                override val simulationClock: Resource<Timer> = resource("simulationClock", Timer(ZERO, 1), Timer.serializer())
+                override val simulationClock: Resource<Timer> = resource("simulationClock", Timer(ZERO, 1))
                 override val simulationEpoch: Instant = Instant.parse("2020-01-01T00:00:00.00Z")
             }
             with (sparkContext) {
                 spawn("Minimum Monitor", onceWhenever(setting lessThan minimum) {
-                    report(JsonPrimitive("Minimum violated: ${setting.getValue()} < ${minimum.getValue()}"))
+                    report("Minimum violated: ${setting.getValue()} < ${minimum.getValue()}")
                 })
 
                 spawn("Maximum Monitor", onceWhenever(setting greaterThan maximum) {
-                    report(JsonPrimitive("Maximum violated: ${setting.getValue()} > ${maximum.getValue()}"))
+                    report("Maximum violated: ${setting.getValue()} > ${maximum.getValue()}")
                 })
 
                 spawn("Change Setting", task {

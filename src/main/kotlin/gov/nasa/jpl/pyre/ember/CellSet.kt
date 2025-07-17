@@ -37,7 +37,7 @@ class CellSet private constructor(
 
     fun save(finconCollector: FinconCollector) {
         fun <T, E> saveCell(state: CellState<T, E>) = with(state.cell) {
-            finconCollector.report(sequenceOf(name), applyEffect(value, state.effect), type=valueType)
+            finconCollector.within(name).report(applyEffect(value, state.effect), valueType)
         }
         map.values.forEach { saveCell(it) }
     }
@@ -45,7 +45,7 @@ class CellSet private constructor(
     fun restore(inconProvider: InconProvider) {
         fun <T, E> restoreCell(handle: CellHandle<T, E>) = with(this[handle]) {
             // If incon is missing, ignore it and move on
-            inconProvider.get<T>(sequenceOf(name), valueType)?.let {
+            inconProvider.within(name).provide<T>(valueType)?.let {
                 map[handle] = CellState(copy(value=it), effectTrait.empty())
             }
         }

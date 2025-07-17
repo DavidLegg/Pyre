@@ -10,6 +10,7 @@ import gov.nasa.jpl.pyre.*
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.JsonConditions
+import gov.nasa.jpl.pyre.ember.ReportHandler
 import gov.nasa.jpl.pyre.ember.minus
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.ember.times
@@ -40,23 +41,13 @@ import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.whenever
 import gov.nasa.jpl.pyre.spark.value
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.descriptors.PrimitiveKind
-import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
-import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.modules.SerializersModule
-import kotlinx.serialization.modules.polymorphic
-import kotlinx.serialization.modules.subclass
-import kotlinx.serialization.serializer
 import org.junit.jupiter.api.Assertions.*
-import kotlin.reflect.KClass
+import kotlin.reflect.KType
 import kotlin.test.Test
 import kotlin.time.Instant
 
@@ -67,11 +58,13 @@ class PlanSimulationTest {
     fun empty_model_can_be_created() {
         assertDoesNotThrow {
             val simulation = PlanSimulation(
-                reportHandler = { },
+                reportHandler = object : ReportHandler {
+                    override fun <T> handle(value: T, type: KType) {}
+                },
                 simulationStart = Instant.parse("2020-01-01T00:00:00Z"),
                 simulationEpoch = Instant.parse("2020-01-01T00:00:00Z"),
                 constructModel = ::EmptyModel,
-                activitySerializer = activitySerializer {},
+                activitySerializersModule = activitySerializersModule<EmptyModel> {},
             )
             simulation.runUntil(HOUR)
         }
@@ -104,7 +97,7 @@ class PlanSimulationTest {
             simulationStart = epoch,
             simulationEpoch = epoch,
             constructModel = ::ModelWithResources,
-            activitySerializer = activitySerializer {
+            activitySerializersModule = activitySerializersModule {
                 activity(DummyActivity::class)
             },
         )
@@ -135,7 +128,7 @@ class PlanSimulationTest {
             simulationStart = epoch,
             simulationEpoch = epoch,
             constructModel = ::ModelWithResources,
-            activitySerializer = activitySerializer {
+            activitySerializersModule = activitySerializersModule {
                 activity(DummyActivity::class)
             },
         )
@@ -268,7 +261,7 @@ class PlanSimulationTest {
         }
 
         companion object {
-            val activitySerializer = activitySerializer {
+            val activitySerializersModule = activitySerializersModule {
                 activity(DeviceBoot::class)
                 activity(DeviceActivate::class)
                 activity(DeviceShutdown::class)
@@ -286,7 +279,7 @@ class PlanSimulationTest {
             simulationStart = epoch,
             simulationEpoch = epoch,
             constructModel = ::TestModel,
-            activitySerializer = TestModel.activitySerializer,
+            activitySerializersModule = TestModel.activitySerializersModule,
         )
         simulation.runPlan(
             Plan(
@@ -446,57 +439,15 @@ class PlanSimulationTest {
     fun activities_can_be_saved_and_restored() {
         val reports1 = ChannelizedReports()
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
-        // TODO - TEMP
-        val temp = Json.encodeToJsonElement(SerializersModule {
-            contextual(TestModel::class, object : KSerializer<TestModel> {
-                override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor(TestModel::class.qualifiedName!!, PrimitiveKind.BOOLEAN)
-
-                override fun serialize(encoder: Encoder, value: TestModel) {
-                    throw UnsupportedOperationException("Cannot serialize model ${TestModel::class.simpleName}")
-                }
-
-                override fun deserialize(decoder: Decoder): TestModel {
-                    throw UnsupportedOperationException("Cannot deserialize model ${TestModel::class.simpleName}")
-                }
-            })
-
-            polymorphic(Activity::class) {
-                subclass(DeviceBoot::class)
-            }
-        }.getPolymorphic(Activity::class)
-            DeviceBoot())
-
-//        Json.encodeToJsonElement(TestModel.activitySerializer, GroundedActivity(ZERO, DeviceBoot()))
+        val jsonFormat = Json {
+            serializersModule = TestModel.activitySerializersModule
+        }
         val simulation1 = PlanSimulation(
             reportHandler = reports1.handler(),
             simulationStart = epoch,
             simulationEpoch = epoch,
             constructModel = ::TestModel,
-            activitySerializer = SerializersModule {
-                // Because Activity takes Model as a type parameter, we must specify a serializer for the model type.
-                // This is despite never needing to serialize or deserialize a model.
-                // Handle this transparently by specifying a dummy contextual serializer here.
-                contextual(TestModel::class, object : KSerializer<TestModel> {
-                    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor(TestModel::class.qualifiedName!!, PrimitiveKind.BOOLEAN)
-
-                    override fun serialize(encoder: Encoder, value: TestModel) {
-                        throw UnsupportedOperationException("Cannot serialize model ${TestModel::class.simpleName}")
-                    }
-
-                    override fun deserialize(decoder: Decoder): TestModel {
-                        throw UnsupportedOperationException("Cannot deserialize model ${TestModel::class.simpleName}")
-                    }
-                })
-
-                // Present a restricted interface to the caller, who can just call activity(A) for each activity type A
-                // to register all the activity types. We'll collect them all as implementations of the polymorphic Activity type.
-                polymorphic(Activity::class) {
-                    subclass(DeviceBoot::class, serializer<DeviceBoot>())
-                    subclass(DeviceActivate::class, serializer<DeviceActivate>())
-                    subclass(DeviceShutdown::class, serializer<DeviceShutdown>())
-                    subclass(AddMiscPower::class, serializer<AddMiscPower>())
-                }
-            }.serializer<GroundedActivity<TestModel>>(),
+            activitySerializersModule = TestModel.activitySerializersModule,
         )
         // Use addActivities and runUntil to force a state with finished, running, and unstarted activities
         simulation1.addActivities(
@@ -525,9 +476,9 @@ class PlanSimulationTest {
         val reports2 = ChannelizedReports()
         val simulation2 = PlanSimulation(
             reportHandler = reports2.handler(),
-            inconProvider = Json.decodeFromJsonElement<JsonConditions>(fincon1),
+            inconProvider = jsonFormat.decodeFromJsonElement<JsonConditions>(fincon1),
             constructModel = ::TestModel,
-            activitySerializer = TestModel.activitySerializer,
+            activitySerializersModule = TestModel.activitySerializersModule,
         )
         // Add an activity which will spawn a child, which will be active during the next fincon cycle
         simulation2.addActivities(listOf(
@@ -558,7 +509,7 @@ class PlanSimulationTest {
             reportHandler = reports3.handler(),
             inconProvider = Json.decodeFromJsonElement<JsonConditions>(fincon2),
             constructModel = ::TestModel,
-            activitySerializer = TestModel.activitySerializer,
+            activitySerializersModule = TestModel.activitySerializersModule,
         )
         simulation3.runUntil(3 * HOUR)
         with(reports3) {

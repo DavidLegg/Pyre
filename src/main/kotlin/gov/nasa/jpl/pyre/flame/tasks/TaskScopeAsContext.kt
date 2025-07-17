@@ -14,6 +14,7 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.report
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.whenTrue
 import kotlinx.serialization.json.JsonElement
@@ -26,7 +27,7 @@ context(scope: SparkTaskScope<*>)
 suspend fun <V, E> emit(cell: CellHandle<V, E>, effect: E) = scope.emit(cell, effect)
 
 context(scope: SparkTaskScope<*>)
-suspend fun report(value: JsonElement) = scope.report(value)
+suspend inline fun <reified T> report(value: T) = scope.report(value)
 
 context(scope: SparkTaskScope<*>)
 suspend fun delay(time: Duration) = scope.delay(time)

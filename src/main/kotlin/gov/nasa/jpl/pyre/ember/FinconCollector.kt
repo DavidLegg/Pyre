@@ -1,41 +1,26 @@
 package gov.nasa.jpl.pyre.ember
 
-import kotlinx.serialization.json.JsonElement
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
-interface FinconCollector {
-    fun <T> report(keys: Sequence<String>, value: T, type: KType)
-    fun <T> accrue(keys: Sequence<String>, value: T, type: KType)
-
-    // TODO: This is an ugly wart on this interface, a hack to make task history encoding/decoding work correctly...
-    //  Consider any way we might be able to remove this.
-    fun <T> encode(value: T, type: KType): JsonElement
+interface FinconCollectingContext {
+    fun <T> report(value: T, type: KType)
 
     companion object {
-        inline fun <reified T> FinconCollector.report(keys: Sequence<String>, value: T) = report(keys, value, typeOf<T>())
-        inline fun <reified T> FinconCollector.report(vararg keys: String, value: T) = report(keys.asSequence(), value)
-        inline fun <reified T> FinconCollector.accrue(keys: Sequence<String>, value: T) = accrue(keys, value, typeOf<T>())
-        inline fun <reified T> FinconCollector.accrue(vararg keys: String, value: T) = accrue(keys.asSequence(), value)
+        inline fun <reified T> FinconCollectingContext.report(value: T) = report(value, typeOf<T>())
+    }
+}
 
-        fun FinconCollector.withPrefix(key: String): FinconCollector {
-            val original = this
-            return object : FinconCollector by original {
-                override fun <T> report(keys: Sequence<String>, value: T, type: KType) =
-                    original.report(sequenceOf(key) + keys, value, type)
-                override fun <T> accrue(keys: Sequence<String>, value: T, type: KType) =
-                    original.accrue(sequenceOf(key) + keys, value, type)
-            }
-        }
+interface FinconCollector : FinconCollectingContext {
+    fun within(key: String): FinconCollector
+    fun incremental(block: FinconCollectingContext.() -> Unit)
 
-        fun FinconCollector.withSuffix(key: String): FinconCollector {
-            val original = this
-            return object : FinconCollector by original {
-                override fun <T> report(keys: Sequence<String>, value: T, type: KType) =
-                    original.report(keys + key, value, type)
-                override fun <T> accrue(keys: Sequence<String>, value: T, type: KType) =
-                    original.accrue(keys + key, value, type)
-            }
+    companion object {
+        fun FinconCollector.within(keys: Sequence<String>): FinconCollector {
+            var result = this
+            for (key in keys) result = result.within(key)
+            return result
         }
+        fun FinconCollector.within(vararg keys: String): FinconCollector = within(keys.asSequence())
     }
 }

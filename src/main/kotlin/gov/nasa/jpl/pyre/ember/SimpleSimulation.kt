@@ -2,7 +2,6 @@ package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
-import kotlinx.serialization.json.JsonElement
 
 interface Simulation {
     fun runUntil(time: Duration)
@@ -15,7 +14,7 @@ interface Simulation {
  */
 class SimpleSimulation(setup: SimulationSetup) : Simulation {
     data class SimulationSetup(
-        val reportHandler: (JsonElement) -> Unit,
+        val reportHandler: ReportHandler,
         val inconProvider: InconProvider?,
         val startingTime: Duration = ZERO,
         val initialize: SimulationInitContext.() -> Unit,
@@ -37,7 +36,6 @@ class SimpleSimulation(setup: SimulationSetup) : Simulation {
         require(time >= state.time()) {
             "Simulation time is currently ${state.time()}, cannot step backwards to $time"
         }
-        // TODO: Stall protection? If the sim doesn't advance in time for n steps, bail with an error?
         while (state.time() < time) state.stepTo(time)
     }
 

@@ -11,6 +11,9 @@ import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.serializer
+import kotlin.reflect.KType
+import kotlin.reflect.KTypeParameter
+import kotlin.reflect.typeOf
 
 interface MutableResource<D> : Resource<D> {
     context (scope: TaskScope<*>)
@@ -29,20 +32,19 @@ suspend fun <D> MutableResource<D>.set(newDynamics: D) = emit { d: D -> newDynam
 inline fun <V, reified D : Dynamics<V, D>> SimulationInitContext.resource(
     name: String,
     initialDynamics: D,
-    serializer: KSerializer<D> = serializer<D>(),
     effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
-) = resource(name, DynamicsMonad.pure(initialDynamics), FullDynamics.serializer(serializer), effectTrait)
+) = resource(name, DynamicsMonad.pure(initialDynamics), typeOf<FullDynamics<D>>(), effectTrait)
 
 fun <V, D : Dynamics<V, D>> SimulationInitContext.resource(
     name: String,
     initialDynamics: FullDynamics<D>,
-    serializer: KSerializer<FullDynamics<D>>,
+    dynamicsType: KType,
     effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
 ): MutableResource<D> {
     val cell = allocate(Cell(
         name,
         initialDynamics,
-        serializer,
+        dynamicsType,
         { d, t -> d.step(t) },
         { d, effect -> effect(d) },
         effectTrait,

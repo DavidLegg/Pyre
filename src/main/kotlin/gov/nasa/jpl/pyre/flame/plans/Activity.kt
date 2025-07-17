@@ -76,13 +76,14 @@ suspend fun <M> SparkTaskScope<*>.defer(time: Duration, activity: FloatingActivi
     })
 }
 
-inline fun <reified M : Any> activitySerializer(block: ActivitySerializerBuilder<M>.() -> Unit): KSerializer<GroundedActivity<M>> {
-    return SerializersModule {
+inline fun <reified M : Any> activitySerializersModule(block: ActivitySerializerBuilder<M>.() -> Unit): SerializersModule =
+    SerializersModule {
         // Because Activity takes Model as a type parameter, we must specify a serializer for the model type.
         // This is despite never needing to serialize or deserialize a model.
         // Handle this transparently by specifying a dummy contextual serializer here.
         contextual(M::class, object : KSerializer<M> {
-            override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor(M::class.qualifiedName!!, PrimitiveKind.BOOLEAN)
+            override val descriptor: SerialDescriptor =
+                PrimitiveSerialDescriptor(M::class.qualifiedName!!, PrimitiveKind.BOOLEAN)
 
             override fun serialize(encoder: Encoder, value: M) {
                 throw UnsupportedOperationException("Cannot serialize model ${M::class.simpleName}")
@@ -102,8 +103,7 @@ inline fun <reified M : Any> activitySerializer(block: ActivitySerializerBuilder
                 }
             }.block()
         }
-    }.serializer()
-}
+    }
 
 interface ActivitySerializerBuilder<M> {
     fun <A : Activity<M>> activity(clazz: KClass<A>, serializer: KSerializer<A>)

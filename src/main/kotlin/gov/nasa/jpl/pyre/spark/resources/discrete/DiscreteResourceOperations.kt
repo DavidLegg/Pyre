@@ -2,30 +2,19 @@ package gov.nasa.jpl.pyre.spark.resources.discrete
 
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.spark.reporting.register
-import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete.DiscreteSerializer
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.emit
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.serializer
 
 object DiscreteResourceOperations {
-    inline fun <reified V> SimulationInitContext.discreteResource(name: String, value: V, serializer: KSerializer<V> = serializer()) =
-        resource(name, Discrete(value), DiscreteSerializer(serializer))
+    fun <V> SimulationInitContext.discreteResource(name: String, value: V) =
+        resource<V, Discrete<V>>(name, Discrete(value))
 
-    inline fun <reified V> SparkInitContext.register(
-        name: String,
-        resource: DiscreteResource<V>,
-        serializer: KSerializer<V> = serializer(),
-    ) {
-        register(name, resource, DiscreteSerializer(serializer))
-    }
-
-    inline fun <reified V> SparkInitContext.registeredDiscreteResource(name: String, value: V, serializer: KSerializer<V> = serializer()) =
-        discreteResource(name, value, serializer).also { register(name, it, serializer) }
+    fun <V> SparkInitContext.registeredDiscreteResource(name: String, value: V) =
+        discreteResource(name, value).also { register(name, it) }
 
     // Generic read/write operations, specialized to discrete resources
 

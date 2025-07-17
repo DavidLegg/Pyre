@@ -1,18 +1,14 @@
 package gov.nasa.jpl.pyre.ember
 
-import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.withPrefix
-import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.withSuffix
-import gov.nasa.jpl.pyre.ember.InconProvider.Companion.withPrefix
-import gov.nasa.jpl.pyre.ember.InconProvider.Companion.withSuffix
-
 interface Conditions : FinconCollector, InconProvider {
-    companion object {
-        fun Conditions.withPrefix(key: String): Conditions = object : Conditions,
-            FinconCollector by (this as FinconCollector).withPrefix(key),
-            InconProvider by (this as InconProvider).withPrefix(key) {}
+    override fun within(key: String) : Conditions
 
-        fun Conditions.withSuffix(key: String): Conditions = object : Conditions,
-            FinconCollector by (this as FinconCollector).withSuffix(key),
-            InconProvider by (this as InconProvider).withSuffix(key) {}
+    companion object {
+        fun Conditions.within(keys: Sequence<String>): Conditions {
+            var result = this
+            for (key in keys) result = result.within(key)
+            return result
+        }
+        fun Conditions.within(vararg keys: String): Conditions = within(keys.asSequence())
     }
 }
