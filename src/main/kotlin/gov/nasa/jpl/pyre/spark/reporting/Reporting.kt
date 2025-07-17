@@ -10,14 +10,18 @@ import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.task
 import gov.nasa.jpl.pyre.spark.tasks.wheneverChanges
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.Serializable
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.time.Instant
 
 typealias Channel = String
 
+@Serializable
 data class ChannelizedReport<T>(
     val channel: String,
+    @Contextual
     val time: Instant,
     val data: T,
 )

@@ -40,3 +40,23 @@ suspend fun SparkTaskScope<*>.delayUntil(time: Duration) = delay(time - simulati
  * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]
  */
 suspend fun SparkTaskScope<*>.delayUntil(time: Instant) = delayUntil((time - simulationEpoch).toPyreDuration())
+
+object SparkContextExtensions {
+    context (sparkContext: SparkContext)
+    val simulationClock get() = sparkContext.simulationClock
+
+    context (sparkContext: SparkContext)
+    val simulationEpoch get() = sparkContext.simulationClock
+
+    /**
+     * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]
+     */
+    context (scope: SparkTaskScope<Unit>)
+    suspend fun delayUntil(time: Duration) = scope.delayUntil(time)
+
+    /**
+     * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]
+     */
+    context (scope: SparkTaskScope<Unit>)
+    suspend fun delayUntil(time: Instant) = scope.delayUntil(time)
+}
