@@ -10,7 +10,7 @@ import kotlin.reflect.KType
 
 class StreamReportHandler(
     private val stream: OutputStream = System.out,
-    private val jsonFormat: Json = Json,
+    private val jsonFormat: Json = Json.Default,
 ) : ReportHandler {
     @OptIn(ExperimentalSerializationApi::class)
     override fun <T> handle(value: T, type: KType) {

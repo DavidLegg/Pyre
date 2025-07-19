@@ -2,7 +2,6 @@ package gov.nasa.jpl.pyre.examples.orbiter.power
 
 import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.encodeToStream
-import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.Plan
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
 import gov.nasa.jpl.pyre.flame.plans.activity
@@ -15,42 +14,35 @@ import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
-import kotlinx.serialization.json.encodeToStream
-import kotlinx.serialization.modules.SerializersModule
-import kotlinx.serialization.modules.polymorphic
-import kotlinx.serialization.modules.subclass
-import kotlinx.serialization.serializer
 import java.io.FileInputStream
 import java.io.FileOutputStream
 
 /**
  * Run [BatteryModel] as a standalone simulation.
  */
-class SimulateBattery {
-    @OptIn(ExperimentalSerializationApi::class)
-    fun main(args: Array<String>) {
-        val planFile = args[0]
-        val finconFile = args[1]
+@OptIn(ExperimentalSerializationApi::class)
+fun main(args: Array<String>) {
+    val planFile = args[0]
+    val finconFile = args[1]
 
-        val activityJson = Json {
-            serializersModule = activitySerializersModule {
-                activity(ChangePowerDemand::class)
-            }
+    val jsonFormat = Json {
+        serializersModule = activitySerializersModule {
+            activity(ChangePowerDemand::class)
         }
-        val plan: Plan<StandaloneBatteryModel> = activityJson.decodeFromStream(FileInputStream(planFile))
-
-        val simulation = PlanSimulation.withoutIncon(
-            StreamReportHandler(),
-            plan.startTime,
-            plan.startTime,
-            ::StandaloneBatteryModel,
-        )
-
-        simulation.runPlan(plan)
-        JsonConditions(activityJson)
-            .also(simulation::save)
-            .encodeToStream(FileOutputStream(finconFile))
     }
+    val plan: Plan<StandaloneBatteryModel> = jsonFormat.decodeFromStream(FileInputStream(planFile))
+
+    val simulation = PlanSimulation.withoutIncon(
+        StreamReportHandler(),
+        plan.startTime,
+        plan.startTime,
+        ::StandaloneBatteryModel,
+    )
+
+    simulation.runPlan(plan)
+    JsonConditions(jsonFormat)
+        .also(simulation::save)
+        .encodeToStream(FileOutputStream(finconFile))
 }
 
 /**

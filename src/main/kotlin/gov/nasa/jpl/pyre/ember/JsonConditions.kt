@@ -21,6 +21,8 @@ import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.encodeToStream
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import kotlin.collections.component1
@@ -122,6 +124,25 @@ class JsonConditions private constructor(
 
         fun Json.decodeJsonConditionsFromString(string: String) =
             decodeFromString<JsonConditions>(string).copy(jsonFormat = this)
+
+        // Since reading/writing to disk is so common, add methods to do that a "canonical" way here:
+        /**
+         * Canonical way to read [JsonConditions] from disk.
+         *
+         * Be sure to supply a [Json] format to handle contextually-serialized types like activities.
+         */
+        fun fromFile(conditionsFile: String, jsonFormat: Json = Json): JsonConditions =
+            FileInputStream(conditionsFile).use {
+                jsonFormat.decodeJsonConditionsFromStream(it)
+            }
+
+        /**
+         * Canonical way to write [JsonConditions] to disk.
+         */
+        fun JsonConditions.toFile(conditionsFile: String) =
+            FileOutputStream(conditionsFile).use {
+                encodeToStream(it)
+            }
     }
 
     private class JsonConditionsSerializer: KSerializer<JsonConditions> {
