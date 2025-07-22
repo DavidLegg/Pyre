@@ -3,6 +3,7 @@ package gov.nasa.jpl.pyre.spark.resources
 import gov.nasa.jpl.pyre.coals.Reflection.withArg
 import gov.nasa.jpl.pyre.coals.andThen
 import gov.nasa.jpl.pyre.coals.identity
+import gov.nasa.jpl.pyre.coals.named
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.ember.Cell.EffectTrait
 import gov.nasa.jpl.pyre.ember.*
@@ -22,12 +23,12 @@ interface MutableResource<D> : Resource<D> {
 typealias ResourceEffect<D> = (FullDynamics<D>) -> FullDynamics<D>
 
 context (scope: TaskScope<*>)
-suspend fun <D> MutableResource<D>.emit(effect: (D) -> D) = emit {
+suspend fun <D> MutableResource<D>.emit(effect: (D) -> D) = this.emit({ it: FullDynamics<D> ->
     Expiring(effect(it.data), NEVER)
-}
+} named effect::toString)
 
 context (scope: TaskScope<*>)
-suspend fun <D> MutableResource<D>.set(newDynamics: D) = emit { d: D -> newDynamics }
+suspend fun <D> MutableResource<D>.set(newDynamics: D) = emit({ d: D -> newDynamics } named { "Set $this to $newDynamics" })
 
 inline fun <V, reified D : Dynamics<V, D>> SimulationInitContext.resource(
     name: String,
@@ -63,7 +64,7 @@ fun <V, D : Dynamics<V, D>> SimulationInitContext.resource(
 
         context(scope: CellsReadableScope)
         override suspend fun getDynamics(): FullDynamics<D> = scope.read(cell)
-    }
+    } named { name }
 }
 
 fun <D> resourceEffectTrait(concurrent: (left: ResourceEffect<D>, right: ResourceEffect<D>) -> ResourceEffect<D>) =
@@ -76,14 +77,23 @@ fun <D> resourceEffectTrait(concurrent: (left: ResourceEffect<D>, right: Resourc
 fun <D> commutingEffects(): EffectTrait<ResourceEffect<D>> = resourceEffectTrait { left, right -> left andThen right }
 
 fun <D> noncommutingEffects(): EffectTrait<ResourceEffect<D>> = resourceEffectTrait { left, right ->
-    throw IllegalArgumentException("Non-commuting concurrent effects!")
+    throw IllegalArgumentException("Non-commuting concurrent effects: $left vs. $right - Cell does not support concurrent effects.")
 }
 
 fun <D> autoEffects(resultsEqual: (FullDynamics<D>, FullDynamics<D>) -> Boolean = { r, s -> r == s}): EffectTrait<ResourceEffect<D>> =
     resourceEffectTrait { left, right -> {
         val result1 = left(right(it))
         val result2 = right(left(it))
-        require(resultsEqual(result1, result2)) { "Non-commuting concurrent effects! $result1 != $result2" }
+        require(resultsEqual(result1, result2)) {
+            "Non-commuting concurrent effects: $left vs. $right - autoEffects detected different results: $result1 vs. $result2"
+        }
         result1
     }
+}
+
+/**
+ * Apply a lazily-computed name to a mutable resource
+ */
+infix fun <D> MutableResource<D>.named(nameFn: () -> String) = object : MutableResource<D> by this {
+    override fun toString(): String = nameFn()
 }

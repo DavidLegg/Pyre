@@ -1,9 +1,11 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
+import gov.nasa.jpl.pyre.coals.named
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.bind
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
+import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 
 typealias BooleanResource = DiscreteResource<Boolean>
@@ -11,12 +13,12 @@ typealias MutableBooleanResource = MutableDiscreteResource<Boolean>
 
 object BooleanResourceOperations {
     operator fun BooleanResource.not(): BooleanResource =
-        map(this@not) { !it }
+        map(this@not) { !it } named { "not (${this@not})" }
     // Do short-circuiting in resource operations for efficiency
     infix fun BooleanResource.and(other: BooleanResource): BooleanResource =
-        bind(this@and) { if (it) other else pure(false) }
+        bind(this@and) { if (it) other else pure(false) } named { "${this@and} and $other" }
     infix fun BooleanResource.or(other: BooleanResource): BooleanResource =
-        bind(this@or) { if (it) pure(true) else other }
+        bind(this@or) { if (it) pure(true) else other } named { "${this@or} or $other" }
 
     // When working with constants, short-circuit during initialization instead
     infix fun Boolean.and(other: BooleanResource): BooleanResource = if (this) other else pure(false)
@@ -25,5 +27,5 @@ object BooleanResourceOperations {
     infix fun BooleanResource.or(other: Boolean): BooleanResource = other or this
 
     context(scope: SparkTaskScope<*>)
-    suspend fun MutableBooleanResource.toggle() = this.emit { b: Boolean -> !b }
+    suspend fun MutableBooleanResource.toggle() = this.emit({ b: Boolean -> !b } named { "Toggle $this" })
 }

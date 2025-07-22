@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.flame.resources.polynomial
 
+import gov.nasa.jpl.pyre.coals.named
 import gov.nasa.jpl.pyre.ember.Condition
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.flame.resources.polynomial.Polynomial.Companion.polynomial
@@ -22,41 +23,43 @@ object PolynomialResourceOperations {
     fun polynomialResource(name: String, vararg coefficients: Double): MutablePolynomialResource =
         scope.resource(name, polynomial(*coefficients))
 
-    fun constant(value: Double): PolynomialResource = pure(polynomial(value))
+    fun constant(value: Double): PolynomialResource = pure(polynomial(value)) named value::toString
 
     fun SparkInitContext.registeredPolynomialResource(name: String, vararg coefficients: Double) =
         polynomialResource(name, *coefficients).also { register(name, it) }
 
-    fun DiscreteResource<Double>.asPolynomial(): PolynomialResource = map(this) { polynomial(it.value) }
+    fun DiscreteResource<Double>.asPolynomial(): PolynomialResource =
+        map(this) { polynomial(it.value) } named this::toString
 
     operator fun PolynomialResource.unaryPlus() = this
-    operator fun PolynomialResource.unaryMinus() = map(this, Polynomial::unaryMinus)
+    operator fun PolynomialResource.unaryMinus() = map(this, Polynomial::unaryMinus) named { "-($this)" }
 
     operator fun PolynomialResource.plus(other: PolynomialResource) =
-        map(this, other) { p, q -> p + q }
+        map(this, other) { p, q -> p + q } named { "($this) + ($other)" }
     operator fun PolynomialResource.minus(other: PolynomialResource) =
-        map(this, other) { p, q -> p - q }
+        map(this, other) { p, q -> p - q } named { "($this) - ($other)" }
     operator fun PolynomialResource.times(other: PolynomialResource) =
-        map(this, other) { p, q -> p * q }
+        map(this, other) { p, q -> p * q } named { "($this) * ($other)" }
 
     operator fun PolynomialResource.plus(other: Double) =
-        map(this) { it + other }
+        map(this) { it + other } named { "($this) + ($other)" }
     operator fun PolynomialResource.minus(other: Double) =
-        map(this) { it - other }
+        map(this) { it - other } named { "($this) - ($other)" }
     operator fun PolynomialResource.times(other: Double) =
-        map(this) { it * other }
+        map(this) { it * other } named { "($this) * ($other)" }
 
     operator fun Double.plus(other: PolynomialResource) =
-        map(other) { this + it }
+        map(other) { this + it } named { "($this) + ($other)" }
     operator fun Double.minus(other: PolynomialResource) =
-        map(other) { this - it }
+        map(other) { this - it } named { "($this) - ($other)" }
     operator fun Double.times(other: PolynomialResource) =
-        map(other) { this * it }
+        map(other) { this * it } named { "($this) * ($other)" }
 
     operator fun PolynomialResource.div(other: Double) =
-        map(this) { it / other }
+        map(this) { it / other } named { "($this) / ($other)" }
 
-    fun PolynomialResource.derivative(): PolynomialResource = map(this, Polynomial::derivative)
+    fun PolynomialResource.derivative(): PolynomialResource =
+        map(this, Polynomial::derivative) named { "d/dt ($this)" }
 
     context(context: SparkInitContext)
     fun PolynomialResource.integral(name: String, startingValue: Double): IntegralResource {
@@ -74,10 +77,10 @@ object PolynomialResourceOperations {
                 context(scope: SparkTaskScope<*>)
                 override suspend fun increase(amount: Double) = integral.increase(amount)
                 context(scope: SparkTaskScope<*>)
-                override suspend fun set(amount: Double) = integral.emit { p: Polynomial ->
+                override suspend fun set(amount: Double) = integral.emit({ p: Polynomial ->
                     p.setCoefficient(0, amount)
-                }
-            }
+                } named { "Set value of $this to $amount" })
+            } named { name }
         }
     }
 
@@ -251,13 +254,13 @@ object PolynomialResourceOperations {
     )
 
     infix fun PolynomialResource.greaterThan(other: PolynomialResource): BooleanResource =
-        bind(this, other) { p, q -> ThinResourceMonad.pure(p greaterThan q) }
+        bind(this, other) { p, q -> ThinResourceMonad.pure(p greaterThan q) } named { "($this) > ($other)" }
     infix fun PolynomialResource.greaterThanOrEquals(other: PolynomialResource): BooleanResource =
-        bind(this, other) { p, q -> ThinResourceMonad.pure(p greaterThanOrEquals q) }
+        bind(this, other) { p, q -> ThinResourceMonad.pure(p greaterThanOrEquals q) } named { "($this) >= ($other)" }
     infix fun PolynomialResource.lessThan(other: PolynomialResource): BooleanResource =
-        bind(this, other) { p, q -> ThinResourceMonad.pure(p lessThan q) }
+        bind(this, other) { p, q -> ThinResourceMonad.pure(p lessThan q) } named { "($this) < ($other)" }
     infix fun PolynomialResource.lessThanOrEquals(other: PolynomialResource): BooleanResource =
-        bind(this, other) { p, q -> ThinResourceMonad.pure(p lessThanOrEquals q) }
+        bind(this, other) { p, q -> ThinResourceMonad.pure(p lessThanOrEquals q) } named { "($this) <= ($other)" }
 
     infix fun PolynomialResource.greaterThan(other: Double) = this greaterThan constant(other)
     infix fun PolynomialResource.greaterThanOrEquals(other: Double) = this greaterThanOrEquals constant(other)
@@ -265,22 +268,22 @@ object PolynomialResourceOperations {
     infix fun PolynomialResource.lessThanOrEquals(other: Double) = this lessThanOrEquals constant(other)
 
     fun min(p: PolynomialResource, q: PolynomialResource): PolynomialResource = bind(p, q) { p, q ->
-        ThinResourceMonad.pure(DynamicsMonad.map(p.dominates(q)) { if (it.value) q else p })
+        ThinResourceMonad.pure(DynamicsMonad.map(p.dominates(q)) { if (it.value) q else p }) named { "min($p, $q)" }
     }
 
     fun max(p: PolynomialResource, q: PolynomialResource): PolynomialResource = bind(p, q) { p, q ->
-        ThinResourceMonad.pure(DynamicsMonad.map(p.dominates(q)) { if (it.value) p else q })
+        ThinResourceMonad.pure(DynamicsMonad.map(p.dominates(q)) { if (it.value) p else q }) named { "max($p, $q)" }
     }
 
     fun PolynomialResource.clamp(lowerBound: PolynomialResource, upperBound: PolynomialResource): PolynomialResource =
-        min(max(this, lowerBound), upperBound)
+        min(max(this, lowerBound), upperBound) named { "$this.clamp($lowerBound, $upperBound)" }
 
     context(scope: SparkTaskScope<*>)
-    suspend fun MutablePolynomialResource.increase(amount: Double) = emit { p: Polynomial -> p + amount }
+    suspend fun MutablePolynomialResource.increase(amount: Double) = emit({ p: Polynomial -> p + amount } named { "Increase $this by $amount" })
     context(scope: SparkTaskScope<*>)
-    suspend fun MutablePolynomialResource.decrease(amount: Double) = increase(-amount)
+    suspend fun MutablePolynomialResource.decrease(amount: Double) = emit({ p: Polynomial -> p - amount } named { "Decrease $this by $amount" })
     context(scope: SparkTaskScope<*>)
-    suspend fun MutablePolynomialResource.scale(amount: Double) = emit { p: Polynomial -> p * amount }
+    suspend fun MutablePolynomialResource.scale(amount: Double) = emit({ p: Polynomial -> p * amount } named { "Scale $this by $amount" })
 
     context(scope: SparkTaskScope<*>)
     suspend operator fun MutablePolynomialResource.plusAssign(amount: Double) = increase(amount)
@@ -308,4 +311,8 @@ interface IntegralResource : PolynomialResource {
     suspend fun increase(amount: Double)
     context(scope: SparkTaskScope<*>)
     suspend fun set(amount: Double)
+}
+
+infix fun IntegralResource.named(nameFn: () -> String) = object : IntegralResource by this {
+    override fun toString() = nameFn()
 }

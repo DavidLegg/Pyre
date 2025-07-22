@@ -1,7 +1,9 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
+import gov.nasa.jpl.pyre.coals.named
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
+import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 typealias LongResource = DiscreteResource<Long>
@@ -9,15 +11,15 @@ typealias MutableLongResource = MutableDiscreteResource<Long>
 
 object LongResourceOperations {
     operator fun LongResource.plus(other: LongResource): LongResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x + y }
+        DiscreteResourceMonad.map(this, other) { x, y -> x + y } named { "($this) + ($other)" }
     operator fun LongResource.minus(other: LongResource): LongResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x - y }
+        DiscreteResourceMonad.map(this, other) { x, y -> x - y } named { "($this) - ($other)" }
     operator fun LongResource.times(other: LongResource): LongResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x * y }
+        DiscreteResourceMonad.map(this, other) { x, y -> x * y } named { "($this) * ($other)" }
     operator fun LongResource.div(other: LongResource): LongResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x / y }
+        DiscreteResourceMonad.map(this, other) { x, y -> x / y } named { "($this) / ($other)" }
     operator fun LongResource.rem(other: LongResource): LongResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x % y }
+        DiscreteResourceMonad.map(this, other) { x, y -> x % y } named { "($this) % ($other)" }
 
     operator fun LongResource.plus(other: Long): LongResource = this + pure(other)
     operator fun LongResource.minus(other: Long): LongResource = this - pure(other)
@@ -33,11 +35,11 @@ object LongResourceOperations {
 
     context(scope: TaskScope<*>)
     suspend fun MutableLongResource.increment(amount: Long = 1) {
-        emit { n: Long -> n + amount }
+        emit({ n: Long -> n + amount } named { "Increase $this by $amount" })
     }
 
     context(scope: TaskScope<*>)
     suspend fun MutableLongResource.decrement(amount: Long = 1) {
-        emit { n: Long -> n - amount }
+        emit({ n: Long -> n - amount } named { "Decrease $this by $amount" })
     }
 }

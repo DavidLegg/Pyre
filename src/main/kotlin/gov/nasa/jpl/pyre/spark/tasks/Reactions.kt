@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.spark.tasks
 
+import gov.nasa.jpl.pyre.coals.named
 import gov.nasa.jpl.pyre.ember.Condition
 import gov.nasa.jpl.pyre.ember.Condition.*
 import gov.nasa.jpl.pyre.ember.Duration
@@ -19,7 +20,7 @@ fun whenTrue(resource: BooleanResource): () -> Condition = condition {
     with (resource.getDynamics()) {
         if (data.value) SatisfiedAt(ZERO) else UnsatisfiedUntil(expiry.time)
     }
-}
+} named resource::toString
 
 suspend fun TaskScope<*>.await(condition: BooleanResource) = await(whenTrue(condition))
 
@@ -60,7 +61,7 @@ suspend fun <V, D : Dynamics<V, D>> SparkTaskScope<*>.dynamicsChange(resource: R
         val time2 = simulationClock.getValue()
         if (dynamics1.data.step(time2 - time1) != dynamics2.data) SatisfiedAt(ZERO)
         else dynamics2.expiry.time?.let(::SatisfiedAt) ?: UnsatisfiedUntil(null)
-    }
+    } named { "When dynamics change for ($resource)" }
 }
 
 
@@ -75,7 +76,7 @@ infix fun (() -> Condition).or(other: () -> Condition): () -> Condition =
         // We must take the minimum-time result. If it's a satisfaction, we're satisfied then.
         // If it's an unsatisfied-until, we need to reevaluate then anyways.
         if (r1.expiry() < r2.expiry()) r1 else r2
-    }
+    } named { "($this) or ($other)" }
 
 /**
  * Specialized Condition conjunction operator.
@@ -94,7 +95,7 @@ infix fun (() -> Condition).and(other: () -> Condition): () -> Condition =
             r1
         else
             UnsatisfiedUntil(maxOf(r1.expiry(), r2.expiry()).time)
-    }
+    } named { "($this) or ($other)" }
 
 private fun conditionMap(c1: () -> Condition, c2: () -> Condition, f: (ConditionResult, ConditionResult) -> Condition): () -> Condition =
     conditionMap(c1) { r1 -> conditionMap(c2) { r2 -> f(r1, r2) }() }

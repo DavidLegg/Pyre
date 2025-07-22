@@ -72,3 +72,10 @@ fun <V, D : Dynamics<V, D>> SparkInitContext.register(
  */
 inline fun <V, reified D : Dynamics<V, D>> SparkInitContext.register(name: String, resource: Resource<D>) =
     register(name, resource, typeOf<D>())
+
+/**
+ * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
+ * Use the resource's own toString method as its name, for use with [gov.nasa.jpl.pyre.spark.resources.named].
+ */
+inline fun <V, reified D : Dynamics<V, D>> SparkInitContext.register(resource: Resource<D>) =
+    register(resource.toString(), resource, typeOf<D>())

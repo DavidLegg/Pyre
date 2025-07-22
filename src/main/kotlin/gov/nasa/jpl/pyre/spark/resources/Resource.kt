@@ -21,6 +21,10 @@ typealias Resource<D> = ThinResource<FullDynamics<D>>
 context (scope: CellsReadableScope)
 suspend fun <V, D : Dynamics<V, D>> Resource<D>.getValue(): V = this.getDynamics().data.value()
 
+infix fun <D> Resource<D>.named(nameFn: () -> String) = object : Resource<D> by this {
+    override fun toString() = nameFn()
+}
+
 /*
  * Monads
  */

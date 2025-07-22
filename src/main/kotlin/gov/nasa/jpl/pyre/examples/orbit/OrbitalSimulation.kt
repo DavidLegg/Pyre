@@ -5,6 +5,7 @@ import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
+import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -77,9 +78,11 @@ class OrbitalSimulation(
                 stepSize = stepSize,
             )
 
-            bodyPositions = bodies.withIndex().associate { (i, body) -> Pair(body, map(integrator) {
-                Vector(it[3 * i + 0], it[3 * i + 1], it[3 * i + 2])
-            }) }
+            bodyPositions = bodies.withIndex().associate { (i, body) ->
+                Pair(body, map(integrator) {
+                    Vector(it[3 * i + 0], it[3 * i + 1], it[3 * i + 2])
+                } named { "Position of ${body.name}" })
+            }
         }
     }
 }

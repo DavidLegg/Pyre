@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
 import gov.nasa.jpl.pyre.coals.Reflection.withArg
+import gov.nasa.jpl.pyre.coals.named
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.spark.reporting.register
 import gov.nasa.jpl.pyre.spark.resources.MutableResource
@@ -8,6 +9,7 @@ import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.emit
+import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import kotlin.reflect.KType
@@ -29,22 +31,22 @@ object DiscreteResourceOperations {
     // Generic read/write operations, specialized to discrete resources
 
     context (scope: TaskScope<*>)
-    suspend fun <V> MutableDiscreteResource<V>.emit(effect: (V) -> V) = this.emit(DiscreteMonad.map(effect))
+    suspend fun <V> MutableDiscreteResource<V>.emit(effect: (V) -> V) = this.emit(DiscreteMonad.map(effect) named effect::toString)
 
     context (scope: TaskScope<*>)
-    suspend fun <V> MutableDiscreteResource<V>.set(value: V) = this.emit { _: V -> value }
+    suspend fun <V> MutableDiscreteResource<V>.set(value: V) = this.emit({ _: V -> value } named { "Set $this to $value" })
 
     fun <T : Comparable<T>> DiscreteResource<T>.compareTo(other: DiscreteResource<T>): DiscreteResource<Int> =
-        map(this, other) { x, y -> x.compareTo(y) }
+        map(this, other) { x, y -> x.compareTo(y) } named { "($this).compareTo($other)" }
 
     infix fun <T : Comparable<T>> DiscreteResource<T>.lessThan(other: DiscreteResource<T>): BooleanResource =
-        map(this.compareTo(other)) { it < 0 }
+        map(this.compareTo(other)) { it < 0 } named { "($this) < ($other)" }
     infix fun <T : Comparable<T>> DiscreteResource<T>.lessThanOrEquals(other: DiscreteResource<T>): BooleanResource =
-        map(this.compareTo(other)) { it <= 0 }
+        map(this.compareTo(other)) { it <= 0 } named { "($this) <= ($other)" }
     infix fun <T : Comparable<T>> DiscreteResource<T>.greaterThan(other: DiscreteResource<T>): BooleanResource =
-        map(this.compareTo(other)) { it > 0 }
+        map(this.compareTo(other)) { it > 0 } named { "($this) > ($other)" }
     infix fun <T : Comparable<T>> DiscreteResource<T>.greaterThanOrEquals(other: DiscreteResource<T>): BooleanResource =
-        map(this.compareTo(other)) { it >= 0 }
+        map(this.compareTo(other)) { it >= 0 } named { "($this) >= ($other)" }
 
     infix fun <T : Comparable<T>> DiscreteResource<T>.lessThan(other: T): BooleanResource = this lessThan pure(other)
     infix fun <T : Comparable<T>> DiscreteResource<T>.lessThanOrEquals(other: T): BooleanResource = this lessThanOrEquals pure(other)
@@ -52,9 +54,9 @@ object DiscreteResourceOperations {
     infix fun <T : Comparable<T>> DiscreteResource<T>.greaterThanOrEquals(other: T): BooleanResource = this greaterThanOrEquals pure(other)
 
     infix fun <T> DiscreteResource<T>.equals(other: DiscreteResource<T>): BooleanResource =
-        map(this, other) { x, y -> x == y }
+        map(this, other) { x, y -> x == y } named { "($this) == ($other)" }
     infix fun <T> DiscreteResource<T>.notEquals(other: DiscreteResource<T>): BooleanResource =
-        map(this, other) { x, y -> x != y }
+        map(this, other) { x, y -> x != y } named { "($this) != ($other)" }
     infix fun <T> DiscreteResource<T>.equals(other: T): BooleanResource = this equals pure(other)
     infix fun <T> DiscreteResource<T>.notEquals(other: T): BooleanResource = this notEquals pure(other)
 }

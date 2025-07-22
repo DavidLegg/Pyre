@@ -8,12 +8,13 @@ import gov.nasa.jpl.pyre.spark.resources.FullDynamics
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
 import gov.nasa.jpl.pyre.spark.resources.getValue
+import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
 import gov.nasa.jpl.pyre.spark.tasks.SparkContext
 
 object UnstructuredResourceOperations {
     /**
-     * Return an [UnstructuredResource], given a function of absolute time.
+     * Return an [UnstructuredResource], given a function of absolute time as measured by [SparkContext.simulationClock].
      */
     context(context: SparkContext)
     fun <A> timeBased(fn: (Duration) -> A) = object : UnstructuredResource<A> {
@@ -22,7 +23,7 @@ object UnstructuredResourceOperations {
             val now = context.simulationClock.getValue()
             return DynamicsMonad.pure(Unstructured.of { fn(now + it) })
         }
-    }
+    } named fn::toString
 
     /**
      * Ignore the structure of any [Dynamics]
@@ -35,5 +36,6 @@ object UnstructuredResourceOperations {
     /**
      * Ignore the structure of any [Resource]
      */
-    fun <V, D : Dynamics<V, D>> Resource<D>.asUnstructured(): UnstructuredResource<V> = ResourceMonad.map(this) { it.asUnstructured() }
+    fun <V, D : Dynamics<V, D>> Resource<D>.asUnstructured(): UnstructuredResource<V> =
+        ResourceMonad.map(this) { it.asUnstructured() } named this::toString
 }

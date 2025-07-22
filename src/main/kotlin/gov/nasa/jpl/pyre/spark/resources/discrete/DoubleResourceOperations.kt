@@ -1,7 +1,9 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
+import gov.nasa.jpl.pyre.coals.named
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
+import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 typealias DoubleResource = DiscreteResource<Double>
@@ -9,15 +11,15 @@ typealias MutableDoubleResource = MutableDiscreteResource<Double>
 
 object DoubleResourceOperations {
     operator fun DoubleResource.plus(other: DoubleResource): DoubleResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x + y }
+        DiscreteResourceMonad.map(this, other) { x, y -> x + y } named { "($this) + ($other)" }
     operator fun DoubleResource.minus(other: DoubleResource): DoubleResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x - y }
+        DiscreteResourceMonad.map(this, other) { x, y -> x - y } named { "($this) - ($other)" }
     operator fun DoubleResource.times(other: DoubleResource): DoubleResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x * y }
+        DiscreteResourceMonad.map(this, other) { x, y -> x * y } named { "($this) * ($other)" }
     operator fun DoubleResource.div(other: DoubleResource): DoubleResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x / y }
+        DiscreteResourceMonad.map(this, other) { x, y -> x / y } named { "($this) / ($other)" }
     operator fun DoubleResource.rem(other: DoubleResource): DoubleResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x % y }
+        DiscreteResourceMonad.map(this, other) { x, y -> x % y } named { "($this) % ($other)" }
 
     operator fun DoubleResource.plus(other: Double): DoubleResource = this + pure(other)
     operator fun DoubleResource.minus(other: Double): DoubleResource = this - pure(other)
@@ -33,11 +35,11 @@ object DoubleResourceOperations {
 
     context(scope: TaskScope<*>)
     suspend fun MutableDoubleResource.increase(amount: Double) {
-        emit { n: Double -> n + amount }
+        emit({ n: Double -> n + amount } named { "Increase $this by $amount" })
     }
 
     context(scope: TaskScope<*>)
     suspend fun MutableDoubleResource.decrease(amount: Double) {
-        emit { n: Double -> n - amount }
+        emit({ n: Double -> n - amount } named { "Decrease $this by $amount" })
     }
 }
