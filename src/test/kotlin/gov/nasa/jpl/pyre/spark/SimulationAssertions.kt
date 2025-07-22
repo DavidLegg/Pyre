@@ -24,12 +24,10 @@ class ChannelizedReports(
     private val channelizedReports: MutableMap<String, MutableList<Report>> = mutableMapOf()
     private val unchannelizedReports: MutableList<JsonElement> = mutableListOf()
 
-    fun handler(): ReportHandler = object : ReportHandler {
-        override fun <T> handle(value: T, type: KType) {
-            (value as? ChannelizedReport<*>)?.let {
-                handleChannelized(it, type)
-            } ?: unchannelizedReports.add(encode(value, type))
-        }
+    fun handler(): ReportHandler = { value, type ->
+        (value as? ChannelizedReport<*>)?.let {
+            handleChannelized(it, type)
+        } ?: unchannelizedReports.add(encode(value, type))
     }
 
     private fun <T> handleChannelized(value: ChannelizedReport<T>, type: KType) {

@@ -29,36 +29,41 @@ data class ChannelizedReport<T>(
 /**
  * Wraps the simple simulation report function with [ChannelizedReport],
  * categorizing the report on a channel and adding the time of report.
+ *
+ * Note: reportType must be [ChannelizedReport] with an invariant argument for the type of data.
+ * Giving this type directly, instead of constructing it within this function,
+ * offers opportunities to improve performance by computing the reified type at init or even compile time.
  */
-suspend fun <T> SparkTaskScope<*>.report(channel: Channel, data: T, type: KType) {
+suspend fun <T> SparkTaskScope<*>.report(channel: Channel, data: T, reportType: KType) {
     report(ChannelizedReport(
         channel,
         simulationEpoch + simulationClock.getValue().toKotlinDuration(),
         data,
-    ), ChannelizedReport::class.withArg(type))
+    ), reportType)
 }
 
 /**
  * Wraps the simple simulation report function with [ChannelizedReport],
  * categorizing the report on a channel and adding the time of report.
  */
-suspend inline fun <reified T> SparkTaskScope<*>.report(channel: Channel, data: T) = report(channel, data, typeOf<T>())
+suspend inline fun <reified T> SparkTaskScope<*>.report(channel: Channel, data: T) = report(channel, data, typeOf<ChannelizedReport<T>>())
 
 /**
  * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
  */
-inline fun <V, reified D : Dynamics<V, D>> SparkInitContext.register(
+fun <V, D : Dynamics<V, D>> SparkInitContext.register(
     name: String,
     resource: Resource<D>,
     dynamicsType: KType,
 ) {
+    val reportType = ChannelizedReport::class.withArg(dynamicsType)
     spawn("Report initial value for resource $name", task {
         with (sparkTaskScope()) {
-            report(name, resource.getDynamics().data, dynamicsType)
+            report(name, resource.getDynamics().data, reportType)
         }
     })
     spawn("Report resource $name", wheneverChanges(resource) {
-        report(name, resource.getDynamics().data, dynamicsType)
+        report(name, resource.getDynamics().data, reportType)
     })
 }
 

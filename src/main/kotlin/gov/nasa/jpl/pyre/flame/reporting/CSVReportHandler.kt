@@ -3,7 +3,6 @@ package gov.nasa.jpl.pyre.flame.reporting
 import gov.nasa.jpl.pyre.ember.ReportHandler
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.serializer
 import java.io.OutputStream
 import java.io.OutputStreamWriter
@@ -42,7 +41,7 @@ class CSVReportHandler(
         }
     }
 
-    override fun <T> handle(value: T, type: KType) {
+    override fun invoke(value: Any?, type: KType) {
         if (value is ChannelizedReport<*>) {
             // If we have a row from an earlier time, because reports are time-ordered, we're done with that row.
             // Flush that row and adjust the time.
@@ -68,7 +67,10 @@ class CSVReportHandler(
     }
 
     private fun flushCurrentRow() {
-        streamWriter.write(currentRow.joinToString(",", transform = ::escapeField))
+        currentRow.forEachIndexed { i, field ->
+            if (i != 0) streamWriter.write(",")
+            streamWriter.write(escapeField(field))
+        }
         streamWriter.write("\n")
         currentRow.fill("")
     }

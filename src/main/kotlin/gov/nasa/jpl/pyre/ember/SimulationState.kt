@@ -12,8 +12,10 @@ import java.util.Comparator.comparing
 import java.util.PriorityQueue
 import kotlin.reflect.KType
 
-interface ReportHandler {
-    fun <T> handle(value: T, type: KType): Unit
+typealias ReportHandler = (Any?, KType) -> Unit
+
+object SimulationStateDebug {
+    var conditionEvaluations = 0
 }
 
 class SimulationState(private val reportHandler: ReportHandler) {
@@ -27,10 +29,29 @@ class SimulationState(private val reportHandler: ReportHandler) {
     private val tasks: PriorityQueue<TaskEntry> = PriorityQueue(comparing(TaskEntry::time))
     // TODO: For the sake of restoring awaiting tasks, we may need to save pseudo-tasks,
     //  which defer back to the original task on everything except runStep, instead of the Await step itself.
-    private val cellListeners: MutableMap<CellHandle<*, *>, MutableSet<Task<*>>> = mutableMapOf()
-    private val listeningTasks: MutableMap<Task<*>, Set<CellHandle<*, *>>> = mutableMapOf()
-    private val conditionalTasks: MutableMap<Task<*>, TaskEntry> = mutableMapOf()
+    private val cellListeners: MutableMap<CellHandle<*, *>, MutableSet<AwaitingTask<*>>> = mutableMapOf()
+    private val listeningTasks: MutableMap<AwaitingTask<*>, Set<CellHandle<*, *>>> = mutableMapOf()
     private val modifiedCells: MutableSet<CellHandle<*, *>> = mutableSetOf()
+
+    // Specifically *not* a data class - we want reference equality here for performance.
+    private class AwaitingTask<T>(
+        val await: Await<T>,
+        originalTask: Task<T>,
+        state: SimulationState,
+    ) {
+        val rewaitTask: Task<T> = object: Task<T> by originalTask {
+            override fun runStep(): Await<T> = await
+        }
+        val continuationTask: Task<T> = object : Task<T> by await.continuation {
+            override fun runStep(): Task.TaskStepResult<T> {
+                // Remove all listeners before continuing so we don't re-trigger the condition
+                state.resetListeners(this@AwaitingTask)
+                return await.continuation.runStep()
+            }
+        }
+        var scheduledTask: TaskEntry? = null
+    }
+    private val awaitingTasks: MutableSet<AwaitingTask<*>> = mutableSetOf()
 
     /**
      * These are the actions allowed during "initialization", before the simulation starts running.
@@ -61,15 +82,15 @@ class SimulationState(private val reportHandler: ReportHandler) {
         if (batchTime != null && batchTime == time && batchTime <= endTime) {
             // Collect a batch of tasks, prior to running any of those tasks,
             // since running the tasks may add new tasks that should logically come after this batch.
-            val taskBatch = mutableListOf<Task<*>>()
+            val taskBatch = mutableSetOf<Task<*>>()
             while (tasks.peek()?.time == batchTime) taskBatch += tasks.remove().task
             runTaskBatch(taskBatch)
         } else {
             val stepTime = minOf(batchTime ?: endTime, endTime)
             if (time == stepTime) {
-                InternalLogger.log("Simulation already at $stepTime with no tasks to do.")
+                InternalLogger.log { "Simulation already at $stepTime with no tasks to do." }
             } else {
-                InternalLogger.log("Step time to $stepTime")
+                InternalLogger.log { "Step time to $stepTime" }
                 require(stepTime >= time) { "Requested step time $stepTime is earlier than current time $time" }
                 cells.stepBy(stepTime - time)
                 time = stepTime
@@ -77,27 +98,70 @@ class SimulationState(private val reportHandler: ReportHandler) {
         }
     }
 
-    private tailrec fun runTaskBatch(tasks: Collection<Task<*>>) {
-        val reactions = mutableSetOf<Task<*>>()
-        InternalLogger.block("Start batch", "End batch") {
+    private fun runTaskBatch(tasks: MutableSet<Task<*>>) {
+        InternalLogger.block({ "Start batch" }, { "End batch" }) {
             // For each task, split the cells so that task operates on an isolated state.
             val cellSetBranches = tasks.map { task ->
                 cells.split().also { runTask(task, it) }
             }
             // Finally join those branched states back into the trunk state.
             cells = CellSet.join(cellSetBranches)
+
             // Now, collect all the reactions to effects made by this batch.
-            // Use a set to de-duplicate reaction tasks automatically.
-            modifiedCells.flatMapTo(reactions) { cellListeners[it] ?: emptySet() }
+            // Since awaitingTasks is a set, it de-duplicates reactions automatically.
+            modifiedCells.flatMapTo(awaitingTasks) { cellListeners[it] ?: emptySet() }
             modifiedCells.clear()
-            reactions.forEach { InternalLogger.log("Triggered reaction ${it.id}") }
+
+            // Now, evaluate all the awaiting tasks.
+            // Running conditions all at once at the end of the batch avoids double-evaluation when a task
+            // affects a cell and awaits a condition on that cell, as opposed to evaluating the condition when running the task.
+            for (await in awaitingTasks) {
+                evaluateAwaitingTask(await)
+            }
+            awaitingTasks.clear()
         }
-        // Run another batch automatically, without going back to the outer simulation loop
-        // This is because reactions are not always "proper" tasks; we may be unable to save a fincon with these in the queue.
-        // Instead, we need to run reactions until they resolve back to proper tasks, at which point we can yield back to the driver.
-        // Giving reactions priority like this also means that awaiting tasks have no "blindspot" between the condition evaluation and their reaction.
-        // Tasks which await a condition "see" exactly the state which triggered the condition, instead of a tick later.
-        if (reactions.isNotEmpty()) runTaskBatch(reactions)
+    }
+
+    private fun <T> evaluateAwaitingTask(awaitingTask: AwaitingTask<T>) {
+        // Reset any listeners from prior evaluations
+        resetListeners(awaitingTask)
+
+        // Remove the scheduled rewait or continuation, if it's there.
+        awaitingTask.scheduledTask?.let(tasks::remove)
+
+        // Evaluate the condition
+        val (cellsRead, result) = evaluateCondition(awaitingTask.await.condition(), cells)
+
+        // Schedule listeners to re-evaluate condition if cells change
+        for (cell in cellsRead) {
+            cellListeners.getOrPut(cell) { mutableSetOf() } += awaitingTask
+        }
+        listeningTasks[awaitingTask] = cellsRead
+
+        when (result) {
+            is Condition.SatisfiedAt -> {
+                // Add conditional task to resume the awaiting task when the condition is satisfied
+                val continuationEntry = TaskEntry(time + result.time, awaitingTask.continuationTask)
+                tasks += continuationEntry
+                awaitingTask.scheduledTask = continuationEntry
+            }
+            is Condition.UnsatisfiedUntil -> {
+                if (result.time != null) {
+                    // Schedule the rewait task to re-evaluate the condition once this unsatisfied result expires
+                    val rewaitEntry = TaskEntry(time + result.time, awaitingTask.rewaitTask)
+                    tasks += rewaitEntry
+                    // Also register this scheduled run to be canceled, if an effect re-evaluates the condition sooner
+                    awaitingTask.scheduledTask = rewaitEntry
+                }
+            }
+        }
+    }
+
+    private fun <T> resetListeners(awaitingTask: AwaitingTask<T>) {
+        // Reset the cells we're listening to
+        listeningTasks.remove(awaitingTask)?.forEach { cellListeners[it]?.remove(awaitingTask) }
+        // TODO: for long-term performance, we may want to use a proper multi-map instead of map-to-sets
+        //   That way we won't accrue empty sets in the values over time
     }
 
     private fun <T> runTask(task: Task<T>, cellSet: CellSet) {
@@ -105,58 +169,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
             runTask(stepResult.continuation(cellSet[stepResult.cell].value), cellSet)
 
         fun runTaskAwait(stepResult: Await<T>) {
-            fun reset(rewaitTask: Task<T>) {
-                // Reset the cells we're listening to
-                listeningTasks.remove(rewaitTask)?.forEach { cellListeners[it]?.remove(rewaitTask) }
-                // TODO: for long-term performance, we may want to use a proper multi-map instead of map-to-sets
-                //   That way we won't accrue empty sets in the values over time
-                // Remove the task evaluation if it's there
-                conditionalTasks.remove(rewaitTask)?.let { tasks.remove(it) }
-            }
-
-            // Build a short-circuiting task to ensure we don't re-run the part of the task which produced the Await,
-            // we *just* reproduce that Await result
-            val rewaitTask = object: Task<T> by task {
-                override fun runStep(): Await<T> {
-                    // Remove all listeners before re-evaluating the condition so we don't double-listen
-                    reset(this)
-                    return stepResult
-                }
-            }
-
-            // Evaluate the condition
-            val (cellsRead, result) = evaluateCondition(stepResult.condition(), cellSet)
-
-            // Schedule listeners to re-evaluate condition
-            for (cell in cellsRead) {
-                cellListeners.getOrPut(cell) { mutableSetOf() } += rewaitTask
-            }
-            listeningTasks[rewaitTask] = cellsRead
-
-            when (result) {
-                is Condition.SatisfiedAt -> {
-                    // Add conditional task to resume the awaiting task when the condition is satisfied
-                    val continuationTask = object : Task<T> by stepResult.continuation {
-                        override fun runStep(): Task.TaskStepResult<T> {
-                            // Remove all listeners before continuing so we don't re-trigger the condition
-                            reset(rewaitTask)
-                            return stepResult.continuation.runStep()
-                        }
-                    }
-                    val continuationEntry = TaskEntry(time + result.time, continuationTask)
-                    tasks += continuationEntry
-                    conditionalTasks[rewaitTask] = continuationEntry
-                }
-                is Condition.UnsatisfiedUntil -> {
-                    if (result.time != null) {
-                        // Schedule the rewait task to re-evaluate the condition once this unsatisfied result expires
-                        val rewaitEntry = TaskEntry(time + result.time, rewaitTask)
-                        tasks += rewaitEntry
-                        // Also register this scheduled run to be canceled, if an effect re-evaluates the condition sooner
-                        conditionalTasks[rewaitTask] = rewaitEntry
-                    }
-                }
-            }
+            awaitingTasks += AwaitingTask(stepResult, task, this)
         }
 
         fun <V, E, T> runTaskEmit(step: Emit<V, E, T>) {
@@ -172,7 +185,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
         }
 
         fun <V, T> runTaskReport(step: Report<V, T>) {
-            reportHandler.handle(step.value, step.type)
+            reportHandler(step.value, step.type)
             runTask(step.continuation, cellSet)
         }
 
@@ -180,9 +193,9 @@ class SimulationState(private val reportHandler: ReportHandler) {
         //   These would restart from the beginning, as a way to limit incon size, rather than complete
         //   Maybe that can just be a special kind of Spawn step...
         //   A PureTaskStep called "Restart" becomes a TaskStepResult.Spawn that points back to the original Task
-        InternalLogger.startBlock("Continue ${task.id}...")
+        InternalLogger.startBlock { "Continue ${task.id}..." }
         val stepResult = task.runStep()
-        InternalLogger.log("... returns $stepResult")
+        InternalLogger.log { "... returns $stepResult" }
         when (stepResult) {
             is Complete -> Unit // Nothing to do
             is Delay -> addTask(stepResult.continuation, time + stepResult.time)
@@ -199,7 +212,8 @@ class SimulationState(private val reportHandler: ReportHandler) {
     }
 
     private fun evaluateCondition(condition: Condition, cellSet: CellSet): Pair<Set<CellHandle<*, *>>, ConditionResult> {
-        InternalLogger.log("Eval condition $condition")
+        ++SimulationStateDebug.conditionEvaluations
+        InternalLogger.log { "Eval condition $condition" }
         fun <V> evaluateRead(read: Condition.Read<V>) =
             with (evaluateCondition(read.continuation(cellSet[read.cell].value), cellSet)) { copy(first = first + read.cell) }
 
@@ -218,12 +232,12 @@ class SimulationState(private val reportHandler: ReportHandler) {
         }
         cells.save(finconCollector.within("cells"))
         val taskCollector = finconCollector.within("tasks")
-        // Conditional tasks are generated by awaiting tasks. We shouldn't restore them directly.
-        // Instead, we should restore the awaiting task, and it will generate the conditional task when it first runs.
-        val excludedTasks: Set<Task<*>> = conditionalTasks.mapTo(mutableSetOf()) { it.value.task }
+        // Tasks which are the scheduled re-evaluation or continuation of a condition should not be directly restored.
+        // Instead, we should restore the listening task, and it will generate the appropriate task when it first runs.
+        val excludedTasks: Set<TaskEntry> = listeningTasks.keys.mapNotNullTo(mutableSetOf()) { it.scheduledTask }
 
         val tasksToSave: List<TaskEntry> =
-            tasks.filter { it.task !in excludedTasks } + listeningTasks.keys.map { TaskEntry(time, it) }
+            tasks.filter { it !in excludedTasks } + listeningTasks.keys.map { TaskEntry(time, it.rewaitTask) }
 
         tasksToSave.forEach { (time, task) ->
             taskCollector.within(task.id.rootId.conditionKeys())

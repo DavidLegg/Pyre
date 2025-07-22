@@ -28,6 +28,7 @@ import gov.nasa.jpl.pyre.flame.plans.PlanSimulationTest.TestModel.*
 import gov.nasa.jpl.pyre.flame.tasks.await
 import gov.nasa.jpl.pyre.flame.tasks.delay
 import gov.nasa.jpl.pyre.flame.plans.ActivityActionsByContext.spawn
+import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.discardReports
 import gov.nasa.jpl.pyre.spark.reporting.register
 import gov.nasa.jpl.pyre.spark.reporting.report
 import gov.nasa.jpl.pyre.spark.resources.discrete.*
@@ -63,9 +64,7 @@ class PlanSimulationTest {
         assertDoesNotThrow {
             val epoch = Instant.parse("2020-01-01T00:00:00Z")
             val simulation = PlanSimulation.withoutIncon(
-                reportHandler = object : ReportHandler {
-                    override fun <T> handle(value: T, type: KType) {}
-                },
+                reportHandler = discardReports,
                 simulationStart = epoch,
                 simulationEpoch = epoch,
                 constructModel = ::EmptyModel,

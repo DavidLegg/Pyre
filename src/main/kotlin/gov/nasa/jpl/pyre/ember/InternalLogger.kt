@@ -9,8 +9,8 @@ object InternalLogger {
     private const val INDENT = "  "
     private var indentLevel = 0
 
-    fun log(msg: String) {
-        if (ENABLED) println(INDENT.repeat(indentLevel) + msg)
+    fun log(msg: () -> String) {
+        if (ENABLED) println(INDENT.repeat(indentLevel) + msg())
     }
 
     fun indent() {
@@ -21,17 +21,17 @@ object InternalLogger {
         indentLevel--
     }
 
-    fun startBlock(msg: String? = null) {
+    fun startBlock(msg: (() -> String)? = null) {
         msg?.let(::log)
         indent()
     }
 
-    fun endBlock(msg: String? = null) {
+    fun endBlock(msg: (() -> String)? = null) {
         unindent()
         msg?.let(::log)
     }
 
-    fun block(startMsg: String? = null, endMsg: String? = null, block: () -> Unit) {
+    fun block(startMsg: (() -> String)? = null, endMsg: (() -> String)? = null, block: () -> Unit) {
         startBlock(startMsg)
         block()
         endBlock(endMsg)

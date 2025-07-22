@@ -56,10 +56,8 @@ class SparkSimulationTest {
             // Build a simulation that'll write reports to memory
             val reports = mutableListOf<JsonElement>()
             val simulation = SimpleSimulation(SimulationSetup(
-                reportHandler = object : ReportHandler {
-                    override fun <T> handle(value: T, type: KType) {
-                        reports.add(Json.encodeToJsonElement(Json.serializersModule.serializer(type), value))
-                    }
+                reportHandler = { value, type ->
+                    reports.add(Json.encodeToJsonElement(Json.serializersModule.serializer(type), value))
                 },
                 inconProvider = incon?.let { Json.decodeJsonConditionsFromJsonElement(it) },
                 initialize = initialize,

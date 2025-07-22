@@ -1,19 +1,21 @@
 package gov.nasa.jpl.pyre.examples.orbit
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
+import gov.nasa.jpl.pyre.coals.andThen
 import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.toFile
 import gov.nasa.jpl.pyre.ember.Serialization.alias
+import gov.nasa.jpl.pyre.ember.SimulationStateDebug
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
 import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
 import gov.nasa.jpl.pyre.flame.reporting.CSVReportHandler
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channelHandler
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channels
-import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.reportTo
+import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.reportAllTo
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.split
+import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.streamReportHandler
 import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad.map
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.builtins.serializer
@@ -70,6 +72,33 @@ fun main(args: Array<String>) {
     requireNotNull(endTime) { "End time (-e) is required" }
     finconFile = finconFile?.let { Path(it, "EarthOrbit-${endTime}.json").toString() }
 
+    // Basic JSON output:
+    /*
+    outputStream.use { outputStream ->
+        val outputHandler = streamReportHandler(outputStream, jsonFormat)
+
+        val simulation = if (inconFile == null) {
+            println("Starting without incon file")
+            val epoch = Instant.parse("2020-01-01T00:00:00Z")
+            PlanSimulation.withoutIncon(outputHandler, epoch, epoch, ::EarthOrbit)
+        } else {
+            println("Starting from initial conditions file $inconFile")
+            val incon = JsonConditions.fromFile(inconFile, jsonFormat)
+            PlanSimulation.withIncon(outputHandler, incon, ::EarthOrbit)
+        }
+
+        simulation.runUntil(endTime)
+
+        if (finconFile != null) {
+            println("Writing final conditions file $finconFile")
+            JsonConditions(jsonFormat)
+                .also(simulation::save)
+                .toFile(finconFile)
+        }
+    }
+     */
+
+    // Filtered CSV output:
     outputStream.use { outputStream ->
         CSVReportHandler(
             listOf(
@@ -83,13 +112,13 @@ fun main(args: Array<String>) {
             outputStream,
             jsonFormat,
         ).use { csvHandler ->
-            val vectorHandler = channelHandler<Discrete<Vector>> {
+            val vectorHandler = channelHandler<Discrete<Vector>>(
                 split(
                     map(Vector::x) to { "$it.x" },
                     map(Vector::y) to { "$it.y" },
                     map(Vector::z) to { "$it.z" },
-                ).reportTo(csvHandler)
-            }
+                ) andThen reportAllTo(csvHandler)
+            )
             val outputHandler = channels(
                 "earth_position" to vectorHandler,
                 "moon_position" to vectorHandler,
@@ -113,6 +142,8 @@ fun main(args: Array<String>) {
                     .also(simulation::save)
                     .toFile(finconFile)
             }
+
+            println("Condition evaluations: ${SimulationStateDebug.conditionEvaluations}")
         }
     }
 }

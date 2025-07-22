@@ -85,7 +85,7 @@ class PlanSimulation<M> {
             spawn("activities", whenever(activityResource notEquals null) {
                 val groundedActivity = requireNotNull(activityResource.getValue())
                 activityResource.set(null)
-                InternalLogger.log("Scheduling activity ${groundedActivity.name} @ ${groundedActivity.time}")
+                InternalLogger.log { "Scheduling activity ${groundedActivity.name} @ ${groundedActivity.time}" }
                 spawn(groundedActivity, model)
             })
         }
@@ -104,7 +104,7 @@ class PlanSimulation<M> {
         var SIMULATION_STALL_LIMIT: Int = 100
 
         inline fun <reified M> withIncon(
-            reportHandler: ReportHandler,
+            noinline reportHandler: ReportHandler,
             inconProvider: InconProvider,
             noinline constructModel: SparkInitContext.() -> M,
         ) = withIncon(
@@ -129,7 +129,7 @@ class PlanSimulation<M> {
         )
 
         inline fun <reified M> withoutIncon(
-            reportHandler: ReportHandler,
+            noinline reportHandler: ReportHandler,
             simulationEpoch: Instant,
             simulationStart: Instant,
             noinline constructModel: SparkInitContext.() -> M,
@@ -182,7 +182,7 @@ class PlanSimulation<M> {
     }
 
     fun addActivities(activities: List<GroundedActivity<M>>) {
-        InternalLogger.block("Loading ${activities.size} activities") {
+        InternalLogger.block({ "Loading ${activities.size} activities" }) {
             // TODO: Test this activityDirective trickery
             // TODO: If it works, consider formalizing it a bit more as a way to "safely" ingest info into the sim.
             val activitiesToLoad = activities.toMutableList()
@@ -205,7 +205,7 @@ class PlanSimulation<M> {
                 } else {
                     await(activityResource equals null)
                     val a = activitiesToLoad.removeFirst()
-                    InternalLogger.log("Loading activity ${a.name} @ ${a.time}")
+                    InternalLogger.log { "Loading activity ${a.name} @ ${a.time}" }
                     activityResource.set(a)
                     TaskScopeResult.Restart()
                 }
@@ -214,11 +214,11 @@ class PlanSimulation<M> {
             // Now, actually load the plan by cycling the simulation without advancing it.
             while (activityLoaderActive) state.stepTo(state.time())
         }
-        InternalLogger.log("Finished loading ${activities.size} activities")
+        InternalLogger.log { "Finished loading ${activities.size} activities" }
     }
 
     fun runPlan(plan: Plan<M>) {
-        InternalLogger.block("Running plan ${plan.name}") {
+        InternalLogger.block({ "Running plan ${plan.name}" }) {
             val absoluteSimulationTime = simulationEpoch + state.time().toKotlinDuration()
             require(plan.startTime == absoluteSimulationTime) {
                 "Cannot run plan starting at ${plan.startTime}. Simulation is at $absoluteSimulationTime"

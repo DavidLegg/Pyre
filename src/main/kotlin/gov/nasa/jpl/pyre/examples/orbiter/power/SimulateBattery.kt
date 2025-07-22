@@ -6,7 +6,7 @@ import gov.nasa.jpl.pyre.flame.plans.Plan
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
 import gov.nasa.jpl.pyre.flame.plans.activity
 import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
-import gov.nasa.jpl.pyre.flame.reporting.StreamReportHandler
+import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.streamReportHandler
 import gov.nasa.jpl.pyre.flame.tasks.subContext
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
@@ -33,7 +33,7 @@ fun main(args: Array<String>) {
     val plan: Plan<StandaloneBatteryModel> = jsonFormat.decodeFromStream(FileInputStream(planFile))
 
     val simulation = PlanSimulation.withoutIncon(
-        StreamReportHandler(),
+        streamReportHandler(),
         plan.startTime,
         plan.startTime,
         ::StandaloneBatteryModel,
