@@ -4,6 +4,11 @@ import gov.nasa.jpl.pyre.coals.Reflection.withArg
 import gov.nasa.jpl.pyre.coals.andThen
 import gov.nasa.jpl.pyre.ember.ReportHandler
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream

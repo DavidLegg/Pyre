@@ -14,10 +14,6 @@ import kotlin.reflect.KType
 
 typealias ReportHandler = (Any?, KType) -> Unit
 
-object SimulationStateDebug {
-    var conditionEvaluations = 0
-}
-
 class SimulationState(private val reportHandler: ReportHandler) {
     private data class TaskEntry(val time: Duration, val task: Task<*>)
 
@@ -212,7 +208,6 @@ class SimulationState(private val reportHandler: ReportHandler) {
     }
 
     private fun evaluateCondition(condition: Condition, cellSet: CellSet): Pair<Set<CellHandle<*, *>>, ConditionResult> {
-        ++SimulationStateDebug.conditionEvaluations
         InternalLogger.log { "Eval condition $condition" }
         fun <V> evaluateRead(read: Condition.Read<V>) =
             with (evaluateCondition(read.continuation(cellSet[read.cell].value), cellSet)) { copy(first = first + read.cell) }
