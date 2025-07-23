@@ -44,6 +44,7 @@ operator fun Expiry.plus(other: Duration) = Expiry(this.time?.plus(other))
 operator fun Expiry.minus(other: Duration) = Expiry(this.time?.minus(other))
 infix fun Expiry.or(other: Expiry) = minOf(this, other)
 
+@Suppress("NOTHING_TO_INLINE")
 object ExpiringMonad {
     inline fun <A> pure(a: A): Expiring<A> = Expiring(a, NEVER)
     inline fun <A, B> apply(a: Expiring<A>, f: Expiring<(A) -> B>) =

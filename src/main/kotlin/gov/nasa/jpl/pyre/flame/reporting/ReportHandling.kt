@@ -4,11 +4,6 @@ import gov.nasa.jpl.pyre.coals.Reflection.withArg
 import gov.nasa.jpl.pyre.coals.andThen
 import gov.nasa.jpl.pyre.ember.ReportHandler
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
@@ -62,6 +57,7 @@ object ReportHandling {
             require(type == reportType) {
                 "Expected report type $reportType, was $type"
             }
+            @Suppress("UNCHECKED_CAST")
             block(TypedChannelReport(value as ChannelizedReport<T>, type))
         }
     }
@@ -79,9 +75,6 @@ object ReportHandling {
 
     inline fun <T, reified S> map(noinline f: (T) -> S) = map(typeOf<S>(), f)
 
-    fun <T> rename(name: String): TypedChannelReportProcessor<T, T> = {
-        TypedChannelReport(it.report.copy(channel = name), it.type)
-    }
     fun <T> rename(nameFn: (String) -> String): TypedChannelReportProcessor<T, T> = {
         TypedChannelReport(it.report.copy(channel = nameFn(it.report.channel)), it.type)
     }

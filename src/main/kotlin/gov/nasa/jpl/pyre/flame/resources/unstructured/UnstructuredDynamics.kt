@@ -28,6 +28,7 @@ interface Unstructured<A> : Dynamics<A, Unstructured<A>> {
 typealias UnstructuredResource<A> = Resource<Unstructured<A>>
 typealias MutableUnstructuredResource<A> = MutableResource<Unstructured<A>>
 
+@Suppress("NOTHING_TO_INLINE")
 object UnstructuredMonad {
     inline fun <A> pure(a: A): Unstructured<A> = Unstructured.of { a }
     inline fun <A, B> apply(a: Unstructured<A>, fn: Unstructured<(A) -> B>): Unstructured<B> = Unstructured.of { fn.step(it).value()(a.step(it).value()) }
@@ -99,6 +100,7 @@ object UnstructuredMonad {
     inline fun <A, B, C, D, E, F, G, H, I, J, K> bind(a: Unstructured<A>, b: Unstructured<B>, c: Unstructured<C>, d: Unstructured<D>, e: Unstructured<E>, f: Unstructured<F>, g: Unstructured<G>, h: Unstructured<H>, i: Unstructured<I>, j: Unstructured<J>, crossinline fn: (A) -> (B) -> (C) -> (D) -> (E) -> (F) -> (G) -> (H) -> (I) -> (J) -> Unstructured<K>): Unstructured<K> = join(map(a, b, c, d, e, f, g, h, i, j, fn))
 }
 
+@Suppress("NOTHING_TO_INLINE")
 object UnstructuredDynamicsApplicative {
     inline fun <A> pure(a: A): FullDynamics<Unstructured<A>> = DynamicsMonad.pure(UnstructuredMonad.pure(a))
     inline fun <A, B> apply(a: FullDynamics<Unstructured<A>>, fn: FullDynamics<Unstructured<(A) -> B>>): FullDynamics<Unstructured<B>> =
@@ -144,6 +146,7 @@ object UnstructuredDynamicsApplicative {
     inline fun <A, B, C, D, E, F, G, H, I, J, K> map(a: FullDynamics<Unstructured<A>>, b: FullDynamics<Unstructured<B>>, c: FullDynamics<Unstructured<C>>, d: FullDynamics<Unstructured<D>>, e: FullDynamics<Unstructured<E>>, f: FullDynamics<Unstructured<F>>, g: FullDynamics<Unstructured<G>>, h: FullDynamics<Unstructured<H>>, i: FullDynamics<Unstructured<I>>, j: FullDynamics<Unstructured<J>>, crossinline fn: (A) -> (B) -> (C) -> (D) -> (E) -> (F) -> (G) -> (H) -> (I) -> (J) -> K): FullDynamics<Unstructured<K>> = apply(j, map(a, b, c, d, e, f, g, h, i, fn))
 }
 
+@Suppress("NOTHING_TO_INLINE")
 object UnstructuredResourceApplicative {
     inline fun <A> pure(a: A): UnstructuredResource<A> = ResourceMonad.pure(UnstructuredMonad.pure(a)) named a::toString
     inline fun <A, B> apply(a: UnstructuredResource<A>, fn: UnstructuredResource<(A) -> B>): UnstructuredResource<B> =

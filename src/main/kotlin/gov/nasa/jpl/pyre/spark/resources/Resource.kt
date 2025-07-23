@@ -1,9 +1,6 @@
 package gov.nasa.jpl.pyre.spark.resources
 
 import gov.nasa.jpl.pyre.coals.curry
-import gov.nasa.jpl.pyre.coals.suspend
-import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad
 import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
 
 fun interface ThinResource<D> {
@@ -29,6 +26,7 @@ infix fun <D> Resource<D>.named(nameFn: () -> String) = object : Resource<D> by 
  * Monads
  */
 
+@Suppress("NOTHING_TO_INLINE")
 object ThinResourceMonad {
     inline fun<A> pure(a: A): ThinResource<A> = ThinResource { a }
     inline fun<A, B> apply(a: ThinResource<A>, fn: ThinResource<(A) -> B>): ThinResource<B> =
@@ -103,6 +101,7 @@ object ThinResourceMonad {
 
 val DynamicsMonad = ExpiringMonad
 
+@Suppress("NOTHING_TO_INLINE")
 object ResourceMonad {
     inline fun<A> pure(a: A): Resource<A> = ThinResourceMonad.pure(DynamicsMonad.pure(a))
     inline fun<A, B> apply(a: Resource<A>, fn: Resource<(A) -> B>): Resource<B> =

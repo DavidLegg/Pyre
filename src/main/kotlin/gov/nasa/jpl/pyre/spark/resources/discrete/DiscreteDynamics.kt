@@ -30,6 +30,7 @@ data class Discrete<A>(val value: A) : Dynamics<A, Discrete<A>> {
 typealias DiscreteResource<V> = Resource<Discrete<V>>
 typealias MutableDiscreteResource<V> = MutableResource<Discrete<V>>
 
+@Suppress("NOTHING_TO_INLINE")
 object DiscreteMonad {
     inline fun <A> pure(a: A): Discrete<A> = Discrete(a)
     inline fun <A, B> apply(a: Discrete<A>, fn: Discrete<(A) -> B>): Discrete<B> = Discrete(fn.value(a.value))
@@ -100,6 +101,7 @@ object DiscreteMonad {
     inline fun <A, B, C, D, E, F, G, H, I, J, K> bind(a: Discrete<A>, b: Discrete<B>, c: Discrete<C>, d: Discrete<D>, e: Discrete<E>, f: Discrete<F>, g: Discrete<G>, h: Discrete<H>, i: Discrete<I>, j: Discrete<J>, crossinline fn: (A) -> (B) -> (C) -> (D) -> (E) -> (F) -> (G) -> (H) -> (I) -> (J) -> Discrete<K>): Discrete<K> = join(map(a, b, c, d, e, f, g, h, i, j, fn))
 }
 
+@Suppress("NOTHING_TO_INLINE")
 object DiscreteDynamicsMonad {
     inline fun <A> pure(a: A): FullDynamics<Discrete<A>> = DynamicsMonad.pure(DiscreteMonad.pure(a))
     inline fun <A, B> apply(a: FullDynamics<Discrete<A>>, fn: FullDynamics<Discrete<(A) -> B>>): FullDynamics<Discrete<B>> =
@@ -166,7 +168,7 @@ object DiscreteDynamicsMonad {
     inline fun <A, B, C, D, E, F, G, H> bind(a: FullDynamics<Discrete<A>>, b: FullDynamics<Discrete<B>>, c: FullDynamics<Discrete<C>>, d: FullDynamics<Discrete<D>>, e: FullDynamics<Discrete<E>>, f: FullDynamics<Discrete<F>>, g: FullDynamics<Discrete<G>>, crossinline fn: (A) -> (B) -> (C) -> (D) -> (E) -> (F) -> (G) -> FullDynamics<Discrete<H>>): FullDynamics<Discrete<H>> = join(map(a, b, c, d, e, f, g, fn))
     inline fun <A, B, C, D, E, F, G, H, I> bind(crossinline fn: (A, B, C, D, E, F, G, H) -> FullDynamics<Discrete<I>>): (FullDynamics<Discrete<A>>, FullDynamics<Discrete<B>>, FullDynamics<Discrete<C>>, FullDynamics<Discrete<D>>, FullDynamics<Discrete<E>>, FullDynamics<Discrete<F>>, FullDynamics<Discrete<G>>, FullDynamics<Discrete<H>>) -> FullDynamics<Discrete<I>> = { a, b, c, d, e, f, g, h -> bind(a, b, c, d, e, f, g, h, fn) }
     inline fun <A, B, C, D, E, F, G, H, I> bind(a: FullDynamics<Discrete<A>>, b: FullDynamics<Discrete<B>>, c: FullDynamics<Discrete<C>>, d: FullDynamics<Discrete<D>>, e: FullDynamics<Discrete<E>>, f: FullDynamics<Discrete<F>>, g: FullDynamics<Discrete<G>>, h: FullDynamics<Discrete<H>>, crossinline fn: (A, B, C, D, E, F, G, H) -> FullDynamics<Discrete<I>>): FullDynamics<Discrete<I>> = bind(a, b, c, d, e, f, g, h, curry(fn))
-    inline fun <A, B, C, D, E, F, G, H, I> bind(a: FullDynamics<Discrete<A>>, b: FullDynamics<Discrete<B>>, c: FullDynamics<Discrete<C>>, d: FullDynamics<Discrete<D>>, e: FullDynamics<Discrete<E>>, f: FullDynamics<Discrete<F>>, g: FullDynamics<Discrete<G>>, h: FullDynamics<Discrete<H>>, crossinline fn: (A) -> (B) -> (C) -> (D) -> (E) -> (F) -> (G) -> (H) -> FullDynamics<Discrete<I>>): gov.nasa.jpl.pyre.spark.resources.FullDynamics<gov.nasa.jpl.pyre.spark.resources.discrete.Discrete<I>> = join(map(a, b, c, d, e, f, g, h, fn))
+    inline fun <A, B, C, D, E, F, G, H, I> bind(a: FullDynamics<Discrete<A>>, b: FullDynamics<Discrete<B>>, c: FullDynamics<Discrete<C>>, d: FullDynamics<Discrete<D>>, e: FullDynamics<Discrete<E>>, f: FullDynamics<Discrete<F>>, g: FullDynamics<Discrete<G>>, h: FullDynamics<Discrete<H>>, crossinline fn: (A) -> (B) -> (C) -> (D) -> (E) -> (F) -> (G) -> (H) -> FullDynamics<Discrete<I>>): FullDynamics<Discrete<I>> = join(map(a, b, c, d, e, f, g, h, fn))
     inline fun <A, B, C, D, E, F, G, H, I, J> bind(crossinline fn: (A, B, C, D, E, F, G, H, I) -> FullDynamics<Discrete<J>>): (FullDynamics<Discrete<A>>, FullDynamics<Discrete<B>>, FullDynamics<Discrete<C>>, FullDynamics<Discrete<D>>, FullDynamics<Discrete<E>>, FullDynamics<Discrete<F>>, FullDynamics<Discrete<G>>, FullDynamics<Discrete<H>>, FullDynamics<Discrete<I>>) -> FullDynamics<Discrete<J>> = { a, b, c, d, e, f, g, h, i -> bind(a, b, c, d, e, f, g, h, i, fn) }
     inline fun <A, B, C, D, E, F, G, H, I, J> bind(a: FullDynamics<Discrete<A>>, b: FullDynamics<Discrete<B>>, c: FullDynamics<Discrete<C>>, d: FullDynamics<Discrete<D>>, e: FullDynamics<Discrete<E>>, f: FullDynamics<Discrete<F>>, g: FullDynamics<Discrete<G>>, h: FullDynamics<Discrete<H>>, i: FullDynamics<Discrete<I>>, crossinline fn: (A, B, C, D, E, F, G, H, I) -> FullDynamics<Discrete<J>>): FullDynamics<Discrete<J>> = bind(a, b, c, d, e, f, g, h, i, curry(fn))
     inline fun <A, B, C, D, E, F, G, H, I, J> bind(a: FullDynamics<Discrete<A>>, b: FullDynamics<Discrete<B>>, c: FullDynamics<Discrete<C>>, d: FullDynamics<Discrete<D>>, e: FullDynamics<Discrete<E>>, f: FullDynamics<Discrete<F>>, g: FullDynamics<Discrete<G>>, h: FullDynamics<Discrete<H>>, i: FullDynamics<Discrete<I>>, crossinline fn: (A) -> (B) -> (C) -> (D) -> (E) -> (F) -> (G) -> (H) -> (I) -> FullDynamics<Discrete<J>>): FullDynamics<Discrete<J>> = join(map(a, b, c, d, e, f, g, h, i, fn))
@@ -175,6 +177,7 @@ object DiscreteDynamicsMonad {
     inline fun <A, B, C, D, E, F, G, H, I, J, K> bind(a: FullDynamics<Discrete<A>>, b: FullDynamics<Discrete<B>>, c: FullDynamics<Discrete<C>>, d: FullDynamics<Discrete<D>>, e: FullDynamics<Discrete<E>>, f: FullDynamics<Discrete<F>>, g: FullDynamics<Discrete<G>>, h: FullDynamics<Discrete<H>>, i: FullDynamics<Discrete<I>>, j: FullDynamics<Discrete<J>>, crossinline fn: (A) -> (B) -> (C) -> (D) -> (E) -> (F) -> (G) -> (H) -> (I) -> (J) -> FullDynamics<Discrete<K>>): FullDynamics<Discrete<K>> = join(map(a, b, c, d, e, f, g, h, i, j, fn))
 }
 
+@Suppress("NOTHING_TO_INLINE")
 object DiscreteResourceMonad {
     inline fun <A> pure(a: A): DiscreteResource<A> = ResourceMonad.pure(DiscreteMonad.pure(a)) named { a.toString() }
     inline fun <A, B> apply(a: DiscreteResource<A>, fn: DiscreteResource<(A) -> B>): DiscreteResource<B> =
