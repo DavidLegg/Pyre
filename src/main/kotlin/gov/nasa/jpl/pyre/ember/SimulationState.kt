@@ -98,7 +98,9 @@ class SimulationState(private val reportHandler: ReportHandler) {
         InternalLogger.block({ "Start batch" }, { "End batch" }) {
             // For each task, split the cells so that task operates on an isolated state.
             val cellSetBranches = tasks.map { task ->
-                cells.split().also { runTask(task, it) }
+                InternalLogger.block({ "Resume ${task.id.rootId}" }) {
+                    cells.split().also { runTask(task, it) }
+                }
             }
             // Finally join those branched states back into the trunk state.
             cells = CellSet.join(cellSetBranches)
@@ -119,35 +121,37 @@ class SimulationState(private val reportHandler: ReportHandler) {
     }
 
     private fun <T> evaluateAwaitingTask(awaitingTask: AwaitingTask<T>) {
-        // Reset any listeners from prior evaluations
-        resetListeners(awaitingTask)
+        InternalLogger.block({ "Evaluating ${awaitingTask.await.condition}" }) {
+            // Reset any listeners from prior evaluations
+            resetListeners(awaitingTask)
 
-        // Remove the scheduled rewait or continuation, if it's there.
-        awaitingTask.scheduledTask?.let(tasks::remove)
+            // Remove the scheduled rewait or continuation, if it's there.
+            awaitingTask.scheduledTask?.let(tasks::remove)
 
-        // Evaluate the condition
-        val (cellsRead, result) = evaluateCondition(awaitingTask.await.condition(), cells)
+            // Evaluate the condition
+            val (cellsRead, result) = evaluateCondition(awaitingTask.await.condition(), cells)
 
-        // Schedule listeners to re-evaluate condition if cells change
-        for (cell in cellsRead) {
-            cellListeners.getOrPut(cell) { mutableSetOf() } += awaitingTask
-        }
-        listeningTasks[awaitingTask] = cellsRead
-
-        when (result) {
-            is Condition.SatisfiedAt -> {
-                // Add conditional task to resume the awaiting task when the condition is satisfied
-                val continuationEntry = TaskEntry(time + result.time, awaitingTask.continuationTask)
-                tasks += continuationEntry
-                awaitingTask.scheduledTask = continuationEntry
+            // Schedule listeners to re-evaluate condition if cells change
+            for (cell in cellsRead) {
+                cellListeners.getOrPut(cell) { mutableSetOf() } += awaitingTask
             }
-            is Condition.UnsatisfiedUntil -> {
-                if (result.time != null) {
-                    // Schedule the rewait task to re-evaluate the condition once this unsatisfied result expires
-                    val rewaitEntry = TaskEntry(time + result.time, awaitingTask.rewaitTask)
-                    tasks += rewaitEntry
-                    // Also register this scheduled run to be canceled, if an effect re-evaluates the condition sooner
-                    awaitingTask.scheduledTask = rewaitEntry
+            listeningTasks[awaitingTask] = cellsRead
+
+            when (result) {
+                is Condition.SatisfiedAt -> {
+                    // Add conditional task to resume the awaiting task when the condition is satisfied
+                    val continuationEntry = TaskEntry(time + result.time, awaitingTask.continuationTask)
+                    tasks += continuationEntry
+                    awaitingTask.scheduledTask = continuationEntry
+                }
+                is Condition.UnsatisfiedUntil -> {
+                    if (result.time != null) {
+                        // Schedule the rewait task to re-evaluate the condition once this unsatisfied result expires
+                        val rewaitEntry = TaskEntry(time + result.time, awaitingTask.rewaitTask)
+                        tasks += rewaitEntry
+                        // Also register this scheduled run to be canceled, if an effect re-evaluates the condition sooner
+                        awaitingTask.scheduledTask = rewaitEntry
+                    }
                 }
             }
         }
@@ -185,13 +189,9 @@ class SimulationState(private val reportHandler: ReportHandler) {
             runTask(step.continuation, cellSet)
         }
 
-        // TODO: Think about how to support looping / restarting tasks...
-        //   These would restart from the beginning, as a way to limit incon size, rather than complete
-        //   Maybe that can just be a special kind of Spawn step...
-        //   A PureTaskStep called "Restart" becomes a TaskStepResult.Spawn that points back to the original Task
-        InternalLogger.startBlock { "Continue ${task.id}..." }
-        val stepResult = task.runStep()
-        InternalLogger.log { "... returns $stepResult" }
+        val stepResult = InternalLogger.block({ "Run ${task.id} ..." }, { "... returns $it" }) {
+            task.runStep()
+        }
         when (stepResult) {
             is Complete -> Unit // Nothing to do
             is Delay -> addTask(stepResult.continuation, time + stepResult.time)
@@ -203,12 +203,12 @@ class SimulationState(private val reportHandler: ReportHandler) {
                 addTask(stepResult.child, time)
                 runTask(stepResult.continuation, cellSet)
             }
+            is NoOp -> runTask(stepResult.continuation, cellSet)
         }
-        InternalLogger.endBlock()
     }
 
     private fun evaluateCondition(condition: Condition, cellSet: CellSet): Pair<Set<CellHandle<*, *>>, ConditionResult> {
-        InternalLogger.log { "Eval condition $condition" }
+        InternalLogger.log { "Eval $condition" }
         fun <V> evaluateRead(read: Condition.Read<V>) =
             with (evaluateCondition(read.continuation(cellSet[read.cell].value), cellSet)) { copy(first = first + read.cell) }
 

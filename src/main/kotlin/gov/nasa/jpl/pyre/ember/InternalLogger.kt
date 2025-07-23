@@ -31,9 +31,10 @@ object InternalLogger {
         msg?.let(::log)
     }
 
-    fun block(startMsg: (() -> String)? = null, endMsg: (() -> String)? = null, block: () -> Unit) {
+    fun <R> block(startMsg: (() -> String)? = null, endMsg: ((R) -> String)? = null, block: () -> R): R {
         startBlock(startMsg)
-        block()
-        endBlock(endMsg)
+        val result = block()
+        endBlock(endMsg?.let { { it(result) } })
+        return result
     }
 }

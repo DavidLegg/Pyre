@@ -10,28 +10,9 @@ import gov.nasa.jpl.pyre.ember.PureTask.TaskHistoryStep.*
 import gov.nasa.jpl.pyre.ember.Task.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonElement
 import kotlin.reflect.KType
 
 typealias PureTaskStep<T> = () -> PureStepResult<T>
-
-/*
-    TODO: Consider ways to refactor Task history collection and restoration.
-
-    Right now, task history is built up in a callback as the task runs, and serialized in two passes.
-    The first pass serializes the read values, and the second pass the full task history.
-    Conversely, task restoration first deserializes the task history, then the read values.
-
-    This works, but it requires some ugly warts on the incon/fincon interfaces.
-
-    Consider a different approach, where a task can serialize its history in a single pass, by using ReadMarker<V>
-    with the actual (not serialized to JsonElement) value in it.
-    Then, consider a custom task deserializer, or else an incremental deserialize method for InconProvider, inverse to `accrue` for FinconCollector.
-
-    In fact, perhaps these incremental incon/fincon methods could be utility interfaces on top of the basic incon/fincon interfaces...
-    Something where you incrementally report to the incremental interface, which does a single final report to the base interface?
-    Then they could be written as just an extension method on the interfaces, and JsonCondition could be simplified.
- */
 
 /**
  * A Task is a unit of action in the simulation.
@@ -144,6 +125,16 @@ interface Task<T> {
         data class Spawn<S, T>(val child: Task<S>, val continuation: Task<T>) : TaskStepResult<T> {
             override fun toString() = "Spawn($child)"
         }
+        // NoOp's are stand-ins for steps without special handling by the engine, which can't be eliminated entirely.
+        // The motivating use case here is restarting a task that immediately awaits.
+        // When saving the awaiting task, we save the history for the task step before the await.
+        // If the restart is boiled out completely, that's the full history for the last iteration.
+        // If the restart instead becomes a NoOp, that NoOp can yield an empty history, keeping the fincon files clean.
+        // In particular, for any PlanSimulation, the activity loader immediately awaits the next activity to load.
+        // Without the NoOp, it always saves the last activity it loaded instead of saving an empty history.
+        data class NoOp<T>(val continuation: Task<T>) : TaskStepResult<T> {
+            override fun toString() = "NoOp"
+        }
     }
 
     companion object {
@@ -181,7 +172,7 @@ private class PureTask<T>(
                 PureTask(id.nextStep(), stepResult.continuation, { saveData(); report<TaskHistoryStep>(AwaitMarker) }, rootTask)
             )
             is PureStepResult.Spawn<*, T> -> runSpawn(stepResult)
-            is PureStepResult.Restart -> rootTask.runStep()
+            is PureStepResult.Restart -> TaskStepResult.NoOp(rootTask)
         }
     }
 
@@ -255,6 +246,9 @@ private class PureTask<T>(
                         SpawnMarkerBranch.Child -> requireNotNull((child as PureTask<*>).restoreSingle(inconProvider))
                     }
                 }
+                is TaskStepResult.NoOp<T> ->
+                    // NoOp's don't contribute to task history themselves, just keep restoring with the next step
+                    (continuation as PureTask<T>).restoreSingle(inconProvider)
             }
         }
     }
