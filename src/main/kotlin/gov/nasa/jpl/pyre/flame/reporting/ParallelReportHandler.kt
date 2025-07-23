@@ -3,7 +3,6 @@ package gov.nasa.jpl.pyre.flame.reporting
 import gov.nasa.jpl.pyre.ember.ReportHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -19,8 +18,7 @@ class ParallelReportHandler private constructor(
 ) : ReportHandler, AutoCloseable {
     private val channel = Channel<Pair<Any?, KType>>(Channel.BUFFERED)
     private val job = scope.launch(Dispatchers.IO) {
-        while (true) {
-            val (value, type) = channel.receive()
+        for ((value, type) in channel) {
             handler(value, type)
         }
     }
@@ -33,7 +31,10 @@ class ParallelReportHandler private constructor(
 
     override fun close() {
         runBlocking {
-            job.cancelAndJoin()
+            // Close the channel to signal end-of-data to the reporter
+            channel.close()
+            // Join the reporter to await it reporting all remaining data in the channel
+            job.join()
         }
     }
 

@@ -2,6 +2,8 @@ package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.toFile
+import gov.nasa.jpl.pyre.ember.ReportHandler
+import gov.nasa.jpl.pyre.flame.plans.CloseableReportHandler.Companion.closeable
 import gov.nasa.jpl.pyre.flame.reporting.ParallelReportHandler.Companion.inParallel
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.streamReportHandler
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
@@ -29,6 +31,16 @@ data class StandardPlanSimulationSetup<M>(
     val outputFile: String? = null,
 )
 
+interface CloseableReportHandler : ReportHandler, AutoCloseable {
+    companion object {
+        /**
+         * Add close behavior to a report handler.
+         */
+        fun ReportHandler.closeable(closeAction: () -> Unit = {}): CloseableReportHandler =
+            object : CloseableReportHandler, ReportHandler by this, AutoCloseable by AutoCloseable(closeAction) {}
+    }
+}
+
 /**
  * Baseline way to set up and run a [PlanSimulation].
  *
@@ -36,15 +48,30 @@ data class StandardPlanSimulationSetup<M>(
  * The setup file indicates a plan and (optionally) an incon, as paths relative to the location of the setup file.
  * The setup file also optionally indicates an output file and fincon file, also as paths relative to the location of the setup file.
  * If no output file is requested, output is written to stdout.
- * Output is written in JSON Lines format (see https://jsonlines.org/) for easy processing by other tools.
  *
  * Missions looking to deviate from this baseline should copy this function and modify it to suit their needs.
+ *
+ * @param setupFile
+ * The path of the [StandardPlanSimulationSetup] file, relative to the working directory.
+ *
+ * @param constructModel
+ * Model constructor, usually the constructor method of a top-level model class.
+ *
+ * @param jsonFormat
+ * The [Json] format to use everywhere, including plan deserialization, reports, and incon/fincon handling.
+ *
+ * @param buildReportHandler
+ * Given the output stream to write to, constructs a [ReportHandler] and gives it to the callback.
+ * Defaults to using [streamReportHandler], writing the output in JSON Lines format.
+ * The callback pattern permits [AutoCloseable] report handlers, which may call the callback inside [AutoCloseable.use].
  */
 @OptIn(ExperimentalSerializationApi::class)
 inline fun <reified M> runStandardPlanSimulation(
     setupFile: String,
     noinline constructModel: SparkInitContext.() -> M,
     jsonFormat: Json = Json,
+    buildReportHandler: (OutputStream) -> CloseableReportHandler =
+        { streamReportHandler(it, jsonFormat).closeable() },
 ) {
     val setupPath = Path(setupFile).absolute()
     val setup = setupPath.inputStream().use {
@@ -70,39 +97,43 @@ inline fun <reified M> runStandardPlanSimulation(
         jsonFormat.decodeFromStream<Plan<M>>(it)
     }
     outputStream.use { out ->
-        runBlocking {
-            // Write output in parallel with simulation
-            streamReportHandler(out, jsonFormat).inParallel { reportHandler ->
-                // Initialize the simulation from an incon, if available.
-                val simulation = if (setup.inconFile == null) {
-                    println("No initial conditions given")
-                    PlanSimulation.withoutIncon<M>(
-                        reportHandler,
-                        plan.startTime,
-                        plan.startTime,
-                        constructModel
-                    )
-                } else {
-                    val inconPath = setupPath.resolveSibling(setup.inconFile)
-                    println("Reading initial conditions $inconPath")
-                    PlanSimulation.withIncon<M>(
-                        reportHandler,
-                        JsonConditions.fromFile(inconPath, jsonFormat),
-                        constructModel
-                    )
-                }
+        buildReportHandler(out).use { baseReportHandler ->
+            runBlocking {
+                // Write output in parallel with simulation
+                baseReportHandler.inParallel { reportHandler ->
+                    // Initialize the simulation from an incon, if available.
+                    val simulation = if (setup.inconFile == null) {
+                        println("No initial conditions given")
+                        PlanSimulation.withoutIncon<M>(
+                            reportHandler,
+                            plan.startTime,
+                            plan.startTime,
+                            constructModel
+                        )
+                    } else {
+                        val inconPath = setupPath.resolveSibling(setup.inconFile)
+                        println("Reading initial conditions $inconPath")
+                        PlanSimulation.withIncon<M>(
+                            reportHandler,
+                            JsonConditions.fromFile(inconPath, jsonFormat),
+                            constructModel
+                        )
+                    }
 
-                // Run the plan itself
-                println("Running plan")
-                simulation.runPlan(plan)
+                    // Run the plan itself
+                    println("Running plan")
+                    simulation.runPlan(plan)
 
-                // Write a fincon if requested
-                setup.finconFile?.let {
-                    val finconPath = setupPath.resolveSibling(it)
-                    println("Writing final conditions to $finconPath")
-                    JsonConditions(jsonFormat)
-                        .also(simulation::save)
-                        .toFile(finconPath)
+                    // Write a fincon if requested
+                    if (setup.finconFile != null) {
+                        val finconPath = setupPath.resolveSibling(setup.finconFile)
+                        println("Writing final conditions to $finconPath")
+                        JsonConditions(jsonFormat)
+                            .also(simulation::save)
+                            .toFile(finconPath)
+                    } else {
+                        println("No final conditions requested")
+                    }
                 }
             }
         }
