@@ -218,7 +218,7 @@ class PlanSimulation<M> {
     }
 
     fun runPlan(plan: Plan<M>) {
-        InternalLogger.block({ "Running plan ${plan.name}" }) {
+        InternalLogger.block({ "Running plan" }) {
             val absoluteSimulationTime = simulationEpoch + state.time().toKotlinDuration()
             require(plan.startTime == absoluteSimulationTime) {
                 "Cannot run plan starting at ${plan.startTime}. Simulation is at $absoluteSimulationTime"

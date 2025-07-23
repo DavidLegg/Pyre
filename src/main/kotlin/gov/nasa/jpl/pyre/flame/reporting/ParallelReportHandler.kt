@@ -38,6 +38,7 @@ class ParallelReportHandler private constructor(
     }
 
     companion object {
-        fun CoroutineScope.inParallel(handler: ReportHandler) = ParallelReportHandler(this, handler)
+        context (scope: CoroutineScope)
+        fun <R> ReportHandler.inParallel(block: (ParallelReportHandler) -> R) = ParallelReportHandler(scope, this).use(block)
     }
 }

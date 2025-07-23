@@ -8,6 +8,7 @@ import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
 import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
+import gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation
 import gov.nasa.jpl.pyre.flame.reporting.CSVReportHandler
 import gov.nasa.jpl.pyre.flame.reporting.ParallelReportHandler.Companion.inParallel
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channelHandler
@@ -23,8 +24,28 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
 import java.io.FileOutputStream
 import java.io.OutputStream
+import java.nio.file.Path
 import kotlin.io.path.Path
 import kotlin.time.Instant
+
+// This is a simple setup, using mostly default choices for how to run a simulation.
+// Most importantly, it chooses to read and write files for incon, plan, outputs, and fincon.
+fun simpleMain(args: Array<String>) {
+    runStandardPlanSimulation(
+        args[0],
+        ::EarthOrbit,
+        Json {
+            serializersModule = SerializersModule {
+                contextual(
+                    Instant::class, String.serializer().alias<String, Instant>(
+                        InvertibleFunction.of(Instant::parse, Instant::toString)
+                    )
+                )
+                include(activitySerializersModule<EarthOrbit> { })
+            }
+        }
+    )
+}
 
 @OptIn(ExperimentalSerializationApi::class)
 fun main(args: Array<String>) {
@@ -40,8 +61,8 @@ fun main(args: Array<String>) {
     // Parse CL args
     val remainingArgs = args.toMutableList()
     var endTime: Instant? = null
-    var inconFile: String? = null
-    var finconFile: String? = null
+    var inconFile: Path? = null
+    var finconFile: Path? = null
     var outputStream: OutputStream = System.out
 
     var println: (Any?) -> Unit = { /* don't print messages if dumping output to stdout */ }
@@ -49,8 +70,8 @@ fun main(args: Array<String>) {
     while (remainingArgs.isNotEmpty()) {
         val it = remainingArgs.removeFirst()
         when (it) {
-            "-f", "--fincon" -> finconFile = remainingArgs.removeFirst()
-            "-i", "--incon" -> inconFile = remainingArgs.removeFirst()
+            "-f", "--fincon" -> finconFile = Path(remainingArgs.removeFirst())
+            "-i", "--incon" -> inconFile = Path(remainingArgs.removeFirst())
             "-e", "--end" -> endTime = Instant.parse(remainingArgs.removeFirst())
             "-o", "--out" -> {
                 outputStream = FileOutputStream(remainingArgs.removeFirst())
@@ -70,7 +91,7 @@ fun main(args: Array<String>) {
         }
     }
     requireNotNull(endTime) { "End time (-e) is required" }
-    finconFile = finconFile?.let { Path(it, "EarthOrbit-${endTime}.json").toString() }
+    finconFile = finconFile?.resolve("EarthOrbit-${endTime}.json")
 
     // Basic JSON output:
     /*
@@ -98,7 +119,7 @@ fun main(args: Array<String>) {
     }
      */
 
-    // Filtered CSV output:
+    // Filtered CSV output, run in the background:
     outputStream.use { outputStream ->
         CSVReportHandler(
             listOf(
@@ -125,7 +146,7 @@ fun main(args: Array<String>) {
             )
 
             runBlocking {
-                inParallel(outputHandler).use { bgOutputHandler ->
+                outputHandler.inParallel { bgOutputHandler ->
                     val simulation = if (inconFile == null) {
                         println("Starting without incon file")
                         val epoch = Instant.parse("2020-01-01T00:00:00Z")

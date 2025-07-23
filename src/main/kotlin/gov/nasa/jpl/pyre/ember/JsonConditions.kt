@@ -25,9 +25,12 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
+import java.nio.file.Path
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.iterator
+import kotlin.io.path.inputStream
+import kotlin.io.path.outputStream
 import kotlin.reflect.KType
 
 /**
@@ -131,18 +134,16 @@ class JsonConditions private constructor(
          *
          * Be sure to supply a [Json] format to handle contextually-serialized types like activities.
          */
-        fun fromFile(conditionsFile: String, jsonFormat: Json = Json): JsonConditions =
-            FileInputStream(conditionsFile).use {
+        fun fromFile(conditionsFile: Path, jsonFormat: Json = Json): JsonConditions =
+            conditionsFile.inputStream().use {
                 jsonFormat.decodeJsonConditionsFromStream(it)
             }
 
         /**
          * Canonical way to write [JsonConditions] to disk.
          */
-        fun JsonConditions.toFile(conditionsFile: String) =
-            FileOutputStream(conditionsFile).use {
-                encodeToStream(it)
-            }
+        fun JsonConditions.toFile(conditionsFile: Path) =
+            conditionsFile.outputStream().use { encodeToStream(it) }
     }
 
     private class JsonConditionsSerializer: KSerializer<JsonConditions> {

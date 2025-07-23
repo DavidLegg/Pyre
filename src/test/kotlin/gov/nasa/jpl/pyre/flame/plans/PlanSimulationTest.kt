@@ -129,7 +129,6 @@ class PlanSimulationTest {
         )
         simulation.runPlan(
             Plan(
-                "Test Plan",
                 epoch,
                 epoch + HOUR.toKotlinDuration(),
                 listOf(
@@ -274,7 +273,6 @@ class PlanSimulationTest {
         )
         simulation.runPlan(
             Plan(
-                "Test Plan",
                 epoch,
                 epoch + (2 * HOUR + 5 * MINUTE).toKotlinDuration(),
                 listOf(
