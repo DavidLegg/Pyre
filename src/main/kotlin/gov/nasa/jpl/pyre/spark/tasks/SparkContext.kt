@@ -3,6 +3,7 @@ package gov.nasa.jpl.pyre.spark.tasks
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.ember.minus
+import gov.nasa.jpl.pyre.ember.toKotlinDuration
 import gov.nasa.jpl.pyre.ember.toPyreDuration
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.getValue
@@ -25,11 +26,18 @@ interface SparkContext {
 }
 
 interface SparkInitContext : SparkContext, SimulationInitContext
-interface SparkTaskScope<T> : SparkContext, TaskScope<T>
+interface SparkResourceScope : SparkContext, CellsReadableScope
+interface SparkTaskScope<T> : SparkResourceScope, TaskScope<T>
+
+context (sparkContext: SparkContext, scope: CellsReadableScope)
+fun sparkResourceScope(): SparkResourceScope =
+    object : SparkResourceScope, SparkContext by sparkContext, CellsReadableScope by scope {}
 
 context (sparkContext: SparkContext, scope: TaskScope<T>)
 fun <T> sparkTaskScope(): SparkTaskScope<T> =
     object : SparkTaskScope<T>, SparkContext by sparkContext, TaskScope<T> by scope {}
+
+suspend fun SparkResourceScope.now() = simulationEpoch + simulationClock.getValue().toKotlinDuration()
 
 /**
  * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]
@@ -46,7 +54,10 @@ object SparkContextExtensions {
     val simulationClock get() = sparkContext.simulationClock
 
     context (sparkContext: SparkContext)
-    val simulationEpoch get() = sparkContext.simulationClock
+    val simulationEpoch get() = sparkContext.simulationEpoch
+
+    context (scope: SparkResourceScope)
+    suspend fun now() = scope.now()
 
     /**
      * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]

@@ -1,10 +1,9 @@
 package gov.nasa.jpl.pyre.spark.reporting
 
 import gov.nasa.jpl.pyre.coals.Reflection.withArg
-import gov.nasa.jpl.pyre.ember.toKotlinDuration
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.Resource
-import gov.nasa.jpl.pyre.spark.resources.getValue
+import gov.nasa.jpl.pyre.spark.tasks.now
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
@@ -37,7 +36,7 @@ data class ChannelizedReport<T>(
 suspend fun <T> SparkTaskScope<*>.report(channel: Channel, data: T, reportType: KType) {
     report(ChannelizedReport(
         channel,
-        simulationEpoch + simulationClock.getValue().toKotlinDuration(),
+        now(),
         data,
     ), reportType)
 }

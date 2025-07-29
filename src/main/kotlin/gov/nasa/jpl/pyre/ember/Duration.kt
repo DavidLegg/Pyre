@@ -18,6 +18,7 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToLong
 import kotlin.time.Duration.Companion.microseconds
+import kotlin.time.Instant
 
 @Serializable(with = DurationSerializer::class)
 data class Duration(val ticks: Long) : Comparable<Duration> {
@@ -107,3 +108,6 @@ fun Duration.toKotlinDuration(): kotlin.time.Duration = (this / MICROSECOND).mic
 fun Duration.toJavaDuration(): java.time.Duration = java.time.Duration.of(this / MICROSECOND, ChronoUnit.MICROS)
 fun kotlin.time.Duration.toPyreDuration(): Duration = this.inWholeMicroseconds * MICROSECOND
 fun java.time.Duration.toPyreDuration(): Duration = this.dividedBy(java.time.Duration.of(1, ChronoUnit.MICROS)) * MICROSECOND
+
+operator fun Instant.plus(duration: Duration): Instant = this + duration.toKotlinDuration()
+operator fun java.time.Instant.plus(duration: Duration): java.time.Instant = this + duration.toJavaDuration()
