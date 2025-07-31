@@ -19,39 +19,37 @@ import kotlin.time.Instant
  * Note this is [AutoCloseable] and must be closed to ensure the last row is written.
  */
 class CSVReportHandler(
-    channels: List<String>,
     stream: OutputStream,
     private val jsonFormat: Json,
     timeColumnName: String = "time",
     private val timeFormat: (Instant) -> String = Instant::toString,
 ) : ReportHandler, AutoCloseable {
-    private val channelSet: Set<String> = channels.toSet()
-    private val columnLookup: Map<String, Int>
+    private val columnLookup: MutableMap<String, Int> = mutableMapOf(timeColumnName to 0)
     private var currentTime: Instant? = null
-    private val currentRow: Array<String>
+    private var headerRow: MutableList<String> = mutableListOf(timeColumnName)
+    private var currentRow: Array<String> = Array(1) { "" }
     private val streamWriter: OutputStreamWriter = stream.writer()
-
-    init {
-        currentRow = (listOf(timeColumnName) + channels).toTypedArray()
-        columnLookup = currentRow.mapIndexed<String, Pair<String, Int>> { i, c -> c to i }.toMap()
-        flushCurrentRow()
-
-        require(columnLookup.size == currentRow.size) {
-            "All column names given to CSV report handler must be unique!"
-        }
-    }
+    private var initialized: Boolean = false
 
     override fun invoke(value: Any?, type: KType) {
         if (value is ChannelizedReport<*>) {
             // If we have a row from an earlier time, because reports are time-ordered, we're done with that row.
             // Flush that row and adjust the time.
             if (currentTime != value.time) {
-                if (currentTime != null) flushCurrentRow()
+                if (currentTime != null) {
+                    flushCurrentRow()
+                }
+                currentTime = value.time
                 currentRow[0] = timeFormat(value.time)
             }
-            currentTime = value.time
 
-            if (value.channel in channelSet) {
+            if (value.channel !in columnLookup && !initialized) {
+                columnLookup[value.channel] = columnLookup.size
+                headerRow += value.channel
+                currentRow = currentRow + ""
+            }
+
+            columnLookup[value.channel]?.let { column ->
                 val stringValue = if (value.data == null || value.data is String) {
                     // Write strings as-is, not wrapped in another layer of escaping
                     value.data ?: ""
@@ -60,19 +58,28 @@ class CSVReportHandler(
                     val dataType = requireNotNull(type.arguments[0].type)
                     jsonFormat.encodeToString(jsonFormat.serializersModule.serializer(dataType), value.data)
                 }
-                val column = columnLookup.getValue(value.channel)
                 currentRow[column] = stringValue
             }
         }
     }
 
     private fun flushCurrentRow() {
-        currentRow.forEachIndexed { i, field ->
+        if (!initialized) {
+            writeRow(headerRow.toTypedArray())
+            initialized = true
+            // Clear the header row list to save a little memory
+            headerRow.clear()
+        }
+        writeRow(currentRow)
+        currentRow.fill("")
+    }
+
+    private fun writeRow(row: Array<String>) {
+        row.forEachIndexed { i, field ->
             if (i != 0) streamWriter.write(",")
             streamWriter.write(escapeField(field))
         }
         streamWriter.write("\n")
-        currentRow.fill("")
     }
 
     private fun escapeField(data: String): String {

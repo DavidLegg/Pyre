@@ -58,14 +58,6 @@ fun csvMain(args: Array<String>) {
         jsonFormat,
         buildReportHandler = { outputStream ->
             val csvHandler = CSVReportHandler(
-                listOf(
-                    "earth_position.x",
-                    "earth_position.y",
-                    "earth_position.z",
-                    "moon_position.x",
-                    "moon_position.y",
-                    "moon_position.z",
-                ),
                 outputStream,
                 jsonFormat,
             )
