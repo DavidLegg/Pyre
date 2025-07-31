@@ -1,9 +1,11 @@
 package gov.nasa.jpl.pyre.flame.plans
 
+import gov.nasa.jpl.pyre.coals.Closeable
+import gov.nasa.jpl.pyre.coals.Closeable.Companion.closesWith
+import gov.nasa.jpl.pyre.coals.Closeable.Companion.use
 import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.toFile
 import gov.nasa.jpl.pyre.ember.ReportHandler
-import gov.nasa.jpl.pyre.flame.plans.CloseableReportHandler.Companion.closeable
 import gov.nasa.jpl.pyre.flame.reporting.ParallelReportHandler.Companion.inParallel
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.streamReportHandler
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
@@ -30,16 +32,6 @@ data class StandardPlanSimulationSetup<M>(
     @SerialName("output")
     val outputFile: String? = null,
 )
-
-interface CloseableReportHandler : ReportHandler, AutoCloseable {
-    companion object {
-        /**
-         * Add close behavior to a report handler.
-         */
-        fun ReportHandler.closeable(closeAction: () -> Unit = {}): CloseableReportHandler =
-            object : CloseableReportHandler, ReportHandler by this, AutoCloseable by AutoCloseable(closeAction) {}
-    }
-}
 
 /**
  * Baseline way to set up and run a [PlanSimulation].
@@ -70,8 +62,8 @@ inline fun <reified M> runStandardPlanSimulation(
     setupFile: String,
     noinline constructModel: SparkInitContext.() -> M,
     jsonFormat: Json = Json,
-    buildReportHandler: (OutputStream) -> CloseableReportHandler =
-        { streamReportHandler(it, jsonFormat).closeable() },
+    buildReportHandler: (OutputStream) -> Closeable<ReportHandler> =
+        { streamReportHandler(it, jsonFormat).closesWith {} },
 ) {
     val setupPath = Path(setupFile).absolute()
     val setup = setupPath.inputStream().use {

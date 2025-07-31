@@ -77,7 +77,6 @@ object ResourceCaching {
     }
 
     // TODO: Test this routine. If it works, consider these optimizations:
-    //   1. A way to split subsets of resources to different files. This would limit the amount of crud each reader is churning through.
     //   2. A way to run the file reading in a background IO coroutine (but think through if this would actually help first.)
     //   3. A way for multiple precomputed resources to share a single parser/filter operator here.
     //   4. A CSV reader, for CSV output format?

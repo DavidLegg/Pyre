@@ -2,7 +2,19 @@ package gov.nasa.jpl.pyre.coals
 
 fun <A> identity(): (A) -> A = {it}
 infix fun <A, B, C> ((A) -> B).andThen(g: (B) -> C): (A) -> C = { g(this(it)) }
-infix fun <A, B, C> ((B) -> C).compose(g: (A) -> B): (A) -> C = { this(g(it)) }
+infix fun <A, B, C> ((B) -> C).compose(g: (A) -> B): (A) -> C = g andThen this
+
+// Special composition operators to treat Pairs as a single arg to a 2-arg function.
+// This is especially useful for report handlers, which have a value and a type.
+
+infix fun <A, B, C, D> ((A, B) -> C).andThen(g: (C) -> D): (A, B) -> D = { a, b -> g(this(a, b)) }
+infix fun <A, B, C, D> ((C) -> D).compose(g: (A, B) -> C): (A, B) -> D = g andThen this
+
+infix fun <A, B, C, D> ((A) -> Pair<B, C>).andThen(g: (B, C) -> D): (A) -> D = { this(it).run { g(first, second) } }
+infix fun <A, B, C, D> ((B, C) -> D).compose(g: (A) -> Pair<B, C>): (A) -> D = g andThen this
+
+infix fun <A, B, C, D, E> ((A, B) -> Pair<C, D>).andThen(g: (C, D) -> E): (A, B) -> E = { a, b -> this(a, b).run { g(first, second) } }
+infix fun <A, B, C, D, E> ((C, D) -> E).compose(g: (A, B) -> Pair<C, D>): (A, B) -> E = g andThen this
 
 inline fun <A, B, C> curry(crossinline fn: (A, B) -> C):
             (A) -> (B) -> C =

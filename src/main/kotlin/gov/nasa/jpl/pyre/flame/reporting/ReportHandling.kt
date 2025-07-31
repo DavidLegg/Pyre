@@ -13,7 +13,7 @@ import kotlin.let
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
-data class TypedChannelReport<T>(val report: ChannelizedReport<T>, val type: KType)
+typealias TypedChannelReport<T> = Pair<ChannelizedReport<T>, KType>
 typealias TypedChannelReportProcessor<T, S> = (TypedChannelReport<T>) -> TypedChannelReport<S>
 
 object ReportHandling {
@@ -48,8 +48,57 @@ object ReportHandling {
                 )(value, type)
     }
 
-    // TODO: I want a way to easily define "channel splitting", e.g. splitting a Channel<Vector> into 3 Channel<Double>s...
-    // This would better decouple modeling from reporting, as you wouldn't have to bend the modeling to fit the ideal reporting format.
+    sealed interface HierarchicalReportingStructure {
+        fun resolve(channelParts: List<String>): ReportHandler?
+
+        private class SimpleReportHandler(val base: ReportHandler) : HierarchicalReportingStructure {
+            override fun resolve(channelPart: List<String>): ReportHandler? = base
+        }
+
+        private class SplittingReportHandler(val branches: Map<String, HierarchicalReportingStructure>) : HierarchicalReportingStructure {
+            override fun resolve(channelPart: List<String>): ReportHandler? =
+                channelPart.firstOrNull()
+                    ?.let(branches::get)
+                    ?.resolve(channelPart.subList(1, channelPart.size))
+        }
+
+        companion object {
+            fun reportTo(base: ReportHandler): HierarchicalReportingStructure = SimpleReportHandler(base)
+            fun split(branches: Map<String, HierarchicalReportingStructure>): HierarchicalReportingStructure =
+                SplittingReportHandler(branches)
+            fun split(vararg branches: Pair<String, HierarchicalReportingStructure>): HierarchicalReportingStructure =
+                split(branches.toMap())
+        }
+    }
+
+    /**
+     * Split channels out according to a hierarchical structure.
+     *
+     * By default, channel names are split by backslash (/), the default delimiter used by [gov.nasa.jpl.pyre.flame.tasks.subContext].
+     *
+     * Use [HierarchicalReportingStructure.reportTo] and [HierarchicalReportingStructure.split] to construct the handler.
+     */
+    fun hierarchicalChannels(handler: HierarchicalReportingStructure, miscHandler: ReportHandler = discardReports, delimiter: String = "/"): ReportHandler =
+        { value, type ->
+            ((value as? ChannelizedReport<*>)
+                ?.channel
+                ?.split(delimiter)
+                ?.let(handler::resolve)
+                ?: miscHandler)(value, type)
+        }
+
+    fun <T> assumeType(type: KType): (Any?, KType) -> (TypedChannelReport<T>) {
+        val reportType = ChannelizedReport::class.withArg(type)
+        return { value, type ->
+            require(type == reportType) {
+                "Expected report type $reportType, was $type"
+            }
+            @Suppress("UNCHECKED_CAST")
+            TypedChannelReport(value as ChannelizedReport<T>, type)
+        }
+    }
+
+    inline fun <reified T> assumeType(): (Any?, KType) -> (TypedChannelReport<T>) = assumeType(typeOf<T>())
 
     fun <T> channelHandler(type: KType, block: (TypedChannelReport<T>) -> Unit): ReportHandler {
         val reportType = ChannelizedReport::class.withArg(type)
@@ -66,24 +115,21 @@ object ReportHandling {
 
     fun <T, S> map(sType: KType, f: (T) -> S): TypedChannelReportProcessor<T, S> {
         val sReportType = ChannelizedReport::class.withArg(sType)
-        return {
+        return { (report, _) ->
             TypedChannelReport(
-                ChannelizedReport(it.report.channel, it.report.time, f(it.report.data)),
+                ChannelizedReport(report.channel, report.time, f(report.data)),
                 sReportType)
         }
     }
 
     inline fun <T, reified S> map(noinline f: (T) -> S) = map(typeOf<S>(), f)
 
-    fun <T> rename(nameFn: (String) -> String): TypedChannelReportProcessor<T, T> = {
-        TypedChannelReport(it.report.copy(channel = nameFn(it.report.channel)), it.type)
+    fun <T> rename(nameFn: (String) -> String): TypedChannelReportProcessor<T, T> = { (report, type) ->
+        TypedChannelReport(report.copy(channel = nameFn(report.channel)), type)
     }
 
-    fun <T> reportTo(handler: ReportHandler): (TypedChannelReport<T>) -> Unit = {
-        handler(it.report, it.type)
-    }
     fun <T> reportAllTo(handler: ReportHandler): (Collection<TypedChannelReport<T>>) -> Unit = {
-        it.forEach(reportTo(handler))
+        it.forEach({ (report, type) -> handler(report, type) })
     }
 
     fun <T, S> split(sType: KType, splitters: List<Pair<(T) -> S, (String) -> String>>): (TypedChannelReport<T>) -> List<TypedChannelReport<S>> {

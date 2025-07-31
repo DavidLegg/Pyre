@@ -1,14 +1,14 @@
 package gov.nasa.jpl.pyre.examples.orbit
 
+import gov.nasa.jpl.pyre.coals.Closeable.Companion.closesWith
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.coals.andThen
 import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
-import gov.nasa.jpl.pyre.flame.plans.CloseableReportHandler.Companion.closeable
 import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
 import gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation
 import gov.nasa.jpl.pyre.flame.reporting.CSVReportHandler
-import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channelHandler
+import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.assumeType
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channels
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.reportAllTo
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.split
@@ -61,17 +61,15 @@ fun csvMain(args: Array<String>) {
                 outputStream,
                 jsonFormat,
             )
-            val vectorHandler = channelHandler<Discrete<Vector>>(
-                split(
+            val vectorHandler = assumeType<Discrete<Vector>>() andThen split(
                     map(Vector::x) to { "$it.x" },
                     map(Vector::y) to { "$it.y" },
                     map(Vector::z) to { "$it.z" },
                 ) andThen reportAllTo(csvHandler)
-            )
             channels(
                 "earth_position" to vectorHandler,
                 "moon_position" to vectorHandler,
-            ).closeable(csvHandler::close)
+            ).closesWith(csvHandler::close)
         }
     )
 }
