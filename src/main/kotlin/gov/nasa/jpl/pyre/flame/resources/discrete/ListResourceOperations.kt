@@ -14,14 +14,14 @@ typealias ListResource<E> = DiscreteResource<List<E>>
 typealias MutableListResource<E> = MutableDiscreteResource<List<E>>
 
 object ListResourceOperations {
-    context (scope: SparkTaskScope<*>)
+    context (scope: SparkTaskScope)
     suspend fun <E> MutableListResource<E>.push(element: E) =
         emit({ it: List<E> -> it + element } named { "Push $element onto $this" })
 
-    context (scope: SparkTaskScope<*>)
+    context (scope: SparkTaskScope)
     suspend operator fun <E> MutableListResource<E>.plusAssign(element: E) = this.push(element)
 
-    context (scope: SparkTaskScope<*>)
+    context (scope: SparkTaskScope)
     suspend fun <E> MutableListResource<E>.pop(): E {
         val poppedElement = requireNotNull(getValue().firstOrNull()) { "$this must be non-empty to pop" }
         emit({ it: List<E> ->

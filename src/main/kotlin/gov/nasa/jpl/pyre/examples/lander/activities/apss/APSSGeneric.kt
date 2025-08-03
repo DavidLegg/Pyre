@@ -22,7 +22,7 @@ class APSSGeneric(
     val externalEnergyUsed: Double = 0.0, // Wh
     val eboxEnergyUsed: Double = 0.0, // Wh
 ): Activity<Mission> {
-    context (scope: SparkTaskScope<Unit>)
+    context (scope: SparkTaskScope)
     override suspend fun effectModel(model: Mission) {
         val durSec = duration ratioOver SECOND
 

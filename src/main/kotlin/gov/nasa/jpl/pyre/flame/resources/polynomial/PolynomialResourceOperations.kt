@@ -74,9 +74,9 @@ object PolynomialResourceOperations {
                 }
             })
             return object : IntegralResource, PolynomialResource by integral {
-                context(scope: SparkTaskScope<*>)
+                context(scope: SparkTaskScope)
                 override suspend fun increase(amount: Double) = integral.increase(amount)
-                context(scope: SparkTaskScope<*>)
+                context(scope: SparkTaskScope)
                 override suspend fun set(amount: Double) = integral.emit({ p: Polynomial ->
                     p.setCoefficient(0, amount)
                 } named { "Set value of $this to $amount" })
@@ -278,25 +278,25 @@ object PolynomialResourceOperations {
     fun PolynomialResource.clamp(lowerBound: PolynomialResource, upperBound: PolynomialResource): PolynomialResource =
         min(max(this, lowerBound), upperBound) named { "$this.clamp($lowerBound, $upperBound)" }
 
-    context(scope: SparkTaskScope<*>)
+    context(scope: SparkTaskScope)
     suspend fun MutablePolynomialResource.increase(amount: Double) = emit({ p: Polynomial -> p + amount } named { "Increase $this by $amount" })
-    context(scope: SparkTaskScope<*>)
+    context(scope: SparkTaskScope)
     suspend fun MutablePolynomialResource.decrease(amount: Double) = emit({ p: Polynomial -> p - amount } named { "Decrease $this by $amount" })
-    context(scope: SparkTaskScope<*>)
+    context(scope: SparkTaskScope)
     suspend fun MutablePolynomialResource.scale(amount: Double) = emit({ p: Polynomial -> p * amount } named { "Scale $this by $amount" })
 
-    context(scope: SparkTaskScope<*>)
+    context(scope: SparkTaskScope)
     suspend operator fun MutablePolynomialResource.plusAssign(amount: Double) = increase(amount)
-    context(scope: SparkTaskScope<*>)
+    context(scope: SparkTaskScope)
     suspend operator fun MutablePolynomialResource.minusAssign(amount: Double) = decrease(amount)
-    context(scope: SparkTaskScope<*>)
+    context(scope: SparkTaskScope)
     suspend operator fun MutablePolynomialResource.timesAssign(amount: Double) = scale(amount)
 
-    context(scope: SparkTaskScope<*>)
+    context(scope: SparkTaskScope)
     suspend fun IntegralResource.decrease(amount: Double) = increase(-amount)
-    context(scope: SparkTaskScope<*>)
+    context(scope: SparkTaskScope)
     suspend operator fun IntegralResource.plusAssign(amount: Double) = increase(amount)
-    context(scope: SparkTaskScope<*>)
+    context(scope: SparkTaskScope)
     suspend operator fun IntegralResource.minusAssign(amount: Double) = decrease(amount)
 }
 
@@ -307,9 +307,9 @@ object PolynomialResourceOperations {
  * account for discrete changes.
  */
 interface IntegralResource : PolynomialResource {
-    context(scope: SparkTaskScope<*>)
+    context(scope: SparkTaskScope)
     suspend fun increase(amount: Double)
-    context(scope: SparkTaskScope<*>)
+    context(scope: SparkTaskScope)
     suspend fun set(amount: Double)
 }
 

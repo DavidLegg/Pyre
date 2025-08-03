@@ -16,7 +16,7 @@ class APSSPaeDataRecovery(
     val duration: Duration = 27 * MINUTE,
     val dataVolume: Double = 0.0, // Mbits
 ): Activity<Mission> {
-    context (scope: SparkTaskScope<Unit>)
+    context (scope: SparkTaskScope)
     override suspend fun effectModel(model: Mission) {
         val dataRate = dataVolume / (duration ratioOver SECOND)
         model.dataModel.apidModelMap.getValue(APID_APSS_CONTINUOUS_SCI).increaseDataRate(dataRate)

@@ -20,7 +20,7 @@ import kotlin.math.min
 class APSSProcessContinuousData(
     val timeout: Duration = 20 * MINUTE,
 ): Activity<Mission> {
-    context (scope: SparkTaskScope<Unit>)
+    context (scope: SparkTaskScope)
     override suspend fun effectModel(model: Mission) {
         val apssModel = model.apssModel
         val internalVolume = apssModel.internalVolume.getValue()

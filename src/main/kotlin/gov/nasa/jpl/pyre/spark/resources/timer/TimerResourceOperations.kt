@@ -36,42 +36,42 @@ object TimerResourceOperations {
     /**
      * Reset this timer to time, not running.
      */
-    context (scope: TaskScope<*>)
+    context (scope: TaskScope)
     suspend fun MutableResource<Timer>.reset(time: Duration = ZERO) =
         this.emit({ t: Timer -> Timer(time, 0) } named { "Reset $this" })
 
     /**
      * Reset this timer to time, running forward.
      */
-    context (scope: TaskScope<*>)
+    context (scope: TaskScope)
     suspend fun MutableResource<Timer>.restart(time: Duration = ZERO) =
         this.emit({ t: Timer -> Timer(time, 1) } named { "Restart $this" })
 
     /**
      * Reset this timer to time, running backward.
      */
-    context (scope: TaskScope<*>)
+    context (scope: TaskScope)
     suspend fun MutableResource<Timer>.restartCountdown(time: Duration) =
         this.emit({ t: Timer -> Timer(time, -1) } named { "Restart countdown on $this" })
 
     /**
      * Pause this timer, but preserve the recorded time.
      */
-    context (scope: TaskScope<*>)
+    context (scope: TaskScope)
     suspend fun MutableResource<Timer>.pause() =
         this.emit({ t: Timer -> Timer(t.time, 0) } named { "Pause $this" })
 
     /**
      * Resume this timer, running forward from the current time.
      */
-    context (scope: TaskScope<*>)
+    context (scope: TaskScope)
     suspend fun MutableResource<Timer>.resume() =
         this.emit({ t: Timer -> Timer(t.time, 1) } named { "Resume $this" })
 
     /**
      * Resume this timer, running backward from the current time.
      */
-    context (scope: TaskScope<*>)
+    context (scope: TaskScope)
     suspend fun MutableResource<Timer>.resumeCountdown() =
         this.emit({ t: Timer -> Timer(t.time, -1) } named { "Resume countdown on $this" })
 

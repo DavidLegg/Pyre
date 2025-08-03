@@ -46,7 +46,7 @@ class APSSChangeAcqConfig(
         }
     }
 
-    context (scope: SparkTaskScope<Unit>)
+    context (scope: SparkTaskScope)
     override suspend fun effectModel(model: Mission) {
         val end = simulationClock.getValue() + duration
 

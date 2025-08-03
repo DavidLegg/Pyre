@@ -25,7 +25,7 @@ import kotlin.time.Instant
  * Base unit of planned simulation behavior.
  */
 interface Activity<M> {
-    context (scope: SparkTaskScope<Unit>)
+    context (scope: SparkTaskScope)
     suspend fun effectModel(model: M)
 }
 
@@ -55,7 +55,7 @@ data class GroundedActivity<M>(
 fun <M> GroundedActivity<M>.float() = FloatingActivity(activity, typeName, name)
 fun <M> FloatingActivity<M>.ground(time: Instant) = GroundedActivity(time, activity, typeName, name)
 
-suspend fun <M> SparkTaskScope<*>.defer(time: Duration, activity: FloatingActivity<M>, model: M) {
+suspend fun <M> SparkTaskScope.defer(time: Duration, activity: FloatingActivity<M>, model: M) {
     spawn(activity.name, task {
         with(sparkTaskScope()) {
             delay(time)

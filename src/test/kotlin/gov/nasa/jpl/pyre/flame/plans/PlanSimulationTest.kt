@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
-import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.int
 import gov.nasa.jpl.pyre.spark.ChannelizedReports
 import gov.nasa.jpl.pyre.spark.channel
@@ -12,9 +11,7 @@ import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.decodeJsonConditionsFromJsonElement
-import gov.nasa.jpl.pyre.ember.ReportHandler
 import gov.nasa.jpl.pyre.ember.Serialization.alias
-import gov.nasa.jpl.pyre.ember.minus
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.ember.times
 import gov.nasa.jpl.pyre.ember.toKotlinDuration
@@ -52,7 +49,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.modules.SerializersModule
 import org.junit.jupiter.api.Assertions.*
-import kotlin.reflect.KType
 import kotlin.test.Test
 import kotlin.time.Instant
 
@@ -86,7 +82,7 @@ class PlanSimulationTest {
 
         @Serializable
         class DummyActivity() : Activity<ModelWithResources> {
-            context(scope: SparkTaskScope<Unit>)
+            context(scope: SparkTaskScope)
             override suspend fun effectModel(model: ModelWithResources) {}
         }
     }
@@ -200,7 +196,7 @@ class PlanSimulationTest {
 
         @Serializable
         class DeviceBoot() : Activity<TestModel> {
-            context(scope: SparkTaskScope<Unit>)
+            context(scope: SparkTaskScope)
             override suspend fun effectModel(model: TestModel) {
                 with (scope) {
                     when (model.deviceState.getValue()) {
@@ -217,7 +213,7 @@ class PlanSimulationTest {
 
         @Serializable
         class DeviceActivate(val duration: Duration) : Activity<TestModel> {
-            context(scope: SparkTaskScope<Unit>)
+            context(scope: SparkTaskScope)
             override suspend fun effectModel(model: TestModel) {
                 if (model.deviceState.getValue() != STANDBY) {
                     // TODO: Spawn activity
@@ -235,7 +231,7 @@ class PlanSimulationTest {
 
         @Serializable
         class DeviceShutdown() : Activity<TestModel> {
-            context(scope: SparkTaskScope<Unit>)
+            context(scope: SparkTaskScope)
             override suspend fun effectModel(model: TestModel) {
                 model.deviceState.set(SHUTDOWN)
                 delay(5 * MINUTE)
@@ -245,7 +241,7 @@ class PlanSimulationTest {
 
         @Serializable
         class AddMiscPower(val amount: Double) : Activity<TestModel> {
-            context(scope: SparkTaskScope<Unit>)
+            context(scope: SparkTaskScope)
             override suspend fun effectModel(model: TestModel) {
                 model.miscPower.increase(amount)
             }

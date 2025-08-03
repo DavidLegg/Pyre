@@ -7,7 +7,7 @@ import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.toFile
 import gov.nasa.jpl.pyre.ember.ReportHandler
 import gov.nasa.jpl.pyre.flame.reporting.ParallelReportHandler.Companion.inParallel
-import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.streamReportHandler
+import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -54,7 +54,7 @@ data class StandardPlanSimulationSetup<M>(
  *
  * @param buildReportHandler
  * Given the output stream to write to, constructs a [ReportHandler] and gives it to the callback.
- * Defaults to using [streamReportHandler], writing the output in JSON Lines format.
+ * Defaults to using [jsonlReportHandler], writing the output in JSON Lines format.
  * The callback pattern permits [AutoCloseable] report handlers, which may call the callback inside [AutoCloseable.use].
  */
 @OptIn(ExperimentalSerializationApi::class)
@@ -63,7 +63,7 @@ inline fun <reified M> runStandardPlanSimulation(
     noinline constructModel: SparkInitContext.() -> M,
     jsonFormat: Json = Json,
     buildReportHandler: (OutputStream) -> Closeable<ReportHandler> =
-        { streamReportHandler(it, jsonFormat).closesWith {} },
+        { jsonlReportHandler(it, jsonFormat).closesWith {} },
 ) {
     val setupPath = Path(setupFile).absolute()
     val setup = setupPath.inputStream().use {

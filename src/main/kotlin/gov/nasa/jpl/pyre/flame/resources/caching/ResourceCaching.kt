@@ -27,8 +27,7 @@ import kotlin.time.Instant
 
 object ResourceCaching {
     /**
-     * Trimmed down version of [gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport].
-     * Combined with t
+     * Trimmed down version of [gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport] for use with [precomputedResource].
      */
     @Serializable
     data class ResourcePoint<D>(

@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.flame.resources.caching
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
-import gov.nasa.jpl.pyre.coals.Serialization.decodeFromString
 import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
@@ -14,9 +13,7 @@ import gov.nasa.jpl.pyre.flame.plans.Plan
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
 import gov.nasa.jpl.pyre.flame.plans.activity
 import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
-import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channels
-import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.discardReports
-import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.streamReportHandler
+import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.flame.resources.caching.ResourceCaching.fileBackedResource
 import gov.nasa.jpl.pyre.flame.resources.caching.ResourceCachingTest.OriginalResourceModel.*
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
@@ -46,7 +43,6 @@ import kotlin.io.path.exists
 import kotlin.io.path.fileSize
 import kotlin.io.path.outputStream
 import kotlin.io.path.readLines
-import kotlin.io.path.readText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
@@ -81,7 +77,7 @@ class ResourceCachingTest {
         data class ChangeA(
             val delta: Int
         ) : Activity<OriginalResourceModel> {
-            context(scope: SparkTaskScope<Unit>)
+            context(scope: SparkTaskScope)
             override suspend fun effectModel(model: OriginalResourceModel) {
                 model.resourceA.increment(delta)
             }
@@ -92,7 +88,7 @@ class ResourceCachingTest {
         data class ChangeB(
             val newValue: String
         ) : Activity<OriginalResourceModel> {
-            context(scope: SparkTaskScope<Unit>)
+            context(scope: SparkTaskScope)
             override suspend fun effectModel(model: OriginalResourceModel) {
                 model.resourceB.set(newValue)
             }
@@ -142,7 +138,7 @@ class ResourceCachingTest {
         val outputFile1 = createTempFile(suffix="output1.jsonl")
         outputFile1.outputStream().use { out ->
             val simulation = PlanSimulation.withoutIncon(
-                streamReportHandler(out, jsonFormat),
+                jsonlReportHandler(out, jsonFormat),
                 epoch,
                 epoch,
                 ::OriginalResourceModel
@@ -167,7 +163,7 @@ class ResourceCachingTest {
         val outputFile2 = createTempFile(suffix="output2.jsonl")
         outputFile2.outputStream().use { out ->
             val simulation = PlanSimulation.withoutIncon(
-                streamReportHandler(out, jsonFormat),
+                jsonlReportHandler(out, jsonFormat),
                 epoch,
                 epoch,
                 { CachedResourceModel(outputFile1, jsonFormat, this) },
@@ -209,7 +205,7 @@ class ResourceCachingTest {
         val outputFile1 = createTempFile(suffix="output1.jsonl")
         outputFile1.outputStream().use { out ->
             val simulation = PlanSimulation.withoutIncon(
-                streamReportHandler(out, jsonFormat),
+                jsonlReportHandler(out, jsonFormat),
                 epoch,
                 epoch,
                 ::OriginalResourceModel
@@ -231,7 +227,7 @@ class ResourceCachingTest {
         val sim2start = epoch + 20 * MINUTE + 10 * SECOND
         outputFile2.outputStream().use { out ->
             val simulation = PlanSimulation.withoutIncon(
-                streamReportHandler(out, jsonFormat),
+                jsonlReportHandler(out, jsonFormat),
                 epoch,
                 sim2start,
                 { CachedResourceModel(outputFile1, jsonFormat, this) },

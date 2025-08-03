@@ -91,13 +91,13 @@ class APSSModel(
         }
     }
 
-    context (scope: SparkTaskScope<*>)
+    context (scope: SparkTaskScope)
     suspend fun setComponentState(component: Component, state: Boolean) {
         components.getValue(component).state.set(state)
         updateComponentRates()
     }
 
-    context (scope: SparkTaskScope<*>)
+    context (scope: SparkTaskScope)
     suspend fun updateComponentRates() {
         // Zero out rates to reset further down
         internalRate.set(0.0)
@@ -112,7 +112,7 @@ class APSSModel(
         }
     }
 
-    context (scope: SparkTaskScope<*>)
+    context (scope: SparkTaskScope)
     suspend fun dumpInternalData(duration: Duration, internalVolumeToDump: Double, vcVolumeToDump: Double) {
         val internalDumpRate = internalVolumeToDump / (duration ratioOver SECOND)
         val sendToVCDumpRate = vcVolumeToDump / (duration ratioOver SECOND)
@@ -124,7 +124,7 @@ class APSSModel(
         rateToSendToVC.increase(sendToVCDumpRate)
     }
 
-    context (scope: SparkTaskScope<*>)
+    context (scope: SparkTaskScope)
     suspend fun dumpInternalData(duration: Duration) {
         dumpInternalData(duration, internalVolume.getValue(), volumeToSendToVC.getValue())
     }

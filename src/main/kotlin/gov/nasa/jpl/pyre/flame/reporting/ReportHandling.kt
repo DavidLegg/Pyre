@@ -23,10 +23,10 @@ object ReportHandling {
     val discardReports: ReportHandler = { value, type -> }
 
     /**
-     * Writes reports as JSON directly to an output stream.
+     * Writes reports as JSON lines directly to an output stream.
      */
     @OptIn(ExperimentalSerializationApi::class)
-    fun streamReportHandler(stream: OutputStream = System.out, jsonFormat: Json = Json): ReportHandler = { value, type ->
+    fun jsonlReportHandler(stream: OutputStream = System.out, jsonFormat: Json = Json): ReportHandler = { value, type ->
         jsonFormat.encodeToStream(jsonFormat.serializersModule.serializer(type), value, stream)
         stream.write('\n'.code)
     }
@@ -52,14 +52,14 @@ object ReportHandling {
         fun resolve(channelParts: List<String>): ReportHandler?
 
         private class SimpleReportHandler(val base: ReportHandler) : HierarchicalReportingStructure {
-            override fun resolve(channelPart: List<String>): ReportHandler? = base
+            override fun resolve(channelParts: List<String>): ReportHandler? = base
         }
 
         private class SplittingReportHandler(val branches: Map<String, HierarchicalReportingStructure>) : HierarchicalReportingStructure {
-            override fun resolve(channelPart: List<String>): ReportHandler? =
-                channelPart.firstOrNull()
+            override fun resolve(channelParts: List<String>): ReportHandler? =
+                channelParts.firstOrNull()
                     ?.let(branches::get)
-                    ?.resolve(channelPart.subList(1, channelPart.size))
+                    ?.resolve(channelParts.subList(1, channelParts.size))
         }
 
         companion object {

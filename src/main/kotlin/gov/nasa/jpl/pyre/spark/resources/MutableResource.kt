@@ -17,17 +17,17 @@ import kotlin.reflect.typeOf
 //   Need to do this carefully to avoid large performance penalties.
 
 interface MutableResource<D> : Resource<D> {
-    context (scope: TaskScope<*>)
+    context (scope: TaskScope)
     suspend fun emit(effect: ResourceEffect<D>)
 }
 typealias ResourceEffect<D> = (FullDynamics<D>) -> FullDynamics<D>
 
-context (scope: TaskScope<*>)
+context (scope: TaskScope)
 suspend fun <D> MutableResource<D>.emit(effect: (D) -> D) = this.emit({ it: FullDynamics<D> ->
     Expiring(effect(it.data), NEVER)
 } named effect::toString)
 
-context (scope: TaskScope<*>)
+context (scope: TaskScope)
 suspend fun <D> MutableResource<D>.set(newDynamics: D) = emit({ d: D -> newDynamics } named { "Set $this to $newDynamics" })
 
 inline fun <V, reified D : Dynamics<V, D>> SimulationInitContext.resource(
@@ -59,7 +59,7 @@ fun <V, D : Dynamics<V, D>> SimulationInitContext.resource(
     ))
 
     return object : MutableResource<D> {
-        context(scope: TaskScope<*>)
+        context(scope: TaskScope)
         override suspend fun emit(effect: (FullDynamics<D>) -> FullDynamics<D>) = scope.emit(cell, effect)
 
         context(scope: CellsReadableScope)

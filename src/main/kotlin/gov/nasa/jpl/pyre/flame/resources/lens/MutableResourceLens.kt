@@ -11,7 +11,7 @@ import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 object MutableResourceLens {
     fun <K, V> select(key: DiscreteResource<K>, selector: (K) -> MutableResource<V>): MutableResource<V> =
         object : MutableResource<V> {
-            context(scope: TaskScope<*>)
+            context(scope: TaskScope)
             override suspend fun emit(effect: ResourceEffect<V>) = selector(key.getValue()).emit(effect)
 
             context(scope: CellsReadableScope)

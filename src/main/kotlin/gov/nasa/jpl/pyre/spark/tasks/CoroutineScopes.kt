@@ -86,7 +86,7 @@ sealed interface TaskScopeResult<T> {
     data class Complete<T>(val result: T) : TaskScopeResult<T>
 }
 
-interface TaskScope<T> : CellsReadableScope {
+interface TaskScope : CellsReadableScope {
     suspend fun <V, E> emit(cell: CellHandle<V, E>, effect: E)
     suspend fun <T> report(value: T, type: KType)
     suspend fun delay(time: Duration)
@@ -94,7 +94,7 @@ interface TaskScope<T> : CellsReadableScope {
     suspend fun <S> spawn(childName: String, child: PureTaskStep<S>)
 
     companion object {
-        suspend inline fun <reified T> TaskScope<*>.report(value: T) = report(value, typeOf<T>())
+        suspend inline fun <reified T> TaskScope.report(value: T) = report(value, typeOf<T>())
     }
 }
 
@@ -118,7 +118,7 @@ interface TaskScope<T> : CellsReadableScope {
  * @see task
  * @see repeatingTask
  */
-fun <T> coroutineTask(block: suspend TaskScope<T>.() -> TaskScopeResult<T>): PureTaskStep<T> =
+fun <T> coroutineTask(block: suspend TaskScope.() -> TaskScopeResult<T>): PureTaskStep<T> =
     // Running the task step creates a new TaskBuilder, allowing for repeating tasks
     { TaskBuilder(block).runTask() }
 
@@ -128,7 +128,7 @@ fun <T> coroutineTask(block: suspend TaskScope<T>.() -> TaskScopeResult<T>): Pur
  * @see coroutineTask
  * @see repeatingTask
  */
-fun <T> task(block: suspend TaskScope<T>.() -> T): PureTaskStep<T> =
+fun <T> task(block: suspend TaskScope.() -> T): PureTaskStep<T> =
     coroutineTask { TaskScopeResult.Complete(block()) }
 
 /**
@@ -137,14 +137,14 @@ fun <T> task(block: suspend TaskScope<T>.() -> T): PureTaskStep<T> =
  * @see coroutineTask
  * @see task
  */
-fun repeatingTask(block: suspend TaskScope<Unit>.() -> Unit): PureTaskStep<Unit> =
+fun repeatingTask(block: suspend TaskScope.() -> Unit): PureTaskStep<Unit> =
     coroutineTask { block(); TaskScopeResult.Restart() }
 
-private class TaskBuilder<T> : TaskScope<T>, Continuation<TaskScopeResult<T>> {
+private class TaskBuilder<T> : TaskScope, Continuation<TaskScopeResult<T>> {
     private val start: Continuation<Unit>
     private var nextResult: Task.PureStepResult<T>? = null
 
-    constructor(block: suspend TaskScope<T>.() -> TaskScopeResult<T>) {
+    constructor(block: suspend TaskScope.() -> TaskScopeResult<T>) {
         start = block.createCoroutineUnintercepted(this, this)
     }
 

@@ -18,7 +18,7 @@ class APSSContinuousConfigFileUpdate(
     val transferCoef: Double = 0.2088, // Mbit/s
 ): Activity<Mission> {
 
-    context (scope: SparkTaskScope<Unit>)
+    context (scope: SparkTaskScope)
     override suspend fun effectModel(model: Mission) {
         model.apssModel.transferRate.set(transferCoef)
 

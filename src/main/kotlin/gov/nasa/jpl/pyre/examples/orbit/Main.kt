@@ -12,6 +12,7 @@ import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.assumeType
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channels
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.reportAllTo
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.split
+import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad.map
 import kotlinx.serialization.builtins.serializer
@@ -57,19 +58,18 @@ fun csvMain(args: Array<String>) {
         ::EarthOrbit,
         jsonFormat,
         buildReportHandler = { outputStream ->
-            val csvHandler = CSVReportHandler(
-                outputStream,
-                jsonFormat,
-            )
+            // val output = jsonlReportHandler(outputStream, jsonFormat)
+            val output = CSVReportHandler(outputStream, jsonFormat)
             val vectorHandler = assumeType<Discrete<Vector>>() andThen split(
                     map(Vector::x) to { "$it.x" },
                     map(Vector::y) to { "$it.y" },
                     map(Vector::z) to { "$it.z" },
-                ) andThen reportAllTo(csvHandler)
+                ) andThen reportAllTo(output)
             channels(
                 "earth_position" to vectorHandler,
                 "moon_position" to vectorHandler,
-            ).closesWith(csvHandler::close)
+            )
+                .closesWith(output::close)
         }
     )
 }

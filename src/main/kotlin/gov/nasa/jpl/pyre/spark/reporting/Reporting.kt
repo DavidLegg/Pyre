@@ -33,7 +33,7 @@ data class ChannelizedReport<T>(
  * Giving this type directly, instead of constructing it within this function,
  * offers opportunities to improve performance by computing the reified type at init or even compile time.
  */
-suspend fun <T> SparkTaskScope<*>.report(channel: Channel, data: T, reportType: KType) {
+suspend fun <T> SparkTaskScope.report(channel: Channel, data: T, reportType: KType) {
     report(ChannelizedReport(
         channel,
         now(),
@@ -45,7 +45,7 @@ suspend fun <T> SparkTaskScope<*>.report(channel: Channel, data: T, reportType: 
  * Wraps the simple simulation report function with [ChannelizedReport],
  * categorizing the report on a channel and adding the time of report.
  */
-suspend inline fun <reified T> SparkTaskScope<*>.report(channel: Channel, data: T) = report(channel, data, typeOf<ChannelizedReport<T>>())
+suspend inline fun <reified T> SparkTaskScope.report(channel: Channel, data: T) = report(channel, data, typeOf<ChannelizedReport<T>>())
 
 /**
  * Register a resource to be reported whenever it changes, using a [ChannelizedReport]

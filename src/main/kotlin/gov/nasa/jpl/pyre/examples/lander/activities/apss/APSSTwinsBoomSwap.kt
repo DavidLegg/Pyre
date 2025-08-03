@@ -19,7 +19,7 @@ import kotlinx.serialization.Serializable
 class APSSTwinsBoomSwap(
     val duration: Duration = 20 * MINUTE,
 ): Activity<Mission> {
-    context (scope: SparkTaskScope<Unit>)
+    context (scope: SparkTaskScope)
     override suspend fun effectModel(model: Mission) {
         val end = simulationClock.getValue() + duration
 

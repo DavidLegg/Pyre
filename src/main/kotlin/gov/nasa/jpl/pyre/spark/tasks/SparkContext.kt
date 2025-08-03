@@ -27,27 +27,27 @@ interface SparkContext {
 
 interface SparkInitContext : SparkContext, SimulationInitContext
 interface SparkResourceScope : SparkContext, CellsReadableScope
-interface SparkTaskScope<T> : SparkResourceScope, TaskScope<T>
+interface SparkTaskScope : SparkResourceScope, TaskScope
 
 context (sparkContext: SparkContext, scope: CellsReadableScope)
 fun sparkResourceScope(): SparkResourceScope =
     object : SparkResourceScope, SparkContext by sparkContext, CellsReadableScope by scope {}
 
-context (sparkContext: SparkContext, scope: TaskScope<T>)
-fun <T> sparkTaskScope(): SparkTaskScope<T> =
-    object : SparkTaskScope<T>, SparkContext by sparkContext, TaskScope<T> by scope {}
+context (sparkContext: SparkContext, scope: TaskScope)
+fun sparkTaskScope(): SparkTaskScope =
+    object : SparkTaskScope, SparkContext by sparkContext, TaskScope by scope {}
 
 suspend fun SparkResourceScope.now() = simulationEpoch + simulationClock.getValue().toKotlinDuration()
 
 /**
  * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]
  */
-suspend fun SparkTaskScope<*>.delayUntil(time: Duration) = delay(time - simulationClock.getValue())
+suspend fun SparkTaskScope.delayUntil(time: Duration) = delay(time - simulationClock.getValue())
 
 /**
  * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]
  */
-suspend fun SparkTaskScope<*>.delayUntil(time: Instant) = delayUntil((time - simulationEpoch).toPyreDuration())
+suspend fun SparkTaskScope.delayUntil(time: Instant) = delayUntil((time - simulationEpoch).toPyreDuration())
 
 object SparkContextExtensions {
     context (sparkContext: SparkContext)
@@ -62,12 +62,12 @@ object SparkContextExtensions {
     /**
      * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]
      */
-    context (scope: SparkTaskScope<Unit>)
+    context (scope: SparkTaskScope)
     suspend fun delayUntil(time: Duration) = scope.delayUntil(time)
 
     /**
      * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]
      */
-    context (scope: SparkTaskScope<Unit>)
+    context (scope: SparkTaskScope)
     suspend fun delayUntil(time: Instant) = scope.delayUntil(time)
 }

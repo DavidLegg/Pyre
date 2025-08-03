@@ -93,7 +93,7 @@ class HeatProbeModel(
         }
     }
 
-    context (scope: SparkTaskScope<*>)
+    context (scope: SparkTaskScope)
     suspend fun setParametersToTableValues() {
         for ((param, tableResource) in parametersInTable) {
             parametersCurrent.getValue(param).set(tableResource.getValue())

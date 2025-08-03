@@ -71,7 +71,7 @@ class DataModel(context: SparkInitContext) {
         }
     }
 
-    context (scope: SparkTaskScope<*>)
+    context (scope: SparkTaskScope)
     suspend fun setInstrumentHKRate(
         wakeType: WakeType,
         hkChannel: InstrumentHKChannel,
@@ -180,13 +180,13 @@ class DataModel(context: SparkInitContext) {
             }
         }
 
-        context (scope: SparkTaskScope<*>)
+        context (scope: SparkTaskScope)
         suspend fun increaseDataRate(dRate: Double) {
             dataRate.increase(dRate)
             virtualChannelMap.getValue(routedVC.getValue()).rate.increase(dRate)
         }
 
-        context (scope: SparkTaskScope<*>)
+        context (scope: SparkTaskScope)
         suspend fun updateRoute(channelName: ChannelName) {
             val dRate = dataRate.getValue()
             virtualChannelMap.getValue(routedVC.getValue()).rate.decrease(dRate)

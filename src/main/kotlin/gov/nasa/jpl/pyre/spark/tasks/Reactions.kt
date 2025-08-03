@@ -22,14 +22,14 @@ fun whenTrue(resource: BooleanResource): () -> Condition = condition {
     }
 } named resource::toString
 
-suspend fun TaskScope<*>.await(condition: BooleanResource) = await(whenTrue(condition))
+suspend fun TaskScope.await(condition: BooleanResource) = await(whenTrue(condition))
 
 /**
  * Run block whenever the condition resource is true.
  * Note that this waits for block to finish before restarting, but doesn't wait for the condition resource to be false.
  * If block finishes without changing the condition resource, then block will simply run again.
  */
-fun SparkContext.whenever(condition: BooleanResource, block: suspend SparkTaskScope<Unit>.() -> Unit): PureTaskStep<Unit> = repeatingTask {
+fun SparkContext.whenever(condition: BooleanResource, block: suspend SparkTaskScope.() -> Unit): PureTaskStep<Unit> = repeatingTask {
     with (sparkTaskScope()) {
         await(condition)
         block()
@@ -41,7 +41,7 @@ fun SparkContext.whenever(condition: BooleanResource, block: suspend SparkTaskSc
  * Note that this waits for block to finish before restarting.
  * Spawn a sub-task from block if multiple reactions may need to run simultaneously.
  */
-fun SparkContext.onceWhenever(condition: BooleanResource, block: suspend SparkTaskScope<Unit>.() -> Unit): PureTaskStep<Unit> = repeatingTask {
+fun SparkContext.onceWhenever(condition: BooleanResource, block: suspend SparkTaskScope.() -> Unit): PureTaskStep<Unit> = repeatingTask {
     with (sparkTaskScope()) {
         await(condition)
         block()
@@ -53,7 +53,7 @@ fun SparkContext.onceWhenever(condition: BooleanResource, block: suspend SparkTa
  * Returns a condition that will be satisfied exactly when the dynamics of this resource change
  * inconsistent with the normal continuous evolution of the dynamics.
  */
-suspend fun <V, D : Dynamics<V, D>> SparkTaskScope<*>.dynamicsChange(resource: Resource<D>): () -> Condition {
+suspend fun <V, D : Dynamics<V, D>> SparkTaskScope.dynamicsChange(resource: Resource<D>): () -> Condition {
     val dynamics1 = resource.getDynamics()
     val time1 = simulationClock.getValue()
     return condition {
@@ -114,14 +114,14 @@ private fun ConditionResult.expiry() = when(this) {
     is UnsatisfiedUntil -> Expiry(time)
 }
 
-fun <V, D : Dynamics<V, D>> SparkContext.wheneverChanges(resource: Resource<D>, block: suspend SparkTaskScope<Unit>.() -> Unit): PureTaskStep<Unit> = repeatingTask {
+fun <V, D : Dynamics<V, D>> SparkContext.wheneverChanges(resource: Resource<D>, block: suspend SparkTaskScope.() -> Unit): PureTaskStep<Unit> = repeatingTask {
     with (sparkTaskScope()) {
         await(dynamicsChange(resource))
         block()
     }
 }
 
-fun SparkContext.every(interval: Duration, block: suspend SparkTaskScope<Unit>.() -> Unit): PureTaskStep<Unit> = repeatingTask {
+fun SparkContext.every(interval: Duration, block: suspend SparkTaskScope.() -> Unit): PureTaskStep<Unit> = repeatingTask {
     with (sparkTaskScope()) {
         delay(interval)
         block()

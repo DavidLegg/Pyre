@@ -30,10 +30,10 @@ object DiscreteResourceOperations {
 
     // Generic read/write operations, specialized to discrete resources
 
-    context (scope: TaskScope<*>)
+    context (scope: TaskScope)
     suspend fun <V> MutableDiscreteResource<V>.emit(effect: (V) -> V) = this.emit(DiscreteMonad.map(effect) named effect::toString)
 
-    context (scope: TaskScope<*>)
+    context (scope: TaskScope)
     suspend fun <V> MutableDiscreteResource<V>.set(value: V) = this.emit({ _: V -> value } named { "Set $this to $value" })
 
     fun <T : Comparable<T>> DiscreteResource<T>.compareTo(other: DiscreteResource<T>): DiscreteResource<Int> =

@@ -10,7 +10,7 @@ class ChangePowerDemand(
     val increase: Double,
 ): Activity<StandaloneBatteryModel> {
 
-    context (scope: SparkTaskScope<Unit>)
+    context (scope: SparkTaskScope)
     override suspend fun effectModel(model: StandaloneBatteryModel) {
         model.powerDemand.increase(increase)
     }
