@@ -305,10 +305,7 @@ class SimulationTest {
                 }
             }
         }
-        // Note: The 221 here comes from the violation of the "empty" part of the effect trait
-        // - sequential(empty(), e) != e, because we add 100 every time we join effects.
-        // This could change in future versions, but this is fine for the current test.
-        assertEquals(mutableListOf(JsonPrimitive("x = 221")), results.reports)
+        assertEquals(mutableListOf(JsonPrimitive("x = 121")), results.reports)
     }
 
     @Test
@@ -353,10 +350,7 @@ class SimulationTest {
             // Order of reports is largely non-deterministic because these tasks are running in parallel
             assertContains(reports, JsonPrimitive("A says: x = 15"))
             assertContains(reports, JsonPrimitive("B says: x = 13"))
-            // Note: The 218 here comes from the violation of the "empty" part of the effect trait
-            // - concurrent(empty(), e) != e, because we add 100 every time we join effects.
-            // This could change in future versions, but this is fine for the current test.
-            assertContains(reports, JsonPrimitive("C says: x = 218"))
+            assertContains(reports, JsonPrimitive("C says: x = 118"))
         }
     }
 

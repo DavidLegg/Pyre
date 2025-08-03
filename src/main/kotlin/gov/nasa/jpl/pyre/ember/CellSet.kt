@@ -10,34 +10,38 @@ class CellSet private constructor(
     class CellHandle<T, E>(val name: String, val valueType: KType) {
         override fun toString() = name
     }
-    data class CellState<T, E>(val cell: Cell<T, E>, val effect: E)
+    data class CellState<T, E>(val cell: Cell<T, E>, val effect: E?)
 
     constructor() : this(mutableMapOf())
 
     fun <T: Any, E> allocate(cell: Cell<T, E>) =
         CellHandle<T, E>(cell.name, cell.valueType)
-            .also { map[it] = CellState(cell, cell.effectTrait.empty()) }
+            .also { map[it] = CellState(cell, null) }
 
     operator fun <T, E> get(cellHandle: CellHandle<T, E>): Cell<T, E> {
         val cellState = map[cellHandle] as CellState<T, E>
         val cell = cellState.cell
-        return cell.copy(value = cell.applyEffect(cell.value, cellState.effect))
+        return cell.copy(value = cellState.getValue())
+    }
+
+    private fun <T, E> CellState<T, E>.getValue(): T {
+        return effect?.let { cell.applyEffect(cell.value, it) } ?: cell.value
     }
 
     fun <T, E> emit(cellHandle: CellHandle<T, E>, effect: E) =
         map.compute(cellHandle) { _, cellState -> (cellState as CellState<T, E>)
-            .copy(effect = cellState.cell.effectTrait.sequential(cellState.effect, effect)) }
+            .copy(effect = cellState.effect?.let { cellState.cell.effectTrait.sequential(it, effect) } ?: effect) }
 
     fun split(): CellSet {
         fun <T, E> collapseCellState(cs: CellState<T, E>) = CellState(
-            cs.cell.copy(value=cs.cell.applyEffect(cs.cell.value, cs.effect)),
-            cs.cell.effectTrait.empty())
+            cs.cell.copy(value=cs.getValue()),
+            null)
         return CellSet(map.mapValuesTo(mutableMapOf()) { (_, cellState) -> collapseCellState(cellState) })
     }
 
     fun save(finconCollector: FinconCollector) {
         fun <T, E> saveCell(state: CellState<T, E>) = with(state.cell) {
-            finconCollector.within(name).report(applyEffect(value, state.effect), valueType)
+            finconCollector.within(name).report(state.getValue(), valueType)
         }
         map.values.forEach { saveCell(it) }
     }
@@ -46,7 +50,7 @@ class CellSet private constructor(
         fun <T, E> restoreCell(handle: CellHandle<T, E>) = with(this[handle]) {
             // If incon is missing, ignore it and move on
             inconProvider.within(name).provide<T>(valueType)?.let {
-                map[handle] = CellState(copy(value=it), effectTrait.empty())
+                map[handle] = CellState(copy(value=it), null)
             }
         }
         map.keys.forEach { restoreCell(it) }
@@ -54,7 +58,7 @@ class CellSet private constructor(
 
     fun stepBy(delta: Duration) {
         fun <T, E> stepCell(state: CellState<T, E>) = with(state.cell) {
-            CellState(copy(value = stepBy(applyEffect(value, state.effect), delta)), effectTrait.empty())
+            CellState(copy(value = stepBy(state.getValue(), delta)), effectTrait.empty())
         }
         map.replaceAll { _, state -> stepCell(state) }
     }
@@ -71,7 +75,11 @@ class CellSet private constructor(
         private fun <T, E> join(s1: CellState<T, E>, s2: CellState<*, *>): CellState<T, E> {
             // Just a sanity check - this could be omitted for performance...
             require(s1.cell.value == s2.cell.value)
-            return s1.copy(effect = s1.cell.effectTrait.concurrent(s1.effect, s2.effect as E))
+            return s1.copy(effect = s1.effect?.let { e1 ->
+                s2.effect?.let { e2 ->
+                    s1.cell.effectTrait.concurrent(e1, e2 as E)
+                } ?: e1
+            } ?: (s2.effect as E?))
         }
     }
 }

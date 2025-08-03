@@ -1,0 +1,20 @@
+{
+  "resources": [
+    {
+      "name": "prime_radio",
+      "kind": "discrete"
+    },
+    {
+      "name": "powered_on",
+      "kind": "discrete"
+    },
+    {
+      "name": "prime_twta",
+      "kind": "discrete"
+    },
+    {
+      "name": "downlink_rate",
+      "kind": "discrete"
+    }
+  ]
+}

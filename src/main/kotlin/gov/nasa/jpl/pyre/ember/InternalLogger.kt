@@ -5,7 +5,7 @@ package gov.nasa.jpl.pyre.ember
  * Output from this logger is not meant to be viewed by users of Pyre, and should only be used to debug Pyre itself.
  */
 object InternalLogger {
-    private const val ENABLED: Boolean = false
+    private const val ENABLED: Boolean = true
     private const val INDENT = "  "
     private var indentLevel = 0
 

@@ -12,6 +12,7 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.or
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.isNotNull
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
@@ -98,7 +99,7 @@ class SequenceEngine(
         with (context) {
             loadedSequence = discreteResource("loaded_sequence", null)
             loadedSequenceName = map(loadedSequence) { it?.name ?: "" }
-            isLoaded = map(loadedSequence) { it != null }
+            isLoaded = loadedSequence.isNotNull()
             commandIndex = discreteResource("command_index", 0)
             _isActive = discreteResource("is_active", false)
 

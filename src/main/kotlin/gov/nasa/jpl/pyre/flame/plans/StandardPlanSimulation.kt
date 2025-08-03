@@ -80,6 +80,7 @@ inline fun <reified M> runStandardPlanSimulation(
         println("Read setup file $setupPath")
         val outputPath = setupPath.resolveSibling(setup.outputFile)
         println("Writing output to $outputPath")
+        outputPath.parent.toFile().mkdirs()
         outputStream = outputPath.outputStream()
     }
 

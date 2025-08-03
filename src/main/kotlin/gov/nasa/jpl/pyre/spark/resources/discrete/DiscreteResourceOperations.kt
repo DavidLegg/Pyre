@@ -59,6 +59,11 @@ object DiscreteResourceOperations {
         map(this, other) { x, y -> x != y } named { "($this) != ($other)" }
     infix fun <T> DiscreteResource<T>.equals(other: T): BooleanResource = this equals pure(other)
     infix fun <T> DiscreteResource<T>.notEquals(other: T): BooleanResource = this notEquals pure(other)
+
+    fun <T> DiscreteResource<T>.isNull(): BooleanResource =
+        map(this) { it == null } named { "($this) == null" }
+    fun <T> DiscreteResource<T>.isNotNull(): BooleanResource =
+        map(this) { it != null } named { "($this) != null" }
 }
 
 

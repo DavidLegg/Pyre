@@ -69,9 +69,9 @@ fun <V, D : Dynamics<V, D>> SimulationInitContext.resource(
 
 fun <D> resourceEffectTrait(concurrent: (left: ResourceEffect<D>, right: ResourceEffect<D>) -> ResourceEffect<D>) =
     object : EffectTrait<ResourceEffect<D>> {
-        override fun empty(): ResourceEffect<D> = identity()
-        override fun sequential(first: ResourceEffect<D>, second: ResourceEffect<D>) = first andThen second
-        override fun concurrent(left: ResourceEffect<D>, right: ResourceEffect<D>) = concurrent(left, right)
+        override fun empty(): ResourceEffect<D> = identity<FullDynamics<D>>() named { "(empty effect)" }
+        override fun sequential(first: ResourceEffect<D>, second: ResourceEffect<D>) = (first andThen second) named { "($first), ($second)" }
+        override fun concurrent(left: ResourceEffect<D>, right: ResourceEffect<D>) = concurrent(left, right) named { "($left) | ($right)" }
     }
 
 fun <D> commutingEffects(): EffectTrait<ResourceEffect<D>> = resourceEffectTrait { left, right -> left andThen right }

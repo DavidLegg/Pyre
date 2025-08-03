@@ -29,6 +29,8 @@ import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.coroutineTask
 import gov.nasa.jpl.pyre.spark.tasks.whenever
 import gov.nasa.jpl.pyre.flame.plans.ActivityActionsByContext.spawn
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.isNotNull
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.isNull
 import kotlin.reflect.KType
 import kotlin.reflect.full.withNullability
 import kotlin.reflect.typeOf
@@ -82,7 +84,7 @@ class PlanSimulation<M> {
             // in the task history, such that it can be re-launched when the simulation is restored.
             activityResource = discreteResource<GroundedActivity<M>?>("activity_to_schedule", null,
                 GroundedActivity::class.withArg(modelClass).withNullability(true))
-            spawn("activities", whenever(activityResource notEquals null) {
+            spawn("activities", whenever(activityResource.isNotNull()) {
                 val groundedActivity = requireNotNull(activityResource.getValue())
                 activityResource.set(null)
                 InternalLogger.log { "Scheduling activity ${groundedActivity.name} @ ${groundedActivity.time}" }
@@ -203,7 +205,7 @@ class PlanSimulation<M> {
                     activityLoaderActive = false
                     TaskScopeResult.Complete(Unit)
                 } else {
-                    await(activityResource equals null)
+                    await(activityResource.isNull())
                     val a = activitiesToLoad.removeFirst()
                     InternalLogger.log { "Loading activity ${a.name} @ ${a.time}" }
                     activityResource.set(a)
