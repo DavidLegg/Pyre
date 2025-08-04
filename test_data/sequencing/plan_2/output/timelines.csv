@@ -1,0 +1,2 @@
+time,activities,/telecom/radio/A/powered_on
+2020-01-02T01:00:00Z,"{\"name\":\"RadioPowerOn\",\"type\":\"RadioPowerOn\",\"event\":\"end\"}",true

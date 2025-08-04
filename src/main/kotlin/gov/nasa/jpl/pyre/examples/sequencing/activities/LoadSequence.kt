@@ -5,12 +5,14 @@ import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.Sequence
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.decodeFromStream
 import kotlin.io.path.Path
 import kotlin.io.path.inputStream
 
 @Serializable
+@SerialName("LoadSequence")
 class LoadSequence(
     val sequenceFile: String
 ): Activity<SequencingDemo> {

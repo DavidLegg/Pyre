@@ -1,0 +1,28 @@
+{
+  "resources": [
+    {
+      "name": "/telecom/prime_radio",
+      "kind": "discrete"
+    },
+    {
+      "name": "/telecom/radio/A/powered_on",
+      "kind": "discrete"
+    },
+    {
+      "name": "/telecom/radio/B/powered_on",
+      "kind": "discrete"
+    },
+    {
+      "name": "/telecom/prime_twta",
+      "kind": "discrete"
+    },
+    {
+      "name": "/telecom/twta/A/powered_on",
+      "kind": "discrete"
+    },
+    {
+      "name": "/telecom/twta/B/powered_on",
+      "kind": "discrete"
+    }
+  ]
+}

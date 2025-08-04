@@ -2,11 +2,15 @@ package gov.nasa.jpl.pyre.examples.sequencing
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.Serialization.alias
+import gov.nasa.jpl.pyre.examples.sequencing.activities.ActivateSequence
 import gov.nasa.jpl.pyre.examples.sequencing.activities.LoadSequence
+import gov.nasa.jpl.pyre.examples.sequencing.commands.ModeledCommands
+import gov.nasa.jpl.pyre.examples.sequencing.commands.ModeledCommands.includeModeledCommands
 import gov.nasa.jpl.pyre.examples.sequencing.commands.ModeledCommands.modeledCommands
 import gov.nasa.jpl.pyre.examples.sequencing.commands.telecom.*
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequencingModel
 import gov.nasa.jpl.pyre.examples.sequencing.telecom.TelecomModel
+import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.activity
 import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
 import gov.nasa.jpl.pyre.flame.tasks.subContext
@@ -14,6 +18,8 @@ import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.serializer
+import kotlin.reflect.full.createType
 import kotlin.time.Instant
 
 class SequencingDemo(
@@ -40,12 +46,10 @@ class SequencingDemo(
                 include(activitySerializersModule {
                     // Planning activities
                     activity(LoadSequence::class)
+                    activity(ActivateSequence::class)
 
-                    // Command activities
-                    activity(RadioPowerOn::class)
-                    activity(RadioPowerOff::class)
-                    activity(TwtaPowerOn::class)
-                    activity(TwtaPowerOff::class)
+                    // Include modeled commands
+                    includeModeledCommands()
                 })
             }
         }

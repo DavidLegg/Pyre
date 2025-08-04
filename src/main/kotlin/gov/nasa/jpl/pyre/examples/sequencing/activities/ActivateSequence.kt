@@ -6,7 +6,11 @@ import gov.nasa.jpl.pyre.flame.tasks.await
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.notEquals
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
+@SerialName("ActivateSequence")
 class ActivateSequence(
     val sequenceName: String
 ): Activity<SequencingDemo> {
