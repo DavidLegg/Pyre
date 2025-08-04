@@ -50,17 +50,23 @@ class CSVReportHandler(
             }
 
             columnLookup[value.channel]?.let { column ->
-                val stringValue = if (value.data == null || value.data is String) {
-                    // Write strings as-is, not wrapped in another layer of escaping
-                    value.data ?: ""
+                // Start off by JSON-encoding everything as a general-purpose fallback
+                val dataType = requireNotNull(type.arguments[0].type)
+                val s = jsonFormat.encodeToString(jsonFormat.serializersModule.serializer(dataType), value.data)
+                currentRow[column] = if (s.startsWith('"') && s.endsWith('"')
+                    && ESCAPE_CHARS.none { it in s.substring(1..s.length-2) }) {
+                    // If the encoding is a quoted string that doesn't need escaping, strip the quotes back off
+                    jsonFormat.decodeFromString<String>(s)
                 } else {
-                    // Write everything else in JSON format, as a general-purpose fallback.
-                    val dataType = requireNotNull(type.arguments[0].type)
-                    jsonFormat.encodeToString(jsonFormat.serializersModule.serializer(dataType), value.data)
+                    // Otherwise, leave it escaped as-is
+                    s
                 }
-                currentRow[column] = stringValue
             }
         }
+    }
+
+    companion object {
+        private val ESCAPE_CHARS: List<Char> = listOf('"', ',')
     }
 
     private fun flushCurrentRow() {

@@ -1,19 +1,27 @@
 {
   "resources": [
     {
-      "name": "prime_radio",
+      "name": "/telecom/prime_radio",
       "kind": "discrete"
     },
     {
-      "name": "powered_on",
+      "name": "/telecom/radio/A/powered_on",
       "kind": "discrete"
     },
     {
-      "name": "prime_twta",
+      "name": "/telecom/radio/B/powered_on",
       "kind": "discrete"
     },
     {
-      "name": "downlink_rate",
+      "name": "/telecom/prime_twta",
+      "kind": "discrete"
+    },
+    {
+      "name": "/telecom/twta/A/powered_on",
+      "kind": "discrete"
+    },
+    {
+      "name": "/telecom/twta/B/powered_on",
       "kind": "discrete"
     }
   ]

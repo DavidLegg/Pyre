@@ -26,7 +26,7 @@ object PolynomialResourceOperations {
     fun constant(value: Double): PolynomialResource = pure(polynomial(value)) named value::toString
 
     fun SparkInitContext.registeredPolynomialResource(name: String, vararg coefficients: Double) =
-        polynomialResource(name, *coefficients).also { register(name, it) }
+        polynomialResource(name, *coefficients).also(::register)
 
     fun DiscreteResource<Double>.asPolynomial(): PolynomialResource =
         map(this) { polynomial(it.value) } named this::toString

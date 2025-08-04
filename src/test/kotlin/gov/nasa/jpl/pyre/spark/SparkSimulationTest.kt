@@ -22,6 +22,7 @@ import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.resources.timer.Timer
 import gov.nasa.jpl.pyre.spark.tasks.SparkContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.report
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.onceWhenever
@@ -50,7 +51,7 @@ class SparkSimulationTest {
         endTime: Duration,
         incon: JsonElement? = null,
         takeFincon: Boolean = false,
-        initialize: SimulationState.SimulationInitContext.() -> Unit,
+        initialize: SparkInitContext.() -> Unit,
     ): SimulationResult {
         assertDoesNotThrow {
             // Build a simulation that'll write reports to memory
@@ -60,7 +61,15 @@ class SparkSimulationTest {
                     reports.add(Json.encodeToJsonElement(Json.serializersModule.serializer(type), value))
                 },
                 inconProvider = incon?.let { Json.decodeJsonConditionsFromJsonElement(it) },
-                initialize = initialize,
+                initialize = {
+                    with (object : SparkInitContext, SimulationState.SimulationInitContext by this {
+                        override val simulationClock = resource("simulation_clock", Timer(ZERO, 1))
+                        override val simulationEpoch = Instant.parse("2000-01-01T00:00:00Z")
+                        override fun toString() = ""
+                    }) {
+                        initialize()
+                    }
+                },
             ))
             // Run the simulation to the end
             simulation.runUntil(endTime)

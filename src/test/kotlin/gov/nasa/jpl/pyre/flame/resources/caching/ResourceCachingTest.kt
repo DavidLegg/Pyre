@@ -242,8 +242,8 @@ class ResourceCachingTest {
         // and add new initial value reports.
         assertEquals(
             listOf(
-                ChannelizedReport("resourceA", sim2start, JsonPrimitive(-10)),
-                ChannelizedReport("resourceB", sim2start, JsonPrimitive("Second string")),
+                ChannelizedReport("/resourceA", sim2start, JsonPrimitive(-10)),
+                ChannelizedReport("/resourceB", sim2start, JsonPrimitive("Second string")),
             ) +
             outputFile1.readLines()
                 .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }

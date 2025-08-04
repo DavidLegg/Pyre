@@ -91,13 +91,14 @@ object ResourceCaching {
         name: String,
         file: Path,
         jsonFormat: Json = Json,
-        channel: String = name,
+        channel: String? = null,
         dynamicsType: KType
     ): Resource<D> {
         val reader = file.bufferedReader()
+        val realChannel = channel ?: "$this/$name"
         val points = reader.lineSequence()
             .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
-            .filter { it.channel == channel }
+            .filter { it.channel == realChannel }
             .map { ResourcePoint(it.time, jsonFormat.decodeFromJsonElement<D>(dynamicsType, it.data)) }
             .closesWith { reader.close() }
         return precomputedResource(name, points)
@@ -107,6 +108,6 @@ object ResourceCaching {
         name: String,
         file: Path,
         jsonFormat: Json = Json,
-        channel: String = name,
+        channel: String? = null,
     ): Resource<D> = fileBackedResource(name, file, jsonFormat, channel, typeOf<D>())
 }

@@ -26,11 +26,12 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.IntResource
 import gov.nasa.jpl.pyre.spark.resources.emit
 import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.resources.resource
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlin.math.abs
 
 object TimerResourceOperations {
-    fun SimulationInitContext.timer(name: String, initialTime: Duration = ZERO, initialRate: Int = 1) =
+    fun SparkInitContext.timer(name: String, initialTime: Duration = ZERO, initialRate: Int = 1) =
         resource(name, Timer(initialTime, initialRate))
 
     /**

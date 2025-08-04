@@ -1,7 +1,10 @@
 package gov.nasa.jpl.pyre.spark.tasks
 
+import gov.nasa.jpl.pyre.ember.Cell
+import gov.nasa.jpl.pyre.ember.CellSet
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
+import gov.nasa.jpl.pyre.ember.Task
 import gov.nasa.jpl.pyre.ember.minus
 import gov.nasa.jpl.pyre.ember.toKotlinDuration
 import gov.nasa.jpl.pyre.ember.toPyreDuration

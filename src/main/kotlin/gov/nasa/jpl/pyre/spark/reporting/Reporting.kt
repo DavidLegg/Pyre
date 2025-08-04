@@ -56,13 +56,14 @@ fun <V, D : Dynamics<V, D>> SparkInitContext.register(
     dynamicsType: KType,
 ) {
     val reportType = ChannelizedReport::class.withArg(dynamicsType)
-    spawn("Report initial value for resource $name", task {
+    val reportedResourceName = "$this/$name"
+    spawn("Report initial value for resource $reportedResourceName", task {
         with (sparkTaskScope()) {
-            report(name, resource.getDynamics().data, reportType)
+            report(reportedResourceName, resource.getDynamics().data, reportType)
         }
     })
-    spawn("Report resource $name", wheneverChanges(resource) {
-        report(name, resource.getDynamics().data, reportType)
+    spawn("Report resource $reportedResourceName", wheneverChanges(resource) {
+        report(reportedResourceName, resource.getDynamics().data, reportType)
     })
 }
 

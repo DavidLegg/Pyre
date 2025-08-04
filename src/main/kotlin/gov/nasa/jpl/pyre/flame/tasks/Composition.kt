@@ -6,15 +6,16 @@ import gov.nasa.jpl.pyre.ember.Task
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
 
 /**
- * Creates a subcontext, wherein cells and tasks are given names prepended with "contextName/".
- * This reduces the amount of manual bookkeeping required to build large, hierarchical models.
+ * Creates a subcontext named "$this/$contextName".
+ * If models incorporate the context name into the names of tasks and resources,
+ * this provides an easy way to build hierarchical models without a lot of manual bookkeeping.
  */
-fun SparkInitContext.subContext(contextName: String): SparkInitContext {
-    return object : SparkInitContext by this {
-        override fun <T : Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E> =
-            this@subContext.allocate(cell.copy(name = "$contextName/${cell.name}"))
+fun SparkInitContext.subContext(contextName: String) = object : SparkInitContext by this {
+    override fun <T : Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E> =
+        this@subContext.allocate(cell.copy(name = "$contextName/${cell.name}"))
 
-        override fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) =
-            this@subContext.spawn("$contextName/$name", step)
-    }
+    override fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) =
+        this@subContext.spawn("$contextName/$name", step)
+
+    override fun toString() = "${this@subContext}/$contextName"
 }

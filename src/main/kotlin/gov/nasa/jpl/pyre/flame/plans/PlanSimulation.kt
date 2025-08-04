@@ -1,6 +1,8 @@
 package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.coals.Reflection.withArg
+import gov.nasa.jpl.pyre.ember.Cell
+import gov.nasa.jpl.pyre.ember.CellSet
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.FinconCollectingContext.Companion.report
@@ -13,6 +15,7 @@ import gov.nasa.jpl.pyre.ember.InternalLogger
 import gov.nasa.jpl.pyre.ember.ReportHandler
 import gov.nasa.jpl.pyre.ember.SimulationState
 import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
+import gov.nasa.jpl.pyre.ember.Task
 import gov.nasa.jpl.pyre.ember.toKotlinDuration
 import gov.nasa.jpl.pyre.ember.toPyreDuration
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
@@ -68,9 +71,16 @@ class PlanSimulation<M> {
         var start: Duration = requireNotNull(simulationStart ?: inconProvider?.within("simulation", "time")?.provide<Duration>())
         state = SimulationState(reportHandler)
         val initContext = state.initContext()
-        val sparkContext = object : SparkInitContext, SimulationInitContext by initContext {
+        val sparkContext = object : SparkInitContext, SimulationInitContext {
+            override fun <T : Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E> =
+                initContext.allocate(cell.copy(name = "/${cell.name}"))
+
+            override fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) =
+                initContext.spawn("/$name", step)
+
             override val simulationClock = resource("simulation_clock", Timer(start, 1))
             override val simulationEpoch = this@PlanSimulation.simulationEpoch
+            override fun toString() = ""
         }
         with(sparkContext) {
             // Construct the model itself

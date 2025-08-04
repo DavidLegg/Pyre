@@ -44,9 +44,9 @@ def main(csv_file: str, view_file: str):
     print(f'Reading {view_file}')
     view_obj = View.from_json_file(view_file)
     print(f'Plotting')
-    fig, axes = plt.subplots(nrows=len(view_obj.resources), sharex=True)
+    fig, axes = plt.subplots(nrows=len(view_obj.resources), sharex=True, layout="constrained")
     for resource_view, ax in zip(view_obj.resources, axes):
-        ax.set_ylabel(resource_view.name)
+        ax.set_title(resource_view.name)
         if resource_view.kind == 'continuous':
             data[resource_view.name].ffill().plot(ax=ax)
         elif resource_view.kind == 'discrete':

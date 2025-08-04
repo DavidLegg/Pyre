@@ -16,10 +16,10 @@ import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
 object DiscreteResourceOperations {
-    fun <V> SimulationInitContext.discreteResource(name: String, value: V, valueType: KType) =
+    fun <V> SparkInitContext.discreteResource(name: String, value: V, valueType: KType) =
         resource<V, Discrete<V>>(name, Discrete(value), Discrete::class.withArg(valueType))
 
-    inline fun <reified V> SimulationInitContext.discreteResource(name: String, value: V) =
+    inline fun <reified V> SparkInitContext.discreteResource(name: String, value: V) =
         discreteResource(name, value, typeOf<V>())
 
     fun <V> SparkInitContext.registeredDiscreteResource(name: String, value: V, valueType: KType): MutableResource<Discrete<V>> =
