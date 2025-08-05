@@ -1,4 +1,12 @@
 time,channel,data
-2020-01-02T01:00:00Z,activities,"{\"name\":\"RadioPowerOn\",\"type\":\"RadioPowerOn\",\"event\":\"start\"}"
-2020-01-02T01:00:00Z,activities,"{\"name\":\"RadioPowerOn\",\"type\":\"RadioPowerOn\",\"event\":\"end\"}"
+2020-01-02T00:00:00Z,/telecom/twta/B/powered_on,false
+2020-01-02T00:00:00Z,/telecom/twta/A/powered_on,false
+2020-01-02T00:00:00Z,/telecom/prime_twta,B
+2020-01-02T00:00:00Z,/telecom/radio/B/downlink_rate,0.0
+2020-01-02T00:00:00Z,/telecom/radio/B/powered_on,false
+2020-01-02T00:00:00Z,/telecom/radio/A/downlink_rate,0.0
+2020-01-02T00:00:00Z,/telecom/radio/A/powered_on,false
+2020-01-02T00:00:00Z,/telecom/prime_radio,B
+2020-01-02T01:00:00Z,activities,"{""name"":""RadioPowerOn"",""type"":""RadioPowerOn"",""event"":""start""}"
+2020-01-02T01:00:00Z,activities,"{""name"":""RadioPowerOn"",""type"":""RadioPowerOn"",""event"":""end""}"
 2020-01-02T01:00:00Z,/telecom/radio/A/powered_on,true

@@ -45,7 +45,7 @@ class CsvReportHandler(
 
     private fun escapeField(data: String): String {
         return if (',' in data || '"' in data) {
-            '"' + data.replace("\"", "\\\"") + '"'
+            '"' + data.replace("\"", "\"\"") + '"'
         } else {
             data
         }

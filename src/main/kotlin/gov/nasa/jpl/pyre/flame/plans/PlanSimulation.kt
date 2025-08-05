@@ -34,6 +34,11 @@ import gov.nasa.jpl.pyre.spark.tasks.whenever
 import gov.nasa.jpl.pyre.flame.plans.ActivityActionsByContext.spawn
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.isNotNull
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.isNull
+import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
+import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.repeatingTask
+import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.task
 import kotlin.reflect.KType
 import kotlin.reflect.full.withNullability
 import kotlin.reflect.typeOf
@@ -71,12 +76,17 @@ class PlanSimulation<M> {
         var start: Duration = requireNotNull(simulationStart ?: inconProvider?.within("simulation", "time")?.provide<Duration>())
         state = SimulationState(reportHandler)
         val initContext = state.initContext()
+        val startupTasks: MutableList<Pair<String, suspend SparkTaskScope.() -> Unit>> = mutableListOf()
         val sparkContext = object : SparkInitContext, SimulationInitContext {
             override fun <T : Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E> =
                 initContext.allocate(cell.copy(name = "/${cell.name}"))
 
             override fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) =
                 initContext.spawn("/$name", step)
+
+            override fun onStartup(name: String, block: suspend SparkTaskScope.() -> Unit) {
+                startupTasks += name to block
+            }
 
             override val simulationClock = resource("simulation_clock", Timer(start, 1))
             override val simulationEpoch = this@PlanSimulation.simulationEpoch
@@ -104,6 +114,16 @@ class PlanSimulation<M> {
 
         // Now that the root tasks are in place, we can restore the simulation
         inconProvider?.let(state::restore)
+
+        // Having restored the simulation, load in the startup tasks
+        InternalLogger.block({ "Loading startup tasks" }) {
+            with(sparkContext) {
+                for ((name, block) in startupTasks) {
+                    InternalLogger.log { "Loading ${this@with}/$name" }
+                    spawn(name, task { sparkTaskScope().block() })
+                }
+            }
+        }
     }
 
     companion object {

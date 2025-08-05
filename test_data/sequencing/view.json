@@ -2,27 +2,27 @@
   "resources": [
     {
       "name": "/telecom/prime_radio",
-      "kind": "discrete"
+      "kind": "enum"
     },
     {
       "name": "/telecom/radio/A/powered_on",
-      "kind": "discrete"
+      "kind": "enum"
     },
     {
       "name": "/telecom/radio/B/powered_on",
-      "kind": "discrete"
+      "kind": "enum"
     },
     {
       "name": "/telecom/prime_twta",
-      "kind": "discrete"
+      "kind": "enum"
     },
     {
       "name": "/telecom/twta/A/powered_on",
-      "kind": "discrete"
+      "kind": "enum"
     },
     {
       "name": "/telecom/twta/B/powered_on",
-      "kind": "discrete"
+      "kind": "enum"
     }
   ]
 }
