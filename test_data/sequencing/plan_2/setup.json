@@ -2,5 +2,5 @@
   "plan": "plan.json",
   "initial_conditions": "../plan_1/output/final_conditions.json",
   "final_conditions": "output/final_conditions.json",
-  "output": "output/timelines.csv"
+  "output": "output/events.csv"
 }

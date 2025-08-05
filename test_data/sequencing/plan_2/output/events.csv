@@ -1,0 +1,4 @@
+time,channel,data
+2020-01-02T01:00:00Z,activities,"{\"name\":\"RadioPowerOn\",\"type\":\"RadioPowerOn\",\"event\":\"start\"}"
+2020-01-02T01:00:00Z,activities,"{\"name\":\"RadioPowerOn\",\"type\":\"RadioPowerOn\",\"event\":\"end\"}"
+2020-01-02T01:00:00Z,/telecom/radio/A/powered_on,true

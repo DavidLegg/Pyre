@@ -7,12 +7,11 @@ import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
 import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
 import gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation
-import gov.nasa.jpl.pyre.flame.reporting.CSVReportHandler
+import gov.nasa.jpl.pyre.flame.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.assumeType
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channels
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.reportAllTo
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.split
-import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad.map
 import kotlinx.serialization.builtins.serializer
@@ -22,7 +21,7 @@ import kotlin.time.Instant
 
 // This is a simple setup, using mostly default choices for how to run a simulation.
 // Most importantly, it chooses to read and write files for incon, plan, outputs, and fincon,
-// and to use the default JSON Lines output format.
+// and to use the default CSV event output format.
 fun simpleMain(args: Array<String>) {
     runStandardPlanSimulation(
         args[0],
@@ -59,17 +58,19 @@ fun csvMain(args: Array<String>) {
         jsonFormat,
         buildReportHandler = { outputStream ->
             // val output = jsonlReportHandler(outputStream, jsonFormat)
-            val output = CSVReportHandler(outputStream, jsonFormat)
+            // val output = CSVReportHandler(outputStream, jsonFormat)
+            val output = CsvReportHandler(outputStream, jsonFormat)
             val vectorHandler = assumeType<Discrete<Vector>>() andThen split(
                     map(Vector::x) to { "$it.x" },
                     map(Vector::y) to { "$it.y" },
                     map(Vector::z) to { "$it.z" },
                 ) andThen reportAllTo(output)
             channels(
-                "earth_position" to vectorHandler,
-                "moon_position" to vectorHandler,
+                "/earth_position" to vectorHandler,
+                "/moon_position" to vectorHandler,
             )
-                .closesWith(output::close)
+                // .closesWith(output::close)
+                .closesWith {}
         }
     )
 }

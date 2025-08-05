@@ -1,11 +1,13 @@
 package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.coals.Closeable
+import gov.nasa.jpl.pyre.coals.Closeable.Companion.asCloseable
 import gov.nasa.jpl.pyre.coals.Closeable.Companion.closesWith
 import gov.nasa.jpl.pyre.coals.Closeable.Companion.use
 import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.toFile
 import gov.nasa.jpl.pyre.ember.ReportHandler
+import gov.nasa.jpl.pyre.flame.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.flame.reporting.ParallelReportHandler.Companion.inParallel
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
@@ -63,7 +65,7 @@ inline fun <reified M> runStandardPlanSimulation(
     noinline constructModel: SparkInitContext.() -> M,
     jsonFormat: Json = Json,
     buildReportHandler: (OutputStream) -> Closeable<ReportHandler> =
-        { jsonlReportHandler(it, jsonFormat).closesWith {} },
+        { CsvReportHandler(it, jsonFormat).asCloseable() },
 ) {
     val setupPath = Path(setupFile).absolute()
     val setup = setupPath.inputStream().use {

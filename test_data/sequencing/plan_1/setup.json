@@ -1,5 +1,5 @@
 {
   "plan": "plan.json",
   "final_conditions": "output/final_conditions.json",
-  "output": "output/timelines.csv"
+  "output": "output/events.csv"
 }
