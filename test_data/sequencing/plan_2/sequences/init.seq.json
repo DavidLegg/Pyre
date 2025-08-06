@@ -1,0 +1,36 @@
+{
+  "name": "init",
+  "loadAndGo": true,
+  "commands": [
+    {
+      "timeTag": {
+        "type": "A",
+        "time": "2020-01-02T01:00:00Z"
+      },
+      "command": {
+        "stem": "RADIO_POWER_ON",
+        "args": [
+          {
+            "type": "string",
+            "value": "PRIME"
+          }
+        ]
+      }
+    },
+    {
+      "timeTag": {
+        "type": "R",
+        "duration": "00:00:01.000000"
+      },
+      "command": {
+        "stem": "TWTA_POWER_ON",
+        "args": [
+          {
+            "type": "string",
+            "value": "PRIME"
+          }
+        ]
+      }
+    }
+  ]
+}

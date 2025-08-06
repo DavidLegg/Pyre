@@ -4,10 +4,10 @@ import gov.nasa.jpl.pyre.flame.tasks.subContext
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableStringResource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 
 class PowerModel(
-    context: SparkInitContext,
+    context: SparkInitScope,
 ) {
     val genericPowerUsed: MutableDoubleResource
     val pelStates: Map<PelItem, MutableStringResource>

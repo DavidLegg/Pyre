@@ -12,10 +12,10 @@ import gov.nasa.jpl.pyre.spark.reporting.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 
 class BatteryModel(
-    context: SparkInitContext,
+    context: SparkInitScope,
     val simConfig: BatterySimConfig,
     val powerDemand: DoubleResource,
     val powerProduction: DoubleResource,

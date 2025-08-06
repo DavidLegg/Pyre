@@ -17,12 +17,12 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlinx.serialization.Serializable
 
 class APSSModel(
-    context: SparkInitContext,
+    context: SparkInitScope,
 ) {
     enum class Component {
         TWINS_PY,
@@ -41,7 +41,7 @@ class APSSModel(
     }
 
     class ComponentModel(
-        context: SparkInitContext,
+        context: SparkInitScope,
         initialState: Boolean,
         initialInRate: ComponentRate,
         initialOutRate: ComponentRate,
@@ -91,13 +91,13 @@ class APSSModel(
         }
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun setComponentState(component: Component, state: Boolean) {
         components.getValue(component).state.set(state)
         updateComponentRates()
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun updateComponentRates() {
         // Zero out rates to reset further down
         internalRate.set(0.0)
@@ -112,7 +112,7 @@ class APSSModel(
         }
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun dumpInternalData(duration: Duration, internalVolumeToDump: Double, vcVolumeToDump: Double) {
         val internalDumpRate = internalVolumeToDump / (duration ratioOver SECOND)
         val sendToVCDumpRate = vcVolumeToDump / (duration ratioOver SECOND)
@@ -124,7 +124,7 @@ class APSSModel(
         rateToSendToVC.increase(sendToVCDumpRate)
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun dumpInternalData(duration: Duration) {
         dumpInternalData(duration, internalVolume.getValue(), volumeToSendToVC.getValue())
     }

@@ -2,10 +2,10 @@ package gov.nasa.jpl.pyre.examples.lander.models.data
 
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 
 class InstrumentHKChannel(
-    context: SparkInitContext,
+    context: SparkInitScope,
     val apid: DataConfig.APID,
     val defaultFullWakeRate: Double,
     val defaultDiagnosticWakeRate: Double,

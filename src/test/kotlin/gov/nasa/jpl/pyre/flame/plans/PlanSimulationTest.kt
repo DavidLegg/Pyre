@@ -4,7 +4,7 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.int
 import gov.nasa.jpl.pyre.spark.ChannelizedReports
 import gov.nasa.jpl.pyre.spark.channel
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import gov.nasa.jpl.pyre.*
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.Duration
@@ -38,7 +38,7 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.plus
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.whenever
 import gov.nasa.jpl.pyre.spark.value
@@ -53,7 +53,7 @@ import kotlin.test.Test
 import kotlin.time.Instant
 
 class PlanSimulationTest {
-    class EmptyModel(context: SparkInitContext)
+    class EmptyModel(context: SparkInitScope)
 
     @Test
     fun empty_model_can_be_created() {
@@ -73,7 +73,7 @@ class PlanSimulationTest {
         val x: MutableDiscreteResource<Int>
         val y: MutableDiscreteResource<String>
 
-        constructor(context: SparkInitContext) {
+        constructor(context: SparkInitScope) {
             with(context) {
                 x = registeredDiscreteResource("x", 0)
                 y = registeredDiscreteResource("y", "XYZ")
@@ -82,7 +82,7 @@ class PlanSimulationTest {
 
         @Serializable
         class DummyActivity() : Activity<ModelWithResources> {
-            context(scope: SparkTaskScope)
+            context(scope: TaskScope)
             override suspend fun effectModel(model: ModelWithResources) {}
         }
     }
@@ -170,7 +170,7 @@ class PlanSimulationTest {
         val miscPower: MutableDoubleResource
         val totalPower: DoubleResource
 
-        constructor(context: SparkInitContext) {
+        constructor(context: SparkInitScope) {
             with(context) {
                 deviceState = registeredDiscreteResource("deviceState", OFF)
                 powerTable = mapOf(
@@ -196,24 +196,22 @@ class PlanSimulationTest {
 
         @Serializable
         class DeviceBoot() : Activity<TestModel> {
-            context(scope: SparkTaskScope)
+            context(scope: TaskScope)
             override suspend fun effectModel(model: TestModel) {
-                with (scope) {
-                    when (model.deviceState.getValue()) {
-                        OFF, WARMUP -> {
-                            model.deviceState.set(WARMUP)
-                            delay(5 * MINUTE)
-                            model.deviceState.set(STANDBY)
-                        }
-                        else -> model.deviceState.set(STANDBY)
+                when (model.deviceState.getValue()) {
+                    OFF, WARMUP -> {
+                        model.deviceState.set(WARMUP)
+                        delay(5 * MINUTE)
+                        model.deviceState.set(STANDBY)
                     }
+                    else -> model.deviceState.set(STANDBY)
                 }
             }
         }
 
         @Serializable
         class DeviceActivate(val duration: Duration) : Activity<TestModel> {
-            context(scope: SparkTaskScope)
+            context(scope: TaskScope)
             override suspend fun effectModel(model: TestModel) {
                 if (model.deviceState.getValue() != STANDBY) {
                     // TODO: Spawn activity
@@ -231,7 +229,7 @@ class PlanSimulationTest {
 
         @Serializable
         class DeviceShutdown() : Activity<TestModel> {
-            context(scope: SparkTaskScope)
+            context(scope: TaskScope)
             override suspend fun effectModel(model: TestModel) {
                 model.deviceState.set(SHUTDOWN)
                 delay(5 * MINUTE)
@@ -241,7 +239,7 @@ class PlanSimulationTest {
 
         @Serializable
         class AddMiscPower(val amount: Double) : Activity<TestModel> {
-            context(scope: SparkTaskScope)
+            context(scope: TaskScope)
             override suspend fun effectModel(model: TestModel) {
                 model.miscPower.increase(amount)
             }

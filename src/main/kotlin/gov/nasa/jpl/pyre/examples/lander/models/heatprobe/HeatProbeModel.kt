@@ -16,12 +16,12 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 
 class HeatProbeModel(
-    context: SparkInitContext,
+    context: SparkInitScope,
 ) {
     enum class PowerState {
         On,
@@ -93,7 +93,7 @@ class HeatProbeModel(
         }
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun setParametersToTableValues() {
         for ((param, tableResource) in parametersInTable) {
             parametersCurrent.getValue(param).set(tableResource.getValue())

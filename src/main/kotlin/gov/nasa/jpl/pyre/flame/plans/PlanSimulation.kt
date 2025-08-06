@@ -14,30 +14,26 @@ import gov.nasa.jpl.pyre.ember.InconProvidingContext.Companion.provide
 import gov.nasa.jpl.pyre.ember.InternalLogger
 import gov.nasa.jpl.pyre.ember.ReportHandler
 import gov.nasa.jpl.pyre.ember.SimulationState
-import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.ember.Task
 import gov.nasa.jpl.pyre.ember.toKotlinDuration
 import gov.nasa.jpl.pyre.ember.toPyreDuration
+import gov.nasa.jpl.pyre.flame.plans.ActivityActions.spawn
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.equals
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.notEquals
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.resources.timer.Timer
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.coroutineTask
 import gov.nasa.jpl.pyre.spark.tasks.whenever
-import gov.nasa.jpl.pyre.flame.plans.ActivityActionsByContext.spawn
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.isNotNull
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.isNull
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
-import gov.nasa.jpl.pyre.spark.tasks.repeatingTask
-import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkContextExtensions.simulationEpoch
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.task
 import kotlin.reflect.KType
 import kotlin.reflect.full.withNullability
@@ -60,7 +56,7 @@ import kotlin.time.Instant
  * 4. cutting a fincon in preparation for the next cycle.
  */
 class PlanSimulation<M> {
-    private val simulationEpoch: Instant
+    private val sparkContext: SparkContext
     private val state: SimulationState
     private val activityResource: MutableDiscreteResource<GroundedActivity<M>?>
 
@@ -69,27 +65,27 @@ class PlanSimulation<M> {
         simulationEpoch: Instant?,
         simulationStart: Duration?,
         inconProvider: InconProvider?,
-        constructModel: SparkInitContext.() -> M,
+        constructModel: SparkInitScope.() -> M,
         modelClass: KType,
     ) {
-        this.simulationEpoch = requireNotNull(simulationEpoch ?: inconProvider?.within("simulation", "epoch")?.provide<Instant>())
+        val simulationEpoch = requireNotNull(simulationEpoch ?: inconProvider?.within("simulation", "epoch")?.provide<Instant>())
         var start: Duration = requireNotNull(simulationStart ?: inconProvider?.within("simulation", "time")?.provide<Duration>())
         state = SimulationState(reportHandler)
-        val initContext = state.initContext()
-        val startupTasks: MutableList<Pair<String, suspend SparkTaskScope.() -> Unit>> = mutableListOf()
-        val sparkContext = object : SparkInitContext, SimulationInitContext {
+        val initContext = state.initScope()
+        val startupTasks: MutableList<Pair<String, suspend TaskScope.() -> Unit>> = mutableListOf()
+        sparkContext = object : SparkInitScope {
             override fun <T : Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E> =
                 initContext.allocate(cell.copy(name = "/${cell.name}"))
 
             override fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) =
                 initContext.spawn("/$name", step)
 
-            override fun onStartup(name: String, block: suspend SparkTaskScope.() -> Unit) {
+            override fun onStartup(name: String, block: suspend TaskScope.() -> Unit) {
                 startupTasks += name to block
             }
 
             override val simulationClock = resource("simulation_clock", Timer(start, 1))
-            override val simulationEpoch = this@PlanSimulation.simulationEpoch
+            override val simulationEpoch = simulationEpoch
             override fun toString() = ""
         }
         with(sparkContext) {
@@ -110,17 +106,15 @@ class PlanSimulation<M> {
                 InternalLogger.log { "Scheduling activity ${groundedActivity.name} @ ${groundedActivity.time}" }
                 spawn(groundedActivity, model)
             })
-        }
 
-        // Now that the root tasks are in place, we can restore the simulation
-        inconProvider?.let(state::restore)
+            // Now that the root tasks are in place, we can restore the simulation
+            inconProvider?.let(state::restore)
 
-        // Having restored the simulation, load in the startup tasks
-        InternalLogger.block({ "Loading startup tasks" }) {
-            with(sparkContext) {
+            // Having restored the simulation, load in the startup tasks
+            InternalLogger.block({ "Loading startup tasks" }) {
                 for ((name, block) in startupTasks) {
                     InternalLogger.log { "Loading ${this@with}/$name" }
-                    spawn(name, task { sparkTaskScope().block() })
+                    spawn(name, task { block() })
                 }
             }
         }
@@ -138,7 +132,7 @@ class PlanSimulation<M> {
         inline fun <reified M> withIncon(
             noinline reportHandler: ReportHandler,
             inconProvider: InconProvider,
-            noinline constructModel: SparkInitContext.() -> M,
+            noinline constructModel: SparkInitScope.() -> M,
         ) = withIncon(
             reportHandler,
             inconProvider,
@@ -149,7 +143,7 @@ class PlanSimulation<M> {
         fun <M> withIncon(
             reportHandler: ReportHandler,
             inconProvider: InconProvider,
-            constructModel: SparkInitContext.() -> M,
+            constructModel: SparkInitScope.() -> M,
             modelClass: KType,
         ) = PlanSimulation(
             reportHandler = reportHandler,
@@ -164,7 +158,7 @@ class PlanSimulation<M> {
             noinline reportHandler: ReportHandler,
             simulationEpoch: Instant,
             simulationStart: Instant,
-            noinline constructModel: SparkInitContext.() -> M,
+            noinline constructModel: SparkInitScope.() -> M,
         ) = withoutIncon(
             reportHandler,
             simulationEpoch,
@@ -177,7 +171,7 @@ class PlanSimulation<M> {
             reportHandler: ReportHandler,
             simulationEpoch: Instant,
             simulationStart: Instant,
-            constructModel: SparkInitContext.() -> M,
+            constructModel: SparkInitScope.() -> M,
             modelClass: KType,
         ) = PlanSimulation(
             reportHandler = reportHandler,
@@ -190,27 +184,27 @@ class PlanSimulation<M> {
     }
 
     fun runUntil(endTime: Instant) {
-        val endDuration = (endTime - simulationEpoch).toPyreDuration()
+        val endDuration = (endTime - sparkContext.simulationEpoch).toPyreDuration()
         require(endDuration >= state.time()) {
-            "Simulation time is currently ${simulationEpoch + state.time().toKotlinDuration()}, cannot step backwards to $endTime"
+            "Simulation time is currently ${sparkContext.simulationEpoch + state.time().toKotlinDuration()}, cannot step backwards to $endTime"
         }
         var n = 0
         var lastStepTime = ZERO
         while (state.time() < endDuration) {
-                if (++n >= SIMULATION_STALL_LIMIT) {
-                    throw IllegalStateException("Simulation has stalled at ${state.time()} after $n iterations.")
-                }
-                state.stepTo(endDuration)
-                if (lastStepTime < state.time()) {
-                    lastStepTime = state.time()
-                    n = 0
-                }
+            if (++n >= SIMULATION_STALL_LIMIT) {
+                throw IllegalStateException("Simulation has stalled at ${state.time()} after $n iterations.")
             }
+            state.stepTo(endDuration)
+            if (lastStepTime < state.time()) {
+                lastStepTime = state.time()
+                n = 0
+            }
+        }
     }
 
     fun save(finconCollector: FinconCollector) {
         state.save(finconCollector)
-        finconCollector.within("simulation", "epoch").report(simulationEpoch)
+        finconCollector.within("simulation", "epoch").report(sparkContext.simulationEpoch)
     }
 
     fun addActivities(activities: List<GroundedActivity<M>>) {
@@ -230,7 +224,7 @@ class PlanSimulation<M> {
             // before the simulation advances in time.
             // Combined with the loop below to exercise this task to completion, thereby unloading this unsafe task,
             // the simulation is always in a safe state to save/restore when this function returns.
-            state.addTask("activity loader", coroutineTask {
+            state.addTask("activity loader", sparkContext.coroutineTask {
                 if (activitiesToLoad.isEmpty()) {
                     activityLoaderActive = false
                     TaskScopeResult.Complete(Unit)
@@ -251,7 +245,7 @@ class PlanSimulation<M> {
 
     fun runPlan(plan: Plan<M>) {
         InternalLogger.block({ "Running plan" }) {
-            val absoluteSimulationTime = simulationEpoch + state.time().toKotlinDuration()
+            val absoluteSimulationTime = sparkContext.simulationEpoch + state.time().toKotlinDuration()
             require(plan.startTime == absoluteSimulationTime) {
                 "Cannot run plan starting at ${plan.startTime}. Simulation is at $absoluteSimulationTime"
             }

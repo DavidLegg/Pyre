@@ -18,12 +18,12 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.decrease
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 
 class SeisModel(
-    context: SparkInitContext,
+    context: SparkInitScope,
 ) {
     val poweredOn: MutableBooleanResource
     val mdeShouldBeOn: MutableBooleanResource
@@ -83,13 +83,13 @@ class SeisModel(
     }
 
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun setDeviceState(device: Device, state: Boolean) {
         deviceOn.getValue(device).set(state)
         updateChannelRates()
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun setChannelRates(newChannelRates: Map<Channel, ChannelRate>) {
         for ((channel, rate) in newChannelRates) {
             channelRates.getValue(channel).set(rate)
@@ -97,25 +97,25 @@ class SeisModel(
         updateChannelRates()
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun setCombinedChannelOutRates(newCombinedChannelOutRates: List<ChannelOutRateGroup>) {
         combinedChannelOutRates.set(newCombinedChannelOutRates)
         updateChannelRates()
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun setSamplingRate(deviceType: DeviceType, samplingRate: Double) {
         deviceTypeMetrics.getValue(deviceType).samplingRate.set(samplingRate)
         updateChannelRates()
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun setGain(deviceType: DeviceType, gain: Gain) {
         deviceTypeMetrics.getValue(deviceType).gain.set(gain)
         updateChannelRates()
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     private suspend fun updateChannelRates() {
         // Zero out rates to reset further down
         internalRate.set(0.0)
@@ -196,7 +196,7 @@ class SeisModel(
         }
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun dumpInternalData(duration: Duration, internalVolumeToDump: Double, vcVolumeToDump: Double) {
         val internalDumpRate = internalVolumeToDump / (duration ratioOver SECOND)
         val sendToVCDumpRate = vcVolumeToDump / (duration ratioOver SECOND)
@@ -208,7 +208,7 @@ class SeisModel(
         rateToSendToVC.increase(sendToVCDumpRate)
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun runMDEStateMachine(powerModel: PowerModel) {
         var state = "off"
 

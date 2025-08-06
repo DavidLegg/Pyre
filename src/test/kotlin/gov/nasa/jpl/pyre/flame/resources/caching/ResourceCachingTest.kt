@@ -27,8 +27,8 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.MutableIntResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableStringResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.StringResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.every
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -54,7 +54,7 @@ class ResourceCachingTest {
      * That resource is registered like usual and saved to the output file.
      */
     class OriginalResourceModel(
-        context: SparkInitContext,
+        context: SparkInitScope,
     ) {
         val resourceA: MutableIntResource
         val resourceB: MutableStringResource
@@ -77,7 +77,7 @@ class ResourceCachingTest {
         data class ChangeA(
             val delta: Int
         ) : Activity<OriginalResourceModel> {
-            context(scope: SparkTaskScope)
+            context(scope: TaskScope)
             override suspend fun effectModel(model: OriginalResourceModel) {
                 model.resourceA.increment(delta)
             }
@@ -88,7 +88,7 @@ class ResourceCachingTest {
         data class ChangeB(
             val newValue: String
         ) : Activity<OriginalResourceModel> {
-            context(scope: SparkTaskScope)
+            context(scope: TaskScope)
             override suspend fun effectModel(model: OriginalResourceModel) {
                 model.resourceB.set(newValue)
             }
@@ -103,7 +103,7 @@ class ResourceCachingTest {
     class CachedResourceModel(
         resourceFile: Path,
         jsonFormat: Json,
-        context: SparkInitContext,
+        context: SparkInitScope,
     ) {
         val resourceA: IntResource
         val resourceB: StringResource

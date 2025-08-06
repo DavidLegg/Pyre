@@ -10,7 +10,7 @@ import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel.PelItem.*
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.SparkContextExtensions.delayUntil
 import gov.nasa.jpl.pyre.spark.tasks.SparkContextExtensions.simulationClock
 import kotlinx.serialization.Serializable
@@ -19,7 +19,7 @@ import kotlinx.serialization.Serializable
 class APSSTwinsBoomSwap(
     val duration: Duration = 20 * MINUTE,
 ): Activity<Mission> {
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     override suspend fun effectModel(model: Mission) {
         val end = simulationClock.getValue() + duration
 

@@ -1,9 +1,9 @@
 package gov.nasa.jpl.pyre.examples.sequencing.sequence_engine
 
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 fun interface CommandBehavior {
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun effectModel(command: Command)
 
     companion object {

@@ -26,13 +26,13 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.incre
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.whenever
 import kotlin.math.min
 
 
-class DataModel(context: SparkInitContext) {
+class DataModel(context: SparkInitScope) {
     private val virtualChannelMap: Map<ChannelName, VirtualChannel>
     val apidModelMap: Map<DataConfig.APID, APIDModel>
 
@@ -71,7 +71,7 @@ class DataModel(context: SparkInitContext) {
         }
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun setInstrumentHKRate(
         wakeType: WakeType,
         hkChannel: InstrumentHKChannel,
@@ -92,7 +92,7 @@ class DataModel(context: SparkInitContext) {
 
 
     class VirtualChannel(
-        context: SparkInitContext,
+        context: SparkInitScope,
         val limit: Double,
         val overflowChannelId: ChannelName
     ) {
@@ -167,7 +167,7 @@ class DataModel(context: SparkInitContext) {
     }
 
     class APIDModel(
-        context: SparkInitContext,
+        context: SparkInitScope,
         private val virtualChannelMap: Map<ChannelName, VirtualChannel>,
     ) {
         private val routedVC: MutableDiscreteResource<ChannelName>
@@ -180,13 +180,13 @@ class DataModel(context: SparkInitContext) {
             }
         }
 
-        context (scope: SparkTaskScope)
+        context (scope: TaskScope)
         suspend fun increaseDataRate(dRate: Double) {
             dataRate.increase(dRate)
             virtualChannelMap.getValue(routedVC.getValue()).rate.increase(dRate)
         }
 
-        context (scope: SparkTaskScope)
+        context (scope: TaskScope)
         suspend fun updateRoute(channelName: ChannelName) {
             val dRate = dataRate.getValue()
             virtualChannelMap.getValue(routedVC.getValue()).rate.decrease(dRate)

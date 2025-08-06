@@ -9,7 +9,6 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.decodeJsonConditionsFromJsonElement
 import gov.nasa.jpl.pyre.ember.SimpleSimulation
 import gov.nasa.jpl.pyre.ember.SimpleSimulation.SimulationSetup
-import gov.nasa.jpl.pyre.ember.SimulationState
 import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.discrete.*
@@ -22,7 +21,8 @@ import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.resources.timer.Timer
 import gov.nasa.jpl.pyre.spark.tasks.SparkContext
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.report
 import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.onceWhenever
@@ -36,7 +36,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.serializer
 import org.junit.jupiter.api.assertDoesNotThrow
-import kotlin.reflect.KType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
@@ -51,7 +50,7 @@ class SparkSimulationTest {
         endTime: Duration,
         incon: JsonElement? = null,
         takeFincon: Boolean = false,
-        initialize: SparkInitContext.() -> Unit,
+        initialize: SparkInitScope.() -> Unit,
     ): SimulationResult {
         assertDoesNotThrow {
             // Build a simulation that'll write reports to memory
@@ -62,10 +61,12 @@ class SparkSimulationTest {
                 },
                 inconProvider = incon?.let { Json.decodeJsonConditionsFromJsonElement(it) },
                 initialize = {
-                    with (object : SparkInitContext, SimulationState.SimulationInitContext by this {
+                    with (object : SparkInitScope, InitScope by this {
                         override val simulationClock = resource("simulation_clock", Timer(ZERO, 1))
                         override val simulationEpoch = Instant.parse("2000-01-01T00:00:00Z")
                         override fun toString() = ""
+                        override fun onStartup(name: String, block: suspend TaskScope.() -> Unit) =
+                            throw NotImplementedError()
                     }) {
                         initialize()
                     }

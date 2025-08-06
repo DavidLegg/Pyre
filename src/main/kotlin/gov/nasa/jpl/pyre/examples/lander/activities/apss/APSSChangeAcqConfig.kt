@@ -11,7 +11,7 @@ import gov.nasa.jpl.pyre.examples.lander.models.wake.WakeModel
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.SparkContextExtensions.delayUntil
 import gov.nasa.jpl.pyre.spark.tasks.SparkContextExtensions.simulationClock
 import kotlinx.serialization.Serializable
@@ -46,7 +46,7 @@ class APSSChangeAcqConfig(
         }
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     override suspend fun effectModel(model: Mission) {
         val end = simulationClock.getValue() + duration
 

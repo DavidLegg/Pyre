@@ -1,9 +1,8 @@
 package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.reporting.report
-import gov.nasa.jpl.pyre.spark.tasks.sparkTaskScope
 import gov.nasa.jpl.pyre.spark.tasks.task
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.KSerializer
@@ -25,7 +24,7 @@ import kotlin.time.Instant
  * Base unit of planned simulation behavior.
  */
 interface Activity<M> {
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun effectModel(model: M)
 }
 
@@ -55,27 +54,25 @@ data class GroundedActivity<M>(
 fun <M> GroundedActivity<M>.float() = FloatingActivity(activity, typeName, name)
 fun <M> FloatingActivity<M>.ground(time: Instant) = GroundedActivity(time, activity, typeName, name)
 
-suspend fun <M> SparkTaskScope.defer(time: Duration, activity: FloatingActivity<M>, model: M) {
+suspend fun <M> TaskScope.defer(time: Duration, activity: FloatingActivity<M>, model: M) {
     spawn(activity.name, task {
-        with(sparkTaskScope()) {
-            delay(time)
-            report(
-                "activities", JsonObject(mapOf(
-                    "name" to JsonPrimitive(activity.name),
-                    "type" to JsonPrimitive(activity.typeName),
-                    "event" to JsonPrimitive("start")
-                ))
-            )
-            val result = activity.activity.effectModel(model)
-            report(
-                "activities", JsonObject(mapOf(
-                    "name" to JsonPrimitive(activity.name),
-                    "type" to JsonPrimitive(activity.typeName),
-                    "event" to JsonPrimitive("end")
-                ))
-            )
-            result
-        }
+        delay(time)
+        report(
+            "activities", JsonObject(mapOf(
+                "name" to JsonPrimitive(activity.name),
+                "type" to JsonPrimitive(activity.typeName),
+                "event" to JsonPrimitive("start")
+            ))
+        )
+        val result = activity.activity.effectModel(model)
+        report(
+            "activities", JsonObject(mapOf(
+                "name" to JsonPrimitive(activity.name),
+                "type" to JsonPrimitive(activity.typeName),
+                "event" to JsonPrimitive("end")
+            ))
+        )
+        result
     })
 }
 

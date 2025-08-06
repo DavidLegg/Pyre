@@ -4,10 +4,10 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
 import gov.nasa.jpl.pyre.spark.reporting.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 
 class EarthOrbit(
-    context: SparkInitContext,
+    context: SparkInitScope,
 ) {
     private val orbitalSimulation: OrbitalSimulation
     val earthPosition: DiscreteResource<Vector>

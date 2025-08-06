@@ -3,7 +3,7 @@ package gov.nasa.jpl.pyre.examples.lander.models.seis
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import kotlinx.serialization.Serializable
 
 class SeisConfig {
@@ -113,7 +113,7 @@ class SeisConfig {
     data class ChannelOutRateGroup(val outRate: Double, val channels: List<Channel>)
 
     class DeviceTypeMetrics(
-        context: SparkInitContext,
+        context: SparkInitScope,
         samplingRate: Double,
         gain: Gain,
     ) {
@@ -127,6 +127,6 @@ class SeisConfig {
             }
         }
 
-        constructor(context: SparkInitContext) : this(context, 0.0, Gain.HIGH)
+        constructor(context: SparkInitScope) : this(context, 0.0, Gain.HIGH)
     }
 }

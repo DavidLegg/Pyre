@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.resources.ResourceEffect
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
+import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 object MutableResourceLens {
@@ -14,7 +14,7 @@ object MutableResourceLens {
             context(scope: TaskScope)
             override suspend fun emit(effect: ResourceEffect<V>) = selector(key.getValue()).emit(effect)
 
-            context(scope: CellsReadableScope)
+            context(scope: ResourceScope)
             override suspend fun getDynamics(): FullDynamics<V> = selector(key.getValue()).getDynamics()
         }
 }

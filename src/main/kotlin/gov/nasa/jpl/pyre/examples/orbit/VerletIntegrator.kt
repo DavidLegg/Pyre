@@ -9,12 +9,12 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
 import gov.nasa.jpl.pyre.spark.tasks.every
 
 class VerletIntegrator(
-    context: SparkInitContext,
+    context: SparkInitScope,
     private val name: String,
     initialPosition: DoubleArray,
     initialVelocity: DoubleArray,
@@ -24,7 +24,7 @@ class VerletIntegrator(
     private val priorPosition: DiscreteResource<DoubleArray>
     private val position: DiscreteResource<DoubleArray>
 
-    context (scope: CellsReadableScope)
+    context (scope: ResourceScope)
     override suspend fun getDynamics(): FullDynamics<Discrete<DoubleArray>> = position.getDynamics()
 
     init {

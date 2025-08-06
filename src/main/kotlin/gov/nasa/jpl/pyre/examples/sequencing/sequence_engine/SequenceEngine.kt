@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.ember.toPyreDuration
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.BranchIndicator.*
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.*
-import gov.nasa.jpl.pyre.flame.tasks.await
+import gov.nasa.jpl.pyre.spark.reporting.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.not
@@ -13,6 +13,7 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.or
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.isNotNull
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
@@ -20,10 +21,12 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableIntResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.StringResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
+import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.spark.tasks.SparkContextExtensions.now
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.task
 import gov.nasa.jpl.pyre.spark.tasks.whenever
 import kotlin.collections.forEach
@@ -33,7 +36,7 @@ class SequenceEngine(
     val blockTypes: List<CommandBlockDescription> = emptyList(),
     val commandHandlers: Map<String, CommandBehavior>,
     val dispatchPeriod: Duration,
-    context: SparkInitContext,
+    context: SparkInitScope,
 ) {
     /**
      * Describes a "block" of commands, used to perform structured control flow within a sequence.
@@ -98,14 +101,14 @@ class SequenceEngine(
     init {
         with (context) {
             loadedSequence = discreteResource("loaded_sequence", null)
-            loadedSequenceName = map(loadedSequence) { it?.name ?: "" }
-            isLoaded = loadedSequence.isNotNull()
-            commandIndex = discreteResource("command_index", 0)
-            _isActive = discreteResource("is_active", false)
+            loadedSequenceName = (map(loadedSequence) { it?.name ?: "" } named { "loaded_sequence_name" }).also(::register)
+            isLoaded = (loadedSequence.isNotNull() named { "is_loaded" }).also(::register)
+            commandIndex = registeredDiscreteResource("command_index", 0)
+            _isActive = registeredDiscreteResource("is_active", false)
 
-            lastDispatchTime = discreteResource("last_dispatch_time", null)
-            lastDispatchedCommandIndex = discreteResource("last_dispatched_command_index", -1)
-            lastDispatchedCommandComplete = discreteResource("last_dispatched_command_complete", false)
+            lastDispatchTime = registeredDiscreteResource("last_dispatch_time", null)
+            lastDispatchedCommandIndex = registeredDiscreteResource("last_dispatched_command_index", -1)
+            lastDispatchedCommandComplete = registeredDiscreteResource("last_dispatched_command_complete", false)
 
             spawn("Run Sequence Engine", whenever(isLoaded and isActive) {
                 val sequence = loadedSequence.getValue()!!
@@ -115,7 +118,9 @@ class SequenceEngine(
                     sequenceBehavior = determineSequenceBehavior(sequence)
                 }
                 val i = commandIndex.getValue()
-                sequenceBehavior?.let { sequenceBehavior ->
+                requireNotNull(sequenceBehavior) {
+                    "Internal Error! Cached sequence behavior was not available."
+                }.let { sequenceBehavior ->
                     if (i in sequenceBehavior.indices) {
                         // TODO: Build an "interruptible task" utility to clean this up
                         val (timeTag, command) = sequence.commands[i]
@@ -128,13 +133,14 @@ class SequenceEngine(
                         await((dispatchPeriodElapsed and dispatchReady and isActive) or isLoaded.not())
                         // Check that the engine is still loaded, to handle unloading the engine unexpectedly
                         if (isLoaded.getValue()) {
+                            lastDispatchTime.set(now())
+                            lastDispatchedCommandIndex.set(i)
+                            lastDispatchedCommandComplete.set(false)
                             spawn("Run Command $i", task {
-                                lastDispatchTime.set(now())
-                                lastDispatchedCommandIndex.set(i)
-                                lastDispatchedCommandComplete.set(false)
                                 sequenceBehavior[i].effectModel(command)
                                 // Check that another command hasn't been dispatched in the meantime
-                                if (lastDispatchedCommandIndex.getValue() == i) {
+                                if (loadedSequenceName.getValue() == sequence.name
+                                    && lastDispatchedCommandIndex.getValue() == i) {
                                     lastDispatchedCommandComplete.set(true)
                                 }
                             })
@@ -154,7 +160,7 @@ class SequenceEngine(
         val branchCommandIndices: MutableList<Int> = mutableListOf(),
     )
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun load(sequence: Sequence) {
         require(!isLoaded.getValue()) { "Sequence engine is already loaded!" }
         loadedSequence.set(sequence)
@@ -165,23 +171,20 @@ class SequenceEngine(
         if (sequence.loadAndGo) activate()
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun activate() {
         _isActive.set(true)
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun deactivate() {
         _isActive.set(false)
     }
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun unload() {
         deactivate()
         loadedSequence.set(null)
-        commandIndex.set(0)
-        lastDispatchedCommandIndex.set(-1)
-        lastDispatchedCommandComplete.set(false)
         sequenceBehavior = null
     }
 

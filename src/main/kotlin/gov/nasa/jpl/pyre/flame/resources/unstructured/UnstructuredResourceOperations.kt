@@ -9,8 +9,8 @@ import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
 import gov.nasa.jpl.pyre.spark.tasks.SparkContext
+import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
 
 object UnstructuredResourceOperations {
     /**
@@ -18,7 +18,7 @@ object UnstructuredResourceOperations {
      */
     context(context: SparkContext)
     fun <A> timeBased(fn: (Duration) -> A) = object : UnstructuredResource<A> {
-        context(scope: CellsReadableScope)
+        context(scope: ResourceScope)
         override suspend fun getDynamics(): FullDynamics<Unstructured<A>> {
             val now = context.simulationClock.getValue()
             return DynamicsMonad.pure(Unstructured.of { fn(now + it) })

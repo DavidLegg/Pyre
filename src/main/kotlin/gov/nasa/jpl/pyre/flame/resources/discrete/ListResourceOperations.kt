@@ -8,20 +8,20 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emi
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 typealias ListResource<E> = DiscreteResource<List<E>>
 typealias MutableListResource<E> = MutableDiscreteResource<List<E>>
 
 object ListResourceOperations {
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun <E> MutableListResource<E>.push(element: E) =
         emit({ it: List<E> -> it + element } named { "Push $element onto $this" })
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend operator fun <E> MutableListResource<E>.plusAssign(element: E) = this.push(element)
 
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     suspend fun <E> MutableListResource<E>.pop(): E {
         val poppedElement = requireNotNull(getValue().firstOrNull()) { "$this must be non-empty to pop" }
         emit({ it: List<E> ->

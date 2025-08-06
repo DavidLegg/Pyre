@@ -12,8 +12,7 @@ import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.ThinResource
 import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.tasks.SparkContextExtensions.now
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
-import gov.nasa.jpl.pyre.spark.tasks.sparkResourceScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -41,7 +40,7 @@ object ResourceCaching {
      * Points in the profile must be in time order.
      * Sequence is consumed lazily, as simulation runs.
      */
-    fun <V, D : Dynamics<V, D>> SparkInitContext.precomputedResource(
+    fun <V, D : Dynamics<V, D>> precomputedResource(
         name: String,
         points: Closeable<Sequence<ResourcePoint<D>>>,
     ): Resource<D> {
@@ -67,11 +66,9 @@ object ResourceCaching {
             nextPoint = if (iterator.hasNext()) iterator.next() else null
         } ?: { points.close() }
         return ThinResource {
-            with (sparkResourceScope()) {
-                val now = now()
-                while (nextPoint != null && nextPoint!!.time <= now) advance()
-                Expiring(currentPoint.data, Expiry(nextPoint?.time?.let { (it - now).toPyreDuration() }))
-            }
+            val now = now()
+            while (nextPoint != null && nextPoint!!.time <= now) advance()
+            Expiring(currentPoint.data, Expiry(nextPoint?.time?.let { (it - now).toPyreDuration() }))
         } named { name }
     }
 
@@ -87,7 +84,7 @@ object ResourceCaching {
      * Note that this is the default output file format produced by [gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation].
      * As such, this method is a way to feed the output of one simulation "layer" into the next.
      */
-    fun <V, D : Dynamics<V, D>> SparkInitContext.fileBackedResource(
+    fun <V, D : Dynamics<V, D>> SparkInitScope.fileBackedResource(
         name: String,
         file: Path,
         jsonFormat: Json = Json,
@@ -104,7 +101,7 @@ object ResourceCaching {
         return precomputedResource(name, points)
     }
 
-    inline fun <V, reified D : Dynamics<V, D>> SparkInitContext.fileBackedResource(
+    inline fun <V, reified D : Dynamics<V, D>> SparkInitScope.fileBackedResource(
         name: String,
         file: Path,
         jsonFormat: Json = Json,

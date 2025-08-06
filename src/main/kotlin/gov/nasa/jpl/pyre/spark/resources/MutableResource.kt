@@ -7,8 +7,8 @@ import gov.nasa.jpl.pyre.coals.named
 import gov.nasa.jpl.pyre.ember.Cell.EffectTrait
 import gov.nasa.jpl.pyre.ember.*
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
-import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
@@ -27,20 +27,20 @@ suspend fun <D> MutableResource<D>.emit(effect: (D) -> D) = this.emit({ it: Full
 context (scope: TaskScope)
 suspend fun <D> MutableResource<D>.set(newDynamics: D) = emit({ d: D -> newDynamics } named { "Set $this to $newDynamics" })
 
-inline fun <V, reified D : Dynamics<V, D>> SparkInitContext.resource(
+inline fun <V, reified D : Dynamics<V, D>> SparkInitScope.resource(
     name: String,
     initialDynamics: D,
     effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
 ) = resource(name, initialDynamics, typeOf<D>(), effectTrait)
 
-fun <V, D : Dynamics<V, D>> SparkInitContext.resource(
+fun <V, D : Dynamics<V, D>> SparkInitScope.resource(
     name: String,
     initialDynamics: D,
     dynamicsType: KType,
     effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
 ) = resource(name, DynamicsMonad.pure(initialDynamics), FullDynamics::class.withArg(dynamicsType), effectTrait)
 
-fun <V, D : Dynamics<V, D>> SparkInitContext.resource(
+fun <V, D : Dynamics<V, D>> SparkInitScope.resource(
     name: String,
     initialDynamics: FullDynamics<D>,
     fullDynamicsType: KType,
@@ -59,7 +59,7 @@ fun <V, D : Dynamics<V, D>> SparkInitContext.resource(
         context(scope: TaskScope)
         override suspend fun emit(effect: (FullDynamics<D>) -> FullDynamics<D>) = scope.emit(cell, effect)
 
-        context(scope: CellsReadableScope)
+        context(scope: ResourceScope)
         override suspend fun getDynamics(): FullDynamics<D> = scope.read(cell)
     } named { name }
 }

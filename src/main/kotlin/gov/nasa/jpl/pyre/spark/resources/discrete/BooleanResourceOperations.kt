@@ -6,7 +6,7 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
 import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 typealias BooleanResource = DiscreteResource<Boolean>
 typealias MutableBooleanResource = MutableDiscreteResource<Boolean>
@@ -26,6 +26,6 @@ object BooleanResourceOperations {
     infix fun BooleanResource.and(other: Boolean): BooleanResource = other and this
     infix fun BooleanResource.or(other: Boolean): BooleanResource = other or this
 
-    context(scope: SparkTaskScope)
+    context(scope: TaskScope)
     suspend fun MutableBooleanResource.toggle() = this.emit({ b: Boolean -> !b } named { "Toggle $this" })
 }

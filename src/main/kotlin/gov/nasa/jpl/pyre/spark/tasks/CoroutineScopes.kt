@@ -10,7 +10,6 @@ import gov.nasa.jpl.pyre.ember.Task.PureStepResult.*
 import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
 import kotlin.reflect.KType
-import kotlin.reflect.typeOf
 
 
 /*
@@ -20,12 +19,6 @@ import kotlin.reflect.typeOf
  * From there, I generalized a little to get the various kinds of continuation types to line up.
  * That said, I'm only about 80% confident that I understand how this thing works.
  */
-
-interface CellsReadableScope {
-    suspend fun <V, E> read(cell: CellHandle<V, E>): V
-}
-
-interface ConditionScope : CellsReadableScope
 
 /**
  * Write a coroutine, but use it as a Pyre condition.
@@ -46,15 +39,19 @@ interface ConditionScope : CellsReadableScope
  * ```
  */
 // Reconstruct the ConditionBuilder with each re-evaluation of the condition
-fun condition(block: suspend ConditionScope.() -> ConditionResult): () -> Condition = { ConditionBuilder(block).getCondition() }
+fun SparkContext.condition(block: suspend ConditionScope.() -> ConditionResult): () -> Condition = { ConditionBuilder(this, block).getCondition() }
 
-private class ConditionBuilder : ConditionScope, Continuation<ConditionResult> {
-    private val start: Continuation<Unit>
+object ConditionsThroughContext {
+    context (context: SparkContext)
+    fun condition(block: suspend ConditionScope.() -> ConditionResult): () -> Condition = context.condition(block)
+}
+
+private class ConditionBuilder(
+    sparkContext: SparkContext,
+    block: suspend ConditionScope.() -> ConditionResult,
+) : ConditionScope, Continuation<ConditionResult>, SparkContext by sparkContext {
+    private val start: Continuation<Unit> = block.createCoroutineUnintercepted(this, this)
     private var nextResult: Condition? = null
-
-    constructor(block: suspend ConditionScope.() -> ConditionResult) {
-        start = block.createCoroutineUnintercepted(this, this)
-    }
 
     override suspend fun <V, E> read(cell: CellHandle<V, E>) =
         suspendCoroutineUninterceptedOrReturn { c ->
@@ -86,18 +83,6 @@ sealed interface TaskScopeResult<T> {
     data class Complete<T>(val result: T) : TaskScopeResult<T>
 }
 
-interface TaskScope : CellsReadableScope {
-    suspend fun <V, E> emit(cell: CellHandle<V, E>, effect: E)
-    suspend fun <T> report(value: T, type: KType)
-    suspend fun delay(time: Duration)
-    suspend fun await(condition: () -> Condition)
-    suspend fun <S> spawn(childName: String, child: PureTaskStep<S>)
-
-    companion object {
-        suspend inline fun <reified T> TaskScope.report(value: T) = report(value, typeOf<T>())
-    }
-}
-
 /**
  * Write a coroutine Pyre task.
  *
@@ -118,9 +103,9 @@ interface TaskScope : CellsReadableScope {
  * @see task
  * @see repeatingTask
  */
-fun <T> coroutineTask(block: suspend TaskScope.() -> TaskScopeResult<T>): PureTaskStep<T> =
+fun <T> SparkContext.coroutineTask(block: suspend TaskScope.() -> TaskScopeResult<T>): PureTaskStep<T> =
     // Running the task step creates a new TaskBuilder, allowing for repeating tasks
-    { TaskBuilder(block).runTask() }
+    { TaskBuilder(this, block).runTask() }
 
 /**
  * Write a coroutine Pyre task which never repeats.
@@ -128,7 +113,7 @@ fun <T> coroutineTask(block: suspend TaskScope.() -> TaskScopeResult<T>): PureTa
  * @see coroutineTask
  * @see repeatingTask
  */
-fun <T> task(block: suspend TaskScope.() -> T): PureTaskStep<T> =
+fun <T> SparkContext.task(block: suspend TaskScope.() -> T): PureTaskStep<T> =
     coroutineTask { TaskScopeResult.Complete(block()) }
 
 /**
@@ -137,16 +122,26 @@ fun <T> task(block: suspend TaskScope.() -> T): PureTaskStep<T> =
  * @see coroutineTask
  * @see task
  */
-fun repeatingTask(block: suspend TaskScope.() -> Unit): PureTaskStep<Unit> =
+fun SparkContext.repeatingTask(block: suspend TaskScope.() -> Unit): PureTaskStep<Unit> =
     coroutineTask { block(); TaskScopeResult.Restart() }
 
-private class TaskBuilder<T> : TaskScope, Continuation<TaskScopeResult<T>> {
-    private val start: Continuation<Unit>
-    private var nextResult: Task.PureStepResult<T>? = null
+object CoroutineTasksThroughContext {
+    context (context: SparkContext)
+    fun <T> coroutineTask(block: suspend TaskScope.() -> TaskScopeResult<T>): PureTaskStep<T> = context.coroutineTask(block)
 
-    constructor(block: suspend TaskScope.() -> TaskScopeResult<T>) {
-        start = block.createCoroutineUnintercepted(this, this)
-    }
+    context (context: SparkContext)
+    fun <T> task(block: suspend TaskScope.() -> T): PureTaskStep<T> = context.task(block)
+
+    context (context: SparkContext)
+    fun repeatingTask(block: suspend TaskScope.() -> Unit): PureTaskStep<Unit> = context.repeatingTask(block)
+}
+
+private class TaskBuilder<T>(
+    sparkContext: SparkContext,
+    block: suspend TaskScope.() -> TaskScopeResult<T>
+) : TaskScope, Continuation<TaskScopeResult<T>>, SparkContext by sparkContext {
+    private val start: Continuation<Unit> = block.createCoroutineUnintercepted(this, this)
+    private var nextResult: Task.PureStepResult<T>? = null
 
     override suspend fun <V, E> read(cell: CellHandle<V, E>): V =
         suspendCoroutineUninterceptedOrReturn { c ->

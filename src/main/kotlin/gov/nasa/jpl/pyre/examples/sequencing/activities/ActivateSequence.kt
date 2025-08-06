@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.tasks.await
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.notEquals
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -14,7 +14,7 @@ import kotlinx.serialization.Serializable
 class ActivateSequence(
     val sequenceName: String
 ): Activity<SequencingDemo> {
-    context(scope: SparkTaskScope)
+    context(scope: TaskScope)
     override suspend fun effectModel(model: SequencingDemo) {
         val engine = model.sequencing.engines
             .firstOrNull { it.loadedSequenceName.getValue() == sequenceName }

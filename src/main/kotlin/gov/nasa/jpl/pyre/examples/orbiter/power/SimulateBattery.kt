@@ -10,7 +10,7 @@ import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.flame.tasks.subContext
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
@@ -50,7 +50,7 @@ fun main(args: Array<String>) {
  * Directly constructs the inputs for the battery model, to be poked directly by activities.
  */
 class StandaloneBatteryModel(
-    context: SparkInitContext,
+    context: SparkInitScope,
 ) {
     val powerDemand: MutableDoubleResource
     val powerProduction: MutableDoubleResource

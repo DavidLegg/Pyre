@@ -12,7 +12,7 @@ import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.decrease
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlinx.serialization.Serializable
 import kotlin.math.min
 
@@ -20,7 +20,7 @@ import kotlin.math.min
 class APSSProcessContinuousData(
     val timeout: Duration = 20 * MINUTE,
 ): Activity<Mission> {
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     override suspend fun effectModel(model: Mission) {
         val apssModel = model.apssModel
         val internalVolume = apssModel.internalVolume.getValue()

@@ -49,16 +49,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
     }
     private val awaitingTasks: MutableSet<AwaitingTask<*>> = mutableSetOf()
 
-    /**
-     * These are the actions allowed during "initialization", before the simulation starts running.
-     * Note that this is the only time we're allowed to allocate cells.
-     */
-    interface SimulationInitContext {
-        fun <T: Any, E> allocate(cell: Cell<T, E>): CellHandle<T, E>
-        fun <T> spawn(name: String, step: () -> PureStepResult<T>)
-    }
-
-    fun initContext() = object : SimulationInitContext {
+    fun initScope() = object : InitScope {
         override fun <T: Any, E> allocate(cell: Cell<T, E>) = cells.allocate(cell)
         override fun <T> spawn(name: String, step: () -> PureStepResult<T>) = addTask(name, step)
     }
@@ -190,7 +181,12 @@ class SimulationState(private val reportHandler: ReportHandler) {
         }
 
         val stepResult = InternalLogger.block({ "Run ${task.id} ..." }, { "... returns $it" }) {
-            task.runStep()
+            try {
+                task.runStep()
+            } catch (e: Throwable) {
+                System.err.println("Error while running ${task.id}: $e")
+                throw e
+            }
         }
         when (stepResult) {
             is Complete -> Unit // Nothing to do

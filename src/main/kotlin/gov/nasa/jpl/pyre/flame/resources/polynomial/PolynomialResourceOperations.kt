@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.flame.resources.polynomial
 
 import gov.nasa.jpl.pyre.coals.named
 import gov.nasa.jpl.pyre.ember.Condition
+import gov.nasa.jpl.pyre.ember.InitScopeThroughContext.spawn
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.flame.resources.polynomial.Polynomial.Companion.polynomial
 import gov.nasa.jpl.pyre.spark.reporting.register
@@ -14,18 +15,20 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.spark.tasks.*
+import gov.nasa.jpl.pyre.spark.tasks.CoroutineTasksThroughContext.repeatingTask
+import gov.nasa.jpl.pyre.spark.tasks.ReactionsThroughContext.whenever
 import kotlin.let
 import kotlin.math.max
 import kotlin.math.min
 
 object PolynomialResourceOperations {
-    context(scope: SparkInitContext)
+    context(scope: SparkInitScope)
     fun polynomialResource(name: String, vararg coefficients: Double): MutablePolynomialResource =
         scope.resource(name, polynomial(*coefficients))
 
     fun constant(value: Double): PolynomialResource = pure(polynomial(value)) named value::toString
 
-    fun SparkInitContext.registeredPolynomialResource(name: String, vararg coefficients: Double) =
+    fun SparkInitScope.registeredPolynomialResource(name: String, vararg coefficients: Double) =
         polynomialResource(name, *coefficients).also(::register)
 
     fun DiscreteResource<Double>.asPolynomial(): PolynomialResource =
@@ -61,30 +64,26 @@ object PolynomialResourceOperations {
     fun PolynomialResource.derivative(): PolynomialResource =
         map(this, Polynomial::derivative) named { "d/dt ($this)" }
 
-    context(context: SparkInitContext)
+    context(scope: SparkInitScope)
     fun PolynomialResource.integral(name: String, startingValue: Double): IntegralResource {
-        with (context) {
-            val integral = polynomialResource(name, startingValue)
-            spawn("Update $name", whenever(map(this@integral, integral) {
-                    p, q -> Discrete(p.integral(q.value()) != q)
-            }) {
-                with (sparkTaskScope()) {
-                    val integrandDynamics = this@integral.getDynamics()
-                    integral.emit { q -> DynamicsMonad.map(integrandDynamics) { it.integral(q.data.value()) } }
-                }
-            })
-            return object : IntegralResource, PolynomialResource by integral {
-                context(scope: SparkTaskScope)
-                override suspend fun increase(amount: Double) = integral.increase(amount)
-                context(scope: SparkTaskScope)
-                override suspend fun set(amount: Double) = integral.emit({ p: Polynomial ->
-                    p.setCoefficient(0, amount)
-                } named { "Set value of $this to $amount" })
-            } named { name }
-        }
+        val integral = polynomialResource(name, startingValue)
+        spawn("Update $name", whenever(map(this@integral, integral) {
+                p, q -> Discrete(p.integral(q.value()) != q)
+        }) {
+            val integrandDynamics = this@integral.getDynamics()
+            integral.emit { q -> DynamicsMonad.map(integrandDynamics) { it.integral(q.data.value()) } }
+        })
+        return object : IntegralResource, PolynomialResource by integral {
+            context(scope: TaskScope)
+            override suspend fun increase(amount: Double) = integral.increase(amount)
+            context(scope: TaskScope)
+            override suspend fun set(amount: Double) = integral.emit({ p: Polynomial ->
+                p.setCoefficient(0, amount)
+            } named { "Set value of $this to $amount" })
+        } named { name }
     }
 
-    context(context: SparkInitContext)
+    context(context: SparkInitScope)
     fun PolynomialResource.registeredIntegral(name: String, startingValue: Double) =
         integral(name, startingValue).also { context.register(name, it) }
 
@@ -129,7 +128,7 @@ object PolynomialResourceOperations {
      *     to guarantee this condition at runtime.
      * </p>
      */
-    context(context: SparkInitContext)
+    context(scope: SparkInitScope)
     fun PolynomialResource.clampedIntegral(
         name: String,
         lowerBound: PolynomialResource,
@@ -146,95 +145,95 @@ object PolynomialResourceOperations {
 
         // Run once immediately to get the loop started.
         var condition = { Condition.TRUE }
-        context.spawn("Compute $name", repeatingTask {
-            with (sparkTaskScope()) {
-                // Perform the await at the start of the task, to minimize saved task history
-                await(condition)
+        spawn("Compute $name", repeatingTask {
+            // Perform the await at the start of the task, to minimize saved task history
+            await(condition)
 
-                // Note we need to call dynamicsChange on each iteration because it depends on the resource's current value,
-                // so *don't* factor these out of the loop.
-                val someInputChanges = (dynamicsChange(integrand)
-                        or dynamicsChange(lowerBound)
-                        or dynamicsChange(upperBound))
+            // Note we need to call dynamicsChange on each iteration because it depends on the resource's current value,
+            // so *don't* factor these out of the loop.
+            val someInputChanges = (dynamicsChange(integrand)
+                    or dynamicsChange(lowerBound)
+                    or dynamicsChange(upperBound))
 
-                val integralValue = integral.getValue()
-                val now = simulationClock.getValue()
+            val integralValue = integral.getValue()
+            val now = simulationClock.getValue()
 
-                // Get all dynamics once per update loop to minimize sampling cost.
-                val result = DynamicsMonad.map(
-                    integrand.getDynamics(),
-                    lowerBound.getDynamics(),
-                    upperBound.getDynamics()) {
-                    integrand, lowerBound, upperBound ->
+            // Get all dynamics once per update loop to minimize sampling cost.
+            val result = DynamicsMonad.map(
+                integrand.getDynamics(),
+                lowerBound.getDynamics(),
+                upperBound.getDynamics()
+            ) { integrand, lowerBound, upperBound ->
 
-                    // Clamp the integral value to take care of small overshoots due to the discretization of time
-                    // and discrete changes in bounds that cut into the integral.
-                    // Also, just get the current value, don't try to derive a value.
-                    // This intentionally erases expiry info from the integral since this is a resource-graph back-edge,
-                    // and will throw and blow up this resource if integral fails.
-                    val integralValue = max(min(integralValue, upperBound.value()), lowerBound.value())
-                    val integral = integrand.integral(integralValue)
+                // Clamp the integral value to take care of small overshoots due to the discretization of time
+                // and discrete changes in bounds that cut into the integral.
+                // Also, just get the current value, don't try to derive a value.
+                // This intentionally erases expiry info from the integral since this is a resource-graph back-edge,
+                // and will throw and blow up this resource if integral fails.
+                val integralValue = max(min(integralValue, upperBound.value()), lowerBound.value())
+                val integral = integrand.integral(integralValue)
 
-                    if (lowerBound._dominates(integral)) {
-                        // Lower bound dominates "real" integral, so we clamp to the lower bound
-                        // We stop clamping to the lower bound when the integrand rate exceeds the lowerBound rate.
-                        // Since we already know that lowerBound dominates integral and integral value is at least lower value,
-                        // we know that lower rate dominates integrand. Hence, there's no need to check that value here.
-                        val lowerRate = lowerBound.derivative()
-                        val lowerRateExpires = lowerRate.dominates(integrand).expiry.time
-                        val clampingStops = lowerRateExpires?.let { whenTrue(simulationClock greaterThanOrEquals now + it) }
-                        // We change out of this condition when we stop clamping to the lower bound, or something changes.
-                        ClampedIntegrateInternalResult(
-                            lowerBound,
-                            polynomial(0.0),
-                            lowerRate - integrand,
-                            clampingStops?.let { someInputChanges or it } ?: someInputChanges,
-                        )
-                    } else if (!upperBound._dominates(integral)) {
-                        // Upper bound doesn't dominate integral, so we clamp to the upper bound
-                        // We stop clamping to the upper bound when the integrand rate falls below the upperBound rate.
-                        // Since we already know that lowerBound dominates integral and integral value is at least lower value,
-                        // we know that lower rate dominates integrand. Hence, there's no need to check that value here.
-                        val upperRate = upperBound.derivative()
-                        val upperRateExpires = upperRate.dominates(integrand).expiry.time
-                        val clampingStops = upperRateExpires?.let { whenTrue(simulationClock greaterThanOrEquals now + it) }
-                        // We change out of this condition when we stop clamping to the upper bound, or something changes.
-                        ClampedIntegrateInternalResult(
-                            upperBound,
-                            integrand - upperRate,
-                            polynomial(0.0),
-                            clampingStops?.let { someInputChanges or it } ?: someInputChanges,
-                        )
-                    } else {
-                        // Otherwise, the integral is between the bounds, so we just set it as-is.
-                        // We start clamping when one or the other bound impacts this integral, i.e., when a dominates value changes.
-                        // Although we re-compute the value of dominates$ here, that's cheap.
-                        // We avoid computing the more expensive expiry when we're clamping, which is a win overall.
-                        val startClampingToLowerBound = lowerBound.dominates(integral).expiry
-                        val startClampingToUpperBound = upperBound.dominates(integral).expiry
-                        val clampingStarts = (startClampingToLowerBound or startClampingToUpperBound).time?.let {
-                            whenTrue(simulationClock greaterThanOrEquals now + it)
-                        }
-                        ClampedIntegrateInternalResult(
-                            integral,
-                            polynomial(0.0),
-                            polynomial(0.0),
-                            clampingStarts?.let { someInputChanges or it } ?: someInputChanges,
-                        )
+                if (lowerBound._dominates(integral)) {
+                    // Lower bound dominates "real" integral, so we clamp to the lower bound
+                    // We stop clamping to the lower bound when the integrand rate exceeds the lowerBound rate.
+                    // Since we already know that lowerBound dominates integral and integral value is at least lower value,
+                    // we know that lower rate dominates integrand. Hence, there's no need to check that value here.
+                    val lowerRate = lowerBound.derivative()
+                    val lowerRateExpires = lowerRate.dominates(integrand).expiry.time
+                    val clampingStops =
+                        lowerRateExpires?.let { whenTrue(simulationClock greaterThanOrEquals now + it) }
+                    // We change out of this condition when we stop clamping to the lower bound, or something changes.
+                    ClampedIntegrateInternalResult(
+                        lowerBound,
+                        polynomial(0.0),
+                        lowerRate - integrand,
+                        clampingStops?.let { someInputChanges or it } ?: someInputChanges,
+                    )
+                } else if (!upperBound._dominates(integral)) {
+                    // Upper bound doesn't dominate integral, so we clamp to the upper bound
+                    // We stop clamping to the upper bound when the integrand rate falls below the upperBound rate.
+                    // Since we already know that lowerBound dominates integral and integral value is at least lower value,
+                    // we know that lower rate dominates integrand. Hence, there's no need to check that value here.
+                    val upperRate = upperBound.derivative()
+                    val upperRateExpires = upperRate.dominates(integrand).expiry.time
+                    val clampingStops =
+                        upperRateExpires?.let { whenTrue(simulationClock greaterThanOrEquals now + it) }
+                    // We change out of this condition when we stop clamping to the upper bound, or something changes.
+                    ClampedIntegrateInternalResult(
+                        upperBound,
+                        integrand - upperRate,
+                        polynomial(0.0),
+                        clampingStops?.let { someInputChanges or it } ?: someInputChanges,
+                    )
+                } else {
+                    // Otherwise, the integral is between the bounds, so we just set it as-is.
+                    // We start clamping when one or the other bound impacts this integral, i.e., when a dominates value changes.
+                    // Although we re-compute the value of dominates$ here, that's cheap.
+                    // We avoid computing the more expensive expiry when we're clamping, which is a win overall.
+                    val startClampingToLowerBound = lowerBound.dominates(integral).expiry
+                    val startClampingToUpperBound = upperBound.dominates(integral).expiry
+                    val clampingStarts = (startClampingToLowerBound or startClampingToUpperBound).time?.let {
+                        whenTrue(simulationClock greaterThanOrEquals now + it)
                     }
+                    ClampedIntegrateInternalResult(
+                        integral,
+                        polynomial(0.0),
+                        polynomial(0.0),
+                        clampingStarts?.let { someInputChanges or it } ?: someInputChanges,
+                    )
                 }
-
-                var newIntegralDynamics = DynamicsMonad.map(result, ClampedIntegrateInternalResult::integral)
-                var newOverflowDynamics = DynamicsMonad.map(result, ClampedIntegrateInternalResult::overflow)
-                var newUnderflowDynamics = DynamicsMonad.map(result, ClampedIntegrateInternalResult::underflow)
-
-                integral.emit { newIntegralDynamics }
-                overflow.emit { newOverflowDynamics }
-                underflow.emit { newUnderflowDynamics }
-
-                // Update the condition to be awaited next iteration
-                condition = result.data.retryCondition
             }
+
+            var newIntegralDynamics = DynamicsMonad.map(result, ClampedIntegrateInternalResult::integral)
+            var newOverflowDynamics = DynamicsMonad.map(result, ClampedIntegrateInternalResult::overflow)
+            var newUnderflowDynamics = DynamicsMonad.map(result, ClampedIntegrateInternalResult::underflow)
+
+            integral.emit { newIntegralDynamics }
+            overflow.emit { newOverflowDynamics }
+            underflow.emit { newUnderflowDynamics }
+
+            // Update the condition to be awaited next iteration
+            condition = result.data.retryCondition
         })
 
         return ClampedIntegralResult(integral, overflow, underflow)
@@ -278,25 +277,25 @@ object PolynomialResourceOperations {
     fun PolynomialResource.clamp(lowerBound: PolynomialResource, upperBound: PolynomialResource): PolynomialResource =
         min(max(this, lowerBound), upperBound) named { "$this.clamp($lowerBound, $upperBound)" }
 
-    context(scope: SparkTaskScope)
+    context(scope: TaskScope)
     suspend fun MutablePolynomialResource.increase(amount: Double) = emit({ p: Polynomial -> p + amount } named { "Increase $this by $amount" })
-    context(scope: SparkTaskScope)
+    context(scope: TaskScope)
     suspend fun MutablePolynomialResource.decrease(amount: Double) = emit({ p: Polynomial -> p - amount } named { "Decrease $this by $amount" })
-    context(scope: SparkTaskScope)
+    context(scope: TaskScope)
     suspend fun MutablePolynomialResource.scale(amount: Double) = emit({ p: Polynomial -> p * amount } named { "Scale $this by $amount" })
 
-    context(scope: SparkTaskScope)
+    context(scope: TaskScope)
     suspend operator fun MutablePolynomialResource.plusAssign(amount: Double) = increase(amount)
-    context(scope: SparkTaskScope)
+    context(scope: TaskScope)
     suspend operator fun MutablePolynomialResource.minusAssign(amount: Double) = decrease(amount)
-    context(scope: SparkTaskScope)
+    context(scope: TaskScope)
     suspend operator fun MutablePolynomialResource.timesAssign(amount: Double) = scale(amount)
 
-    context(scope: SparkTaskScope)
+    context(scope: TaskScope)
     suspend fun IntegralResource.decrease(amount: Double) = increase(-amount)
-    context(scope: SparkTaskScope)
+    context(scope: TaskScope)
     suspend operator fun IntegralResource.plusAssign(amount: Double) = increase(amount)
-    context(scope: SparkTaskScope)
+    context(scope: TaskScope)
     suspend operator fun IntegralResource.minusAssign(amount: Double) = decrease(amount)
 }
 
@@ -307,9 +306,9 @@ object PolynomialResourceOperations {
  * account for discrete changes.
  */
 interface IntegralResource : PolynomialResource {
-    context(scope: SparkTaskScope)
+    context(scope: TaskScope)
     suspend fun increase(amount: Double)
-    context(scope: SparkTaskScope)
+    context(scope: TaskScope)
     suspend fun set(amount: Double)
 }
 

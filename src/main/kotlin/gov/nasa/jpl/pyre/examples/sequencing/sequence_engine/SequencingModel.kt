@@ -6,28 +6,37 @@ import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.Bran
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.CommandBlockDescription
 import gov.nasa.jpl.pyre.flame.tasks.subContext
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import kotlin.collections.map
+import kotlin.ranges.IntRange
 
 class SequencingModel(
     val commandHandlers: Map<String, CommandBehavior>,
-    context: SparkInitContext,
+    context: SparkInitScope,
     val numberOfEngines: Int = 32,
     blockTypes: List<CommandBlockDescription> = DEFAULT_BLOCK_TYPES,
 ) {
     // TODO: Global variable modeling
 
-    val engines: List<SequenceEngine> = IntRange(0, numberOfEngines)
-        .map { i ->
-            SequenceEngine(
-                blockTypes,
-                commandHandlers,
-                DISPATCH_PERIOD,
-                context.subContext("Sequence Engine $i"),
-            )
-        }
+    val engines: List<SequenceEngine>
 
-    context (scope: SparkTaskScope)
+    init {
+        with (context) {
+            with (subContext("sequence_engine")) {
+                engines = IntRange(0, numberOfEngines).map { i ->
+                    SequenceEngine(
+                        blockTypes,
+                        commandHandlers,
+                        DISPATCH_PERIOD,
+                        subContext(i.toString()),
+                    )
+                }
+            }
+        }
+    }
+
+    context (scope: TaskScope)
     suspend fun nextAvailable(): SequenceEngine? =
         engines.firstOrNull { !it.isLoaded.getValue() }
 

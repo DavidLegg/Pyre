@@ -5,8 +5,8 @@
     {
       "time": "2020-01-02T01:00:00Z",
       "activity": {
-        "type": "RADIO_POWER_ON",
-        "side": "A"
+        "type": "LoadSequence",
+        "sequenceFile": "sequences/init.seq.json"
       }
     }
   ]

@@ -11,7 +11,7 @@ import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.tasks.delay
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -22,7 +22,7 @@ class APSSGeneric(
     val externalEnergyUsed: Double = 0.0, // Wh
     val eboxEnergyUsed: Double = 0.0, // Wh
 ): Activity<Mission> {
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     override suspend fun effectModel(model: Mission) {
         val durSec = duration ratioOver SECOND
 

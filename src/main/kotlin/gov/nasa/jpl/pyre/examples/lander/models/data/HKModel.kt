@@ -1,9 +1,9 @@
 package gov.nasa.jpl.pyre.examples.lander.models.data
 
 import gov.nasa.jpl.pyre.flame.tasks.subContext
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 
-class HKModel(context: SparkInitContext) {
+class HKModel(context: SparkInitScope) {
     // 52 bits/second; 0.1872 Mbits/hour
     val APSS: InstrumentHKChannel
 

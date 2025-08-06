@@ -2,7 +2,6 @@ package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.coals.Closeable
 import gov.nasa.jpl.pyre.coals.Closeable.Companion.asCloseable
-import gov.nasa.jpl.pyre.coals.Closeable.Companion.closesWith
 import gov.nasa.jpl.pyre.coals.Closeable.Companion.use
 import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.toFile
@@ -10,7 +9,7 @@ import gov.nasa.jpl.pyre.ember.ReportHandler
 import gov.nasa.jpl.pyre.flame.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.flame.reporting.ParallelReportHandler.Companion.inParallel
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -62,7 +61,7 @@ data class StandardPlanSimulationSetup<M>(
 @OptIn(ExperimentalSerializationApi::class)
 inline fun <reified M> runStandardPlanSimulation(
     setupFile: String,
-    noinline constructModel: SparkInitContext.() -> M,
+    noinline constructModel: SparkInitScope.() -> M,
     jsonFormat: Json = Json,
     buildReportHandler: (OutputStream) -> Closeable<ReportHandler> =
         { CsvReportHandler(it, jsonFormat).asCloseable() },

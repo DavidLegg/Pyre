@@ -8,10 +8,10 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.reg
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 
 class CommModel(
-    context: SparkInitContext,
+    context: SparkInitScope,
 ) {
     enum class Orbiter {
         ODY,

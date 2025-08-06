@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 
 /**
  * The minimal type of simulation, in which the entire simulation is set up "at the start".
@@ -12,7 +11,7 @@ class SimpleSimulation(setup: SimulationSetup) {
         val reportHandler: ReportHandler,
         val inconProvider: InconProvider?,
         val startingTime: Duration = ZERO,
-        val initialize: SimulationInitContext.() -> Unit,
+        val initialize: InitScope.() -> Unit,
     )
 
     private val state: SimulationState
@@ -21,7 +20,7 @@ class SimpleSimulation(setup: SimulationSetup) {
         with (setup) {
             state = SimulationState(reportHandler)
             // Initialize the model, which gives us cells and tasks
-            state.initContext().initialize()
+            state.initScope().initialize()
             // Restore the model if we have an incon
             inconProvider?.let(state::restore)
         }

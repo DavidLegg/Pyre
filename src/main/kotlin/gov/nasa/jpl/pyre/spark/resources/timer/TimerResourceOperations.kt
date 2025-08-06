@@ -4,7 +4,6 @@ import gov.nasa.jpl.pyre.coals.named
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.EPSILON
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.ember.SimulationState.SimulationInitContext
 import gov.nasa.jpl.pyre.ember.abs
 import gov.nasa.jpl.pyre.ember.div
 import gov.nasa.jpl.pyre.ember.minus
@@ -26,12 +25,12 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.IntResource
 import gov.nasa.jpl.pyre.spark.resources.emit
 import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.resources.resource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlin.math.abs
 
 object TimerResourceOperations {
-    fun SparkInitContext.timer(name: String, initialTime: Duration = ZERO, initialRate: Int = 1) =
+    fun SparkInitScope.timer(name: String, initialTime: Duration = ZERO, initialRate: Int = 1) =
         resource(name, Timer(initialTime, initialRate))
 
     /**

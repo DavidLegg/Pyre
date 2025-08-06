@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import kotlin.math.abs
-import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.test.assertContains
 
@@ -35,7 +34,7 @@ class SimulationTest {
         endTime: Duration,
         incon: JsonElement? = null,
         takeFincon: Boolean = false,
-        initialize: SimulationState.SimulationInitContext.() -> Unit,
+        initialize: InitScope.() -> Unit,
     ): SimulationResult {
         assertDoesNotThrow {
             // Build a simulation that'll write reports to memory
@@ -708,7 +707,7 @@ class SimulationTest {
 
     @Test
     fun cells_can_be_saved() {
-        fun SimulationState.SimulationInitContext.initialize() {
+        fun InitScope.initialize() {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(linearCell("y", 10.0, -0.1))
         }
@@ -732,7 +731,7 @@ class SimulationTest {
 
     @Test
     fun cells_can_be_restored() {
-        fun SimulationState.SimulationInitContext.initialize() {
+        fun InitScope.initialize() {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(linearCell("y", 10.0, -0.1))
         }
@@ -742,7 +741,7 @@ class SimulationTest {
 
     @Test
     fun tasks_can_be_saved() {
-        fun SimulationState.SimulationInitContext.initialize() {
+        fun InitScope.initialize() {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(linearCell("y", 10.0, -0.1))
 
@@ -836,7 +835,7 @@ class SimulationTest {
 
     @Test
     fun tasks_can_be_restored() {
-        fun SimulationState.SimulationInitContext.initialize() {
+        fun InitScope.initialize() {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(linearCell("y", 10.0, -0.1))
 
@@ -1022,7 +1021,7 @@ class SimulationTest {
         // This should never be done in production, but for the sake of testing,
         // it's a useful way to observe the replay, when that replay *should* be invisible.
         var plays = 0
-        fun SimulationState.SimulationInitContext.initialize() {
+        fun InitScope.initialize() {
             val x = allocate(intCounterCell("x", 0))
             val clock = allocate(clockCell("clock", ZERO))
             spawn("Repeater") {
@@ -1267,7 +1266,7 @@ class SimulationTest {
 
     @Test
     fun child_tasks_can_be_restored() {
-        fun SimulationState.SimulationInitContext.initialize() {
+        fun InitScope.initialize() {
             spawn("P") {
                 Report("P -- 1", typeOf<String>()) {
                     Spawn("C", {
@@ -1332,7 +1331,7 @@ class SimulationTest {
 
     @Test
     fun children_of_repeating_tasks_can_be_restored() {
-        fun SimulationState.SimulationInitContext.initialize() {
+        fun InitScope.initialize() {
             val n = allocate(intCounterCell("n", 1))
             val clock = allocate(clockCell("clock", ZERO))
 
@@ -1397,7 +1396,7 @@ class SimulationTest {
 
     @Test
     fun repeating_children_can_be_restored() {
-        fun SimulationState.SimulationInitContext.initialize() {
+        fun InitScope.initialize() {
             val n = allocate(intCounterCell("n", 1))
             val clock = allocate(clockCell("clock", ZERO))
 
@@ -1452,7 +1451,7 @@ class SimulationTest {
 
     @Test
     fun grandchild_tasks_can_be_restored() {
-        fun SimulationState.SimulationInitContext.initialize() {
+        fun InitScope.initialize() {
             spawn("P") {
                 Report("P -- 1", typeOf<String>()) {
                     Spawn("C", {
@@ -1507,7 +1506,7 @@ class SimulationTest {
     fun tasks_running_at_fincon_time_can_be_restored() {
         // I'm concerned there could be a gap if tasks run in parallel with the fincon collector.
         // Stress test this by spawning a bunch of tasks, from init and from the sim itself, that'll run exactly at fincon time.
-        fun SimulationState.SimulationInitContext.initialize() {
+        fun InitScope.initialize() {
             for (i in 1..100) {
                 // Case A - Task delays directly to fincon time
                 spawn("A$i") {

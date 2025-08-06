@@ -4,10 +4,10 @@ import gov.nasa.jpl.pyre.examples.sequencing.primeness.DualString
 import gov.nasa.jpl.pyre.examples.sequencing.primeness.Side
 import gov.nasa.jpl.pyre.flame.tasks.subContext
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 
 class TelecomModel(
-    context: SparkInitContext,
+    context: SparkInitScope,
 ) {
     val radios: DualString<Radio>
     val twtas: DualString<TWTA>

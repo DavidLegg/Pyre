@@ -3,11 +3,11 @@ package gov.nasa.jpl.pyre.examples.lander.models.ids
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import kotlin.math.pow
 
 class IDSModel(
-    context: SparkInitContext
+    context: SparkInitScope
 ) {
 
     enum class IDAMode {

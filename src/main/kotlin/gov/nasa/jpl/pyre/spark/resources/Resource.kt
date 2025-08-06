@@ -1,10 +1,10 @@
 package gov.nasa.jpl.pyre.spark.resources
 
 import gov.nasa.jpl.pyre.coals.curry
-import gov.nasa.jpl.pyre.spark.tasks.CellsReadableScope
+import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
 
 fun interface ThinResource<D> {
-    context (scope: CellsReadableScope)
+    context (scope: ResourceScope)
     suspend fun getDynamics() : D
 }
 // TODO: Consider wrapping this in Result (equiv. to ErrorCatching), building ResultMonad, and updating DynamicsMonad
@@ -15,7 +15,7 @@ typealias Resource<D> = ThinResource<FullDynamics<D>>
  * Helpers
  */
 
-context (scope: CellsReadableScope)
+context (scope: ResourceScope)
 suspend fun <V, D : Dynamics<V, D>> Resource<D>.getValue(): V = this.getDynamics().data.value()
 
 infix fun <D> Resource<D>.named(nameFn: () -> String) = object : Resource<D> by this {

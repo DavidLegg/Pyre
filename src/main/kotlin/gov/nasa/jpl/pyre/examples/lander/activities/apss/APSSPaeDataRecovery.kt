@@ -8,7 +8,7 @@ import gov.nasa.jpl.pyre.ember.times
 import gov.nasa.jpl.pyre.examples.lander.Mission
 import gov.nasa.jpl.pyre.examples.lander.models.data.DataConfig.APID.APID_APSS_CONTINUOUS_SCI
 import gov.nasa.jpl.pyre.flame.plans.Activity
-import gov.nasa.jpl.pyre.spark.tasks.SparkTaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -16,7 +16,7 @@ class APSSPaeDataRecovery(
     val duration: Duration = 27 * MINUTE,
     val dataVolume: Double = 0.0, // Mbits
 ): Activity<Mission> {
-    context (scope: SparkTaskScope)
+    context (scope: TaskScope)
     override suspend fun effectModel(model: Mission) {
         val dataRate = dataVolume / (duration ratioOver SECOND)
         model.dataModel.apidModelMap.getValue(APID_APSS_CONTINUOUS_SCI).increaseDataRate(dataRate)

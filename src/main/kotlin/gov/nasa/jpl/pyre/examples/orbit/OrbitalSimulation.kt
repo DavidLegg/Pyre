@@ -6,15 +6,14 @@ import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.serializer
 import kotlin.math.sqrt
 
 class OrbitalSimulation(
-    context: SparkInitContext,
+    context: SparkInitScope,
     name: String,
     bodies: List<Body>,
     stepSize: Duration,
