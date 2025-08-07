@@ -11,7 +11,7 @@ import gov.nasa.jpl.pyre.spark.resources.Expiry
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.ThinResource
 import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.tasks.SparkContextExtensions.now
+import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
@@ -84,7 +84,8 @@ object ResourceCaching {
      * Note that this is the default output file format produced by [gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation].
      * As such, this method is a way to feed the output of one simulation "layer" into the next.
      */
-    fun <V, D : Dynamics<V, D>> SparkInitScope.fileBackedResource(
+    context (scope: SparkInitScope)
+    fun <V, D : Dynamics<V, D>> fileBackedResource(
         name: String,
         file: Path,
         jsonFormat: Json = Json,
@@ -92,7 +93,7 @@ object ResourceCaching {
         dynamicsType: KType
     ): Resource<D> {
         val reader = file.bufferedReader()
-        val realChannel = channel ?: "$this/$name"
+        val realChannel = channel ?: "$scope/$name"
         val points = reader.lineSequence()
             .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
             .filter { it.channel == realChannel }
@@ -101,7 +102,8 @@ object ResourceCaching {
         return precomputedResource(name, points)
     }
 
-    inline fun <V, reified D : Dynamics<V, D>> SparkInitScope.fileBackedResource(
+    context (scope: SparkInitScope)
+    inline fun <V, reified D : Dynamics<V, D>> fileBackedResource(
         name: String,
         file: Path,
         jsonFormat: Json = Json,

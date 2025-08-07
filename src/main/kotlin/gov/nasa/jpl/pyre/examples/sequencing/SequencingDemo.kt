@@ -10,8 +10,8 @@ import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequencingModel
 import gov.nasa.jpl.pyre.examples.sequencing.telecom.TelecomModel
 import gov.nasa.jpl.pyre.flame.plans.activity
 import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
-import gov.nasa.jpl.pyre.flame.tasks.subContext
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule

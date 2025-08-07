@@ -9,9 +9,9 @@ import gov.nasa.jpl.pyre.examples.lander.Mission
 import gov.nasa.jpl.pyre.examples.lander.models.data.DataConfig.APID.*
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel
 import gov.nasa.jpl.pyre.flame.plans.Activity
-import gov.nasa.jpl.pyre.flame.tasks.delay
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
 import kotlinx.serialization.Serializable
 
 @Serializable

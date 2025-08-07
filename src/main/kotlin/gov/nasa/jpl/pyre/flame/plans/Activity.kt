@@ -1,9 +1,6 @@
 package gov.nasa.jpl.pyre.flame.plans
 
-import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.reporting.report
-import gov.nasa.jpl.pyre.spark.tasks.task
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -12,8 +9,6 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.serializer
@@ -53,28 +48,6 @@ data class GroundedActivity<M>(
 
 fun <M> GroundedActivity<M>.float() = FloatingActivity(activity, typeName, name)
 fun <M> FloatingActivity<M>.ground(time: Instant) = GroundedActivity(time, activity, typeName, name)
-
-suspend fun <M> TaskScope.defer(time: Duration, activity: FloatingActivity<M>, model: M) {
-    spawn(activity.name, task {
-        delay(time)
-        report(
-            "activities", JsonObject(mapOf(
-                "name" to JsonPrimitive(activity.name),
-                "type" to JsonPrimitive(activity.typeName),
-                "event" to JsonPrimitive("start")
-            ))
-        )
-        val result = activity.activity.effectModel(model)
-        report(
-            "activities", JsonObject(mapOf(
-                "name" to JsonPrimitive(activity.name),
-                "type" to JsonPrimitive(activity.typeName),
-                "event" to JsonPrimitive("end")
-            ))
-        )
-        result
-    })
-}
 
 inline fun <reified M : Any> activitySerializersModule(block: ActivitySerializerBuilder<M>.() -> Unit): SerializersModule =
     SerializersModule {

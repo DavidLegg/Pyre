@@ -9,8 +9,6 @@ import gov.nasa.jpl.pyre.examples.lander.models.seis.SeisConfig.*
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.registeredIntegral
-import gov.nasa.jpl.pyre.flame.tasks.delay
-import gov.nasa.jpl.pyre.flame.tasks.subContext
 import gov.nasa.jpl.pyre.spark.resources.discrete.*
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
@@ -19,7 +17,9 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.decre
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
 
 
 class SeisModel(

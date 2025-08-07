@@ -7,12 +7,12 @@ package gov.nasa.jpl.pyre.ember
 interface InitScope {
     fun <T: Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E>
     fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>)
-}
 
-object InitScopeThroughContext {
-    context (scope: InitScope)
-    fun <T: Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E> = scope.allocate(cell)
+    companion object {
+        context (scope: InitScope)
+        fun <T: Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E> = scope.allocate(cell)
 
-    context (scope: InitScope)
-    fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) = scope.spawn(name, step)
+        context (scope: InitScope)
+        fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) = scope.spawn(name, step)
+    }
 }

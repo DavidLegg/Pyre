@@ -9,6 +9,7 @@ import gov.nasa.jpl.pyre.ember.InconProvider.Companion.within
 import gov.nasa.jpl.pyre.ember.InconProvidingContext.Companion.provide
 import gov.nasa.jpl.pyre.ember.Task.PureStepResult
 import java.util.Comparator.comparing
+import java.util.Objects
 import java.util.PriorityQueue
 import kotlin.reflect.KType
 
@@ -29,7 +30,6 @@ class SimulationState(private val reportHandler: ReportHandler) {
     private val listeningTasks: MutableMap<AwaitingTask<*>, Set<CellHandle<*, *>>> = mutableMapOf()
     private val modifiedCells: MutableSet<CellHandle<*, *>> = mutableSetOf()
 
-    // Specifically *not* a data class - we want reference equality here for performance.
     private class AwaitingTask<T>(
         val await: Await<T>,
         originalTask: Task<T>,
@@ -46,6 +46,23 @@ class SimulationState(private val reportHandler: ReportHandler) {
             }
         }
         var scheduledTask: TaskEntry? = null
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as AwaitingTask<*>
+
+            // Check the await steps for reference equality
+            // We rebuild the AwaitingTask each time we re-evaluate, but the await step inside remains the same.
+            return await === other.await
+        }
+
+        override fun hashCode(): Int {
+            // Since we're using reference equality with the await field for equals, to be consistent,
+            // we must return the identity hash code (not the overridden hash code!) of that field.
+            return System.identityHashCode(await)
+        }
     }
     private val awaitingTasks: MutableSet<AwaitingTask<*>> = mutableSetOf()
 

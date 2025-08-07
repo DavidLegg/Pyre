@@ -30,7 +30,8 @@ import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlin.math.abs
 
 object TimerResourceOperations {
-    fun SparkInitScope.timer(name: String, initialTime: Duration = ZERO, initialRate: Int = 1) =
+    context (scope: SparkInitScope)
+    fun timer(name: String, initialTime: Duration = ZERO, initialRate: Int = 1) =
         resource(name, Timer(initialTime, initialRate))
 
     /**

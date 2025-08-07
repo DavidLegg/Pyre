@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.ember.toPyreDuration
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.BranchIndicator.*
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.*
-import gov.nasa.jpl.pyre.spark.reporting.register
+import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.not
@@ -23,12 +23,12 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.StringResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.greaterThanOrEquals
-import gov.nasa.jpl.pyre.spark.tasks.SparkContextExtensions.now
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
+import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.tasks.await
 import gov.nasa.jpl.pyre.spark.tasks.task
-import gov.nasa.jpl.pyre.spark.tasks.whenever
 import kotlin.collections.forEach
 import kotlin.time.Instant
 
@@ -101,8 +101,8 @@ class SequenceEngine(
     init {
         with (context) {
             loadedSequence = discreteResource("loaded_sequence", null)
-            loadedSequenceName = (map(loadedSequence) { it?.name ?: "" } named { "loaded_sequence_name" }).also(::register)
-            isLoaded = (loadedSequence.isNotNull() named { "is_loaded" }).also(::register)
+            loadedSequenceName = (map(loadedSequence) { it?.name ?: "" } named { "loaded_sequence_name" }).also { register(it) }
+            isLoaded = (loadedSequence.isNotNull() named { "is_loaded" }).also { register(it) }
             commandIndex = registeredDiscreteResource("command_index", 0)
             _isActive = registeredDiscreteResource("is_active", false)
 

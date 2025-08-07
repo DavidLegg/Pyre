@@ -2,9 +2,9 @@ package gov.nasa.jpl.pyre.examples.sequencing.telecom
 
 import gov.nasa.jpl.pyre.examples.sequencing.primeness.DualString
 import gov.nasa.jpl.pyre.examples.sequencing.primeness.Side
-import gov.nasa.jpl.pyre.flame.tasks.subContext
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
 
 class TelecomModel(
     context: SparkInitScope,

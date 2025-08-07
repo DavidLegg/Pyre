@@ -2,9 +2,9 @@ package gov.nasa.jpl.pyre.examples.sequencing.activities
 
 import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
 import gov.nasa.jpl.pyre.flame.plans.Activity
-import gov.nasa.jpl.pyre.flame.tasks.await
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.notEquals
 import gov.nasa.jpl.pyre.spark.resources.getValue
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

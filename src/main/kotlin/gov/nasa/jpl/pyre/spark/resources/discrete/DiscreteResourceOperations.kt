@@ -2,7 +2,7 @@ package gov.nasa.jpl.pyre.spark.resources.discrete
 
 import gov.nasa.jpl.pyre.coals.Reflection.withArg
 import gov.nasa.jpl.pyre.coals.named
-import gov.nasa.jpl.pyre.spark.reporting.register
+import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
@@ -15,16 +15,20 @@ import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
 object DiscreteResourceOperations {
-    fun <V> SparkInitScope.discreteResource(name: String, value: V, valueType: KType) =
+    context (scope: SparkInitScope)
+    fun <V> discreteResource(name: String, value: V, valueType: KType) =
         resource<V, Discrete<V>>(name, Discrete(value), Discrete::class.withArg(valueType))
 
-    inline fun <reified V> SparkInitScope.discreteResource(name: String, value: V) =
+    context (scope: SparkInitScope)
+    inline fun <reified V> discreteResource(name: String, value: V) =
         discreteResource(name, value, typeOf<V>())
 
-    fun <V> SparkInitScope.registeredDiscreteResource(name: String, value: V, valueType: KType): MutableResource<Discrete<V>> =
+    context (scope: SparkInitScope)
+    fun <V> registeredDiscreteResource(name: String, value: V, valueType: KType): MutableResource<Discrete<V>> =
         discreteResource(name, value, valueType).also { register(name, it, Discrete::class.withArg(valueType)) }
 
-    inline fun <reified V> SparkInitScope.registeredDiscreteResource(name: String, value: V) =
+    context (scope: SparkInitScope)
+    inline fun <reified V> registeredDiscreteResource(name: String, value: V) =
         registeredDiscreteResource(name, value, typeOf<V>())
 
     // Generic read/write operations, specialized to discrete resources

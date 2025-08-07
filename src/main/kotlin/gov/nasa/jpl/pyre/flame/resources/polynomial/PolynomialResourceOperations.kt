@@ -2,10 +2,10 @@ package gov.nasa.jpl.pyre.flame.resources.polynomial
 
 import gov.nasa.jpl.pyre.coals.named
 import gov.nasa.jpl.pyre.ember.Condition
-import gov.nasa.jpl.pyre.ember.InitScopeThroughContext.spawn
+import gov.nasa.jpl.pyre.ember.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.flame.resources.polynomial.Polynomial.Companion.polynomial
-import gov.nasa.jpl.pyre.spark.reporting.register
+import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.*
 import gov.nasa.jpl.pyre.spark.resources.ResourceMonad.bind
 import gov.nasa.jpl.pyre.spark.resources.ResourceMonad.map
@@ -15,8 +15,12 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.spark.tasks.*
-import gov.nasa.jpl.pyre.spark.tasks.CoroutineTasksThroughContext.repeatingTask
-import gov.nasa.jpl.pyre.spark.tasks.ReactionsThroughContext.whenever
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.dynamicsChange
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.or
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenTrue
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
+import gov.nasa.jpl.pyre.spark.tasks.SparkScope.Companion.simulationClock
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.await
 import kotlin.let
 import kotlin.math.max
 import kotlin.math.min
@@ -24,12 +28,13 @@ import kotlin.math.min
 object PolynomialResourceOperations {
     context(scope: SparkInitScope)
     fun polynomialResource(name: String, vararg coefficients: Double): MutablePolynomialResource =
-        scope.resource(name, polynomial(*coefficients))
+        resource(name, polynomial(*coefficients))
 
     fun constant(value: Double): PolynomialResource = pure(polynomial(value)) named value::toString
 
-    fun SparkInitScope.registeredPolynomialResource(name: String, vararg coefficients: Double) =
-        polynomialResource(name, *coefficients).also(::register)
+    context (scope: SparkInitScope)
+    fun registeredPolynomialResource(name: String, vararg coefficients: Double) =
+        polynomialResource(name, *coefficients).also { register(it) }
 
     fun DiscreteResource<Double>.asPolynomial(): PolynomialResource =
         map(this) { polynomial(it.value) } named this::toString
@@ -85,7 +90,7 @@ object PolynomialResourceOperations {
 
     context(context: SparkInitScope)
     fun PolynomialResource.registeredIntegral(name: String, startingValue: Double) =
-        integral(name, startingValue).also { context.register(name, it) }
+        integral(name, startingValue).also { register(it) }
 
     /**
      * Compute the integral of integrand, starting at startingValue.

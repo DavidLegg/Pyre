@@ -7,10 +7,10 @@ import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
 import gov.nasa.jpl.pyre.flame.plans.activity
 import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
-import gov.nasa.jpl.pyre.flame.tasks.subContext
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream

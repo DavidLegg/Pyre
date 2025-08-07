@@ -9,9 +9,9 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.getValue
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.every
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
-import gov.nasa.jpl.pyre.spark.tasks.every
 
 class VerletIntegrator(
     context: SparkInitScope,

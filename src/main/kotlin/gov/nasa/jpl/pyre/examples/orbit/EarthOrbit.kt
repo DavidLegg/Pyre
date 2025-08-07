@@ -2,8 +2,9 @@ package gov.nasa.jpl.pyre.examples.orbit
 
 import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
-import gov.nasa.jpl.pyre.spark.reporting.register
+import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
+import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 
 class EarthOrbit(
@@ -34,11 +35,11 @@ class EarthOrbit(
                 HOUR,
             )
 
-            earthPosition = orbitalSimulation.bodyPositions.getValue(earth)
-            moonPosition = orbitalSimulation.bodyPositions.getValue(moon)
+            earthPosition = orbitalSimulation.bodyPositions.getValue(earth) named { "earth_position" }
+            moonPosition = orbitalSimulation.bodyPositions.getValue(moon) named { "moon_position" }
 
-            register("earth_position", earthPosition)
-            register("moon_position", moonPosition)
+            register(earthPosition)
+            register(moonPosition)
         }
     }
 }

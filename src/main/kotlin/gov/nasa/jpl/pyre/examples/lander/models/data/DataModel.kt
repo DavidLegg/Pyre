@@ -9,8 +9,7 @@ import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.integral
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.registeredIntegral
-import gov.nasa.jpl.pyre.flame.tasks.subContext
-import gov.nasa.jpl.pyre.spark.reporting.register
+import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
@@ -26,9 +25,10 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.incre
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.tasks.whenever
 import kotlin.math.min
 
 
@@ -62,8 +62,11 @@ class DataModel(context: SparkInitScope) {
                 ChannelName.VC12 to VirtualChannel(subContext(ChannelName.VC12.toString()), 0.03, ChannelName.DISCARD)
             )
 
-            val apidContext = subContext("apids")
-            apidModelMap = DataConfig.APID.entries.associateWith { APIDModel(apidContext.subContext(it.toString()), virtualChannelMap) }
+            with (subContext("apids")) {
+                apidModelMap = DataConfig.APID.entries.associateWith {
+                    APIDModel(subContext(it.toString()), virtualChannelMap)
+                }
+            }
 
             activeFPT = registeredDiscreteResource("activeFPT", DataConfig.FPT.Companion.DEFAULT)
             defaultFPT = registeredDiscreteResource("defaultFPT", DataConfig.FPT.Companion.DEFAULT)

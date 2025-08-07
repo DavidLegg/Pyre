@@ -11,7 +11,7 @@ class SimpleSimulation(setup: SimulationSetup) {
         val reportHandler: ReportHandler,
         val inconProvider: InconProvider?,
         val startingTime: Duration = ZERO,
-        val initialize: InitScope.() -> Unit,
+        val initialize: context (InitScope) () -> Unit,
     )
 
     private val state: SimulationState
@@ -20,7 +20,7 @@ class SimpleSimulation(setup: SimulationSetup) {
         with (setup) {
             state = SimulationState(reportHandler)
             // Initialize the model, which gives us cells and tasks
-            state.initScope().initialize()
+            initialize(state.initScope())
             // Restore the model if we have an incon
             inconProvider?.let(state::restore)
         }

@@ -17,7 +17,7 @@ import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.flame.resources.caching.ResourceCaching.fileBackedResource
 import gov.nasa.jpl.pyre.flame.resources.caching.ResourceCachingTest.OriginalResourceModel.*
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
-import gov.nasa.jpl.pyre.spark.reporting.register
+import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResource
@@ -27,9 +27,9 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.MutableIntResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableStringResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.StringResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.every
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.tasks.every
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer

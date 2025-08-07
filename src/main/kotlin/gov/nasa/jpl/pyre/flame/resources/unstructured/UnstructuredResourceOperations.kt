@@ -9,14 +9,14 @@ import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.tasks.SparkContext
+import gov.nasa.jpl.pyre.spark.tasks.SparkScope
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
 
 object UnstructuredResourceOperations {
     /**
-     * Return an [UnstructuredResource], given a function of absolute time as measured by [SparkContext.simulationClock].
+     * Return an [UnstructuredResource], given a function of absolute time as measured by [SparkScope.simulationClock].
      */
-    context(context: SparkContext)
+    context(context: SparkScope)
     fun <A> timeBased(fn: (Duration) -> A) = object : UnstructuredResource<A> {
         context(scope: ResourceScope)
         override suspend fun getDynamics(): FullDynamics<Unstructured<A>> {

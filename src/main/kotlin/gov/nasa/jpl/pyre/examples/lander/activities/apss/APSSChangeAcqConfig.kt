@@ -11,9 +11,9 @@ import gov.nasa.jpl.pyre.examples.lander.models.wake.WakeModel
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.getValue
+import gov.nasa.jpl.pyre.spark.tasks.SparkScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.tasks.SparkContextExtensions.delayUntil
-import gov.nasa.jpl.pyre.spark.tasks.SparkContextExtensions.simulationClock
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delayUntil
 import kotlinx.serialization.Serializable
 import kotlin.collections.getValue
 

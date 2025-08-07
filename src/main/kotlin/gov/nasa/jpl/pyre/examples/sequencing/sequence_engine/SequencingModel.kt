@@ -4,9 +4,9 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.MILLISECOND
 import gov.nasa.jpl.pyre.ember.times
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.BranchIndicator
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.CommandBlockDescription
-import gov.nasa.jpl.pyre.flame.tasks.subContext
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlin.collections.map
 import kotlin.ranges.IntRange

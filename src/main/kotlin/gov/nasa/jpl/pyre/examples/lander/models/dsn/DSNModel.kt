@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.examples.lander.models.dsn
 
-import gov.nasa.jpl.pyre.flame.tasks.subContext
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
@@ -9,9 +8,10 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.equ
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
-import gov.nasa.jpl.pyre.spark.tasks.await
-import gov.nasa.jpl.pyre.spark.tasks.whenever
+import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
 
 class DSNModel(
     context: SparkInitScope,

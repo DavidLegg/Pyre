@@ -6,6 +6,7 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
+import gov.nasa.jpl.pyre.ember.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.decodeJsonConditionsFromJsonElement
 import gov.nasa.jpl.pyre.ember.SimpleSimulation
 import gov.nasa.jpl.pyre.ember.SimpleSimulation.SimulationSetup
@@ -20,12 +21,13 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.resources.timer.Timer
-import gov.nasa.jpl.pyre.spark.tasks.SparkContext
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.onceWhenever
+import gov.nasa.jpl.pyre.spark.tasks.SparkScope
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.report
-import gov.nasa.jpl.pyre.spark.tasks.await
-import gov.nasa.jpl.pyre.spark.tasks.onceWhenever
 import gov.nasa.jpl.pyre.spark.tasks.repeatingTask
 import gov.nasa.jpl.pyre.spark.tasks.task
 import gov.nasa.jpl.pyre.string
@@ -50,7 +52,7 @@ class SparkSimulationTest {
         endTime: Duration,
         incon: JsonElement? = null,
         takeFincon: Boolean = false,
-        initialize: SparkInitScope.() -> Unit,
+        initialize: context (SparkInitScope) () -> Unit,
     ): SimulationResult {
         assertDoesNotThrow {
             // Build a simulation that'll write reports to memory
@@ -60,12 +62,12 @@ class SparkSimulationTest {
                     reports.add(Json.encodeToJsonElement(Json.serializersModule.serializer(type), value))
                 },
                 inconProvider = incon?.let { Json.decodeJsonConditionsFromJsonElement(it) },
-                initialize = {
-                    with (object : SparkInitScope, InitScope by this {
+                initialize = context (scope: InitScope) fun() {
+                    with(object : SparkInitScope, InitScope by scope {
                         override val simulationClock = resource("simulation_clock", Timer(ZERO, 1))
                         override val simulationEpoch = Instant.parse("2000-01-01T00:00:00Z")
                         override fun toString() = ""
-                        override fun onStartup(name: String, block: suspend TaskScope.() -> Unit) =
+                        override fun onStartup(name: String, block: suspend context(TaskScope) () -> Unit) =
                             throw NotImplementedError()
                     }) {
                         initialize()
@@ -296,26 +298,20 @@ class SparkSimulationTest {
             val maximum = discreteResource("maximum", 10)
             val setting = discreteResource("setting", 5)
 
-            val sparkContext = object : SparkContext {
-                override val simulationClock: Resource<Timer> = resource("simulationClock", Timer(ZERO, 1))
-                override val simulationEpoch: Instant = Instant.parse("2020-01-01T00:00:00.00Z")
-            }
-            with (sparkContext) {
-                spawn("Minimum Monitor", onceWhenever(setting lessThan minimum) {
-                    report("Minimum violated: ${setting.getValue()} < ${minimum.getValue()}")
-                })
+            spawn("Minimum Monitor", onceWhenever(setting lessThan minimum) {
+                report("Minimum violated: ${setting.getValue()} < ${minimum.getValue()}")
+            })
 
-                spawn("Maximum Monitor", onceWhenever(setting greaterThan maximum) {
-                    report("Maximum violated: ${setting.getValue()} > ${maximum.getValue()}")
-                })
+            spawn("Maximum Monitor", onceWhenever(setting greaterThan maximum) {
+                report("Maximum violated: ${setting.getValue()} > ${maximum.getValue()}")
+            })
 
-                spawn("Change Setting", task {
-                    for (s in listOf(6, 7, 9, 10, 11, 12, 10, 11, 6, 1, 0, -1, 0, 1, -4)) {
-                        delay(SECOND)
-                        setting.set(s)
-                    }
-                })
-            }
+            spawn("Change Setting", task {
+                for (s in listOf(6, 7, 9, 10, 11, 12, 10, 11, 6, 1, 0, -1, 0, 1, -4)) {
+                    delay(SECOND)
+                    setting.set(s)
+                }
+            })
         }
 
         with (JsonArray(results.reports)) {
