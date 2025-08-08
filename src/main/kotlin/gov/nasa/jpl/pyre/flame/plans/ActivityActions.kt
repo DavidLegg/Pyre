@@ -14,25 +14,33 @@ import kotlin.time.Instant
 
 object ActivityActions {
     context (scope: TaskScope)
+    suspend fun <M> call(activity: FloatingActivity<M>, model: M) {
+        // TODO: Replace the JSON report with a data class
+        report("activities", JsonObject(mapOf(
+            "name" to JsonPrimitive(activity.name),
+            "type" to JsonPrimitive(activity.typeName),
+            "event" to JsonPrimitive("start")
+        ))
+        )
+        activity.activity.effectModel(model)
+        report(
+            "activities", JsonObject(mapOf(
+                "name" to JsonPrimitive(activity.name),
+                "type" to JsonPrimitive(activity.typeName),
+                "event" to JsonPrimitive("end")
+            ))
+        )
+    }
+
+    context (scope: TaskScope)
+    suspend fun <M> call(activity: Activity<M>, model: M) =
+        call(FloatingActivity(activity), model)
+
+    context (scope: TaskScope)
     suspend fun <M> defer(time: Duration, activity: FloatingActivity<M>, model: M) {
         spawn(activity.name, task {
             delay(time)
-            // TODO: Replace the JSON report with a data class
-            report("activities", JsonObject(mapOf(
-                    "name" to JsonPrimitive(activity.name),
-                    "type" to JsonPrimitive(activity.typeName),
-                    "event" to JsonPrimitive("start")
-                ))
-            )
-            val result = activity.activity.effectModel(model)
-            report(
-                "activities", JsonObject(mapOf(
-                    "name" to JsonPrimitive(activity.name),
-                    "type" to JsonPrimitive(activity.typeName),
-                    "event" to JsonPrimitive("end")
-                ))
-            )
-            result
+            call(activity, model)
         })
     }
 

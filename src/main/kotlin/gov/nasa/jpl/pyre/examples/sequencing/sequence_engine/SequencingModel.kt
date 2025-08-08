@@ -15,7 +15,7 @@ class SequencingModel(
     val commandHandlers: Map<String, CommandBehavior>,
     context: SparkInitScope,
     val numberOfEngines: Int = 32,
-    blockTypes: List<CommandBlockDescription> = DEFAULT_BLOCK_TYPES,
+    blockTypes: Map<String, CommandBlockDescription> = DEFAULT_BLOCK_TYPES,
 ) {
     // TODO: Global variable modeling
 
@@ -42,8 +42,8 @@ class SequencingModel(
 
     companion object {
         // TODO: Heuristics for control flow
-        val DEFAULT_BLOCK_TYPES: List<CommandBlockDescription> = listOf(
-            CommandBlockDescription(
+        val DEFAULT_BLOCK_TYPES: Map<String, CommandBlockDescription> = mapOf(
+            "IF" to CommandBlockDescription(
                 start = mapOf(
                     "IF" to { BranchIndicator.CONTINUE },
                 ),
@@ -54,7 +54,7 @@ class SequencingModel(
                     "END_IF" to { BranchIndicator.EXIT },
                 ),
             ),
-            CommandBlockDescription(
+            "WHILE" to CommandBlockDescription(
                 start = mapOf(
                     "WHILE" to { BranchIndicator.EXIT },
                 ),

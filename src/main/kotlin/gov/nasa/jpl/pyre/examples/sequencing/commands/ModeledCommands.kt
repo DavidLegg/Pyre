@@ -10,6 +10,7 @@ import gov.nasa.jpl.pyre.examples.sequencing.commands.telecom.TwtaPowerOn
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.Command
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.CommandBehavior
 import gov.nasa.jpl.pyre.flame.plans.Activity
+import gov.nasa.jpl.pyre.flame.plans.ActivityActions.call
 import gov.nasa.jpl.pyre.flame.plans.ActivityActions.spawn
 import gov.nasa.jpl.pyre.flame.plans.ActivitySerializerBuilder
 import gov.nasa.jpl.pyre.flame.plans.activity
@@ -87,6 +88,6 @@ object ModeledCommands {
         }
 
         val activity = Json.decodeFromJsonElement(serializer, jsonObject)
-        spawn(activity, model)
+        call(activity, model)
     }
 }

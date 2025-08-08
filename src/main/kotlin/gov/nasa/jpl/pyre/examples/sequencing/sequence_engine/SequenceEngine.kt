@@ -3,9 +3,13 @@ package gov.nasa.jpl.pyre.examples.sequencing.sequence_engine
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.ember.toPyreDuration
+import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.BlockLocation.*
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.BranchIndicator.*
-import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.*
+import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.Absolute
+import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.CommandComplete
+import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.Relative
 import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
+import gov.nasa.jpl.pyre.spark.reporting.Reporting.report
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.not
@@ -15,10 +19,12 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.dis
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.isNotNull
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.pyre.spark.resources.discrete.IntResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableIntResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.MutableStringResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.StringResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.named
@@ -27,13 +33,16 @@ import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.SparkScope.Companion.simulationClock
+import gov.nasa.jpl.pyre.spark.tasks.SparkScope.Companion.simulationEpoch
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.spawn
 import gov.nasa.jpl.pyre.spark.tasks.task
-import kotlin.collections.forEach
+import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
 class SequenceEngine(
-    val blockTypes: List<CommandBlockDescription> = emptyList(),
+    val blockTypes: Map<String, CommandBlockDescription> = emptyMap(),
     val commandHandlers: Map<String, CommandBehavior>,
     val dispatchPeriod: Duration,
     context: SparkInitScope,
@@ -79,190 +88,209 @@ class SequenceEngine(
         NEXT
     }
 
+    @Serializable
+    data class ControlFlowPoint(
+        val blockType: String,
+        val blockLocation: BlockLocation,
+        val branchResults: Map<BranchIndicator, Int>,
+    )
+
+    enum class BlockLocation { START, INNER, END }
+
+    // TODO: Expose read-only resources as public getters
+
     private val loadedSequence: MutableDiscreteResource<Sequence?>
     val loadedSequenceName: StringResource
     val isLoaded: BooleanResource
-    private val commandIndex: MutableIntResource
-    // Slightly dangerous pattern: private mutable state not in a cell.
-    // This is a performance-enhancing cache, and does not store critical state.
-    // Upon a save/restore cycle, this will be reset to null, and re-calculated the next time it's needed.
-    // The behavior of this class will thus be identical across a save/restore cycle.
-    // IMPORTANT: If you do not understand why it's safe to keep this state outside a cell, do not copy this pattern.
-    private var sequenceBehavior: Array<CommandBehavior>? = null
-    private val _isActive: MutableBooleanResource
-    val isActive: BooleanResource get() = _isActive
 
-    private val lastDispatchTime: MutableDiscreteResource<Instant?>
-    private val lastDispatchedCommandIndex: MutableIntResource
+    private val controlFlowPoints: MutableDiscreteResource<Map<Int, ControlFlowPoint>>
+    private val lastDispatchTime: MutableDiscreteResource<Instant>
     private val lastDispatchedCommandComplete: MutableBooleanResource
-
-    // TODO: Local variable modeling
+    private val dispatchCounter: MutableIntResource
+    private val isActive: MutableBooleanResource
+    private val commandIndex: MutableIntResource
 
     init {
         with (context) {
             loadedSequence = discreteResource("loaded_sequence", null)
             loadedSequenceName = (map(loadedSequence) { it?.name ?: "" } named { "loaded_sequence_name" }).also { register(it) }
             isLoaded = (loadedSequence.isNotNull() named { "is_loaded" }).also { register(it) }
-            commandIndex = registeredDiscreteResource("command_index", 0)
-            _isActive = registeredDiscreteResource("is_active", false)
 
-            lastDispatchTime = registeredDiscreteResource("last_dispatch_time", null)
-            lastDispatchedCommandIndex = registeredDiscreteResource("last_dispatched_command_index", -1)
+            controlFlowPoints = discreteResource("control_flow_points", emptyMap())
+            lastDispatchTime = registeredDiscreteResource("last_dispatch_time", Instant.DISTANT_PAST)
             lastDispatchedCommandComplete = registeredDiscreteResource("last_dispatched_command_complete", false)
+            dispatchCounter = registeredDiscreteResource("dispatch_counter", 0)
+            isActive = registeredDiscreteResource("is_active", false)
+            commandIndex = registeredDiscreteResource("command_index", 0)
 
-            spawn("Run Sequence Engine", whenever(isLoaded and isActive) {
-                val sequence = loadedSequence.getValue()!!
-                if (sequenceBehavior == null) {
-                    // UNSAFE BLOCK! Do not put any cell reads/writes in this block
-                    // Doing so may cause the save/restore cycle to break
-                    sequenceBehavior = determineSequenceBehavior(sequence)
-                }
-                val i = commandIndex.getValue()
-                requireNotNull(sequenceBehavior) {
-                    "Internal Error! Cached sequence behavior was not available."
-                }.let { sequenceBehavior ->
-                    if (i in sequenceBehavior.indices) {
-                        // TODO: Build an "interruptible task" utility to clean this up
-                        val (timeTag, command) = sequence.commands[i]
-                        val dispatchReady = when (timeTag) {
-                            CommandComplete -> lastDispatchedCommandComplete
-                            is Relative -> simulationClock greaterThanOrEquals (timeTag.duration + simulationClock.getValue())
-                            is Absolute -> simulationClock greaterThanOrEquals (timeTag.time - simulationEpoch).toPyreDuration()
-                        }
-                        val dispatchPeriodElapsed = simulationClock greaterThanOrEquals (dispatchPeriod + simulationClock.getValue())
-                        await((dispatchPeriodElapsed and dispatchReady and isActive) or isLoaded.not())
-                        // Check that the engine is still loaded, to handle unloading the engine unexpectedly
-                        if (isLoaded.getValue()) {
-                            lastDispatchTime.set(now())
-                            lastDispatchedCommandIndex.set(i)
-                            lastDispatchedCommandComplete.set(false)
-                            spawn("Run Command $i", task {
-                                sequenceBehavior[i].effectModel(command)
-                                // Check that another command hasn't been dispatched in the meantime
-                                if (loadedSequenceName.getValue() == sequence.name
-                                    && lastDispatchedCommandIndex.getValue() == i) {
-                                    lastDispatchedCommandComplete.set(true)
-                                }
-                            })
-                        }
+            spawn("run", whenever(isLoaded and isActive) {
+                val sequence = requireNotNull(loadedSequence.getValue())
+                val index = commandIndex.getValue()
+                if (index in sequence.commands.indices) {
+                    val (timeTag, command) = sequence.commands[index]
+
+                    // The engine always waits at least one dispatch period since the last command dispatch
+                    // It also waits for the dispatch time indicated by the time tag.
+                    // It also waits for the engine to be active, if it gets deactivated during the wait somehow
+                    await((dispatchPeriodElapsed() and afterIndicatedDispatchTime(timeTag) and isActive) or isLoaded.not())
+                    // If we were unloaded while waiting to dispatch this command, abort this dispatch
+                    if (!isLoaded.getValue()) return@whenever
+                    dispatch(command)
+
+                    // Look for any unusual control flow happening at this command
+                    val cfPoint = controlFlowPoints.getValue()[index]
+                    if (cfPoint != null) {
+                        // If there is some, look up the governing control flow behavior
+                        val block = blockTypes.getValue(cfPoint.blockType)
+                        val controlFlow = (when (cfPoint.blockLocation) {
+                            BlockLocation.START -> block.start
+                            BlockLocation.INNER -> block.branch
+                            BlockLocation.END -> block.end
+                        }).getValue(command.stem)
+                        // Apply that control flow behavior to this command
+                        val branchIndicator = controlFlow(command)
+                        // Interpret the abstract branch indicator in the context of this CF point
+                        val nextCommandIndex = cfPoint.branchResults.getValue(branchIndicator)
+                        // And finally apply the resulting index to this engine
+                        commandIndex.set(nextCommandIndex)
                     } else {
-                        unload()
+                        // If no unusual control flow is happening at this point, just move to the next command
+                        commandIndex.increment()
                     }
+                } else {
+                    unload()
                 }
             })
         }
     }
 
-    private class CommandBlock(
-        val type: CommandBlockDescription,
-        var startCommandIndex: Int? = null,
-        var endCommandIndex: Int? = null,
-        val branchCommandIndices: MutableList<Int> = mutableListOf(),
-    )
+    context (scope: TaskScope)
+    private suspend fun dispatchPeriodElapsed(): BooleanResource {
+        return after(lastDispatchTime.getValue() + dispatchPeriod)
+    }
+
+    context (scope: TaskScope)
+    private suspend fun afterIndicatedDispatchTime(timeTag: TimeTag): BooleanResource = when (timeTag) {
+        is Absolute -> after(timeTag.time)
+        CommandComplete -> lastDispatchedCommandComplete
+        is Relative -> after(lastDispatchTime.getValue() + timeTag.duration)
+    }
+
+    context (scope: TaskScope)
+    private fun after(time: Instant): BooleanResource =
+        simulationClock greaterThanOrEquals (time - simulationEpoch).toPyreDuration()
+
+    context (scope: TaskScope)
+    private suspend fun dispatch(command: Command) {
+        lastDispatchTime.set(now())
+        lastDispatchedCommandComplete.set(false)
+        dispatchCounter.increment()
+        val currentDispatchCounter = dispatchCounter.getValue()
+        report("commands", command)
+        spawn("model ${command.stem}", task {
+            commandHandlers[command.stem]?.effectModel(command)
+            // If no other command was dispatched in the meantime, set the command complete flag
+            if (dispatchCounter.getValue() == currentDispatchCounter) {
+                lastDispatchedCommandComplete.set(true)
+            }
+        })
+    }
 
     context (scope: TaskScope)
     suspend fun load(sequence: Sequence) {
-        require(!isLoaded.getValue()) { "Sequence engine is already loaded!" }
         loadedSequence.set(sequence)
+        controlFlowPoints.set(parse(sequence))
         commandIndex.set(0)
-        lastDispatchedCommandIndex.set(-1)
+        // The engine starts with "last command complete" -
+        // Sequences starting with command complete timing dispatch the first command immediately
         lastDispatchedCommandComplete.set(true)
-
         if (sequence.loadAndGo) activate()
     }
 
     context (scope: TaskScope)
     suspend fun activate() {
-        _isActive.set(true)
+        isActive.set(true)
     }
 
     context (scope: TaskScope)
     suspend fun deactivate() {
-        _isActive.set(false)
+        isActive.set(false)
     }
 
     context (scope: TaskScope)
     suspend fun unload() {
         deactivate()
         loadedSequence.set(null)
-        sequenceBehavior = null
+        controlFlowPoints.set(emptyMap())
     }
 
-    private fun determineSequenceBehavior(sequence: Sequence): Array<CommandBehavior> {
-        // Default behavior for every command is just to run the handler and increment the command index
-        val commandBehavior: Array<CommandBehavior> = sequence.commands.map { (timeTag, command) ->
-            val behavior = commandHandlers.getOrDefault(command.stem, CommandBehavior.ignore)
-            CommandBehavior { c ->
-                behavior.effectModel(c)
-                commandIndex.increment()
-            }
-        }.toTypedArray()
+    private data class CommandBlock(
+        val blockType: String,
+        val start: Int,
+        val branches: MutableList<Int> = mutableListOf(),
+        val end: Int,
+    )
 
-        // Augment the default behavior by detecting control flow:
-        val blockStack: MutableList<CommandBlock> = mutableListOf()
-        for ((index, timedCommand) in sequence.commands.withIndex()) {
-            // The top block in the stack might be ending:
-            blockStack.lastOrNull()?.let { block ->
-                if (timedCommand.command.stem in block.type.end) {
-                    block.endCommandIndex = index
-                    // Having completed this block, process all the behaviors for it
-                    (block.branchCommandIndices + block.startCommandIndex!! + block.endCommandIndex!!).forEach {
-                        commandBehavior[it] = controlFlowCommandBehavior(it, sequence, block)
-                    }
-                    // Then, remove the block from the stack
-                    blockStack.removeLast()
-                }
+    private fun parse(sequence: Sequence): Map<Int, ControlFlowPoint> {
+        val result: MutableMap<Int, ControlFlowPoint> = mutableMapOf()
+        val activeBlocks: MutableList<CommandBlock> = mutableListOf()
+
+        fun collect(block: CommandBlock) {
+            fun collectPoint(loc: BlockLocation, thisIndex: Int, nextIndex: Int) {
+                result[thisIndex] = ControlFlowPoint(
+                    block.blockType,
+                    loc,
+                    mapOf(
+                        BranchIndicator.CONTINUE to thisIndex + 1,
+                        BranchIndicator.START to block.start,
+                        BranchIndicator.END to block.end,
+                        BranchIndicator.EXIT to block.end + 1,
+                        BranchIndicator.NEXT to nextIndex,
+                    )
+                )
             }
 
-            // Any block in the stack might be splitting (!)
-            // This allows for things like while... if... continue... end if... end while...
-            // Match the split to the top-most matching block
-            for (block in blockStack.asReversed()) {
-                if (timedCommand.command.stem in block.type.branch) {
-                    block.branchCommandIndices += index
+            collectPoint(BlockLocation.START, block.start, block.branches.firstOrNull() ?: block.end)
+            collectPoint(BlockLocation.END, block.end, block.end + 1)
+            for ((i, branch) in block.branches.withIndex()) {
+                collectPoint(BlockLocation.INNER, branch, (block.branches.getOrNull(i + 1) ?: block.end))
+            }
+        }
+
+        for ((cmdIndex, tc) in sequence.commands.withIndex()) {
+            var matchedActiveBlock = false
+            for ((blockIndex, block) in activeBlocks.asReversed().withIndex()) {
+                val blockDescription = blockTypes.getValue(block.blockType)
+                if (tc.command.stem in blockDescription.end) {
+                    activeBlocks.asReversed().removeAt(blockIndex)
+                    collect(block.copy(end=cmdIndex))
+                    matchedActiveBlock = true
+                    break
+                } else if (tc.command.stem in blockDescription.branch) {
+                    block.branches += cmdIndex
+                    matchedActiveBlock = true
                     break
                 }
             }
-
-            // Or a new block could be starting
-            for (blockType in blockTypes) {
-                if (timedCommand.command.stem in blockType.start) {
-                    blockStack += CommandBlock(
-                        blockType,
-                        startCommandIndex = index,
-                    )
+            if (!matchedActiveBlock) {
+                for ((blockType, blockDescription) in blockTypes) {
+                    if (tc.command.stem in blockDescription.start) {
+                        activeBlocks += CommandBlock(
+                            blockType,
+                            start=cmdIndex,
+                            // Implicitly close any active block at the end of the sequence.
+                            // Most of the time, we should be explicitly closing them instead.
+                            end=sequence.commands.size,
+                        )
+                        break
+                    }
                 }
             }
         }
 
-        return commandBehavior
-    }
+        // Add any implicitly closed blocks. This is nominally a no-op.
+        activeBlocks.forEach { collect(it) }
 
-    private fun controlFlowCommandBehavior(
-        index: Int,
-        sequence: Sequence,
-        activeBlock: CommandBlock,
-    ): CommandBehavior {
-        val command = sequence.commands[index].command
-        val generalBehavior = commandHandlers.getOrDefault(command.stem, CommandBehavior.ignore)
-        val controlFlowBehavior: (Command) -> BranchIndicator = when (index) {
-            activeBlock.startCommandIndex -> activeBlock.type.start.getValue(command.stem)
-            activeBlock.endCommandIndex -> activeBlock.type.end.getValue(command.stem)
-            else -> activeBlock.type.branch.getValue(command.stem)
-        }
-        return CommandBehavior { c ->
-            generalBehavior.effectModel(c)
-            val nextCommandIndex = when (controlFlowBehavior(c)) {
-                CONTINUE -> index + 1
-                START -> activeBlock.startCommandIndex!!
-                END -> activeBlock.endCommandIndex!!
-                EXIT -> activeBlock.endCommandIndex!! + 1
-                NEXT -> (listOf(activeBlock.startCommandIndex!!)
-                        + activeBlock.branchCommandIndices
-                        + activeBlock.endCommandIndex!!
-                        ).first { it > index }
-            }
-            commandIndex.set(nextCommandIndex)
-        }
+        return result
     }
 }
