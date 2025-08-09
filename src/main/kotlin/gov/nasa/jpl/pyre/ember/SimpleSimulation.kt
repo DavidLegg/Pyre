@@ -11,7 +11,7 @@ class SimpleSimulation(setup: SimulationSetup) {
         val reportHandler: ReportHandler,
         val inconProvider: InconProvider?,
         val startingTime: Duration = ZERO,
-        val initialize: context (InitScope) () -> Unit,
+        val initialize: context (BasicInitScope) () -> Unit,
     )
 
     private val state: SimulationState

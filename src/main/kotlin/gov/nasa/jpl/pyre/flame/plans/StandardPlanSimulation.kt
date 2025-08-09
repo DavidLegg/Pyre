@@ -9,7 +9,7 @@ import gov.nasa.jpl.pyre.ember.ReportHandler
 import gov.nasa.jpl.pyre.flame.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.flame.reporting.ParallelReportHandler.Companion.inParallel
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -61,7 +61,7 @@ data class StandardPlanSimulationSetup<M>(
 @OptIn(ExperimentalSerializationApi::class)
 inline fun <reified M> runStandardPlanSimulation(
     setupFile: String,
-    noinline constructModel: SparkInitScope.() -> M,
+    noinline constructModel: InitScope.() -> M,
     jsonFormat: Json = Json,
     buildReportHandler: (OutputStream) -> Closeable<ReportHandler> =
         { CsvReportHandler(it, jsonFormat).asCloseable() },

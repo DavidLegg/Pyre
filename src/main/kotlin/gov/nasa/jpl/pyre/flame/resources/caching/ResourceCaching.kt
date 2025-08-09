@@ -12,7 +12,7 @@ import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.ThinResource
 import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -84,7 +84,7 @@ object ResourceCaching {
      * Note that this is the default output file format produced by [gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation].
      * As such, this method is a way to feed the output of one simulation "layer" into the next.
      */
-    context (scope: SparkInitScope)
+    context (scope: InitScope)
     fun <V, D : Dynamics<V, D>> fileBackedResource(
         name: String,
         file: Path,
@@ -102,7 +102,7 @@ object ResourceCaching {
         return precomputedResource(name, points)
     }
 
-    context (scope: SparkInitScope)
+    context (scope: InitScope)
     inline fun <V, reified D : Dynamics<V, D>> fileBackedResource(
         name: String,
         file: Path,

@@ -3,12 +3,12 @@ package gov.nasa.jpl.pyre.examples.lander.models.time
 import gov.nasa.jpl.pyre.flame.resources.unstructured.UnstructuredResource
 import gov.nasa.jpl.pyre.flame.resources.unstructured.UnstructuredResourceApplicative.map
 import gov.nasa.jpl.pyre.flame.resources.unstructured.UnstructuredResourceOperations.asUnstructured
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import kotlin.time.ExperimentalTime
 import kotlin.time.toJavaInstant
 
 @OptIn(ExperimentalTime::class)
-class Clocks(context: SparkInitScope) {
+class Clocks(context: InitScope) {
     val epoch: Time
     val time: UnstructuredResource<Time>
     // Convenience functions for looking up the current time in various formats

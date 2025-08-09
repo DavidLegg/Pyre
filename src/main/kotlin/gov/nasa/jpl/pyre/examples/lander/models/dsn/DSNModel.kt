@@ -10,11 +10,11 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 
 class DSNModel(
-    context: SparkInitScope,
+    context: InitScope,
 ) {
     enum class DSNStation {
         Canberra,
@@ -58,7 +58,7 @@ class DSNModel(
     operator fun get(station: DSNStation): DsnStationModel = stations.getValue(station)
 
     class DsnStationModel(
-        context: SparkInitScope,
+        context: InitScope,
     ) {
         val allocated: DiscreteResource<AllocatedEnum>
         val visible: DiscreteResource<VisibilityEnum>

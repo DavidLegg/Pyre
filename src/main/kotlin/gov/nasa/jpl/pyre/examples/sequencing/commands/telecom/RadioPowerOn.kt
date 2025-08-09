@@ -12,18 +12,13 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-@SerialName(RadioPowerOn.COMMAND_STEM)
+@SerialName("RADIO_POWER_ON")
 class RadioPowerOn(
     val side: SideIndicator,
 ) : Activity<SequencingDemo> {
-
     context(scope: TaskScope)
     override suspend fun effectModel(model: SequencingDemo) {
         delay(10 * SECOND)
         model.telecom.radios[side].poweredOn.set(true)
-    }
-
-    companion object {
-        const val COMMAND_STEM = "RADIO_POWER_ON"
     }
 }

@@ -15,13 +15,13 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 
 class HeatProbeModel(
-    context: SparkInitScope,
+    context: InitScope,
 ) {
     enum class PowerState {
         On,

@@ -23,6 +23,14 @@
     {
       "name": "/telecom/twta/B/powered_on",
       "kind": "enum"
+    },
+    {
+      "name": "/telecom/radio/A/downlink_rate",
+      "kind": "discrete"
+    },
+    {
+      "name": "/telecom/radio/B/downlink_rate",
+      "kind": "discrete"
     }
   ]
 }

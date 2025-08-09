@@ -4,7 +4,7 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.int
 import gov.nasa.jpl.pyre.spark.ChannelizedReports
 import gov.nasa.jpl.pyre.spark.channel
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.*
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.Duration
@@ -52,7 +52,7 @@ import kotlin.test.Test
 import kotlin.time.Instant
 
 class PlanSimulationTest {
-    class EmptyModel(context: SparkInitScope)
+    class EmptyModel(context: InitScope)
 
     @Test
     fun empty_model_can_be_created() {
@@ -72,7 +72,7 @@ class PlanSimulationTest {
         val x: MutableDiscreteResource<Int>
         val y: MutableDiscreteResource<String>
 
-        constructor(context: SparkInitScope) {
+        constructor(context: InitScope) {
             with(context) {
                 x = registeredDiscreteResource("x", 0)
                 y = registeredDiscreteResource("y", "XYZ")
@@ -169,7 +169,7 @@ class PlanSimulationTest {
         val miscPower: MutableDoubleResource
         val totalPower: DoubleResource
 
-        constructor(context: SparkInitScope) {
+        constructor(context: InitScope) {
             with(context) {
                 deviceState = registeredDiscreteResource("deviceState", OFF)
                 powerTable = mapOf(

@@ -5,10 +5,10 @@ import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
 import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
 
 class EarthOrbit(
-    context: SparkInitScope,
+    context: InitScope,
 ) {
     private val orbitalSimulation: OrbitalSimulation
     val earthPosition: DiscreteResource<Vector>

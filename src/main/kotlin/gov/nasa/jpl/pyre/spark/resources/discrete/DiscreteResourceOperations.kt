@@ -10,24 +10,24 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.emit
 import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.resources.resource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
 object DiscreteResourceOperations {
-    context (scope: SparkInitScope)
+    context (scope: InitScope)
     fun <V> discreteResource(name: String, value: V, valueType: KType) =
         resource<V, Discrete<V>>(name, Discrete(value), Discrete::class.withArg(valueType))
 
-    context (scope: SparkInitScope)
+    context (scope: InitScope)
     inline fun <reified V> discreteResource(name: String, value: V) =
         discreteResource(name, value, typeOf<V>())
 
-    context (scope: SparkInitScope)
+    context (scope: InitScope)
     fun <V> registeredDiscreteResource(name: String, value: V, valueType: KType): MutableResource<Discrete<V>> =
         discreteResource(name, value, valueType).also { register(name, it, Discrete::class.withArg(valueType)) }
 
-    context (scope: SparkInitScope)
+    context (scope: InitScope)
     inline fun <reified V> registeredDiscreteResource(name: String, value: V) =
         registeredDiscreteResource(name, value, typeOf<V>())
 

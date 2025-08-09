@@ -2,7 +2,7 @@ package gov.nasa.jpl.pyre.flame.resources.polynomial
 
 import gov.nasa.jpl.pyre.coals.named
 import gov.nasa.jpl.pyre.ember.Condition
-import gov.nasa.jpl.pyre.ember.InitScope.Companion.spawn
+import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.flame.resources.polynomial.Polynomial.Companion.polynomial
 import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
@@ -26,13 +26,13 @@ import kotlin.math.max
 import kotlin.math.min
 
 object PolynomialResourceOperations {
-    context(scope: SparkInitScope)
+    context(scope: InitScope)
     fun polynomialResource(name: String, vararg coefficients: Double): MutablePolynomialResource =
         resource(name, polynomial(*coefficients))
 
     fun constant(value: Double): PolynomialResource = pure(polynomial(value)) named value::toString
 
-    context (scope: SparkInitScope)
+    context (scope: InitScope)
     fun registeredPolynomialResource(name: String, vararg coefficients: Double) =
         polynomialResource(name, *coefficients).also { register(it) }
 
@@ -69,7 +69,7 @@ object PolynomialResourceOperations {
     fun PolynomialResource.derivative(): PolynomialResource =
         map(this, Polynomial::derivative) named { "d/dt ($this)" }
 
-    context(scope: SparkInitScope)
+    context(scope: InitScope)
     fun PolynomialResource.integral(name: String, startingValue: Double): IntegralResource {
         val integral = polynomialResource(name, startingValue)
         spawn("Update $name", whenever(map(this@integral, integral) {
@@ -88,7 +88,7 @@ object PolynomialResourceOperations {
         } named { name }
     }
 
-    context(context: SparkInitScope)
+    context(context: InitScope)
     fun PolynomialResource.registeredIntegral(name: String, startingValue: Double) =
         integral(name, startingValue).also { register(it) }
 
@@ -133,7 +133,7 @@ object PolynomialResourceOperations {
      *     to guarantee this condition at runtime.
      * </p>
      */
-    context(scope: SparkInitScope)
+    context(scope: InitScope)
     fun PolynomialResource.clampedIntegral(
         name: String,
         lowerBound: PolynomialResource,

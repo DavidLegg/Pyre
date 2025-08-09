@@ -26,13 +26,13 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlin.math.min
 
 
-class DataModel(context: SparkInitScope) {
+class DataModel(context: InitScope) {
     private val virtualChannelMap: Map<ChannelName, VirtualChannel>
     val apidModelMap: Map<DataConfig.APID, APIDModel>
 
@@ -95,7 +95,7 @@ class DataModel(context: SparkInitScope) {
 
 
     class VirtualChannel(
-        context: SparkInitScope,
+        context: InitScope,
         val limit: Double,
         val overflowChannelId: ChannelName
     ) {
@@ -170,7 +170,7 @@ class DataModel(context: SparkInitScope) {
     }
 
     class APIDModel(
-        context: SparkInitScope,
+        context: InitScope,
         private val virtualChannelMap: Map<ChannelName, VirtualChannel>,
     ) {
         private val routedVC: MutableDiscreteResource<ChannelName>

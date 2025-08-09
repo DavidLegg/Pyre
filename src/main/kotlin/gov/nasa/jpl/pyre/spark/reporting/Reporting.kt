@@ -1,13 +1,13 @@
 package gov.nasa.jpl.pyre.spark.reporting
 
 import gov.nasa.jpl.pyre.coals.Reflection.withArg
-import gov.nasa.jpl.pyre.ember.InitScope.Companion.spawn
+import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.wheneverChanges
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.onStartup
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.onStartup
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.report
 import kotlinx.serialization.Contextual
@@ -54,7 +54,7 @@ object Reporting {
     /**
      * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
      */
-    context (scope: SparkInitScope)
+    context (scope: InitScope)
     fun <V, D : Dynamics<V, D>> register(
         name: String,
         resource: Resource<D>,
@@ -73,7 +73,7 @@ object Reporting {
     /**
      * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
      */
-    context (scope: SparkInitScope)
+    context (scope: InitScope)
     inline fun <V, reified D : Dynamics<V, D>> register(name: String, resource: Resource<D>) =
         register(name, resource, typeOf<D>())
 
@@ -81,7 +81,7 @@ object Reporting {
      * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
      * Use the resource's own toString method as its name, for use with [gov.nasa.jpl.pyre.spark.resources.named].
      */
-    context (scope: SparkInitScope)
+    context (scope: InitScope)
     inline fun <V, reified D : Dynamics<V, D>> register(resource: Resource<D>) =
         register(resource.toString(), resource, typeOf<D>())
 }

@@ -23,7 +23,7 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.resources.timer.Timer
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.spark.tasks.coroutineTask
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.isNotNull
@@ -32,7 +32,6 @@ import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.spark.tasks.SparkScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.spawn
 import gov.nasa.jpl.pyre.spark.tasks.task
 import kotlin.reflect.KType
 import kotlin.reflect.full.withNullability
@@ -64,7 +63,7 @@ class PlanSimulation<M> {
         simulationEpoch: Instant?,
         simulationStart: Duration?,
         inconProvider: InconProvider?,
-        constructModel: context (SparkInitScope) () -> M,
+        constructModel: context (InitScope) () -> M,
         modelClass: KType,
     ) {
         val simulationEpoch = requireNotNull(simulationEpoch ?: inconProvider?.within("simulation", "epoch")?.provide<Instant>())
@@ -72,7 +71,7 @@ class PlanSimulation<M> {
         state = SimulationState(reportHandler)
         val initContext = state.initScope()
         val startupTasks: MutableList<Pair<String, suspend context (TaskScope) () -> Unit>> = mutableListOf()
-        sparkScope = object : SparkInitScope {
+        sparkScope = object : InitScope {
             override fun <T : Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E> =
                 initContext.allocate(cell.copy(name = "/${cell.name}"))
 
@@ -131,7 +130,7 @@ class PlanSimulation<M> {
         inline fun <reified M> withIncon(
             noinline reportHandler: ReportHandler,
             inconProvider: InconProvider,
-            noinline constructModel: SparkInitScope.() -> M,
+            noinline constructModel: InitScope.() -> M,
         ) = withIncon(
             reportHandler,
             inconProvider,
@@ -142,7 +141,7 @@ class PlanSimulation<M> {
         fun <M> withIncon(
             reportHandler: ReportHandler,
             inconProvider: InconProvider,
-            constructModel: SparkInitScope.() -> M,
+            constructModel: InitScope.() -> M,
             modelClass: KType,
         ) = PlanSimulation(
             reportHandler = reportHandler,
@@ -157,7 +156,7 @@ class PlanSimulation<M> {
             noinline reportHandler: ReportHandler,
             simulationEpoch: Instant,
             simulationStart: Instant,
-            noinline constructModel: SparkInitScope.() -> M,
+            noinline constructModel: InitScope.() -> M,
         ) = withoutIncon(
             reportHandler,
             simulationEpoch,
@@ -170,7 +169,7 @@ class PlanSimulation<M> {
             reportHandler: ReportHandler,
             simulationEpoch: Instant,
             simulationStart: Instant,
-            constructModel: SparkInitScope.() -> M,
+            constructModel: InitScope.() -> M,
             modelClass: KType,
         ) = PlanSimulation(
             reportHandler = reportHandler,

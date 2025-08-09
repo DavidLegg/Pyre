@@ -69,11 +69,12 @@ def main(data: str, view: str, plan: Optional[str] = None):
             resource_data.ffill().plot(ax=ax)
         elif resource_view.kind == 'discrete':
             # Discrete: numeric values, active until the next data point. Requires a step-plot.
+            resource_data = pd.to_numeric(resource_data)
             resource_data.ffill(inplace=True)
             # Compute the last moment each state value is active
             rd_ends = resource_data.shift(1)[resource_data.shift(1) != resource_data][1:]
             # Add these points in, ordered before each change, to build a step-plot
-            resource_data = pd.concat((rd_ends, resource_data)).sort_index()
+            resource_data = pd.concat((rd_ends, resource_data)).sort_index(kind='stable')
             # Plot the resulting step-plot
             resource_data.plot(ax=ax)
         elif resource_view.kind == 'enum':
@@ -82,7 +83,7 @@ def main(data: str, view: str, plan: Optional[str] = None):
             # Compute the last moment each state value is active
             rd_ends = resource_data.shift(1)[resource_data.shift(1) != resource_data][1:]
             # Add these points in, ordered before each change, to build a step-plot
-            resource_data = pd.concat((rd_ends, resource_data)).sort_index()
+            resource_data = pd.concat((rd_ends, resource_data)).sort_index(kind='stable')
             # TODO: Series.factorize might be able to simplify the code below
             # Build the label-to-number translation
             # Give priority to explicitly-listed values

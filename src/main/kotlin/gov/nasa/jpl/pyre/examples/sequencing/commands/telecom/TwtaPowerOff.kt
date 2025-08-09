@@ -11,18 +11,13 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-@SerialName(TwtaPowerOff.COMMAND_STEM)
+@SerialName("TWTA_POWER_OFF")
 class TwtaPowerOff(
     val side: SideIndicator,
 ) : Activity<SequencingDemo> {
-
     context(scope: TaskScope)
     override suspend fun effectModel(model: SequencingDemo) {
         model.telecom.twtas[side].poweredOn.set(false)
         delay(SECOND)
-    }
-
-    companion object {
-        const val COMMAND_STEM = "TWTA_POWER_OFF"
     }
 }

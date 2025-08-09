@@ -3,11 +3,11 @@ package gov.nasa.jpl.pyre.examples.lander.models.power
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableStringResource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 
 class PowerModel(
-    context: SparkInitScope,
+    context: InitScope,
 ) {
     val genericPowerUsed: MutableDoubleResource
     val pelStates: Map<PelItem, MutableStringResource>

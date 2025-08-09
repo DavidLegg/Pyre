@@ -16,14 +16,14 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.decrease
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
 
 
 class SeisModel(
-    context: SparkInitScope,
+    context: InitScope,
 ) {
     val poweredOn: MutableBooleanResource
     val mdeShouldBeOn: MutableBooleanResource

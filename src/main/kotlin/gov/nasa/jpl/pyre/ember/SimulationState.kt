@@ -9,7 +9,6 @@ import gov.nasa.jpl.pyre.ember.InconProvider.Companion.within
 import gov.nasa.jpl.pyre.ember.InconProvidingContext.Companion.provide
 import gov.nasa.jpl.pyre.ember.Task.PureStepResult
 import java.util.Comparator.comparing
-import java.util.Objects
 import java.util.PriorityQueue
 import kotlin.reflect.KType
 
@@ -66,7 +65,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
     }
     private val awaitingTasks: MutableSet<AwaitingTask<*>> = mutableSetOf()
 
-    fun initScope() = object : InitScope {
+    fun initScope() = object : BasicInitScope {
         override fun <T: Any, E> allocate(cell: Cell<T, E>) = cells.allocate(cell)
         override fun <T> spawn(name: String, step: () -> PureStepResult<T>) = addTask(name, step)
     }

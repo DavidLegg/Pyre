@@ -28,7 +28,7 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.MutableStringResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.StringResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.every
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -54,7 +54,7 @@ class ResourceCachingTest {
      * That resource is registered like usual and saved to the output file.
      */
     class OriginalResourceModel(
-        context: SparkInitScope,
+        context: InitScope,
     ) {
         val resourceA: MutableIntResource
         val resourceB: MutableStringResource
@@ -103,7 +103,7 @@ class ResourceCachingTest {
     class CachedResourceModel(
         resourceFile: Path,
         jsonFormat: Json,
-        context: SparkInitScope,
+        context: InitScope,
     ) {
         val resourceA: IntResource
         val resourceB: StringResource

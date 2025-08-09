@@ -6,7 +6,7 @@ import gov.nasa.jpl.pyre.ember.Condition
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.PureTaskStep
-import gov.nasa.jpl.pyre.ember.InitScope
+import gov.nasa.jpl.pyre.ember.BasicInitScope
 import gov.nasa.jpl.pyre.ember.Task
 import gov.nasa.jpl.pyre.ember.minus
 import gov.nasa.jpl.pyre.ember.toKotlinDuration
@@ -97,7 +97,7 @@ interface TaskScope : ResourceScope {
     }
 }
 
-interface SparkInitScope : SparkScope, InitScope {
+interface InitScope : SparkScope, BasicInitScope {
     /**
      * Run block whenever the simulation starts.
      *
@@ -117,7 +117,7 @@ interface SparkInitScope : SparkScope, InitScope {
     fun onStartup(name: String, block: suspend context (TaskScope) () -> Unit)
 
     companion object {
-        context (scope: SparkInitScope)
+        context (scope: InitScope)
         fun onStartup(name: String, block: suspend context (TaskScope) () -> Unit) = scope.onStartup(name, block)
 
         /**
@@ -125,8 +125,8 @@ interface SparkInitScope : SparkScope, InitScope {
          * If models incorporate the context name into the names of tasks and resources,
          * this provides an easy way to build hierarchical models without a lot of manual bookkeeping.
          */
-        context (scope: SparkInitScope)
-        fun subContext(contextName: String) = object : SparkInitScope by scope {
+        context (scope: InitScope)
+        fun subContext(contextName: String) = object : InitScope by scope {
             override fun <T : Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E> =
                 scope.allocate(cell.copy(name = "$contextName/${cell.name}"))
 

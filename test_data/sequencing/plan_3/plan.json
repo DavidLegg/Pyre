@@ -1,0 +1,20 @@
+{
+  "start": "2020-01-03T00:00:00Z",
+  "end": "2020-01-04T00:00:00Z",
+  "activities": [
+    {
+      "time": "2020-01-03T02:55:00Z",
+      "activity": {
+        "type": "LoadSequence",
+        "sequenceFile": "sequences/stepDataRates--long.seq.json"
+      }
+    },
+    {
+      "time": "2020-01-03T03:00:00Z",
+      "activity": {
+        "type": "ActivateSequence",
+        "sequenceName": "stepDataRates--long"
+      }
+    }
+  ]
+}

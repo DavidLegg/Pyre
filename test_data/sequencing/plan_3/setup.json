@@ -1,0 +1,6 @@
+{
+  "plan": "plan.json",
+  "initial_conditions": "../plan_2/output/final_conditions.json",
+  "final_conditions": "output/final_conditions.json",
+  "output": "output/events.csv"
+}

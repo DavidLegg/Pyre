@@ -6,9 +6,9 @@ import gov.nasa.jpl.pyre.coals.identity
 import gov.nasa.jpl.pyre.coals.named
 import gov.nasa.jpl.pyre.ember.Cell.EffectTrait
 import gov.nasa.jpl.pyre.ember.*
-import gov.nasa.jpl.pyre.ember.InitScope.Companion.allocate
+import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.allocate
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlin.reflect.KType
@@ -28,14 +28,14 @@ suspend fun <D> MutableResource<D>.emit(effect: (D) -> D) = this.emit({ it: Full
 context (scope: TaskScope)
 suspend fun <D> MutableResource<D>.set(newDynamics: D) = emit({ d: D -> newDynamics } named { "Set $this to $newDynamics" })
 
-context (scope: SparkInitScope)
+context (scope: InitScope)
 inline fun <V, reified D : Dynamics<V, D>> resource(
     name: String,
     initialDynamics: D,
     effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
 ) = resource(name, initialDynamics, typeOf<D>(), effectTrait)
 
-context (scope: SparkInitScope)
+context (scope: InitScope)
 fun <V, D : Dynamics<V, D>> resource(
     name: String,
     initialDynamics: D,
@@ -43,7 +43,7 @@ fun <V, D : Dynamics<V, D>> resource(
     effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
 ) = resource(name, DynamicsMonad.pure(initialDynamics), FullDynamics::class.withArg(dynamicsType), effectTrait)
 
-context (scope: SparkInitScope)
+context (scope: InitScope)
 fun <V, D : Dynamics<V, D>> resource(
     name: String,
     initialDynamics: FullDynamics<D>,

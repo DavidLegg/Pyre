@@ -3,8 +3,6 @@ package gov.nasa.jpl.pyre.examples.sequencing.sequence_engine
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.ember.toPyreDuration
-import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.BlockLocation.*
-import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.BranchIndicator.*
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.Absolute
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.CommandComplete
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.Relative
@@ -19,12 +17,10 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.dis
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.isNotNull
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableIntResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableStringResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.StringResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.named
@@ -32,7 +28,7 @@ import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.greaterTh
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.SparkScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.spark.tasks.SparkScope.Companion.simulationEpoch
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
@@ -45,7 +41,7 @@ class SequenceEngine(
     val blockTypes: Map<String, CommandBlockDescription> = emptyMap(),
     val commandHandlers: Map<String, CommandBehavior>,
     val dispatchPeriod: Duration,
-    context: SparkInitScope,
+    context: InitScope,
 ) {
     /**
      * Describes a "block" of commands, used to perform structured control flow within a sequence.
@@ -132,7 +128,7 @@ class SequenceEngine(
                     // The engine always waits at least one dispatch period since the last command dispatch
                     // It also waits for the dispatch time indicated by the time tag.
                     // It also waits for the engine to be active, if it gets deactivated during the wait somehow
-                    await((dispatchPeriodElapsed() and afterIndicatedDispatchTime(timeTag) and isActive) or isLoaded.not())
+                    await((dispatchPeriodElapsed() and afterIndicatedDispatchTime(timeTag) and isActive) or !isLoaded)
                     // If we were unloaded while waiting to dispatch this command, abort this dispatch
                     if (!isLoaded.getValue()) return@whenever
                     dispatch(command)

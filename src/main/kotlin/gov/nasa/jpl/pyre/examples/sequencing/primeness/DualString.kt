@@ -2,14 +2,14 @@ package gov.nasa.jpl.pyre.examples.sequencing.primeness
 
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 class DualString<T>(
     val primeSide: MutableDiscreteResource<Side>,
-    ctor: (SparkInitScope) -> T,
-    context: SparkInitScope,
+    ctor: (InitScope) -> T,
+    context: InitScope,
 ) {
     private val components: Map<Side, T> = with (context) {
             Side.entries.associateWith {

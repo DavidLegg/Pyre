@@ -1,0 +1,138 @@
+{
+  "name": "stepDataRates--long",
+  "loadAndGo": false,
+  "commands": [
+    {
+      "timeTag": {
+        "type": "C"
+      },
+      "command": {
+        "stem": "CHANGE_BIT_RATE",
+        "args": [
+          {
+            "type": "string",
+            "value": "PRIME"
+          },
+          {
+            "type": "float",
+            "value": 100.0
+          }
+        ]
+      }
+    },
+    {
+      "timeTag": {
+        "type": "R",
+        "duration": "01:00:00.000000"
+      },
+      "command": {
+        "stem": "CHANGE_BIT_RATE",
+        "args": [
+          {
+            "type": "string",
+            "value": "PRIME"
+          },
+          {
+            "type": "float",
+            "value": 200.0
+          }
+        ]
+      }
+    },
+    {
+      "timeTag": {
+        "type": "R",
+        "duration": "01:00:00.000000"
+      },
+      "command": {
+        "stem": "CHANGE_BIT_RATE",
+        "args": [
+          {
+            "type": "string",
+            "value": "PRIME"
+          },
+          {
+            "type": "float",
+            "value": 500.0
+          }
+        ]
+      }
+    },
+    {
+      "timeTag": {
+        "type": "R",
+        "duration": "01:00:00.000000"
+      },
+      "command": {
+        "stem": "CHANGE_BIT_RATE",
+        "args": [
+          {
+            "type": "string",
+            "value": "PRIME"
+          },
+          {
+            "type": "float",
+            "value": 1000.0
+          }
+        ]
+      }
+    },
+    {
+      "timeTag": {
+        "type": "R",
+        "duration": "01:00:00.000000"
+      },
+      "command": {
+        "stem": "CHANGE_BIT_RATE",
+        "args": [
+          {
+            "type": "string",
+            "value": "PRIME"
+          },
+          {
+            "type": "float",
+            "value": 500.0
+          }
+        ]
+      }
+    },
+    {
+      "timeTag": {
+        "type": "R",
+        "duration": "01:00:00.000000"
+      },
+      "command": {
+        "stem": "CHANGE_BIT_RATE",
+        "args": [
+          {
+            "type": "string",
+            "value": "PRIME"
+          },
+          {
+            "type": "float",
+            "value": 200.0
+          }
+        ]
+      }
+    },
+    {
+      "timeTag": {
+        "type": "R",
+        "duration": "01:00:00.000000"
+      },
+      "command": {
+        "stem": "CHANGE_BIT_RATE",
+        "args": [
+          {
+            "type": "string",
+            "value": "PRIME"
+          },
+          {
+            "type": "float",
+            "value": 100.0
+          }
+        ]
+      }
+    }
+  ]
+}

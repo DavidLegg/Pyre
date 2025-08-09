@@ -9,17 +9,12 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-@SerialName(SetPrimeRadio.COMMAND_STEM)
+@SerialName("SET_PRIME_RADIO")
 class SetPrimeRadio(
     val side: Side,
 ) : Activity<SequencingDemo> {
-
     context(scope: TaskScope)
     override suspend fun effectModel(model: SequencingDemo) {
         model.telecom.radios.primeSide.set(side)
-    }
-
-    companion object {
-        const val COMMAND_STEM = "SET_PRIME_RADIO"
     }
 }

@@ -15,14 +15,14 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
 import kotlinx.serialization.Serializable
 
 class APSSModel(
-    context: SparkInitScope,
+    context: InitScope,
 ) {
     enum class Component {
         TWINS_PY,
@@ -41,7 +41,7 @@ class APSSModel(
     }
 
     class ComponentModel(
-        context: SparkInitScope,
+        context: InitScope,
         initialState: Boolean,
         initialInRate: ComponentRate,
         initialOutRate: ComponentRate,

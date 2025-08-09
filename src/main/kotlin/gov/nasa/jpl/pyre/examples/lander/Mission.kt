@@ -11,12 +11,12 @@ import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel
 import gov.nasa.jpl.pyre.examples.lander.models.seis.SeisModel
 import gov.nasa.jpl.pyre.examples.lander.models.time.Clocks
 import gov.nasa.jpl.pyre.examples.lander.models.wake.WakeModel
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
-class Mission(context: SparkInitScope) {
+class Mission(context: InitScope) {
     val config: Configuration
     val clocks: Clocks
     val dataModel: DataModel

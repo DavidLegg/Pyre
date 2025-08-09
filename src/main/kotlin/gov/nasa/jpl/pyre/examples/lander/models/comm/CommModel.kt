@@ -7,11 +7,11 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.reg
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope.Companion.subContext
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 
 class CommModel(
-    context: SparkInitScope,
+    context: InitScope,
 ) {
     enum class Orbiter {
         ODY,

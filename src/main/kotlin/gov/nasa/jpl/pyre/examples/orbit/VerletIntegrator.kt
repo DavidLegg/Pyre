@@ -10,11 +10,11 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.dis
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.every
-import gov.nasa.jpl.pyre.spark.tasks.SparkInitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
 
 class VerletIntegrator(
-    context: SparkInitScope,
+    context: InitScope,
     private val name: String,
     initialPosition: DoubleArray,
     initialVelocity: DoubleArray,

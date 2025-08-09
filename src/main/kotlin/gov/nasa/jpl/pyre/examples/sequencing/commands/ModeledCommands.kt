@@ -1,93 +1,168 @@
 package gov.nasa.jpl.pyre.examples.sequencing.commands
 
 import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
-import gov.nasa.jpl.pyre.examples.sequencing.commands.telecom.RadioPowerOff
-import gov.nasa.jpl.pyre.examples.sequencing.commands.telecom.RadioPowerOn
-import gov.nasa.jpl.pyre.examples.sequencing.commands.telecom.SetPrimeRadio
-import gov.nasa.jpl.pyre.examples.sequencing.commands.telecom.SetPrimeTwta
-import gov.nasa.jpl.pyre.examples.sequencing.commands.telecom.TwtaPowerOff
-import gov.nasa.jpl.pyre.examples.sequencing.commands.telecom.TwtaPowerOn
+import gov.nasa.jpl.pyre.examples.sequencing.commands.seq.SEQ_MODELED_COMMANDS
+import gov.nasa.jpl.pyre.examples.sequencing.commands.telecom.TELECOM_MODELED_COMMANDS
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.Command
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.CommandBehavior
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.ActivityActions.call
-import gov.nasa.jpl.pyre.flame.plans.ActivityActions.spawn
 import gov.nasa.jpl.pyre.flame.plans.ActivitySerializerBuilder
-import gov.nasa.jpl.pyre.flame.plans.activity
-import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.SerialKind
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.serializer
-import kotlin.reflect.KType
-import kotlin.reflect.typeOf
-import kotlin.reflect.full.createType
+import kotlin.reflect.KClass
 
-object ModeledCommands {
-    fun modeledCommands(model: SequencingDemo): Map<String, CommandBehavior> = mapOf(
-        RadioPowerOn.COMMAND_STEM to activity<RadioPowerOn>(model),
-        RadioPowerOff.COMMAND_STEM to activity<RadioPowerOff>(model),
-        SetPrimeRadio.COMMAND_STEM to activity<SetPrimeRadio>(model),
-        TwtaPowerOn.COMMAND_STEM to activity<TwtaPowerOn>(model),
-        TwtaPowerOff.COMMAND_STEM to activity<TwtaPowerOff>(model),
-        SetPrimeTwta.COMMAND_STEM to activity<SetPrimeTwta>(model),
-    )
+val ALL_MODELED_COMMANDS = ModeledCommands {
+    include(SEQ_MODELED_COMMANDS)
+    include(TELECOM_MODELED_COMMANDS)
+}
 
-    // TODO: See if there's a way to generate one of these lists of commands from the other.
-    fun ActivitySerializerBuilder<SequencingDemo>.includeModeledCommands() {
-        activity(RadioPowerOn::class)
-        activity(RadioPowerOff::class)
-        activity(SetPrimeRadio::class)
-        activity(TwtaPowerOn::class)
-        activity(TwtaPowerOff::class)
-        activity(SetPrimeTwta::class)
-    }
+interface ModeledCommands<M> {
+    /**
+     * Given a model, returns all of the modeled intrinsic command behavior.
+     * Intrinsic command behavior is everything *except* sequence control flow.
+     */
+    fun modeledCommands(model: M): Map<String, CommandBehavior>
 
-    // TODO: Factor out some of this demo code to generic utilities,
-    //   perhaps as a new "sequencing" utility package users can import.
+    /**
+     * Include all the command activities in the receiving serializers module.
+     */
+    context (builder: ActivitySerializerBuilder<M>)
+    fun includeModeledCommands()
 
-    @OptIn(ExperimentalSerializationApi::class)
-    private inline fun <reified A : Activity<SequencingDemo>> activity(model: SequencingDemo) = CommandBehavior { command ->
-        val serializer = serializer<A>()
+    companion object {
+        @OptIn(ExperimentalSerializationApi::class)
+        inline fun <reified A : Activity<SequencingDemo>> activity(model: SequencingDemo) = CommandBehavior { command ->
+            val serializer = serializer<A>()
 
-        val jsonObject = buildJsonObject {
-            for ((i, arg) in command.args.withIndex()) {
-                val argName = serializer.descriptor.getElementName(i)
-                val argDescriptor = serializer.descriptor.getElementDescriptor(i)
+            val jsonObject = buildJsonObject {
+                for ((i, arg) in command.args.withIndex()) {
+                    val argName = serializer.descriptor.getElementName(i)
+                    val argDescriptor = serializer.descriptor.getElementDescriptor(i)
 
-                fun requireSerialKind(vararg allowedKinds: SerialKind) {
-                    require(argDescriptor.kind in allowedKinds) {
-                        "Actual argument kind ${arg.javaClass.simpleName} is incompatible with expected kinds" +
-                                " ${allowedKinds.joinToString(",")} for $argName"
+                    fun requireSerialKind(vararg allowedKinds: SerialKind) {
+                        require(argDescriptor.kind in allowedKinds) {
+                            "Actual argument kind ${arg.javaClass.simpleName} is incompatible with expected kinds" +
+                                    " ${allowedKinds.joinToString(",")} for $argName"
+                        }
                     }
+
+                    val jsonValue = when (arg) {
+                        is Command.Arg.FloatArg -> {
+                            requireSerialKind(PrimitiveKind.FLOAT, PrimitiveKind.DOUBLE)
+                            JsonPrimitive(arg.value)
+                        }
+                        is Command.Arg.IntArg -> {
+                            requireSerialKind(PrimitiveKind.INT, PrimitiveKind.LONG)
+                            JsonPrimitive(arg.value)
+                        }
+                        is Command.Arg.UIntArg -> {
+                            requireSerialKind(PrimitiveKind.INT, PrimitiveKind.LONG)
+                            JsonPrimitive(arg.value)
+                        }
+                        is Command.Arg.StringArg -> {
+                            requireSerialKind(PrimitiveKind.STRING, SerialKind.ENUM)
+                            JsonPrimitive(arg.value)
+                        }
+                    }
+                    put(argName, jsonValue)
                 }
-
-                val jsonValue = when (arg) {
-                    is Command.Arg.FloatArg -> {
-                        requireSerialKind(PrimitiveKind.FLOAT, PrimitiveKind.DOUBLE)
-                        JsonPrimitive(arg.value)
-                    }
-                    is Command.Arg.IntArg -> {
-                        requireSerialKind(PrimitiveKind.INT, PrimitiveKind.LONG)
-                        JsonPrimitive(arg.value)
-                    }
-                    is Command.Arg.UIntArg -> {
-                        requireSerialKind(PrimitiveKind.INT, PrimitiveKind.LONG)
-                        JsonPrimitive(arg.value)
-                    }
-                    is Command.Arg.StringArg -> {
-                        requireSerialKind(PrimitiveKind.STRING, SerialKind.ENUM)
-                        JsonPrimitive(arg.value)
-                    }
-                }
-                put(argName, jsonValue)
             }
+
+            val activity = Json.decodeFromJsonElement(serializer, jsonObject)
+            call(activity, model)
+        }
+    }
+}
+
+@OptIn(InternalSerializationApi::class)
+inline fun <reified M> ModeledCommands(block: ModeledCommandsBuilder<M>.() -> Unit) : ModeledCommands<M> {
+    val modeledCommandsByName: MutableMap<String, (M) -> CommandBehavior> = mutableMapOf()
+    val activityInclusions: MutableList<ActivitySerializerBuilder<M>.() -> Unit> = mutableListOf()
+    val includedModeledCommands: MutableList<ModeledCommands<M>> = mutableListOf()
+
+    val builder = object : ModeledCommandsBuilder<M> {
+        override fun <A : Activity<M>> activity(clazz: KClass<A>) {
+            val serializer = clazz.serializer()
+            val commandStem = serializer.descriptor.serialName
+            require(commandStem !in modeledCommandsByName) { "Duplicate command stem $commandStem" }
+            modeledCommandsByName[commandStem] = { model ->
+                CommandBehavior { command ->
+                    val jsonObject = buildJsonObject {
+                        for ((i, arg) in command.args.withIndex()) {
+                            val argName = serializer.descriptor.getElementName(i)
+                            val argDescriptor = serializer.descriptor.getElementDescriptor(i)
+
+                            fun requireSerialKind(vararg allowedKinds: SerialKind) {
+                                require(argDescriptor.kind in allowedKinds) {
+                                    "Actual argument kind ${arg.javaClass.simpleName} is incompatible with expected kinds" +
+                                            " ${allowedKinds.joinToString(",")} for $argName"
+                                }
+                            }
+
+                            val jsonValue = when (arg) {
+                                is Command.Arg.FloatArg -> {
+                                    requireSerialKind(PrimitiveKind.FLOAT, PrimitiveKind.DOUBLE)
+                                    JsonPrimitive(arg.value)
+                                }
+
+                                is Command.Arg.IntArg -> {
+                                    requireSerialKind(PrimitiveKind.INT, PrimitiveKind.LONG)
+                                    JsonPrimitive(arg.value)
+                                }
+
+                                is Command.Arg.UIntArg -> {
+                                    requireSerialKind(PrimitiveKind.INT, PrimitiveKind.LONG)
+                                    JsonPrimitive(arg.value)
+                                }
+
+                                is Command.Arg.StringArg -> {
+                                    requireSerialKind(PrimitiveKind.STRING, SerialKind.ENUM)
+                                    JsonPrimitive(arg.value)
+                                }
+                            }
+                            put(argName, jsonValue)
+                        }
+                    }
+
+                    val activity = Json.decodeFromJsonElement(serializer, jsonObject)
+                    call(activity, model)
+                }
+            }
+            activityInclusions += { activity(clazz, serializer) }
         }
 
-        val activity = Json.decodeFromJsonElement(serializer, jsonObject)
-        call(activity, model)
+        override fun include(other: ModeledCommands<M>) {
+            includedModeledCommands += other
+        }
     }
+
+    // Run the block in the context of the local builder, collecting all the command info from it.
+    builder.block()
+
+    // Use that collected command info to build the ModeledCommands object
+    return object : ModeledCommands<M> {
+        // TODO: Check for command stem collisions between all the sub-modules?
+        override fun modeledCommands(model: M): Map<String, CommandBehavior> = (includedModeledCommands
+            .flatMap { it.modeledCommands(model).entries }
+            .associate { (k, v) -> k to v }
+                + modeledCommandsByName.mapValues { it.value(model) })
+
+        context (builder: ActivitySerializerBuilder<M>)
+        override fun includeModeledCommands() {
+            includedModeledCommands.forEach { it.includeModeledCommands() }
+            activityInclusions.forEach { builder.it() }
+        }
+    }
+}
+
+interface ModeledCommandsBuilder<M> {
+    fun <A : Activity<M>> activity(clazz: KClass<A>)
+    fun include(other: ModeledCommands<M>)
 }
