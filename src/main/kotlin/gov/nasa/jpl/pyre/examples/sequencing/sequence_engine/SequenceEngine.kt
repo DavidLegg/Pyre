@@ -51,9 +51,9 @@ class SequenceEngine(
      * @param branch Map from stems indicating an intermediate branch in this kind of block to a function which indicates which branch of the block to take.
      */
     class CommandBlockDescription(
-        val start: Map<String, (Command) -> BranchIndicator>,
-        val end: Map<String, (Command) -> BranchIndicator>,
-        val branch: Map<String, (Command) -> BranchIndicator> = emptyMap(),
+        val start: Map<String, suspend context (TaskScope) (Command) -> BranchIndicator>,
+        val end: Map<String, suspend context (TaskScope) (Command) -> BranchIndicator>,
+        val branch: Map<String, suspend context (TaskScope) (Command) -> BranchIndicator> = emptyMap(),
     )
 
     enum class BranchIndicator {

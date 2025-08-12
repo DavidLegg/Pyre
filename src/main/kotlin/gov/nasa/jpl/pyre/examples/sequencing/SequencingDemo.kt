@@ -4,6 +4,7 @@ import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.examples.sequencing.activities.ActivateSequence
 import gov.nasa.jpl.pyre.examples.sequencing.activities.LoadSequence
+import gov.nasa.jpl.pyre.examples.sequencing.activities.UnloadSequence
 import gov.nasa.jpl.pyre.examples.sequencing.commands.ALL_MODELED_COMMANDS
 import gov.nasa.jpl.pyre.examples.sequencing.fsw.FswModel
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequencingModel
@@ -32,6 +33,7 @@ class SequencingDemo(
             telecom = TelecomModel(subContext("telecom"))
             sequencing = SequencingModel(
                 ALL_MODELED_COMMANDS.modeledCommands(this@SequencingDemo),
+                this@SequencingDemo,
                 subContext("sequencing"),
             )
         }
@@ -46,6 +48,7 @@ class SequencingDemo(
                     // Planning activities
                     activity(LoadSequence::class)
                     activity(ActivateSequence::class)
+                    activity(UnloadSequence::class)
 
                     // Include modeled commands
                     ALL_MODELED_COMMANDS.includeModeledCommands()

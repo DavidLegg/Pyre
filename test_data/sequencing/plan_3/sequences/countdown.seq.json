@@ -1,0 +1,73 @@
+{
+  "name": "countdown",
+  "loadAndGo": true,
+  "commands": [
+    {
+      "timeTag": {
+        "type": "C"
+      },
+      "command": {
+        "stem": "SEQ_SET_GLOBAL_INT",
+        "args": [
+          {
+            "type": "string",
+            "value": "G01INT"
+          },
+          {
+            "type": "int",
+            "value": -1
+          }
+        ]
+      }
+    },
+    {
+      "timeTag": {
+        "type": "R",
+        "duration": "00:01:00.000000"
+      },
+      "command": {
+        "stem": "SEQ_WHILE",
+        "args": [
+          {
+            "type": "string",
+            "value": "G00INT"
+          }
+        ]
+      }
+    },
+    {
+      "timeTag": {
+        "type": "R",
+        "duration": "00:01:00.000000"
+      },
+      "command": {
+        "stem": "SEQ_ADD",
+        "args": [
+          {
+            "type": "string",
+            "value": "G00INT"
+          },
+          {
+            "type": "string",
+            "value": "G01INT"
+          }
+        ]
+      }
+    },
+    {
+      "timeTag": {
+        "type": "R",
+        "duration": "00:01:00.000000"
+      },
+      "command": {
+        "stem": "SEQ_END_WHILE",
+        "args": [
+          {
+            "type": "string",
+            "value": "G00INT"
+          }
+        ]
+      }
+    }
+  ]
+}

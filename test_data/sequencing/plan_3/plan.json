@@ -3,17 +3,40 @@
   "end": "2020-01-04T00:00:00Z",
   "activities": [
     {
-      "time": "2020-01-03T02:55:00Z",
+      "time": "2020-01-03T05:55:00Z",
       "activity": {
-        "type": "LoadSequence",
-        "sequenceFile": "sequences/stepDataRates--long.seq.json"
+        "type": "SEQ_SET_GLOBAL_INT",
+        "variable": "G00INT",
+        "value": 10
       }
     },
     {
-      "time": "2020-01-03T03:00:00Z",
+      "time": "2020-01-03T06:00:00Z",
       "activity": {
-        "type": "ActivateSequence",
-        "sequenceName": "stepDataRates--long"
+        "type": "LoadSequence",
+        "sequenceFile": "sequences/countdown.seq.json"
+      }
+    },
+    {
+      "time": "2020-01-03T06:55:00Z",
+      "activity": {
+        "type": "SEQ_SET_GLOBAL_INT",
+        "variable": "G00INT",
+        "value": 200
+      }
+    },
+    {
+      "time": "2020-01-03T07:00:00Z",
+      "activity": {
+        "type": "LoadSequence",
+        "sequenceFile": "sequences/countdown.seq.json"
+      }
+    },
+    {
+      "time": "2020-01-03T13:00:00Z",
+      "activity": {
+        "type": "UnloadSequence",
+        "sequenceName": "countdown"
       }
     }
   ]

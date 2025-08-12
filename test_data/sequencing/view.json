@@ -31,6 +31,14 @@
     {
       "name": "/telecom/radio/B/downlink_rate",
       "kind": "discrete"
+    },
+    {
+      "name": "/fsw/prime_computer",
+      "kind": "enum"
+    },
+    {
+      "name": "/fsw/globals/A/int/0",
+      "kind": "discrete"
     }
   ]
 }

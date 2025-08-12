@@ -17,6 +17,7 @@ class SeqSetGlobalInt(
 ) : Activity<SequencingDemo> {
     context(scope: TaskScope)
     override suspend fun effectModel(model: SequencingDemo) {
-        model.fsw.globals[SideIndicator.PRIME].ints[variable.ordinal].set(value)
+        val x = model.fsw.globals[SideIndicator.PRIME].ints[variable.ordinal]
+        x.set(value)
     }
 }

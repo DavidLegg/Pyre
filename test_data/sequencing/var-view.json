@@ -1,0 +1,48 @@
+{
+  "resources": [
+    {
+      "name": "/fsw/prime_computer",
+      "kind": "enum"
+    },
+    {
+      "name": "/fsw/globals/A/int/0",
+      "kind": "discrete"
+    },
+    {
+      "name": "/fsw/globals/A/int/1",
+      "kind": "discrete"
+    },
+    {
+      "name": "/fsw/globals/A/int/2",
+      "kind": "discrete"
+    },
+    {
+      "name": "/fsw/globals/A/int/3",
+      "kind": "discrete"
+    },
+    {
+      "name": "/fsw/globals/A/int/4",
+      "kind": "discrete"
+    },
+    {
+      "name": "/fsw/globals/B/int/0",
+      "kind": "discrete"
+    },
+    {
+      "name": "/fsw/globals/B/int/1",
+      "kind": "discrete"
+    },
+    {
+      "name": "/fsw/globals/B/int/2",
+      "kind": "discrete"
+    },
+    {
+      "name": "/fsw/globals/B/int/3",
+      "kind": "discrete"
+    },
+    {
+      "name": "/fsw/globals/B/int/4",
+      "kind": "discrete"
+    }
+  ]
+}

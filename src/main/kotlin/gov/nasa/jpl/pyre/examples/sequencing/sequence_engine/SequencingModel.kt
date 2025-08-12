@@ -2,7 +2,9 @@ package gov.nasa.jpl.pyre.examples.sequencing.sequence_engine
 
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MILLISECOND
 import gov.nasa.jpl.pyre.ember.times
+import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
 import gov.nasa.jpl.pyre.examples.sequencing.fsw.FswModel.GlobalIntVarName
+import gov.nasa.jpl.pyre.examples.sequencing.primeness.SideIndicator.PRIME
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.BranchIndicator
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.CommandBlockDescription
 import gov.nasa.jpl.pyre.spark.resources.getValue
@@ -14,12 +16,11 @@ import kotlin.ranges.IntRange
 
 class SequencingModel(
     val commandHandlers: Map<String, CommandBehavior>,
+    model: SequencingDemo,
     context: InitScope,
     val numberOfEngines: Int = 32,
-    blockTypes: Map<String, CommandBlockDescription> = DEFAULT_BLOCK_TYPES,
+    blockTypes: Map<String, CommandBlockDescription> = defaultBlockTypes(model),
 ) {
-    // TODO: Global variable modeling
-
     val engines: List<SequenceEngine>
 
     init {
@@ -42,27 +43,37 @@ class SequencingModel(
         engines.firstOrNull { !it.isLoaded.getValue() }
 
     companion object {
-        // TODO: Heuristics for control flow
-        val DEFAULT_BLOCK_TYPES: Map<String, CommandBlockDescription> = mapOf(
+        fun defaultBlockTypes(model: SequencingDemo): Map<String, CommandBlockDescription> = mapOf(
             "IF" to CommandBlockDescription(
                 start = mapOf(
                     "SEQ_IF" to { command ->
                         val variable = GlobalIntVarName.valueOf((command.args[0] as Command.Arg.StringArg).value)
-                        // TODO: Connect to the actual model to know which branch to take?
-                        //   For this demo, I'm thinking use C-style boolean behavior: 0 = false, anything else = true
-                        BranchIndicator.CONTINUE
+                        val value = model.fsw.globals[PRIME].ints[variable.ordinal].getValue()
+                        if (value != 0) {
+                            BranchIndicator.CONTINUE
+                        } else {
+                            BranchIndicator.NEXT
+                        }
                     },
                 ),
                 branch = mapOf(
-                    "SEQ_ELSE" to { BranchIndicator.END },
+                    "SEQ_ELSE" to { BranchIndicator.CONTINUE },
                 ),
                 end = mapOf(
-                    "SEQ_END_IF" to { BranchIndicator.EXIT },
+                    "SEQ_END_IF" to { BranchIndicator.CONTINUE },
                 ),
             ),
             "WHILE" to CommandBlockDescription(
                 start = mapOf(
-                    "SEQ_WHILE" to { BranchIndicator.EXIT },
+                    "SEQ_WHILE" to { command ->
+                        val variable = GlobalIntVarName.valueOf((command.args[0] as Command.Arg.StringArg).value)
+                        val value = model.fsw.globals[PRIME].ints[variable.ordinal].getValue()
+                        if (value != 0) {
+                            BranchIndicator.CONTINUE
+                        } else {
+                            BranchIndicator.EXIT
+                        }
+                   },
                 ),
                 branch = mapOf(
                     "SEQ_BREAK" to { BranchIndicator.EXIT },
