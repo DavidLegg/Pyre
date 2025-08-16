@@ -62,44 +62,56 @@ object QuantityResourceOperations {
 
     @Suppress("EXTENSION_SHADOWED_BY_MEMBER")
     fun MutableQuantityResource.valueIn(newUnit: Unit): MutableDoubleResource =
-        with (MutableDoubleResourceScaling) {
+        with(MutableDoubleResourceScaling) {
             this@valueIn.valueIn(newUnit) named this@valueIn::toString
         }
 
     @Suppress("EXTENSION_SHADOWED_BY_MEMBER")
     fun QuantityResource.valueIn(newUnit: Unit): DoubleResource =
-        with (DoubleResourceField) {
+        with(DoubleResourceField) {
             this@valueIn.valueIn(newUnit) named this@valueIn::toString
         }
 
     operator fun QuantityResource.plus(other: QuantityResource): QuantityResource =
-        with (DoubleResourceField) {
-            (this@plus + other) named { "(${this@plus}) + (${other})" }
+        with(DoubleResourceField) {
+            with(UnitAware.Companion) {
+                (this@plus + other) named { "(${this@plus}) + (${other})" }
+            }
         }
 
     operator fun QuantityResource.minus(other: QuantityResource): QuantityResource =
-        with (DoubleResourceField) {
-            (this@minus - other) named { "(${this@minus}) - (${other})" }
+        with(DoubleResourceField) {
+            with(UnitAware.Companion) {
+                (this@minus - other) named { "(${this@minus}) - (${other})" }
+            }
         }
 
     operator fun QuantityResource.times(other: QuantityResource): QuantityResource =
-        with (DoubleResourceField) {
-            (this@times * other) named { "(${this@times}) * (${other})" }
+        with(DoubleResourceField) {
+            with(UnitAware.Companion) {
+                (this@times * other) named { "(${this@times}) * (${other})" }
+            }
         }
 
     operator fun Double.times(other: QuantityResource): QuantityResource =
-        with (DoubleResourceField) {
-            (this@times * other) named { "(${this@times}) * (${other})" }
+        with(DoubleResourceField) {
+            with(UnitAware.Companion) {
+                (this@times * other) named { "(${this@times}) * (${other})" }
+            }
         }
 
     operator fun QuantityResource.times(other: Double): QuantityResource =
-        with (DoubleResourceField) {
-            (this@times * other) named { "(${this@times}) * (${other})" }
+        with(DoubleResourceField) {
+            with(UnitAware.Companion) {
+                (this@times * other) named { "(${this@times}) * (${other})" }
+            }
         }
 
     operator fun QuantityResource.div(other: QuantityResource): QuantityResource =
-        with (DoubleResourceField) {
-            (this@div / other) named { "(${this@div}) / (${other})" }
+        with(DoubleResourceField) {
+            with(UnitAware.Companion) {
+                (this@div / other) named { "(${this@div}) / (${other})" }
+            }
         }
 }
 
