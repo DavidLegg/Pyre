@@ -81,7 +81,7 @@ interface ModeledCommands<M> {
     }
 }
 
-@OptIn(InternalSerializationApi::class)
+@OptIn(ExperimentalSerializationApi::class, InternalSerializationApi::class)
 inline fun <reified M> ModeledCommands(block: ModeledCommandsBuilder<M>.() -> Unit) : ModeledCommands<M> {
     val modeledCommandsByName: MutableMap<String, (M) -> CommandBehavior> = mutableMapOf()
     val activityInclusions: MutableList<ActivitySerializerBuilder<M>.() -> Unit> = mutableListOf()

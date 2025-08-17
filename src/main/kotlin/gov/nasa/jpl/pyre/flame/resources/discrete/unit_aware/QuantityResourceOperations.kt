@@ -5,11 +5,11 @@ import gov.nasa.jpl.pyre.flame.resources.lens.MutableResourceLens.view
 import gov.nasa.jpl.pyre.flame.units.DoubleFieldScope
 import gov.nasa.jpl.pyre.flame.units.FieldScope
 import gov.nasa.jpl.pyre.flame.units.Quantity
+import gov.nasa.jpl.pyre.flame.units.QuantityOperations.valueIn
 import gov.nasa.jpl.pyre.flame.units.ScalableScope
 import gov.nasa.jpl.pyre.flame.units.Unit
 import gov.nasa.jpl.pyre.flame.units.UnitAware
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
-import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
@@ -20,16 +20,21 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.les
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.lessThanOrEquals
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations
+import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.decrease
+import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 typealias QuantityResource = UnitAware<DoubleResource>
 typealias MutableQuantityResource = UnitAware<MutableDoubleResource>
 
 /**
  * Convenience functions for working with [QuantityResource] and [MutableQuantityResource]
- * Mostly, these are just the functions on [UnitAware], but with [DoubleResourceField] baked into the context for you.
+ * Mostly, these are just the functions on [UnitAware], but with [DoubleResourceFieldScope] baked into the context for you.
  */
 object QuantityResourceOperations {
     fun constant(quantity: Quantity): QuantityResource = with (DoubleFieldScope) {
@@ -43,7 +48,7 @@ object QuantityResourceOperations {
      * Construct a unit-aware resource using [value]'s units.
      */
     context (scope: InitScope)
-    fun quantityResource(name: String, value: UnitAware<Double>): MutableQuantityResource = with(DoubleFieldScope) {
+    fun quantityResource(name: String, value: Quantity): MutableQuantityResource = with(DoubleFieldScope) {
         UnitAware(discreteResource(name, value.valueIn(value.unit)), value.unit) { name }
     }
 
@@ -51,7 +56,7 @@ object QuantityResourceOperations {
      * Construct a unit-aware resource and register it with the same units as [value]
      */
     context (scope: InitScope)
-    fun registeredQuantityResource(name: String, value: UnitAware<Double>): MutableQuantityResource =
+    fun registeredQuantityResource(name: String, value: Quantity): MutableQuantityResource =
         quantityResource(name, value).also { register(it, value.unit) }
 
     // Note: Units can be applied to a derived resource using the generic T * Unit operator.
@@ -61,8 +66,9 @@ object QuantityResourceOperations {
      * Note: The unit will be appended to the name of the resource automatically.
      */
     context (scope: InitScope)
-    fun register(name: String, resource: QuantityResource, unit: Unit) =
-        register("$name ($unit)", resource.valueIn(unit))
+    fun register(name: String, resource: QuantityResource, unit: Unit) = with (DoubleResourceFieldScope) {
+        UnitAware.register(name, resource, unit)
+    }
 
     /**
      * Register a resource in a particular unit.
@@ -72,6 +78,10 @@ object QuantityResourceOperations {
     fun register(resource: QuantityResource, unit: Unit) =
         register(resource.toString(), resource, unit)
 
+    context (scope: ResourceScope)
+    suspend fun QuantityResource.getValue(): Quantity =
+        UnitAware(valueIn(unit).getValue(), unit)
+
     @Suppress("EXTENSION_SHADOWED_BY_MEMBER")
     fun MutableQuantityResource.valueIn(newUnit: Unit): MutableDoubleResource =
         with(MutableDoubleResourceScaling) {
@@ -80,61 +90,61 @@ object QuantityResourceOperations {
 
     @Suppress("EXTENSION_SHADOWED_BY_MEMBER")
     fun QuantityResource.valueIn(newUnit: Unit): DoubleResource =
-        with(DoubleResourceField) {
+        with(DoubleResourceFieldScope) {
             this@valueIn.valueIn(newUnit) named this@valueIn::toString
         }
 
     operator fun QuantityResource.plus(other: QuantityResource): QuantityResource =
-        with(DoubleResourceField) {
+        with(DoubleResourceFieldScope) {
             with(UnitAware.Companion) {
                 (this@plus + other) named { "(${this@plus}) + (${other})" }
             }
         }
 
     operator fun QuantityResource.minus(other: QuantityResource): QuantityResource =
-        with(DoubleResourceField) {
+        with(DoubleResourceFieldScope) {
             with(UnitAware.Companion) {
                 (this@minus - other) named { "(${this@minus}) - (${other})" }
             }
         }
 
     operator fun QuantityResource.times(other: QuantityResource): QuantityResource =
-        with(DoubleResourceField) {
+        with(DoubleResourceFieldScope) {
             with(UnitAware.Companion) {
                 (this@times * other) named { "(${this@times}) * (${other})" }
             }
         }
 
     operator fun Double.times(other: QuantityResource): QuantityResource =
-        with(DoubleResourceField) {
+        with(DoubleResourceFieldScope) {
             with(UnitAware.Companion) {
                 (this@times * other) named { "(${this@times}) * (${other})" }
             }
         }
 
     operator fun QuantityResource.times(other: Double): QuantityResource =
-        with(DoubleResourceField) {
+        with(DoubleResourceFieldScope) {
             with(UnitAware.Companion) {
                 (this@times * other) named { "(${this@times}) * (${other})" }
             }
         }
 
     operator fun QuantityResource.div(other: QuantityResource): QuantityResource =
-        with(DoubleResourceField) {
+        with(DoubleResourceFieldScope) {
             with(UnitAware.Companion) {
                 (this@div / other) named { "(${this@div}) / (${other})" }
             }
         }
 
     operator fun Double.div(other: QuantityResource): QuantityResource =
-        with(DoubleResourceField) {
+        with(DoubleResourceFieldScope) {
             with(UnitAware.Companion) {
                 (this@div / other) named { "(${this@div}) / (${other})" }
             }
         }
 
     operator fun QuantityResource.div(other: Double): QuantityResource =
-        with(DoubleResourceField) {
+        with(DoubleResourceFieldScope) {
             with(UnitAware.Companion) {
                 (this@div / other) named { "(${this@div}) / (${other})" }
             }
@@ -148,6 +158,22 @@ object QuantityResourceOperations {
         valueIn(unit) lessThan other.valueIn(unit)
     infix fun QuantityResource.lessThanOrEquals(other: QuantityResource): BooleanResource =
         valueIn(unit) lessThanOrEquals other.valueIn(unit)
+
+    context (scope: TaskScope)
+    suspend fun MutableQuantityResource.increase(amount: Quantity) {
+        valueIn(unit).increase(amount.valueIn(unit))
+    }
+
+    context (scope: TaskScope)
+    suspend fun MutableQuantityResource.decrease(amount: Quantity) {
+        valueIn(unit).decrease(amount.valueIn(unit))
+    }
+
+    context (scope: TaskScope)
+    suspend operator fun MutableQuantityResource.plusAssign(amount: Quantity) = increase(amount)
+
+    context (scope: TaskScope)
+    suspend operator fun MutableQuantityResource.minusAssign(amount: Quantity) = decrease(amount)
 }
 
 object MutableDoubleResourceScaling : ScalableScope<MutableDoubleResource> {
@@ -156,7 +182,7 @@ object MutableDoubleResourceScaling : ScalableScope<MutableDoubleResource> {
         other.view(InvertibleFunction.of(map { this * it }, map { it / this }))
 }
 
-object DoubleResourceField : FieldScope<DoubleResource> {
+object DoubleResourceFieldScope : FieldScope<DoubleResource> {
     override val zero: DoubleResource = pure(0.0)
     override val one: DoubleResource = pure(1.0)
 

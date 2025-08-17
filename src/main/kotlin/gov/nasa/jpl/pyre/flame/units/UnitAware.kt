@@ -1,5 +1,11 @@
 package gov.nasa.jpl.pyre.flame.units
 
+import gov.nasa.jpl.pyre.spark.reporting.Reporting
+import gov.nasa.jpl.pyre.spark.resources.Dynamics
+import gov.nasa.jpl.pyre.spark.resources.Resource
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import kotlin.reflect.KType
+
 class UnitAware<out T>(
     private val value: T,
     val unit: Unit,
@@ -83,6 +89,30 @@ class UnitAware<out T>(
         context (scope: ScalableScope<T>)
         fun <T : Comparable<T>> UnitAware<T>.compareTo(other: UnitAware<T>): Int =
             value.compareTo(other.valueIn(unit))
+
+        /**
+         * Register a resource in a particular unit.
+         * Note: The unit will be appended to the name of the resource automatically.
+         */
+        context (_: InitScope, scope: ScalableScope<Resource<D>>)
+        fun <V, D : Dynamics<V, D>> register(name: String, resource: UnitAware<Resource<D>>, unit: Unit, dynamicsType: KType) =
+            Reporting.register("$name ($unit)", resource.valueIn(unit), dynamicsType)
+
+        /**
+         * Register a resource in a particular unit.
+         * Note: The unit will be appended to the name of the resource automatically.
+         */
+        context (_: InitScope, scope: ScalableScope<Resource<D>>)
+        inline fun <V, reified D : Dynamics<V, D>> register(name: String, resource: UnitAware<Resource<D>>, unit: Unit) =
+            Reporting.register("$name ($unit)", resource.valueIn(unit))
+
+        /**
+         * Register a resource in a particular unit.
+         * Note: The unit will be appended to the name of the resource automatically.
+         */
+        context (_: InitScope, scope: ScalableScope<Resource<D>>)
+        inline fun <V, reified D : Dynamics<V, D>> register(resource: UnitAware<Resource<D>>, unit: Unit) =
+            Reporting.register(resource.valueIn(unit))
 
         infix fun <T> UnitAware<T>.named(nameFn: () -> String): UnitAware<T> = UnitAware(value, unit, nameFn)
     }

@@ -286,15 +286,11 @@ object PolynomialResourceOperations {
     suspend fun MutablePolynomialResource.increase(amount: Double) = emit({ p: Polynomial -> p + amount } named { "Increase $this by $amount" })
     context(scope: TaskScope)
     suspend fun MutablePolynomialResource.decrease(amount: Double) = emit({ p: Polynomial -> p - amount } named { "Decrease $this by $amount" })
-    context(scope: TaskScope)
-    suspend fun MutablePolynomialResource.scale(amount: Double) = emit({ p: Polynomial -> p * amount } named { "Scale $this by $amount" })
 
     context(scope: TaskScope)
     suspend operator fun MutablePolynomialResource.plusAssign(amount: Double) = increase(amount)
     context(scope: TaskScope)
     suspend operator fun MutablePolynomialResource.minusAssign(amount: Double) = decrease(amount)
-    context(scope: TaskScope)
-    suspend operator fun MutablePolynomialResource.timesAssign(amount: Double) = scale(amount)
 
     context(scope: TaskScope)
     suspend fun IntegralResource.decrease(amount: Double) = increase(-amount)

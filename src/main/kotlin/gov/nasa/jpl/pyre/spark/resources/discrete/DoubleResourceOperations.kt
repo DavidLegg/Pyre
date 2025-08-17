@@ -62,12 +62,16 @@ object DoubleResourceOperations {
         map(other) { this <= it } named { "($this) <= ($other)" }
 
     context(scope: TaskScope)
-    suspend fun MutableDoubleResource.increase(amount: Double) {
+    suspend fun MutableDoubleResource.increase(amount: Double) =
         emit({ n: Double -> n + amount } named { "Increase $this by $amount" })
-    }
 
     context(scope: TaskScope)
-    suspend fun MutableDoubleResource.decrease(amount: Double) {
+    suspend fun MutableDoubleResource.decrease(amount: Double) =
         emit({ n: Double -> n - amount } named { "Decrease $this by $amount" })
-    }
+
+    context (scope: TaskScope)
+    suspend operator fun MutableDoubleResource.plusAssign(amount: Double) = increase(amount)
+
+    context (scope: TaskScope)
+    suspend operator fun MutableDoubleResource.minusAssign(amount: Double) = decrease(amount)
 }
