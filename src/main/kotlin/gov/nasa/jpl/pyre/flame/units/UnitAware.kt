@@ -80,6 +80,10 @@ class UnitAware<out T>(
             }
         }
 
+        context (scope: ScalableScope<T>)
+        fun <T : Comparable<T>> UnitAware<T>.compareTo(other: UnitAware<T>): Int =
+            value.compareTo(other.valueIn(unit))
+
         infix fun <T> UnitAware<T>.named(nameFn: () -> String): UnitAware<T> = UnitAware(value, unit, nameFn)
     }
 }

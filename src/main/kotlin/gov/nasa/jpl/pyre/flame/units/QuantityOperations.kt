@@ -29,11 +29,13 @@ object QuantityOperations {
             this@times * other
         }
     }
+
     operator fun Quantity.times(other: Double): Quantity = with (DoubleFieldScope) {
         with (UnitAware.Companion) {
             this@times * other
         }
     }
+
     operator fun Double.times(other: Quantity): Quantity = with (DoubleFieldScope) {
         with (UnitAware.Companion) {
             this@times * other
@@ -45,14 +47,22 @@ object QuantityOperations {
             this@div / other
         }
     }
+
     operator fun Quantity.div(other: Double): Quantity = with (DoubleFieldScope) {
         with (UnitAware.Companion) {
             this@div / other
         }
     }
+
     operator fun Double.div(other: Quantity): Quantity = with (DoubleFieldScope) {
         with (UnitAware.Companion) {
             this@div / other
+        }
+    }
+
+    fun Quantity.compareTo(other: Quantity): Int = with (DoubleFieldScope) {
+        with (UnitAware.Companion) {
+            this@compareTo.compareTo(other)
         }
     }
 }

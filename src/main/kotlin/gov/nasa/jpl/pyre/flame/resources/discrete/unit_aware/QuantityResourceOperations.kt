@@ -4,14 +4,20 @@ import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.flame.resources.lens.MutableResourceLens.view
 import gov.nasa.jpl.pyre.flame.units.DoubleFieldScope
 import gov.nasa.jpl.pyre.flame.units.FieldScope
+import gov.nasa.jpl.pyre.flame.units.Quantity
 import gov.nasa.jpl.pyre.flame.units.ScalableScope
 import gov.nasa.jpl.pyre.flame.units.Unit
 import gov.nasa.jpl.pyre.flame.units.UnitAware
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
 import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
+import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThan
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThanOrEquals
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.lessThan
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.lessThanOrEquals
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
@@ -26,6 +32,12 @@ typealias MutableQuantityResource = UnitAware<MutableDoubleResource>
  * Mostly, these are just the functions on [UnitAware], but with [DoubleResourceField] baked into the context for you.
  */
 object QuantityResourceOperations {
+    fun constant(quantity: Quantity): QuantityResource = with (DoubleFieldScope) {
+        with (quantity) {
+            UnitAware(pure(valueIn(unit)), unit) named { toString() }
+        }
+    }
+
     // Mutable resource constructor
     /**
      * Construct a unit-aware resource using [value]'s units.
@@ -113,6 +125,29 @@ object QuantityResourceOperations {
                 (this@div / other) named { "(${this@div}) / (${other})" }
             }
         }
+
+    operator fun Double.div(other: QuantityResource): QuantityResource =
+        with(DoubleResourceField) {
+            with(UnitAware.Companion) {
+                (this@div / other) named { "(${this@div}) / (${other})" }
+            }
+        }
+
+    operator fun QuantityResource.div(other: Double): QuantityResource =
+        with(DoubleResourceField) {
+            with(UnitAware.Companion) {
+                (this@div / other) named { "(${this@div}) / (${other})" }
+            }
+        }
+
+    infix fun QuantityResource.greaterThan(other: QuantityResource): BooleanResource =
+        valueIn(unit) greaterThan other.valueIn(unit)
+    infix fun QuantityResource.greaterThanOrEquals(other: QuantityResource): BooleanResource =
+        valueIn(unit) greaterThanOrEquals other.valueIn(unit)
+    infix fun QuantityResource.lessThan(other: QuantityResource): BooleanResource =
+        valueIn(unit) lessThan other.valueIn(unit)
+    infix fun QuantityResource.lessThanOrEquals(other: QuantityResource): BooleanResource =
+        valueIn(unit) lessThanOrEquals other.valueIn(unit)
 }
 
 object MutableDoubleResourceScaling : ScalableScope<MutableDoubleResource> {
