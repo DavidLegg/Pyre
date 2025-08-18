@@ -94,7 +94,9 @@ class SimulationState(private val reportHandler: ReportHandler) {
                 InternalLogger.log { "Simulation already at $stepTime with no tasks to do." }
             } else {
                 InternalLogger.log { "Step time to $stepTime" }
-                require(stepTime >= time) { "Requested step time $stepTime is earlier than current time $time" }
+                require(stepTime >= time) {
+                    "Requested step time $stepTime is earlier than current time $time"
+                }
                 cells.stepBy(stepTime - time)
                 time = stepTime
             }

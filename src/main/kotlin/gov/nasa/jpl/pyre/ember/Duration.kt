@@ -28,7 +28,14 @@ data class Duration(val ticks: Long) : Comparable<Duration> {
 
     override fun toString(): String {
         // TODO: Consider an optional "days" field in this format
-        if (this < ZERO) return "-" + (-this).toString()
+        if (this < ZERO) {
+            if (ticks == Long.MIN_VALUE) {
+                // Special edge case: negating this produces the same value, due to arithmetic overflow (!)
+                // Hard-code the result instead, to avoid infinite recursion
+                return "-2562047788:00:54.775808"
+            }
+            return "-" + (-this).toString()
+        }
         val hours = this / HOUR
         val minutes = (this % HOUR) / MINUTE
         val seconds = (this % MINUTE) / SECOND

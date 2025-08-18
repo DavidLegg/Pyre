@@ -82,7 +82,7 @@ class UnitAware<out T>(
         context (scope: FieldScope<T>)
         operator fun <T> Double.div(other: UnitAware<T>): UnitAware<T> {
             return with (scope) {
-                UnitAware(one / other.value, Unit.SCALAR / other.unit)
+                UnitAware(this@div * one / other.value, Unit.SCALAR / other.unit)
             }
         }
 
@@ -115,6 +115,48 @@ class UnitAware<out T>(
             Reporting.register(resource.valueIn(unit))
 
         infix fun <T> UnitAware<T>.named(nameFn: () -> String): UnitAware<T> = UnitAware(value, unit, nameFn)
+
+        /**
+         * Operations involving a general UnitAware and a Quantity (in that order).
+         *
+         * These operations are split into a separate object to avoid JVM declaration conflicts.
+         */
+        object VsQuantity {
+            context (scope: VectorScope<T>)
+            operator fun <T> UnitAware<T>.times(other: Quantity): UnitAware<T> {
+                return with (scope) {
+                    UnitAware(other.value * value, unit * other.unit)
+                }
+            }
+
+            context (scope: VectorScope<T>)
+            operator fun <T> UnitAware<T>.div(other: Quantity): UnitAware<T> {
+                return with (scope) {
+                    UnitAware((1.0 / other.value) * value, unit / other.unit)
+                }
+            }
+        }
+
+        /**
+         * Operations involving a Quantity and general UnitAware (in that order).
+         *
+         * These operations are split into a separate object to avoid JVM declaration conflicts.
+         */
+        object QuantityVs {
+            context (scope: VectorScope<T>)
+            operator fun <T> Quantity.times(other: UnitAware<T>): UnitAware<T> {
+                return with (scope) {
+                    UnitAware(value * other.value, unit * other.unit)
+                }
+            }
+
+            context (scope: FieldScope<T>)
+            operator fun <T> Quantity.div(other: UnitAware<T>): UnitAware<T> {
+                return with (scope) {
+                    UnitAware(value * one / other.value, unit / other.unit)
+                }
+            }
+        }
     }
 }
 

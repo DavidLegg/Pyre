@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.flame.resources.polynomial
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
-import gov.nasa.jpl.pyre.coals.compose
 import gov.nasa.jpl.pyre.ember.*
 import gov.nasa.jpl.pyre.ember.Duration.Companion.EPSILON
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
@@ -68,7 +67,9 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
                 else -> "$cStr t^$i"
             }
         }
-    }.filterNotNull().joinToString(" + ")
+    }.filterNotNull().let {
+        if (it.isEmpty()) "0.0" else it.joinToString(" + ")
+    }
 
     operator fun get(i: Int) = if (i in coefficients.indices) coefficients[i] else 0.0
     fun setCoefficient(i: Int, value: Double): Polynomial {
@@ -208,34 +209,36 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
      * Finds the first time the predicate is true, near the next root of this polynomial.
      */
     private fun findExpiryNearRoot(expires: (Duration) -> Boolean): Expiry {
-        val root: Duration
         var start: Duration
         var end: Duration
-        try {
-            root = findFutureRoots().firstOrNull() ?: return NEVER
+        // Shadow the original "expires" function with a version that demands a future time
+        val expires: (Duration) -> Boolean = { it > ZERO && expires(it) }
+        val root: Duration = findFutureRoots().firstOrNull() ?: return NEVER
 
-            // Do an exponential search to bracket the transition time
-            val initialTestResult: Boolean = expires(root)
-            var rangeSize: Duration = EPSILON * (if (initialTestResult) -1 else 1)
-            var testPoint: Duration = root + rangeSize
-            while (expires(testPoint) == initialTestResult) {
-                rangeSize = rangeSize.times(2)
-                testPoint = root.plus(rangeSize)
-            }
-            if (initialTestResult) {
-                start = testPoint
-                end = root
-            } else {
-                start = root
-                end = testPoint
-            }
-
-            // TODO: There's an unhandled edge case here, where timePredicate is satisfied in a period we jumped over.
-            //   Maybe try to use the precision of the arguments and the finer resolution polynomial "this"
-            //   to do a more thorough but still efficient search?
-        } catch (_: ArithmeticException) {
-            // If we overflowed looking for a bracketing range, it effectively never transitions.
+        // Do an exponential search to bracket the transition time
+        val initialTestResult: Boolean = expires(root)
+        var rangeSize: Duration = EPSILON * (if (initialTestResult) -1 else 1)
+        var testPoint: Duration = root + rangeSize
+        var testResult: Boolean = expires(testPoint)
+        while (testPoint >= ZERO && testResult == initialTestResult) {
+            rangeSize *= 2
+            testPoint = root + rangeSize
+            testResult = expires(testPoint)
+        }
+        // TODO: There's an unhandled edge case here, where timePredicate is satisfied in a period we jumped over.
+        //   Maybe try to use the precision of the arguments and the finer resolution polynomial "this"
+        //   to do a more thorough but still efficient search?
+        if (testPoint < ZERO && testResult == initialTestResult) {
+            // We searched all the way back to zero, or all the way forward and wrapped around to zero,
+            // without finding where the result changes. Search failed, no expiry.
             return NEVER
+        }
+        if (initialTestResult) {
+            start = testPoint
+            end = root
+        } else {
+            start = root
+            end = testPoint
         }
 
         // Do a binary search to find the exact transition time
@@ -263,6 +266,7 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
         }
 
         if (coefficients[0] == 0.0) {
+            // TODO: What if the degree is high, and we have multiple zeros?
             return sequenceOf(ZERO)
         }
 

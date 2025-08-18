@@ -159,6 +159,8 @@ object QuantityResourceOperations {
     infix fun QuantityResource.lessThanOrEquals(other: QuantityResource): BooleanResource =
         valueIn(unit) lessThanOrEquals other.valueIn(unit)
 
+    // TODO: min/max/clamp?
+
     context (scope: TaskScope)
     suspend fun MutableQuantityResource.increase(amount: Quantity) {
         valueIn(unit).increase(amount.valueIn(unit))
@@ -174,6 +176,78 @@ object QuantityResourceOperations {
 
     context (scope: TaskScope)
     suspend operator fun MutableQuantityResource.minusAssign(amount: Quantity) = decrease(amount)
+
+    /**
+     * Operations involving a QuantityResource and a Quantity (in that order).
+     *
+     * These operations are split into a separate object to avoid JVM declaration conflicts.
+     */
+    object VsQuantity {
+        operator fun QuantityResource.plus(other: Quantity): QuantityResource =
+            this + constant(other)
+
+        operator fun QuantityResource.minus(other: Quantity): QuantityResource =
+            this - constant(other)
+
+        operator fun QuantityResource.times(other: Quantity): QuantityResource =
+            with(DoubleResourceFieldScope) {
+                with(UnitAware.Companion.VsQuantity) {
+                    (this@times * other) named { "(${this@times}) * (${other})" }
+                }
+            }
+
+        operator fun QuantityResource.div(other: Quantity): QuantityResource =
+            with(DoubleResourceFieldScope) {
+                with(UnitAware.Companion.VsQuantity) {
+                    (this@div / other) named { "(${this@div}) / (${other})" }
+                }
+            }
+
+        infix fun QuantityResource.greaterThan(other: Quantity): BooleanResource =
+            this greaterThan constant(other)
+        infix fun QuantityResource.greaterThanOrEquals(other: Quantity): BooleanResource =
+            this greaterThanOrEquals constant(other)
+        infix fun QuantityResource.lessThan(other: Quantity): BooleanResource =
+            this lessThan constant(other)
+        infix fun QuantityResource.lessThanOrEquals(other: Quantity): BooleanResource =
+            this lessThanOrEquals constant(other)
+    }
+
+    /**
+     * Operations involving a Quantity and a QuantityResource (in that order).
+     *
+     * These operations are split into a separate object to avoid JVM declaration conflicts.
+     */
+    object QuantityVs {
+        operator fun Quantity.plus(other: QuantityResource): QuantityResource =
+            constant(this) + other
+
+        operator fun Quantity.minus(other: QuantityResource): QuantityResource =
+            constant(this) - other
+
+        operator fun Quantity.times(other: QuantityResource): QuantityResource =
+            with(DoubleResourceFieldScope) {
+                with(UnitAware.Companion.QuantityVs) {
+                    (this@times * other) named { "(${this@times}) * (${other})" }
+                }
+            }
+
+        operator fun Quantity.div(other: QuantityResource): QuantityResource =
+            with(DoubleResourceFieldScope) {
+                with(UnitAware.Companion.QuantityVs) {
+                    (this@div / other) named { "(${this@div}) / (${other})" }
+                }
+            }
+
+        infix fun Quantity.greaterThan(other: QuantityResource): BooleanResource =
+            constant(this) greaterThan other
+        infix fun Quantity.greaterThanOrEquals(other: QuantityResource): BooleanResource =
+            constant(this) greaterThanOrEquals other
+        infix fun Quantity.lessThan(other: QuantityResource): BooleanResource =
+            constant(this) lessThan other
+        infix fun Quantity.lessThanOrEquals(other: QuantityResource): BooleanResource =
+            constant(this) lessThanOrEquals other
+    }
 }
 
 object MutableDoubleResourceScaling : ScalableScope<MutableDoubleResource> {

@@ -9,7 +9,7 @@ import gov.nasa.jpl.pyre.flame.resources.polynomial.MutablePolynomialResource
 import gov.nasa.jpl.pyre.flame.resources.polynomial.Polynomial
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations
-import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.constant
+import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.decrease
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.greaterThanOrEquals
@@ -21,20 +21,13 @@ import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantit
 import gov.nasa.jpl.pyre.flame.units.DoubleFieldScope
 import gov.nasa.jpl.pyre.flame.units.Quantity
 import gov.nasa.jpl.pyre.flame.units.QuantityOperations.valueIn
-import gov.nasa.jpl.pyre.flame.units.RingScope
 import gov.nasa.jpl.pyre.flame.units.ScalableScope
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.SECOND
 import gov.nasa.jpl.pyre.flame.units.Unit
 import gov.nasa.jpl.pyre.flame.units.UnitAware
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
-import gov.nasa.jpl.pyre.spark.resources.ExpiringMonad.map
-import gov.nasa.jpl.pyre.spark.resources.FullDynamics
 import gov.nasa.jpl.pyre.spark.resources.ResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThan
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThanOrEquals
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.lessThan
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.lessThanOrEquals
 import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
@@ -72,6 +65,9 @@ object PolynomialQuantityResourceOperations {
         }
 
     // Note: Units can be applied to a derived resource using the generic T * Unit operator.
+
+    fun QuantityResource.asPolynomial(): PolynomialQuantityResource =
+        UnitAware(valueIn(unit).asPolynomial(), unit)
 
     /**
      * Register a resource in a particular unit.
@@ -180,9 +176,9 @@ object PolynomialQuantityResourceOperations {
             upperBound.valueIn(unit),
             startingValue.valueIn(unit))
         return ClampedQuantityIntegralResult(
-            UnitAware(scalarResult.integral, unit),
-            UnitAware(scalarResult.overflow, unit),
-            UnitAware(scalarResult.underflow, unit))
+            UnitAware(scalarResult.integral, unit, scalarResult.integral::toString),
+            UnitAware(scalarResult.overflow, unit, scalarResult.overflow::toString),
+            UnitAware(scalarResult.underflow, unit, scalarResult.underflow::toString))
     }
 
     data class ClampedQuantityIntegralResult(
@@ -224,6 +220,83 @@ object PolynomialQuantityResourceOperations {
 
     context (scope: TaskScope)
     suspend operator fun MutablePolynomialQuantityResource.minusAssign(amount: Quantity) = decrease(amount)
+
+    /**
+     * Operations involving a PolynomialQuantityResource and a Quantity (in that order).
+     *
+     * These operations are split into a separate object to avoid JVM declaration conflicts.
+     */
+    object VsQuantity {
+        operator fun PolynomialQuantityResource.plus(other: Quantity): PolynomialQuantityResource =
+            this + constant(other)
+
+        operator fun PolynomialQuantityResource.minus(other: Quantity): PolynomialQuantityResource =
+            this - constant(other)
+
+        operator fun PolynomialQuantityResource.times(other: Quantity): PolynomialQuantityResource =
+            with(PolynomialResourceRingScope) {
+                with(UnitAware.Companion.VsQuantity) {
+                    (this@times * other) named { "(${this@times}) * (${other})" }
+                }
+            }
+
+        operator fun PolynomialQuantityResource.div(other: Quantity): PolynomialQuantityResource =
+            with(PolynomialResourceRingScope) {
+                with(UnitAware.Companion.VsQuantity) {
+                    (this@div / other) named { "(${this@div}) / (${other})" }
+                }
+            }
+
+        infix fun PolynomialQuantityResource.greaterThan(other: Quantity): BooleanResource =
+            this greaterThan constant(other)
+        infix fun PolynomialQuantityResource.greaterThanOrEquals(other: Quantity): BooleanResource =
+            this greaterThanOrEquals constant(other)
+        infix fun PolynomialQuantityResource.lessThan(other: Quantity): BooleanResource =
+            this lessThan constant(other)
+        infix fun PolynomialQuantityResource.lessThanOrEquals(other: Quantity): BooleanResource =
+            this lessThanOrEquals constant(other)
+
+        fun min(p: PolynomialQuantityResource, q: Quantity): PolynomialQuantityResource =
+            min(p, constant(q))
+        fun max(p: PolynomialQuantityResource, q: Quantity): PolynomialQuantityResource =
+            max(p, constant(q))
+        fun PolynomialQuantityResource.clamp(lowerBound: Quantity, upperBound: Quantity): PolynomialQuantityResource =
+            clamp(constant(lowerBound), constant(upperBound))
+    }
+
+    /**
+     * Operations involving a PolynomialQuantityResource and a Quantity (in that order).
+     *
+     * These operations are split into a separate object to avoid JVM declaration conflicts.
+     */
+    object QuantityVs {
+        operator fun Quantity.plus(other: PolynomialQuantityResource): PolynomialQuantityResource =
+            constant(this) + other
+
+        operator fun Quantity.minus(other: PolynomialQuantityResource): PolynomialQuantityResource =
+            constant(this) - other
+
+        operator fun Quantity.times(other: PolynomialQuantityResource): PolynomialQuantityResource =
+            with(PolynomialResourceRingScope) {
+                with(UnitAware.Companion.QuantityVs) {
+                    (this@times * other) named { "(${this@times}) * (${other})" }
+                }
+            }
+
+        infix fun Quantity.greaterThan(other: PolynomialQuantityResource): BooleanResource =
+            constant(this) greaterThan other
+        infix fun Quantity.greaterThanOrEquals(other: PolynomialQuantityResource): BooleanResource =
+            constant(this) greaterThanOrEquals other
+        infix fun Quantity.lessThan(other: PolynomialQuantityResource): BooleanResource =
+            constant(this) lessThan other
+        infix fun Quantity.lessThanOrEquals(other: PolynomialQuantityResource): BooleanResource =
+            constant(this) lessThanOrEquals other
+
+        fun min(p: Quantity, q: PolynomialQuantityResource): PolynomialQuantityResource =
+            min(constant(p), q)
+        fun max(p: Quantity, q: PolynomialQuantityResource): PolynomialQuantityResource =
+            max(constant(p), q)
+    }
 }
 
 // Operations on IntegralQuantityResources, which are also UnitAware<...>, must be in another object to avoid JVM declaration clashes.

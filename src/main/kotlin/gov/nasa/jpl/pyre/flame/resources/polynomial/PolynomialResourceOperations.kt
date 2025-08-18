@@ -12,7 +12,7 @@ import gov.nasa.jpl.pyre.spark.resources.ResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.ResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResource
 import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.spark.tasks.*
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.dynamicsChange
@@ -36,7 +36,7 @@ object PolynomialResourceOperations {
     fun registeredPolynomialResource(name: String, vararg coefficients: Double) =
         polynomialResource(name, *coefficients).also { register(it) }
 
-    fun DiscreteResource<Double>.asPolynomial(): PolynomialResource =
+    fun DoubleResource.asPolynomial(): PolynomialResource =
         map(this) { polynomial(it.value) } named this::toString
 
     operator fun PolynomialResource.unaryPlus() = this

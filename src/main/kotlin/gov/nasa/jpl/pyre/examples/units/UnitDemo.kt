@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.examples.units
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
-import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
+import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.ember.times
@@ -17,16 +17,30 @@ import gov.nasa.jpl.pyre.flame.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.plus
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.register
+import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResource
+import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResource
+import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.asPolynomial
+import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.clampedIntegral
+import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.constant
+import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.VsQuantity.div
+import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.minus
+import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.register
+import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.registeredIntegral
+import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.valueIn
 import gov.nasa.jpl.pyre.flame.units.Quantity
 import gov.nasa.jpl.pyre.flame.units.QuantityOperations.valueIn
+import gov.nasa.jpl.pyre.flame.units.StandardUnits.HOUR
+import gov.nasa.jpl.pyre.flame.units.StandardUnits.JOULE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.WATT
 import gov.nasa.jpl.pyre.flame.units.Unit
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
+import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
@@ -37,8 +51,12 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
 import kotlin.time.Instant
 
+// Recommended practice: Derive all the named units you're going to use in this file once, up front.
+// This gives names to all the units, which will make them print prettier when debugging.
+// It may also improve performance a little, since you do the unit computation once up front when loading the classes.
 val MILLIWATT = Unit.derived("mW", 1e-3 * WATT)
 val KILOWATT = Unit.derived("kW", 1e3 * WATT)
+val KILOWATT_HOUR = Unit.derived("kWh", KILOWATT * HOUR)
 
 fun main(args: Array<String>) {
     // Sample main function that basically hard-codes a plan
@@ -84,15 +102,19 @@ fun main(args: Array<String>) {
                 ),
                 GroundedActivity(
                     epoch + (45 * MINUTE).toKotlinDuration(),
-                    SwitchDevice(HEATER_A, STANDBY)
+                    SwitchDevice(CAMERA, OFF)
                 ),
                 GroundedActivity(
                     epoch + (50 * MINUTE).toKotlinDuration(),
                     SwitchDevice(HEATER_A, STANDBY)
                 ),
+                GroundedActivity(
+                    epoch + (55 * MINUTE).toKotlinDuration(),
+                    SwitchDevice(HEATER_B, OFF)
+                ),
             ))
 
-            simulation.runUntil(epoch + (2 * HOUR).toKotlinDuration())
+            simulation.runUntil(epoch + (2 * Duration.HOUR).toKotlinDuration())
         }
     }
 }
@@ -104,7 +126,11 @@ class UnitDemo(
     val heaterB: Device
     val camera: Device
     val totalPowerDraw: QuantityResource
-    // TODO: Implement unit-awareness on polynomial resources, then integrate and report energy used in watt-hours.
+    val totalEnergyUsed: PolynomialQuantityResource
+
+    val powerProduction: PolynomialQuantityResource
+    val batteryEnergy: PolynomialQuantityResource
+    val batterySOC: PolynomialResource
 
     init {
         with (context) {
@@ -136,6 +162,28 @@ class UnitDemo(
             // Just like with derivation, dimension-checking is done once when building the model, and a fixed scale factor
             // is baked in and used during simulation.
             register(totalPowerDraw, KILOWATT)
+
+            // Unit-awareness also "plays nicely" with continuous resources. This lets us do unit-aware integration:
+            // Note that specifying the starting value in kWh means we'll register the results in that unit too.
+            totalEnergyUsed = totalPowerDraw.asPolynomial().registeredIntegral("total_energy_used", 0.0 * KILOWATT_HOUR)
+
+            // We can even do complex things like clamped integration, all in a unit-aware way:
+            powerProduction = constant(1.0 * WATT)
+            // Note that powerProduction is in W; totalPowerDraw, in kW.
+            // totalPowerDraw will implicitly be converted to W to make the derivation below sensible.
+            val netPower = powerProduction - totalPowerDraw.asPolynomial()
+            val maxBatteryEnergy = 1000.0 * JOULE
+            batteryEnergy = netPower.clampedIntegral(
+                "battery_energy",
+                constant(0.0 * JOULE),
+                constant(maxBatteryEnergy),
+                500.0 * JOULE,
+                ).integral.also { register(it, JOULE) }
+            // Finally, when we expect a pure scalar (a dimensionless quantity), we can say so.
+            // The framework will ensure we've cancelled all dimensions correctly, and apply any remaining scaling
+            // left over from doing unit conversions (e.g., "hr / s" requires multiplying by 3600).
+            batterySOC = ((batteryEnergy / maxBatteryEnergy).valueIn(Unit.SCALAR) named { "battery_soc" })
+                .also { register(it) }
         }
     }
 }
