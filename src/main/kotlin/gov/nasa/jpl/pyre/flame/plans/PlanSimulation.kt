@@ -181,6 +181,8 @@ class PlanSimulation<M> {
         )
     }
 
+    fun time() = sparkScope.simulationEpoch + state.time().toKotlinDuration()
+
     fun runUntil(endTime: Instant) {
         val endDuration = (endTime - sparkScope.simulationEpoch).toPyreDuration()
         require(endDuration >= state.time()) {

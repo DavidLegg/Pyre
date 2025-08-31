@@ -58,7 +58,7 @@ The result of a restrict operation is
 - a set of timelines covering only the given time range, which agree with the original resource timelines, and
 - a subset of the original activity spans, including only those spans which start within the given time range
 
-### Compositing
+### Composition
 
 Result sets shall permit a "compose" binary operation.
 The result of a compose operation is a new result set, comprising

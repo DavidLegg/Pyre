@@ -8,28 +8,46 @@ import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.spawn
 import gov.nasa.jpl.pyre.spark.tasks.task
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
 object ActivityActions {
+    @Serializable
+    data class ActivityEvent<M>(
+        val name: String,
+        val type: String,
+        @Contextual
+        val start: Instant,
+        @Contextual
+        val end: Instant? = null,
+        // Report the activity instance itself, but only for in-memory usage.
+        // The default serialization drops this extra detail.
+        @Transient
+        val activity: Activity<M>? = null,
+    )
+
     context (scope: TaskScope)
     suspend fun <M> call(activity: FloatingActivity<M>, model: M) {
-        // TODO: Replace the JSON report with a data class
-        report("activities", JsonObject(mapOf(
-            "name" to JsonPrimitive(activity.name),
-            "type" to JsonPrimitive(activity.typeName),
-            "event" to JsonPrimitive("start")
+        val startTime = now()
+        report("activities", ActivityEvent(
+            activity.name,
+            activity.typeName,
+            startTime,
+            activity = activity.activity,
         ))
-        )
         activity.activity.effectModel(model)
-        report(
-            "activities", JsonObject(mapOf(
-                "name" to JsonPrimitive(activity.name),
-                "type" to JsonPrimitive(activity.typeName),
-                "event" to JsonPrimitive("end")
-            ))
-        )
+        // Report both start and end time with the activity end event.
+        // This avoids needing to generate or persist unique IDs for activities.
+        // Instead, any start event which matches all three serialized fields can be paired with this end event;
+        // all such start events are exactly equivalent.
+        report("activities", ActivityEvent(
+            activity.name,
+            activity.typeName,
+            startTime,
+            now(),
+            activity = activity.activity,
+        ))
     }
 
     context (scope: TaskScope)
