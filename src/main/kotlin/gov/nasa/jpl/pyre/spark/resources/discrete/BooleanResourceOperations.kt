@@ -1,6 +1,8 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
 import gov.nasa.jpl.pyre.coals.named
+import gov.nasa.jpl.pyre.spark.resources.Resource
+import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.bind
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
@@ -25,6 +27,9 @@ object BooleanResourceOperations {
     infix fun Boolean.or(other: BooleanResource): BooleanResource = if (this) pure(true) else other
     infix fun BooleanResource.and(other: Boolean): BooleanResource = other and this
     infix fun BooleanResource.or(other: Boolean): BooleanResource = other or this
+
+    fun <D> BooleanResource.choose(ifCase: Resource<D>, elseCase: Resource<D>): Resource<D> =
+        ResourceMonad.bind(this) { if (it.value()) ifCase else elseCase } named { "if ($this) then ($ifCase) else ($elseCase)" }
 
     context(scope: TaskScope)
     suspend fun MutableBooleanResource.toggle() = this.emit({ b: Boolean -> !b } named { "Toggle $this" })
