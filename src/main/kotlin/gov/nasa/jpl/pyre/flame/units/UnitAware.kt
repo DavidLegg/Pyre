@@ -2,8 +2,10 @@ package gov.nasa.jpl.pyre.flame.units
 
 import gov.nasa.jpl.pyre.spark.reporting.Reporting
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
+import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import kotlin.reflect.KType
 
 class UnitAware<out T>(
@@ -31,6 +33,10 @@ class UnitAware<out T>(
     companion object {
         // Natural-feeling constructor for unit-aware things: multiply the thing by a unit, a la "5 * METER"
         operator fun <T> T.times(unit: Unit): UnitAware<T> = UnitAware(this, unit)
+
+        // Unit-stacking constructors - these avoid needing to group your units with parens
+        operator fun <T> UnitAware<T>.times(unit: Unit): UnitAware<T> = UnitAware(value, this.unit * unit)
+        operator fun <T> UnitAware<T>.div(unit: Unit): UnitAware<T> = UnitAware(value, this.unit / unit)
 
         context (scope: VectorScope<T>)
         operator fun <T> UnitAware<T>.plus(other: UnitAware<T>): UnitAware<T> {

@@ -145,3 +145,18 @@ The simulation for that layer can still be configured to run only a relevant sub
 and the resources given to the planner can be the composition of each layer's resources.
 This semi-automated approach combines high performance partial simulation with automated planning flexibility,
 using a limited amount of domain expertise just to define the layers.
+
+
+# Disabling a Subsystem Model
+
+One of the key performance optimizations made during scheduling is the ability to "disable" a subsystem model.
+This means having that model's resources replayed from a prior sim, irrespective of what's happening in this sim.
+The idea is that a prior simulation's resource timelines were "good enough", and reading from them instead of recomputing them saves time.
+
+It would be nice to not have to build this idea over and over, and to not have to write a separate "disabled" version of each model.
+Instead, I'd like a system that "wraps" an existing resource (resource constructor?) with a function that checks whether
+it's enabled, and if not, replaces it with a replay of that resource in a SimulationResults object.
+
+Alternatively, we can explore just hand-writing "stubs" which fill in the inputs of a model using replay resources.
+These could be used to spin up just one subsystem at a time, instead of "disabling" models in a full simulation.
+Once again, this is a "good enough" approach, given a modeler who understands the structure of the model and of the problem enough to decide which models need to run when.

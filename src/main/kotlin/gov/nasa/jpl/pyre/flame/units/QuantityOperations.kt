@@ -1,5 +1,14 @@
 package gov.nasa.jpl.pyre.flame.units
 
+import gov.nasa.jpl.pyre.ember.Duration
+import gov.nasa.jpl.pyre.ember.ratioOver
+import gov.nasa.jpl.pyre.ember.roundTimes
+import gov.nasa.jpl.pyre.flame.units.StandardUnits.RADIAN
+import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.tan
+
 
 typealias Quantity = UnitAware<Double>
 
@@ -64,5 +73,28 @@ object QuantityOperations {
         with (UnitAware.Companion) {
             this@compareTo.compareTo(other)
         }
+    }
+
+    /**
+     * Variation of [kotlin.math.sin] accepting a [Quantity] in units of Angle
+     */
+    fun sin(x: Quantity): Double = sin(x.valueIn(RADIAN))
+
+    /**
+     * Variation of [kotlin.math.cos] accepting a [Quantity] in units of Angle
+     */
+    fun cos(x: Quantity): Double = cos(x.valueIn(RADIAN))
+
+    /**
+     * Variation of [kotlin.math.tan] accepting a [Quantity] in units of Angle
+     */
+    fun tan(x: Quantity): Double = tan(x.valueIn(RADIAN))
+
+    /**
+     * Functions to provide smooth interoperability between [Duration] and [Quantity]
+     */
+    object DurationQuantityOperations {
+        fun Duration.asQuantity(): Quantity = (this ratioOver Duration.SECOND) * StandardUnits.SECOND
+        fun Quantity.asDuration(): Duration = this.valueIn(StandardUnits.SECOND) roundTimes Duration.SECOND
     }
 }

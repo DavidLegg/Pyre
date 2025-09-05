@@ -36,6 +36,7 @@ object StandardUnits {
     val GRAM = Unit.derived("g", 1e-3 * KILOGRAM)
 
     val DEGREE = Unit.derived("deg", (180.0 / Math.PI) * RADIAN)
+    val ROTATION = Unit.derived("rotation", 2.0 * Math.PI * RADIAN)
 
     val BYTE = Unit.derived("B", 8.0 * BIT)
     val KILOBYTE = Unit.derived("kB", 1e3 * BYTE)

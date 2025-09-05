@@ -1,17 +1,25 @@
 package gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
+import gov.nasa.jpl.pyre.ember.Duration
+import gov.nasa.jpl.pyre.ember.ratioOver
+import gov.nasa.jpl.pyre.ember.roundTimes
 import gov.nasa.jpl.pyre.flame.resources.lens.MutableResourceLens.view
 import gov.nasa.jpl.pyre.flame.units.DoubleFieldScope
 import gov.nasa.jpl.pyre.flame.units.FieldScope
 import gov.nasa.jpl.pyre.flame.units.Quantity
 import gov.nasa.jpl.pyre.flame.units.QuantityOperations.valueIn
 import gov.nasa.jpl.pyre.flame.units.ScalableScope
+import gov.nasa.jpl.pyre.flame.units.StandardUnits
 import gov.nasa.jpl.pyre.flame.units.Unit
 import gov.nasa.jpl.pyre.flame.units.UnitAware
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
+import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad.map
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThan
@@ -248,12 +256,20 @@ object QuantityResourceOperations {
         infix fun Quantity.lessThanOrEquals(other: QuantityResource): BooleanResource =
             constant(this) lessThanOrEquals other
     }
+
+    object DurationQuantityResourceOperations {
+        // Do the unit-awareness conversions at the resource level, so dimension checking happens only once
+        fun DiscreteResource<Duration>.asQuantity(): QuantityResource =
+            map(this) { it ratioOver Duration.SECOND } * StandardUnits.SECOND
+        fun QuantityResource.asDuration(): DiscreteResource<Duration> =
+            map(this.valueIn(StandardUnits.SECOND)) { it roundTimes Duration.SECOND }
+    }
 }
 
 object MutableDoubleResourceScaling : ScalableScope<MutableDoubleResource> {
     // Since scaling is invertible, we can scale a mutable double resource, preserving mutability, through a view.
     override fun Double.times(other: MutableDoubleResource): MutableDoubleResource =
-        other.view(InvertibleFunction.of(map { this * it }, map { it / this }))
+        other.view(InvertibleFunction.of(DiscreteMonad.map { this * it }, DiscreteMonad.map { it / this }))
 }
 
 object DoubleResourceFieldScope : FieldScope<DoubleResource> {
