@@ -26,6 +26,7 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.gre
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.lessThan
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.lessThanOrEquals
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations
 import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.decrease
@@ -168,6 +169,11 @@ object QuantityResourceOperations {
         valueIn(unit) lessThanOrEquals other.valueIn(unit)
 
     // TODO: min/max/clamp?
+
+    context (scope: TaskScope)
+    suspend fun MutableQuantityResource.set(amount: Quantity) {
+        valueIn(unit).set(amount.valueIn(unit))
+    }
 
     context (scope: TaskScope)
     suspend fun MutableQuantityResource.increase(amount: Quantity) {
