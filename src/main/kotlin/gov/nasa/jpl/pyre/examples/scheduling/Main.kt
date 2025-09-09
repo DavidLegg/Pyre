@@ -25,20 +25,3 @@ fun main(args: Array<String>) {
         TODO(),
     )
 }
-
-class FullSimulation(
-    context: InitScope,
-    config: Config,
-) {
-    data class Config(
-        val geometryConfig: GeometryModel.Config,
-    )
-
-    val geometryModel: GeometryModel
-
-    init {
-        with (context) {
-            geometryModel = GeometryModel(context, config.geometryConfig)
-        }
-    }
-}
