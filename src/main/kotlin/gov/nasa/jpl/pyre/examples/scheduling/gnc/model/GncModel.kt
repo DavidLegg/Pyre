@@ -38,6 +38,7 @@ import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.asTimer
 import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.greaterThanOrEquals
+import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.restart
 import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.timer
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
@@ -256,6 +257,7 @@ class GncModel(
                         }
                     }
                 }
+                timeSinceLastControllerStep.restart()
             })
         }
     }

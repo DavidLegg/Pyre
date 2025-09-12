@@ -41,10 +41,14 @@ import kotlin.time.TimeSource
 
 fun main(args: Array<String>) {
     val clock = TimeSource.Monotonic
+    println("Begin scheduling procedure")
     val schedulingStart = clock.markNow()
+
+    println("Begin setup")
+    val setupStart = clock.markNow()
+
     val planStart = Instant.parse("2020-01-01T00:00:00Z")
     val planEnd = Instant.parse("2021-01-01T00:00:00Z")
-
     val jsonFormat = Json {
         serializersModule = SerializersModule {
             // Instant serialization
@@ -60,7 +64,6 @@ fun main(args: Array<String>) {
             })
         }
     }
-
     val baseScheduler = SchedulingSystem.withoutIncon(
         planStart,
         SystemModel.Config(
@@ -72,6 +75,9 @@ fun main(args: Array<String>) {
         ::SystemModel,
         jsonFormat,
     )
+
+    val setupEnd = clock.markNow()
+    println("End setup - ${setupEnd - setupStart}")
 
     // Note, because this is just a regular java program, we can just intermix regular printlns and stuff to get results out.
     println("Begin layer 1")
@@ -86,5 +92,5 @@ fun main(args: Array<String>) {
     // Schedule some "fixed" activities, like TCM's.
 
     val schedulingEnd = clock.markNow()
-    println("End of scheduling procedure - ${schedulingEnd - schedulingStart}")
+    println("End scheduling procedure - ${schedulingEnd - schedulingStart}")
 }
