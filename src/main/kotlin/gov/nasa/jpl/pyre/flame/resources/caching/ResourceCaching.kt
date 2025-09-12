@@ -3,16 +3,27 @@ package gov.nasa.jpl.pyre.flame.resources.caching
 import gov.nasa.jpl.pyre.coals.Closeable
 import gov.nasa.jpl.pyre.coals.Closeable.Companion.closesWith
 import gov.nasa.jpl.pyre.coals.Serialization.decodeFromJsonElement
+import gov.nasa.jpl.pyre.coals.named
+import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.ember.toPyreDuration
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.Expiring
 import gov.nasa.jpl.pyre.spark.resources.Expiry
+import gov.nasa.jpl.pyre.spark.resources.FullDynamics
+import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.resources.Resource
+import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
 import gov.nasa.jpl.pyre.spark.resources.ThinResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.spark.resources.named
+import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.onStartup
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.wheneverChanges
+import gov.nasa.jpl.pyre.spark.tasks.task
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -25,6 +36,26 @@ import kotlin.time.Instant
 
 
 object ResourceCaching {
+    /**
+     * Cache a resource, either for performance or to stabilize references.
+     * Optionally accepts an [equals] parameter to indicate when the value is "close enough" to not update the cache.
+     */
+    // TODO: Work resource reads into the init scope to avoid a defaultDynamics here?
+    context (scope: InitScope)
+    inline fun <V, reified D : Dynamics<V, D>> Resource<D>.cached(
+        name: String,
+        defaultDynamics: D,
+        noinline equals: (D, D) -> Boolean = Any::equals,
+    ): Resource<D> {
+        val cache: MutableResource<D> = resource(name, defaultDynamics)
+        val cacheIsOutOfDate = ResourceMonad.map(this, cache) { t, c -> Discrete(!equals(t, c)) } named { "$cache is out of date" }
+        spawn("Update $name", whenever(cacheIsOutOfDate) {
+            val d = this.getDynamics()
+            cache.emit({ _: FullDynamics<D> -> d } named { "Update cache to $d" })
+        })
+        return cache
+    }
+
     /**
      * Trimmed down version of [gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport] for use with [precomputedResource].
      */

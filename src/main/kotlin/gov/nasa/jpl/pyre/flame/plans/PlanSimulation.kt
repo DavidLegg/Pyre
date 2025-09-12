@@ -192,6 +192,7 @@ class PlanSimulation<M> {
         var lastStepTime = ZERO
         while (state.time() < endDuration) {
             if (++n >= SIMULATION_STALL_LIMIT) {
+                state.dump()
                 throw IllegalStateException("Simulation has stalled at ${state.time()} after $n iterations.")
             }
             state.stepTo(endDuration)

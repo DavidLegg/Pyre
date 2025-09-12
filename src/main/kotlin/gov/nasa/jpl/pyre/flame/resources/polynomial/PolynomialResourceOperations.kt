@@ -146,7 +146,7 @@ object PolynomialResourceOperations {
         val integrand = this
         val integral = polynomialResource(name, startingValue)
         val overflow = polynomialResource("$name.overflow", 0.0)
-        val underflow = polynomialResource("$name.overflow", 0.0)
+        val underflow = polynomialResource("$name.underflow", 0.0)
 
         // Run once immediately to get the loop started.
         var condition = { Condition.TRUE }

@@ -294,4 +294,19 @@ class SimulationState(private val reportHandler: ReportHandler) {
             val restoredTime = requireNotNull(inconProvider.within("time").provide<Duration>())
             TaskEntry(restoredTime, restoredTask)
         }
+
+    /**
+     * Dump the state of the simulation to standard out.
+     * This is triggered when the simulation is unhealthy, so normal outputs may not happen.
+     * The exact format of this dump is subject to change over time.
+     */
+    fun dump() {
+        println("Simulation time: $time")
+        println("Active tasks:")
+        tasks.forEach { (time, task) -> println("  $time - ${task.id}") }
+        println("Waiting tasks:")
+        val waitingTasks = awaitingTasks.toMutableSet()
+        waitingTasks += listeningTasks.keys
+        waitingTasks.forEach { println("  ${it.rewaitTask.id}") }
+    }
 }

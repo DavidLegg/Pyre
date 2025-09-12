@@ -6,10 +6,8 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableIntResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableStringResource
-import gov.nasa.jpl.pyre.spark.resources.getValue
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.wheneverChanges
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 
 class Variables(

@@ -108,12 +108,12 @@ class PowerModel(
             heater2 = Device(subContext("heater_2"), inputs.heater1Mode, heaterPowerTable)
 
             // Totals and battery level
-            totalPowerDraw = (gncSubsystem.powerDraw
+            totalPowerDraw = ((gncSubsystem.powerDraw
                     + dataSubsystem.powerDraw
                     + imager.powerDraw
                     + heater1.powerDraw
                     + heater2.powerDraw
-                    ).also { register(it, WATT) }
+                    ) named { "total_power_draw" }).also { register(it, WATT) }
             netPowerProduction = ((constant(config.rtgPowerProduction) - totalPowerDraw.asPolynomial()) named { "net_power_production" })
                 .also { register(it, WATT) }
             val batteryIntegral = netPowerProduction.clampedIntegral(

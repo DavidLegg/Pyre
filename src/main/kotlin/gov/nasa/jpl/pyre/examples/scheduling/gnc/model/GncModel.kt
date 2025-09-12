@@ -4,6 +4,7 @@ import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget.*
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.BodyAxis.*
+import gov.nasa.jpl.pyre.flame.resources.caching.ResourceCaching.cached
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.MutableQuantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.DurationQuantityResourceOperations.asQuantity
@@ -14,6 +15,7 @@ import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOpe
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.valueIn
 import gov.nasa.jpl.pyre.flame.units.Quantity
 import gov.nasa.jpl.pyre.flame.units.QuantityOperations.div
+import gov.nasa.jpl.pyre.flame.units.QuantityOperations.valueIn
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.DEGREE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.MINUTE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.RADIAN
@@ -24,6 +26,7 @@ import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.choose
+import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.bind
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
@@ -198,13 +201,16 @@ class GncModel(
             val secondaryBodyAxisVector = (map(secondaryBodyAxis, BodyAxis::vector)
                     named { "${secondaryBodyAxis}_vector" }).also { register(it) }
 
-            targetAttitude = (map(
+            val targetAttitudeCacheUpdateTolerance = config.pointingErrorTolerance.valueIn(RADIAN) * 1e-2
+            targetAttitude = map(
                 primaryBodyAxisVector,
                 secondaryBodyAxisVector,
                 primaryPointingTargetVector,
                 secondaryPointingTargetVector,
                 ::Rotation
-            ) named { "target_attitude" }).also { register(it) }
+            ).cached("target_attitude", Discrete(Rotation.IDENTITY), {
+                r, s -> r.value.applyInverseTo(s.value).angle < targetAttitudeCacheUpdateTolerance
+            }).also { register(it) }
 
             _spacecraftAttitude = registeredDiscreteResource("spacecraft_attitude", Rotation.IDENTITY)
 
