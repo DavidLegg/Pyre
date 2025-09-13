@@ -14,7 +14,7 @@ import kotlin.time.Instant
 
 object ActivityActions {
     @Serializable
-    data class ActivityEvent<M>(
+    data class ActivityEvent(
         val name: String,
         val type: String,
         @Contextual
@@ -24,7 +24,7 @@ object ActivityActions {
         // Report the activity instance itself, but only for in-memory usage.
         // The default serialization drops this extra detail.
         @Transient
-        val activity: Activity<M>? = null,
+        val activity: Activity<*>? = null,
     )
 
     context (scope: TaskScope)

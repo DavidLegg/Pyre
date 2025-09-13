@@ -29,9 +29,9 @@ class SchedulingSystem<M, C> private constructor(
 ) {
     private val nominalActivities: MutableList<GroundedActivity<M>> = mutableListOf()
     private val resources: MutableMap<String, MutableList<ChannelizedReport<*>>> = mutableMapOf()
-    private val activitySpans: MutableMap<Activity<M>, ActivityEvent<M>> = mutableMapOf()
+    private val activitySpans: MutableMap<Activity<*>, ActivityEvent> = mutableMapOf()
     private val reportHandler: ReportHandler = channels(
-        "activities" to (assumeType<ActivityEvent<M>>() andThen { (value, type) ->
+        "activities" to (assumeType<ActivityEvent>() andThen { (value, type) ->
             // The event coming straight out of the simulator will have a non-null activity.
             // It's only when deserializing ActivityEvents that we lose the activity object reference.
             // Additionally, ActivityEvents are cumulative - we only want to keep the last one for any given activity.

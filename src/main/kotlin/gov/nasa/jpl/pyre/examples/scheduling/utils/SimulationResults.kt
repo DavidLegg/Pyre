@@ -5,13 +5,13 @@ import gov.nasa.jpl.pyre.flame.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
 import kotlin.time.Instant
 
-data class SimulationResults<M>(
+data class SimulationResults(
     val startTime: Instant,
     val endTime: Instant,
     val resources: Map<String, List<ChannelizedReport<*>>>,
-    val activities: Map<Activity<M>, ActivityEvent<M>>,
+    val activities: Map<Activity<*>, ActivityEvent>,
 ) {
-    fun restrict(newStartTime: Instant = startTime, newEndTime: Instant = endTime): SimulationResults<M> {
+    fun restrict(newStartTime: Instant = startTime, newEndTime: Instant = endTime): SimulationResults {
         val newResources = resources.mapValues {  (_, events) ->
             // Slice the events according to the new time window.
             // For the first event, move the time of the last-applicable resource event up as needed.
@@ -30,11 +30,11 @@ data class SimulationResults<M>(
         return SimulationResults(newStartTime, newEndTime, newResources, newActivities)
     }
 
-    infix fun compose(other: SimulationResults<M>): SimulationResults<M> {
+    infix fun compose(other: SimulationResults): SimulationResults {
         val newStartTime = minOf(startTime, other.startTime)
         val newEndTime = maxOf(endTime, other.endTime)
         val newResources: MutableMap<String, MutableList<ChannelizedReport<*>>> = mutableMapOf()
-        val newActivities: MutableMap<Activity<M>, ActivityEvent<M>> = mutableMapOf()
+        val newActivities: MutableMap<Activity<*>, ActivityEvent> = mutableMapOf()
 
         fun collect(resources: Map<String, List<ChannelizedReport<*>>>) {
             for ((resourceName, events) in resources) {

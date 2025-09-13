@@ -1,18 +1,19 @@
 package gov.nasa.jpl.pyre.examples.scheduling.system.model
 
-import gov.nasa.jpl.pyre.examples.scheduling.data.model.BITS_PER_SECOND
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.DataModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel
+import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel
+import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.BodyAxis
 import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel
 import gov.nasa.jpl.pyre.examples.scheduling.power.model.PowerModel
-import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.constant
-import gov.nasa.jpl.pyre.flame.units.StandardUnits.BYTE
-import gov.nasa.jpl.pyre.flame.units.StandardUnits.SECOND
-import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.div
-import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
+import gov.nasa.jpl.pyre.examples.scheduling.power.model.PowerModel.OnOff
+import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
+import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.VsQuantity.lessThanOrEquals
+import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.equals
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 
@@ -23,6 +24,7 @@ class SystemModel(
     data class Config(
         val geometryConfig: GeometryModel.Config,
         val gncConfig: GncModel.Config,
+        val telecomConfig: TelecomModel.Config,
         val dataConfig: DataModel.Config,
         val powerConfig: PowerModel.Config,
         val imagerConfig: ImagerModel.Config,
@@ -30,6 +32,7 @@ class SystemModel(
 
     val geometry: GeometryModel
     val gnc: GncModel
+    val telecom: TelecomModel
     val data: DataModel
     val power: PowerModel
     val imager: ImagerModel
@@ -37,21 +40,40 @@ class SystemModel(
     init {
         with (context) {
             geometry = GeometryModel(subContext("geometry"), config.geometryConfig)
-            val gncInputs = GncModel.Inputs(geometry.pointingDirection)
+
+            val gncInputs = GncModel.Inputs(
+                pointingTargets = geometry.pointingDirection
+            )
             gnc = GncModel(subContext("gnc"), config.gncConfig, gncInputs)
+
+            // Note that because the integration layer is a fully-fledged model, we can do ad-hoc conversion
+            // logic on the resources to connect the models together. This avoids tightly coupling subsystem models.
+            val telecomInputs = TelecomModel.Inputs(
+                isEarthPointed = (
+                        (gnc.primaryBodyAxis equals BodyAxis.HGA)
+                        and (gnc.primaryPointingTarget equals PointingTarget.EARTH)
+                        and (gnc.pointingError lessThanOrEquals gnc.config.pointingErrorTolerance)
+                )
+            )
+            telecom = TelecomModel(subContext("telecom"), config.telecomConfig, telecomInputs)
+
             imager = ImagerModel(subContext("imager"), config.imagerConfig)
+
             val dataInputs = DataModel.Inputs(
-                imager.dataRate,
-                constant(0.0 * BITS_PER_SECOND))
+                dataRate = imager.dataRate,
+                downlinkDataRate = telecom.realizedDataRate,
+            )
             data = DataModel(subContext("data"), config.dataConfig, dataInputs)
+
             // TODO: Connect these up instead of stubbing them out
             //   At a minimum, expose them as mutables and write some activities to poke at them.
             val powerInputs = PowerModel.Inputs(
                 gnc.controlMode,
-                pure(PowerModel.OnOff.ON),
+                pure(OnOff.ON),
+                map(telecom.radioPoweredOn) { if (it) OnOff.ON else OnOff.OFF },
                 imager.mode,
-                pure(PowerModel.OnOff.ON),
-                pure(PowerModel.OnOff.ON),
+                pure(OnOff.ON),
+                pure(OnOff.OFF),
             )
             power = PowerModel(subContext("power"), config.powerConfig, powerInputs)
         }

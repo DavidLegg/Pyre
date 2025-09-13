@@ -1,8 +1,6 @@
 package gov.nasa.jpl.pyre.examples.scheduling.power.model
 
-import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.GncControlMode
-import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel
 import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel.ImagerMode
 import gov.nasa.jpl.pyre.examples.units.MILLIWATT
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResource
@@ -56,6 +54,7 @@ class PowerModel(
     data class Inputs(
         val gncControlMode: DiscreteResource<GncControlMode>,
         val dataSystemMode: DiscreteResource<OnOff>,
+        val radioPowerMode: DiscreteResource<OnOff>,
         val imagerMode: DiscreteResource<ImagerMode>,
         val heater1Mode: DiscreteResource<OnOff>,
         val heater2Mode: DiscreteResource<OnOff>,
@@ -76,6 +75,10 @@ class PowerModel(
         OnOff.OFF to (0.0 * WATT),
         OnOff.ON to (10.0 * WATT),
     )
+    val radioPowerTable: Map<OnOff, Quantity> = mapOf(
+        OnOff.OFF to (0.0 * WATT),
+        OnOff.ON to (150.0 * WATT),
+    )
     val imagerPowerTable: Map<ImagerMode, Quantity> = mapOf(
         ImagerMode.OFF to (0.0 * WATT),
         ImagerMode.WARMUP to (30.0 * WATT),
@@ -89,7 +92,8 @@ class PowerModel(
 
     val gncSubsystem: Device<GncControlMode>
     val dataSubsystem: Device<OnOff>
-    val imager: Device<OnOff>
+    val radio: Device<OnOff>
+    val imager: Device<ImagerMode>
     val heater1: Device<OnOff>
     val heater2: Device<OnOff>
 
@@ -107,18 +111,22 @@ class PowerModel(
             // Devices
             gncSubsystem = Device(subContext("gnc_subsystem"), inputs.gncControlMode, gncPowerTable)
             dataSubsystem = Device(subContext("data_subsystem"), inputs.dataSystemMode, dataPowerTable)
+            radio = Device(subContext("radio"), inputs.radioPowerMode, radioPowerTable)
             imager = Device(subContext("imager"), inputs.imagerMode, imagerPowerTable)
             heater1 = Device(subContext("heater_1"), inputs.heater1Mode, heaterPowerTable)
             heater2 = Device(subContext("heater_2"), inputs.heater1Mode, heaterPowerTable)
 
             // Totals and battery level
-            totalPowerDraw = ((gncSubsystem.powerDraw
+            totalPowerDraw = (
+                    gncSubsystem.powerDraw
                     + dataSubsystem.powerDraw
+                    + radio.powerDraw
                     + imager.powerDraw
                     + heater1.powerDraw
                     + heater2.powerDraw
-                    ) named { "total_power_draw" }).also { register(it, WATT) }
-            netPowerProduction = ((constant(config.rtgPowerProduction) - totalPowerDraw.asPolynomial()) named { "net_power_production" })
+            ).named { "total_power_draw" }.also { register(it, WATT) }
+            netPowerProduction = (constant(config.rtgPowerProduction) - totalPowerDraw.asPolynomial())
+                .named { "net_power_production" }
                 .also { register(it, WATT) }
             val batteryIntegral = netPowerProduction.clampedIntegral(
                 "battery_energy",
@@ -127,12 +135,12 @@ class PowerModel(
                 config.batteryCapacity
             )
             batteryEnergy = batteryIntegral.integral.also { register(it, WATT_HOUR) }
-            batterySOC = ((batteryEnergy / config.batteryCapacity).valueIn(Unit.SCALAR) named { "battery_soc" })
-                .also { register(it) }
-            energyOverdrawn = (batteryIntegral.underflow named { "energy_overdrawn" })
-                .also { register(it, WATT_HOUR) }
-            powerOverdrawn = (energyOverdrawn.derivative() named { "power_overdrawn" })
-                .also { register(it, WATT) }
+            batterySOC = (batteryEnergy / config.batteryCapacity).valueIn(Unit.SCALAR)
+                .named { "battery_soc" }.also { register(it) }
+            energyOverdrawn = batteryIntegral.underflow
+                .named { "energy_overdrawn" }.also { register(it, WATT_HOUR) }
+            powerOverdrawn = energyOverdrawn.derivative()
+                .named { "power_overdrawn" }.also { register(it, WATT) }
         }
     }
 }
