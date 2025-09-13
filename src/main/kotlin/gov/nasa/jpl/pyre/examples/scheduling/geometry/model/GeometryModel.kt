@@ -44,6 +44,7 @@ import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.every
+import kotlinx.serialization.Serializable
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D
 import kotlin.math.cos
 import kotlin.math.sin
@@ -61,6 +62,7 @@ class GeometryModel(
         val geometrySamplePeriod: Duration
     )
 
+    @Serializable
     enum class PointingTarget {
         J2000_POS_X,
         J2000_POS_Y,

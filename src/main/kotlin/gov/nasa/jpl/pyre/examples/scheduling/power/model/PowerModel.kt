@@ -2,6 +2,8 @@ package gov.nasa.jpl.pyre.examples.scheduling.power.model
 
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.GncControlMode
+import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel
+import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel.ImagerMode
 import gov.nasa.jpl.pyre.examples.units.MILLIWATT
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.plus
@@ -54,7 +56,7 @@ class PowerModel(
     data class Inputs(
         val gncControlMode: DiscreteResource<GncControlMode>,
         val dataSystemMode: DiscreteResource<OnOff>,
-        val imagerMode: DiscreteResource<OnOff>,
+        val imagerMode: DiscreteResource<ImagerMode>,
         val heater1Mode: DiscreteResource<OnOff>,
         val heater2Mode: DiscreteResource<OnOff>,
     )
@@ -74,9 +76,11 @@ class PowerModel(
         OnOff.OFF to (0.0 * WATT),
         OnOff.ON to (10.0 * WATT),
     )
-    val imagerPowerTable: Map<OnOff, Quantity> = mapOf(
-        OnOff.OFF to (0.0 * WATT),
-        OnOff.ON to (30.0 * WATT),
+    val imagerPowerTable: Map<ImagerMode, Quantity> = mapOf(
+        ImagerMode.OFF to (0.0 * WATT),
+        ImagerMode.WARMUP to (30.0 * WATT),
+        ImagerMode.STANDBY to (5.0 * WATT),
+        ImagerMode.IMAGING to (20.0 * WATT),
     )
     val heaterPowerTable: Map<OnOff, Quantity> = mapOf(
         OnOff.OFF to (0.0 * WATT),

@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.coals.andThen
 import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
-import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
+import gov.nasa.jpl.pyre.flame.plans.activities
 import gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation
 import gov.nasa.jpl.pyre.flame.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.assumeType
@@ -33,7 +33,7 @@ fun simpleMain(args: Array<String>) {
                         InvertibleFunction.of(Instant::parse, Instant::toString)
                     )
                 )
-                include(activitySerializersModule<EarthOrbit> { })
+                activities<EarthOrbit> {}
             }
         }
     )
@@ -49,7 +49,7 @@ fun csvMain(args: Array<String>) {
                     InvertibleFunction.of(Instant::parse, Instant::toString)
                 )
             )
-            include(activitySerializersModule<EarthOrbit> { })
+            activities<EarthOrbit> {}
         }
     }
     runStandardPlanSimulation(

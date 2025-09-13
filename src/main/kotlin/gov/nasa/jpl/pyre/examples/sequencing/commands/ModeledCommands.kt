@@ -7,7 +7,7 @@ import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.Command
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.CommandBehavior
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.ActivityActions.call
-import gov.nasa.jpl.pyre.flame.plans.ActivitySerializerBuilder
+import gov.nasa.jpl.pyre.flame.plans.ActivityModuleBuilder
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -23,7 +23,7 @@ val ALL_MODELED_COMMANDS = ModeledCommands {
     include(TELECOM_MODELED_COMMANDS)
 }
 
-interface ModeledCommands<M> {
+interface ModeledCommands<M : Any> {
     /**
      * Given a model, returns all of the modeled intrinsic command behavior.
      * Intrinsic command behavior is everything *except* sequence control flow.
@@ -33,7 +33,7 @@ interface ModeledCommands<M> {
     /**
      * Include all the command activities in the receiving serializers module.
      */
-    context (builder: ActivitySerializerBuilder<M>)
+    context (builder: ActivityModuleBuilder<M>)
     fun includeModeledCommands()
 
     companion object {
@@ -82,9 +82,9 @@ interface ModeledCommands<M> {
 }
 
 @OptIn(ExperimentalSerializationApi::class, InternalSerializationApi::class)
-inline fun <reified M> ModeledCommands(block: ModeledCommandsBuilder<M>.() -> Unit) : ModeledCommands<M> {
+inline fun <reified M : Any> ModeledCommands(block: ModeledCommandsBuilder<M>.() -> Unit) : ModeledCommands<M> {
     val modeledCommandsByName: MutableMap<String, (M) -> CommandBehavior> = mutableMapOf()
-    val activityInclusions: MutableList<ActivitySerializerBuilder<M>.() -> Unit> = mutableListOf()
+    val activityInclusions: MutableList<ActivityModuleBuilder<M>.() -> Unit> = mutableListOf()
     val includedModeledCommands: MutableList<ModeledCommands<M>> = mutableListOf()
 
     val builder = object : ModeledCommandsBuilder<M> {
@@ -154,7 +154,7 @@ inline fun <reified M> ModeledCommands(block: ModeledCommandsBuilder<M>.() -> Un
             .associate { (k, v) -> k to v }
                 + modeledCommandsByName.mapValues { it.value(model) })
 
-        context (builder: ActivitySerializerBuilder<M>)
+        context (builder: ActivityModuleBuilder<M>)
         override fun includeModeledCommands() {
             includedModeledCommands.forEach { it.includeModeledCommands() }
             activityInclusions.forEach { builder.it() }
@@ -162,7 +162,7 @@ inline fun <reified M> ModeledCommands(block: ModeledCommandsBuilder<M>.() -> Un
     }
 }
 
-interface ModeledCommandsBuilder<M> {
+interface ModeledCommandsBuilder<M : Any> {
     fun <A : Activity<M>> activity(clazz: KClass<A>)
     fun include(other: ModeledCommands<M>)
 }

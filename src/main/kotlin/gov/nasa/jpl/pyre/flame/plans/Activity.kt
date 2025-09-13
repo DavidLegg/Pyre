@@ -9,7 +9,8 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.PolymorphicModuleBuilder
+import kotlinx.serialization.modules.SerializersModuleBuilder
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.serializer
 import kotlin.reflect.KClass
@@ -49,38 +50,58 @@ data class GroundedActivity<M>(
 fun <M> GroundedActivity<M>.float() = FloatingActivity(activity, typeName, name)
 fun <M> FloatingActivity<M>.ground(time: Instant) = GroundedActivity(time, activity, typeName, name)
 
-inline fun <reified M : Any> activitySerializersModule(block: ActivitySerializerBuilder<M>.() -> Unit): SerializersModule =
-    SerializersModule {
-        // Because Activity takes Model as a type parameter, we must specify a serializer for the model type.
-        // This is despite never needing to serialize or deserialize a model.
-        // Handle this transparently by specifying a dummy contextual serializer here.
-        contextual(M::class, object : KSerializer<M> {
-            override val descriptor: SerialDescriptor =
-                PrimitiveSerialDescriptor(M::class.qualifiedName!!, PrimitiveKind.BOOLEAN)
+fun <M : Any> SerializersModuleBuilder.model(modelClass: KClass<M>) {
+    // Because Activity takes Model as a type parameter, we must specify a serializer for the model type.
+    // This is despite never needing to serialize or deserialize a model.
+    // Handle this transparently by specifying a dummy contextual serializer here.
+    contextual(modelClass, object : KSerializer<M> {
+        override val descriptor: SerialDescriptor =
+            PrimitiveSerialDescriptor(modelClass.qualifiedName!!, PrimitiveKind.BOOLEAN)
 
-            override fun serialize(encoder: Encoder, value: M) {
-                throw UnsupportedOperationException("Cannot serialize model ${M::class.simpleName}")
-            }
-
-            override fun deserialize(decoder: Decoder): M {
-                throw UnsupportedOperationException("Cannot deserialize model ${M::class.simpleName}")
-            }
-        })
-
-        // Present a restricted interface to the caller, who can just call activity(A) for each activity type A
-        // to register all the activity types. We'll collect them all as implementations of the polymorphic Activity type.
-        polymorphic(Activity::class) {
-            object : ActivitySerializerBuilder<M> {
-                override fun <A : Activity<M>> activity(clazz: KClass<A>, serializer: KSerializer<A>) {
-                    this@polymorphic.subclass(clazz, serializer)
-                }
-            }.block()
+        override fun serialize(encoder: Encoder, value: M) {
+            throw UnsupportedOperationException("Cannot serialize model ${modelClass.simpleName}")
         }
-    }
 
-interface ActivitySerializerBuilder<M> {
-    fun <A : Activity<M>> activity(clazz: KClass<A>, serializer: KSerializer<A>)
+        override fun deserialize(decoder: Decoder): M {
+            throw UnsupportedOperationException("Cannot deserialize model ${modelClass.simpleName}")
+        }
+    })
 }
 
-inline fun <M, reified A : Activity<M>> ActivitySerializerBuilder<M>.activity(clazz: KClass<A>) =
-    activity(clazz, serializer())
+/**
+ * List all implementations of [Activity] in a [kotlinx.serialization.modules.SerializersModule].
+ */
+inline fun <reified M : Any> SerializersModuleBuilder.activities(block: ActivityModuleBuilder<M>.() -> Unit) {
+    // Present a restricted interface to the caller, who can just call activity(A) for each activity type A
+    // to register all the activity types. We'll collect them all as implementations of the polymorphic Activity type.
+    polymorphic(Activity::class) {
+        ActivityModuleBuilder(this@activities, this, M::class).block()
+    }
+}
+
+class ActivityModuleBuilder<M : Any>(
+    private val serializersBuilder: SerializersModuleBuilder,
+    private val activityBuilder: PolymorphicModuleBuilder<Activity<*>>,
+    modelClass: KClass<M>,
+) {
+    init {
+        serializersBuilder.model(modelClass)
+    }
+
+    fun <A : Activity<M>> activity(clazz: KClass<A>, serializer: KSerializer<A>) {
+        activityBuilder.subclass(clazz, serializer)
+    }
+
+    inline fun <reified A : Activity<M>> ActivityModuleBuilder<M>.activity(clazz: KClass<A>) =
+        activity(clazz, serializer())
+
+    /**
+     * Add activities for a subsystem N of the full model M.
+     * It is assumed that an adapter [Activity], which takes an Activity<N> to implement Activity<M>, is registered separately.
+     */
+    fun <N : Any> subsystemActivities(subsystemClass: KClass<N>, block: ActivityModuleBuilder<N>.() -> Unit) =
+        ActivityModuleBuilder(serializersBuilder, activityBuilder, subsystemClass).block()
+
+    inline fun <reified N : Any> ActivityModuleBuilder<M>.subsystemActivities(noinline block: ActivityModuleBuilder<N>.() -> Unit) =
+        subsystemActivities(N::class, block)
+}

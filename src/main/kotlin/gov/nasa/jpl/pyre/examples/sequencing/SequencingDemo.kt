@@ -9,8 +9,7 @@ import gov.nasa.jpl.pyre.examples.sequencing.commands.ALL_MODELED_COMMANDS
 import gov.nasa.jpl.pyre.examples.sequencing.fsw.FswModel
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequencingModel
 import gov.nasa.jpl.pyre.examples.sequencing.telecom.TelecomModel
-import gov.nasa.jpl.pyre.flame.plans.activity
-import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
+import gov.nasa.jpl.pyre.flame.plans.activities
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 import kotlinx.serialization.builtins.serializer
@@ -44,7 +43,7 @@ class SequencingDemo(
             serializersModule = SerializersModule {
                 contextual(Instant::class, String.serializer().alias(
                     InvertibleFunction.of(Instant::parse, Instant::toString)))
-                include(activitySerializersModule {
+                activities {
                     // Planning activities
                     activity(LoadSequence::class)
                     activity(ActivateSequence::class)
@@ -52,7 +51,7 @@ class SequencingDemo(
 
                     // Include modeled commands
                     ALL_MODELED_COMMANDS.includeModeledCommands()
-                })
+                }
             }
         }
     }

@@ -11,8 +11,8 @@ import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.Plan
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
+import gov.nasa.jpl.pyre.flame.plans.activities
 import gov.nasa.jpl.pyre.flame.plans.activity
-import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.flame.resources.caching.ResourceCaching.fileBackedResource
 import gov.nasa.jpl.pyre.flame.resources.caching.ResourceCachingTest.OriginalResourceModel.*
@@ -128,10 +128,10 @@ class ResourceCachingTest {
                 contextual(Instant::class, String.serializer().alias(InvertibleFunction.of(
                     Instant::parse, Instant::toString
                 )))
-                include(activitySerializersModule {
+                activities {
                     activity(ChangeA::class)
                     activity(ChangeB::class)
-                })
+                }
             }
         }
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
@@ -195,10 +195,10 @@ class ResourceCachingTest {
                 contextual(Instant::class, String.serializer().alias(InvertibleFunction.of(
                     Instant::parse, Instant::toString
                 )))
-                include(activitySerializersModule {
+                activities {
                     activity(ChangeA::class)
                     activity(ChangeB::class)
-                })
+                }
             }
         }
         val epoch = Instant.parse("2020-01-01T00:00:00Z")

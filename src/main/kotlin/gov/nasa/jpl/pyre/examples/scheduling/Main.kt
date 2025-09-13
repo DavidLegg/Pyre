@@ -7,15 +7,27 @@ import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.ember.times
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.DataModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel
+import gov.nasa.jpl.pyre.examples.scheduling.gnc.activities.GncSetAgility
+import gov.nasa.jpl.pyre.examples.scheduling.gnc.activities.GncSetSystemMode
+import gov.nasa.jpl.pyre.examples.scheduling.gnc.activities.GncTurn
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel
+import gov.nasa.jpl.pyre.examples.scheduling.imager.activities.ImagerPowerOff
+import gov.nasa.jpl.pyre.examples.scheduling.imager.activities.ImagerPowerOn
+import gov.nasa.jpl.pyre.examples.scheduling.imager.activities.ImagerDoObservation
+import gov.nasa.jpl.pyre.examples.scheduling.imager.model.IMAGE
+import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel
 import gov.nasa.jpl.pyre.examples.scheduling.power.model.PowerModel
+import gov.nasa.jpl.pyre.examples.scheduling.system.activities.GncActivity
 import gov.nasa.jpl.pyre.examples.scheduling.system.model.SystemModel
 import gov.nasa.jpl.pyre.examples.scheduling.utils.SchedulingSystem
 import gov.nasa.jpl.pyre.examples.units.KILOWATT_HOUR
-import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
+import gov.nasa.jpl.pyre.flame.plans.activities
+import gov.nasa.jpl.pyre.flame.units.StandardUnits
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.DEGREE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.GIGABYTE
+import gov.nasa.jpl.pyre.flame.units.StandardUnits.MEGABYTE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.WATT
+import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.div
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
 import kotlinx.serialization.builtins.DoubleArraySerializer
 import kotlinx.serialization.builtins.serializer
@@ -59,9 +71,26 @@ fun main(args: Array<String>) {
                 { doubleArrayOf(it.q0, it.q1, it.q2, it.q3) }
             )))
 
-            include(activitySerializersModule<SystemModel> {
-                // TODO: Activities
-            })
+            activities<SystemModel> {
+                // System activities
+                // These are primarily "Adapter" or "glue" activities,
+                // which adapt a subsystem activity to the system level, or glue together subsystem views of an activity.
+                activity(GncActivity::class)
+
+                // Subsystem activities
+                // These are the "meaty" activities, which describe detailed interactions with a single subsystem.
+                subsystemActivities<GncModel> {
+                    activity(GncSetAgility::class)
+                    activity(GncSetSystemMode::class)
+                    activity(GncTurn::class)
+                }
+
+                subsystemActivities<ImagerModel> {
+                    activity(ImagerPowerOn::class)
+                    activity(ImagerPowerOff::class)
+                    activity(ImagerDoObservation::class)
+                }
+            }
         }
     }
     val baseScheduler = SchedulingSystem.withoutIncon(
@@ -71,6 +100,7 @@ fun main(args: Array<String>) {
             GncModel.Config(1 * HOUR, 5 * MINUTE, 0.5 * DEGREE),
             DataModel.Config(3.1 * GIGABYTE),
             PowerModel.Config(300.0 * WATT, 2.2 * KILOWATT_HOUR),
+            ImagerModel.Config(12.0 * MEGABYTE / IMAGE, 15.0 * IMAGE / StandardUnits.MINUTE),
         ),
         ::SystemModel,
         jsonFormat,
@@ -78,6 +108,10 @@ fun main(args: Array<String>) {
 
     val setupEnd = clock.markNow()
     println("End setup - ${setupEnd - setupStart}")
+
+    // TODO: Generate a random schedule of science observations and downlink opportunities for a year
+
+    // TODO: Schedule "fixed" activities, like maybe some "high-priority science observations"
 
     // Note, because this is just a regular java program, we can just intermix regular printlns and stuff to get results out.
     println("Begin layer 1")
@@ -89,7 +123,11 @@ fun main(args: Array<String>) {
     val layer1End = clock.markNow()
     println("End layer 1 - ${layer1End - layer1Start}")
 
-    // Schedule some "fixed" activities, like TCM's.
+    // TODO: Schedule layer 2 - regular comms passes with opportunistic downlink
+
+    // TODO: Schedule layer 3 - opportunistic science - time permitting, schedule all the observations you can
+
+    // TODO: Schedule layer 4 - required additional downlinks - as needed to prevent data overflow
 
     val schedulingEnd = clock.markNow()
     println("End scheduling procedure - ${schedulingEnd - schedulingStart}")

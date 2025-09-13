@@ -245,11 +245,13 @@ class PlanSimulationTest {
         }
 
         companion object {
-            val activitySerializersModule = activitySerializersModule {
-                activity(DeviceBoot::class)
-                activity(DeviceActivate::class)
-                activity(DeviceShutdown::class)
-                activity(AddMiscPower::class)
+            val activitySerializersModule = SerializersModule {
+                activities {
+                    activity(DeviceBoot::class)
+                    activity(DeviceActivate::class)
+                    activity(DeviceShutdown::class)
+                    activity(AddMiscPower::class)
+                }
             }
         }
     }

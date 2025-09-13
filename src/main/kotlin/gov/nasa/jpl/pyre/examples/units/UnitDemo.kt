@@ -11,8 +11,7 @@ import gov.nasa.jpl.pyre.examples.units.DeviceState.*
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
-import gov.nasa.jpl.pyre.flame.plans.activity
-import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
+import gov.nasa.jpl.pyre.flame.plans.activities
 import gov.nasa.jpl.pyre.flame.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.plus
@@ -67,9 +66,9 @@ fun main(args: Array<String>) {
             contextual(Instant::class, String.serializer()
                 .alias(InvertibleFunction.of(Instant::parse, Instant::toString)))
 
-            include(activitySerializersModule {
+            activities {
                 activity(SwitchDevice::class)
-            })
+            }
         }
     }
     System.out.use { out ->

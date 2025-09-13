@@ -42,6 +42,7 @@ import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.restart
 import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.timer
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
+import kotlinx.serialization.Serializable
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation
 import org.apache.commons.math3.geometry.euclidean.threed.RotationConvention
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D
@@ -70,6 +71,7 @@ class GncModel(
         val pointingTargets: Map<PointingTarget, DiscreteResource<Vector3D>>,
     )
 
+    @Serializable
     enum class BodyAxis(val vector: Vector3D) {
         // Standard frame vectors
         PLUS_X(Vector3D.PLUS_I),

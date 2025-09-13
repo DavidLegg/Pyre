@@ -4,8 +4,7 @@ import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.encodeToStream
 import gov.nasa.jpl.pyre.flame.plans.Plan
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
-import gov.nasa.jpl.pyre.flame.plans.activity
-import gov.nasa.jpl.pyre.flame.plans.activitySerializersModule
+import gov.nasa.jpl.pyre.flame.plans.activities
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
@@ -14,6 +13,7 @@ import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.modules.SerializersModule
 import java.io.FileInputStream
 import java.io.FileOutputStream
 
@@ -26,8 +26,10 @@ fun main(args: Array<String>) {
     val finconFile = args[1]
 
     val jsonFormat = Json {
-        serializersModule = activitySerializersModule {
-            activity(ChangePowerDemand::class)
+        serializersModule = SerializersModule {
+            activities {
+                activity(ChangePowerDemand::class)
+            }
         }
     }
     val plan: Plan<StandaloneBatteryModel> = jsonFormat.decodeFromStream(FileInputStream(planFile))
