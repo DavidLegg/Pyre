@@ -66,9 +66,7 @@ object SchedulingAlgorithms {
             val tEnd = testScheduler.copy().runUntil(GroundedActivity(tInstant, activity))
             // Return the error in end time, also in seconds.
             // Using seconds as the input and output unit ensures slopes near 1.0, for a well-conditioned root-finding problem.
-            val result = (tEnd - endTime).toDouble(DurationUnit.SECONDS)
-            println("DEBUG - t = $tDouble, start = $tInstant  ==>  dur = ${tEnd - tInstant}, end = $tEnd, f(t) = $result")
-            result
+            (tEnd - endTime).toDouble(DurationUnit.SECONDS)
         }
 
         val exc: Throwable

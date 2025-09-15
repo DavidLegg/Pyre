@@ -9,10 +9,12 @@ import gov.nasa.jpl.pyre.ember.toKotlinDuration
 import gov.nasa.jpl.pyre.ember.toPyreDuration
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.DataModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel
+import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.activities.GncSetAgility
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.activities.GncSetSystemMode
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.activities.GncTurn
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel
+import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.BodyAxis
 import gov.nasa.jpl.pyre.examples.scheduling.imager.activities.ImagerPowerOff
 import gov.nasa.jpl.pyre.examples.scheduling.imager.activities.ImagerPowerOn
 import gov.nasa.jpl.pyre.examples.scheduling.imager.activities.ImagerDoObservation
@@ -194,16 +196,19 @@ fun main(args: Array<String>) {
     // paired to their desired end times:
     val criticalTurns = (commPasses.filter { it.critical }.map {
         GncTurn(
-            GeometryModel.PointingTarget.EARTH,
-            GeometryModel.PointingTarget.J2000_NEG_Z,
-            GncModel.BodyAxis.HGA,
-            GncModel.BodyAxis.PLUS_Y) to it.start
+            PointingTarget.EARTH,
+            PointingTarget.J2000_NEG_Z,
+            BodyAxis.HGA,
+            BodyAxis.PLUS_Y) to it.start
     } + scienceOps.filter { it.critical }.map {
         GncTurn(
             it.target,
-            GeometryModel.PointingTarget.EARTH,
-            GncModel.BodyAxis.IMAGER,
-            GncModel.BodyAxis.HGA,
+            if (
+                it.target == PointingTarget.J2000_NEG_Z
+                || it.target == PointingTarget.J2000_POS_Z
+            ) PointingTarget.J2000_POS_Y else PointingTarget.J2000_NEG_Z,
+            BodyAxis.IMAGER,
+            BodyAxis.PLUS_Y,
         ) to it.start
     }).sortedBy { (_, t) -> t }
 
