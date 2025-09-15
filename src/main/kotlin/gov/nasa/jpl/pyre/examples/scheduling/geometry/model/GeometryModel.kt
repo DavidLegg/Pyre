@@ -143,8 +143,8 @@ class GeometryModel(
                     J2000_NEG_Y to pure(Vector3D.MINUS_J),
                     J2000_NEG_Z to pure(Vector3D.MINUS_K),
                     SUN to map((sunPosition - spacecraftPosition).valueIn(AU), Vector3D::normalize),
-                    EARTH to map((sunPosition - spacecraftPosition).valueIn(AU), Vector3D::normalize),
-                    MARS to map((sunPosition - spacecraftPosition).valueIn(AU), Vector3D::normalize),
+                    EARTH to map((earthPosition - spacecraftPosition).valueIn(AU), Vector3D::normalize),
+                    MARS to map((marsPosition - spacecraftPosition).valueIn(AU), Vector3D::normalize),
                 ).mapValues { (target, resource) -> (resource named target::toString).also { register(it) } }
             }
         }

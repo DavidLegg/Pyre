@@ -266,9 +266,9 @@ object QuantityResourceOperations {
     object DurationQuantityResourceOperations {
         // Do the unit-awareness conversions at the resource level, so dimension checking happens only once
         fun DiscreteResource<Duration>.asQuantity(): QuantityResource =
-            map(this) { it ratioOver Duration.SECOND } * StandardUnits.SECOND
+            (map(this) { it ratioOver Duration.SECOND } * StandardUnits.SECOND).named(::toString)
         fun QuantityResource.asDuration(): DiscreteResource<Duration> =
-            map(this.valueIn(StandardUnits.SECOND)) { it roundTimes Duration.SECOND }
+            (map(this.valueIn(StandardUnits.SECOND)) { it roundTimes Duration.SECOND }).named(::toString)
     }
 }
 

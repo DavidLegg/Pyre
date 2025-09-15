@@ -5,6 +5,7 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.ember.times
+import gov.nasa.jpl.pyre.ember.toKotlinDuration
 import gov.nasa.jpl.pyre.ember.toPyreDuration
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.DataModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel
@@ -29,8 +30,10 @@ import gov.nasa.jpl.pyre.examples.scheduling.telecom.activities.RadioPowerOn
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.activities.RadioSetDownlinkRate
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.activities.TelecomPass
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
+import gov.nasa.jpl.pyre.examples.scheduling.utils.SchedulingAlgorithms.scheduleActivityToEndNear
 import gov.nasa.jpl.pyre.examples.scheduling.utils.SchedulingSystem
 import gov.nasa.jpl.pyre.examples.units.KILOWATT_HOUR
+import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.activities
 import gov.nasa.jpl.pyre.flame.units.StandardUnits
@@ -49,32 +52,24 @@ import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.contextual
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation
 import kotlin.collections.forEach
+import kotlin.collections.listOf
 import kotlin.io.path.Path
 import kotlin.io.path.absolute
 import kotlin.io.path.inputStream
 import kotlin.time.Instant
 import kotlin.time.TimeSource
 
-// TODO: Add a system model with
-//   - geometry, attitude, power, and data
-//   - Config to enable/disable these independently
-//     - Bonus: Write "replay" models which accept a SimulationResults and replay the resources for a subsystem from that!
-//   - Activities: TCM, Observation, TelecomPass, Turn
-// TODO: build SchedulingSystem with that model
-// TODO: build a scheduling procedure in a few layers:
-//   - Baseline sim - all enabled
-//   - TCM pass - no resimulation - lay down TCMs on a fixed schedule
-//   - Observations pass - power only - lay down Observations and their Turns
-//   - Telecom pass - data only - lay down TelecomPasses and their Turns
-//   - Final sim - all enabled - no activities to add
+// From our knowledge of this particular model, we know that a GncTurn never takes more than 45 minutes.
+// We'll use this to make our scheduling procedure highly efficient.
+private val GNC_TURN_MAX_DURATION = 45 * MINUTE
 
 @OptIn(ExperimentalSerializationApi::class)
 fun main(args: Array<String>) {
-    val comm_schedule_file = Path(args[0]).absolute()
-    val science_op_file = Path(args[1]).absolute()
+    val commScheduleFile = Path(args[0]).absolute()
+    val scienceOpFile = Path(args[1]).absolute()
     println("Scheduling input files:")
-    println("  Comm Passes: $comm_schedule_file")
-    println("  Science Ops: $science_op_file")
+    println("  Comm Passes: $commScheduleFile")
+    println("  Science Ops: $scienceOpFile")
 
     val clock = TimeSource.Monotonic
     println("Begin scheduling procedure")
@@ -133,7 +128,7 @@ fun main(args: Array<String>) {
         planStart,
         SystemModel.Config(
             GeometryModel.Config(1 * HOUR),
-            GncModel.Config(1 * HOUR, 5 * MINUTE, 0.5 * DEGREE),
+            GncModel.Config(1 * HOUR, 1 * MINUTE, 0.5 * DEGREE),
             TelecomModel.Config(),
             DataModel.Config(3.1 * GIGABYTE),
             PowerModel.Config(300.0 * WATT, 2.2 * KILOWATT_HOUR),
@@ -143,8 +138,12 @@ fun main(args: Array<String>) {
         jsonFormat,
     )
 
-    val comm_passes: List<CommPass> = comm_schedule_file.inputStream().use(jsonFormat::decodeFromStream)
-    val science_ops: List<ScienceOp> = science_op_file.inputStream().use(jsonFormat::decodeFromStream)
+    val commPasses: List<CommPass> = commScheduleFile.inputStream()
+        .use { jsonFormat.decodeFromStream<List<CommPass>>(it) }
+        .sortedBy { it.start }
+    val scienceOps: List<ScienceOp> = scienceOpFile.inputStream()
+        .use { jsonFormat.decodeFromStream<List<ScienceOp>>(it) }
+        .sortedBy { it.start }
 
     val setupEnd = clock.markNow()
     println("End setup - ${setupEnd - setupStart}")
@@ -152,9 +151,17 @@ fun main(args: Array<String>) {
     // Note, because this is just a regular java program, we can just intermix regular printlns and stuff to get results out.
     println("Begin layer 1 - critical activities")
     val layer1Start = clock.markNow()
+    val layer1Scheduler = baseScheduler.copy()
 
-    comm_passes.filter { it.critical }.forEach {
-        baseScheduler += GroundedActivity(
+    // Add in some fixed setup activities, akin to configuring the craft after launch:
+    layer1Scheduler += GroundedActivity(planStart + (10 * MINUTE).toKotlinDuration(),
+        GncActivity(GncSetSystemMode(GncModel.GncSystemMode.ACTIVE)))
+
+    // Add in the "critical" activities - these are meant as stand-ins for things that are basically fully determined.
+    // In a real mission, this would be things like TCMs decided by navigation.
+
+    commPasses.filter { it.critical }.forEach {
+        layer1Scheduler += GroundedActivity(
             it.start,
             TelecomActivity(TelecomPass(
                 (it.end - it.start).toPyreDuration(),
@@ -163,25 +170,64 @@ fun main(args: Array<String>) {
         )
     }
 
-    science_ops.filter { it.critical }.forEach {
-        baseScheduler += GroundedActivity(
+    scienceOps.filter { it.critical }.forEach {
+        layer1Scheduler += GroundedActivity(
             it.start,
             ImagerActivity(ImagerDoObservation(
                 (it.end - it.start).toPyreDuration(),
             ))
         )
     }
-    // TODO: Schedule turns for critical activities
 
-    // Run an empty plan to get a baseline set of resources
-    val completedBaseScheduler = baseScheduler.copy().apply { runUntil(planEnd) }
+    layer1Scheduler.runUntil(planEnd)
 
     val layer1End = clock.markNow()
     println("End layer 1 - ${layer1End - layer1Start}")
 
-    // TODO: Schedule layer 2 - regular comms passes with opportunistic downlink
+    println("Begin layer 2 - Turns for critical activities")
+    val layer2Start = clock.markNow()
+    // Build a new scheduler, starting at the beginning of the plan, but copy the plan from layer 1:
+    val layer2Scheduler = baseScheduler.copy()
+    layer2Scheduler += layer1Scheduler.plan()
 
-    // TODO: Schedule layer 3 - opportunistic science - time permitting, schedule all the observations you can
+    // In order to schedule all the turns for layer 1, first we'll construct all the necessary turn activities,
+    // paired to their desired end times:
+    val criticalTurns = (commPasses.filter { it.critical }.map {
+        GncTurn(
+            GeometryModel.PointingTarget.EARTH,
+            GeometryModel.PointingTarget.J2000_NEG_Z,
+            GncModel.BodyAxis.HGA,
+            GncModel.BodyAxis.PLUS_Y) to it.start
+    } + scienceOps.filter { it.critical }.map {
+        GncTurn(
+            it.target,
+            GeometryModel.PointingTarget.EARTH,
+            GncModel.BodyAxis.IMAGER,
+            GncModel.BodyAxis.HGA,
+        ) to it.start
+    }).sortedBy { (_, t) -> t }
+
+    // Then for each critical turn, we'll advance the layer 2 scheduler and schedule it.
+    for ((turn, turnEnd) in criticalTurns) {
+        println("  Scheduling turn to ${turn.primaryPointingTarget} ending at $turnEnd")
+        layer2Scheduler.runUntil(turnEnd - GNC_TURN_MAX_DURATION.toKotlinDuration())
+        layer2Scheduler.scheduleActivityToEndNear(GncActivity(turn), turnEnd)
+    }
+
+    // Note:
+    //   A real scheduler would not just blindly lay down these turns - it should also check that those turns
+    //   don't conflict with any of the critical activities themselves.
+    //   (It should also probably be scheduling turns back from the activity to a safer attitude.)
+    //   For this demo, at this stage, just laying down all the turns in one shot like this is sufficient.
+
+    // Finally, advance the layer 2 scheduler to the end of the plan to finish out simulation:
+    layer2Scheduler.runUntil(planEnd)
+
+    val layer2End = clock.markNow()
+    println("End layer 2 - ${layer2End - layer2Start}")
+
+    // TODO: Schedule layer 3 - opportunistic science - time permitting, schedule all the observations you can,
+    //    factoring in the time to do turns to the target.
 
     // TODO: Schedule layer 4 - required additional downlinks - as needed to prevent data overflow
 

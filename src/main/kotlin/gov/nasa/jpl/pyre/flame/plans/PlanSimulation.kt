@@ -183,23 +183,37 @@ class PlanSimulation<M> {
 
     fun time() = sparkScope.simulationEpoch + state.time().toKotlinDuration()
 
+    /**
+     * Run the simulation until [endTime].
+     *
+     * This includes stall protection - if the simulation steps at least [SIMULATION_STALL_LIMIT] iterations
+     * without advancing in time, an exception is thrown to avoid infinite loops.
+     */
     fun runUntil(endTime: Instant) {
         val endDuration = (endTime - sparkScope.simulationEpoch).toPyreDuration()
         require(endDuration >= state.time()) {
             "Simulation time is currently ${sparkScope.simulationEpoch + state.time().toKotlinDuration()}, cannot step backwards to $endTime"
         }
-        var n = 0
-        var lastStepTime = ZERO
-        while (state.time() < endDuration) {
-            if (++n >= SIMULATION_STALL_LIMIT) {
-                state.dump()
-                throw IllegalStateException("Simulation has stalled at ${state.time()} after $n iterations.")
-            }
-            state.stepTo(endDuration)
-            if (lastStepTime < state.time()) {
-                lastStepTime = state.time()
-                n = 0
-            }
+        while (state.time() < endDuration) stepTo(endTime)
+    }
+
+    private var stepsWithoutAdvancingTime = 0
+
+    /**
+     * Advance the simulation by one step, no further than [endTime].
+     *
+     * This includes stall protection - if the simulation steps at least [SIMULATION_STALL_LIMIT] iterations
+     * without advancing in time, an exception is thrown to avoid infinite loops.
+     */
+    fun stepTo(endTime: Instant) {
+        val endDuration = (endTime - sparkScope.simulationEpoch).toPyreDuration()
+        val timeBeforeStep = state.time()
+        state.stepTo(endDuration)
+        if (state.time() > timeBeforeStep) {
+            stepsWithoutAdvancingTime = 0
+        } else if (++stepsWithoutAdvancingTime > SIMULATION_STALL_LIMIT) {
+            state.dump()
+            throw IllegalStateException("Simulation has stalled at ${state.time()} after $stepsWithoutAdvancingTime iterations.")
         }
     }
 

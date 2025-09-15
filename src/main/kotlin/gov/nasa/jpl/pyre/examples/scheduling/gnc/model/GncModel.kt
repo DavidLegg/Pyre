@@ -9,6 +9,8 @@ import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.MutableQuantityReso
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.DurationQuantityResourceOperations.asQuantity
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.VsQuantity.greaterThan
+import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.VsQuantity.lessThanOrEquals
+import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.getValue
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.quantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.register
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.times
@@ -25,12 +27,16 @@ import gov.nasa.jpl.pyre.flame.units.Unit
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
+import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
+import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.choose
+import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.bind
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.equals
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
@@ -42,6 +48,8 @@ import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.restart
 import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.timer
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.wheneverChanges
+import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
 import kotlinx.serialization.Serializable
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation
 import org.apache.commons.math3.geometry.euclidean.threed.RotationConvention
@@ -175,6 +183,11 @@ class GncModel(
      */
     val pointingError: QuantityResource
 
+    /**
+     * Whether the model has settled to point at the desired attitude
+     */
+    val isSettled: BooleanResource
+
     init {
         with (context) {
             systemMode = registeredDiscreteResource("system_mode", GncSystemMode.IDLE)
@@ -185,8 +198,8 @@ class GncModel(
             secondaryBodyAxis = registeredDiscreteResource("secondary_body_axis", PLUS_Y)
 
             // Instead of choosing agilities directly, I'm characterizing the system in terms of a desired behavior.
-            // I'd like it to choose the time to accelerate to max velocity, and the time to complete a half rotation.
-            // Using a trapezoidal turn profile, we can derive agility and maxAcceleration as follows:
+            // Namely, I want it to do a half rotation in about 30 minutes.
+            // That should make the scheduling problem interesting but fairly tractable.
             val timeForHalfRotation = 30.0 * MINUTE
             val initialAgility = 0.5 * ROTATION / timeForHalfRotation
 
@@ -204,6 +217,15 @@ class GncModel(
             val secondaryBodyAxisVector = (map(secondaryBodyAxis, BodyAxis::vector)
                     named { "${secondaryBodyAxis}_vector" }).also { register(it) }
 
+            wheneverChanges(primaryBodyAxis) { println("DEBUG - CH - primaryBodyAxis = ${primaryBodyAxis.getValue()}") }
+            wheneverChanges(secondaryBodyAxis) { println("DEBUG - CH - secondaryBodyAxis = ${secondaryBodyAxis.getValue()}") }
+            wheneverChanges(primaryPointingTarget) { println("DEBUG - CH - primaryPointingTarget = ${primaryPointingTarget.getValue()}") }
+            wheneverChanges(secondaryPointingTarget) { println("DEBUG - CH - secondaryPointingTarget = ${secondaryPointingTarget.getValue()}") }
+            wheneverChanges(primaryBodyAxisVector) { println("DEBUG - CH - primaryBodyAxisVector = ${primaryBodyAxisVector.getValue()}") }
+            wheneverChanges(secondaryBodyAxisVector) { println("DEBUG - CH - secondaryBodyAxisVector = ${secondaryBodyAxisVector.getValue()}") }
+            wheneverChanges(primaryPointingTargetVector) { println("DEBUG - CH - primaryPointingTargetVector = ${primaryPointingTargetVector.getValue()}") }
+            wheneverChanges(secondaryPointingTargetVector) { println("DEBUG - CH - secondaryPointingTargetVector = ${secondaryPointingTargetVector.getValue()}") }
+
             val targetAttitudeCacheUpdateTolerance = config.pointingErrorTolerance.valueIn(RADIAN) * 1e-2
             targetAttitude = map(
                 primaryBodyAxisVector,
@@ -211,9 +233,11 @@ class GncModel(
                 primaryPointingTargetVector,
                 secondaryPointingTargetVector,
                 ::Rotation
-            ).cached("target_attitude", Discrete(Rotation.IDENTITY), {
-                r, s -> r.value.applyInverseTo(s.value).angle < targetAttitudeCacheUpdateTolerance
-            }).also { register(it) }
+            ).named { "target_attitude" }
+                // Register the cached version because Rotation has a poorly-behaved equality
+                .also { register(it.cached("target_attitude", Discrete(Rotation.IDENTITY), {
+                    r, s -> r.value.applyInverseTo(s.value).angle < targetAttitudeCacheUpdateTolerance
+            })) }
 
             _spacecraftAttitude = registeredDiscreteResource("spacecraft_attitude", Rotation.IDENTITY)
 
@@ -223,7 +247,11 @@ class GncModel(
             register(pointingError, MRAD)
             register(pointingError, DEGREE)
 
-            val turnRequired = pointingError greaterThan config.pointingErrorTolerance
+            isSettled = (pointingError lessThanOrEquals config.pointingErrorTolerance)
+                .named { "is_settled" }
+                .also { register(it) }
+
+            val turnRequired = isSettled.not()
             controlMode = (bind(systemMode) {
                 when (it) {
                     GncSystemMode.IDLE -> pure(GncControlMode.IDLE)
@@ -240,7 +268,9 @@ class GncModel(
             } named { "controller_step_size" }
 
             val maxSingleStepTurnRadians = (agility * controllerStepSize.asQuantity()).valueIn(RADIAN)
-            spawn("GNC Controller", whenever(timeSinceLastControllerStep greaterThanOrEquals controllerStepSize.asTimer()) {
+            spawn("GNC Controller", whenever(
+                (systemMode equals GncSystemMode.ACTIVE)
+                        and (timeSinceLastControllerStep greaterThanOrEquals controllerStepSize.asTimer())) {
                 when (controlMode.getValue()) {
                     GncControlMode.IDLE -> { /* Do nothing */ }
                     GncControlMode.HOLD, GncControlMode.TURN -> {
