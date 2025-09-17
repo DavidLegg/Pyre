@@ -118,7 +118,7 @@ class SchedulingSystem<M, C> private constructor(
     operator fun plusAssign(activities: Collection<GroundedActivity<M>>) = addActivities(activities)
     operator fun plusAssign(plan: Plan<M>) = addPlan(plan)
 
-    fun plan() = Plan(startTime, time(), nominalActivities.toList())
+    fun plan() = Plan(startTime, time(), nominalActivities.sortedBy { it.time })
 
     fun results() = SimulationResults(
         startTime,

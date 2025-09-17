@@ -9,18 +9,18 @@ RANDOM_SEED = 1
 PLAN_START = dt.datetime.fromisoformat("2020-01-01T00:00:00Z")
 PLAN_END = dt.datetime.fromisoformat("2021-01-01T00:00:00Z")
 
-COMM_PASS_PERIOD = dt.timedelta(hours=14)
+COMM_PASS_PERIOD = dt.timedelta(hours=6)
 COMM_PASS_DEVIATION = dt.timedelta(hours=2)
 COMM_PASS_DURATIONS = [
     *([dt.timedelta(hours=1)] * 1),
     *([dt.timedelta(hours=2)] * 3),
     *([dt.timedelta(hours=4)] * 1),
 ]
-COMM_PASS_CRITICAL_CHANCE = 0.1
+COMM_PASS_CRITICAL_CHANCE = 0.05
 COMM_PASS_DOWNLINK_RATES = [
-    *([1e1, 2e1, 5e1] * 4),
-    *([1e2, 2e2, 5e2] * 2),
-    *([1e3, 2e3, 5e3] * 1),
+    *([1e4, 2e4, 5e4] * 1),
+    *([1e5, 2e5, 5e5] * 4),
+    *([1e6, 2e6, 5e6] * 2),
 ]
 
 

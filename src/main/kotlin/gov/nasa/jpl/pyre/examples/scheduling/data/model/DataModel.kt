@@ -14,6 +14,7 @@ import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantit
 import gov.nasa.jpl.pyre.flame.units.Quantity
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.BIT
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.BYTE
+import gov.nasa.jpl.pyre.flame.units.StandardUnits.GIGABYTE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.MEGABYTE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.SECOND
 import gov.nasa.jpl.pyre.flame.units.Unit
@@ -88,19 +89,20 @@ class DataModel(
 
     init {
         with (context) {
-            netDataRate = ((inputs.dataRate - inputs.downlinkDataRate) named { "net_data_rate" }).also { register(it, BITS_PER_SECOND) }
-            val storageIntegral = inputs.dataRate.asPolynomial().clampedIntegral(
+            netDataRate = (inputs.dataRate - inputs.downlinkDataRate)
+                .named { "net_data_rate" }.also { register(it, BITS_PER_SECOND) }
+            val storageIntegral = netDataRate.asPolynomial().clampedIntegral(
                 "stored_data",
                 constant(0.0 * BYTE),
                 constant(config.dataCapacity),
                 0.0 * MEGABYTE,
             )
-            storedData = storageIntegral.integral.also { register(it, MEGABYTE) }
+            storedData = storageIntegral.integral.also { register(it, GIGABYTE) }
             // Actual downlink rate is downlinkRate - underflow rate: I.e., when we're underflowing, we're failing to downlink by that rate.
-            actualDownlinkRate = ((inputs.downlinkDataRate.asPolynomial() - storageIntegral.underflow.derivative()
-                    ) named { "actual_downlink_rate" }).also { register(it, BITS_PER_SECOND) }
-            dataDownlinked = actualDownlinkRate.registeredIntegral("data_downlinked", 0.0 * MEGABYTE)
-            dataLost = (storageIntegral.overflow named { "data_lost" }).also { register(it, MEGABYTE) }
+            actualDownlinkRate = (inputs.downlinkDataRate.asPolynomial() - storageIntegral.underflow)
+                .named { "actual_downlink_rate" }.also { register(it, BITS_PER_SECOND) }
+            dataDownlinked = actualDownlinkRate.registeredIntegral("data_downlinked", 0.0 * GIGABYTE)
+            dataLost = storageIntegral.overflow.registeredIntegral("data_lost", 0.0 * GIGABYTE)
         }
     }
 }

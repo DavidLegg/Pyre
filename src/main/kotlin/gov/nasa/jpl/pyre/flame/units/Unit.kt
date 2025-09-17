@@ -21,6 +21,7 @@ class Unit(
     fun pow(power: Rational) = Unit(null, scale.pow(power.numerator.toDouble() / power.denominator.toDouble()), dimension.pow(power))
     fun pow(power: Int) = Unit(null, scale.pow(power), dimension.pow(power))
 
+    // TODO: Need to print string with base units, not dimension
     override fun toString(): String = name ?: "${if (scale == 1.0) "" else "$scale "}$dimension"
 
     companion object {

@@ -1,0 +1,36 @@
+{
+  "resources": [
+    {
+      "name": "/gnc/is_settled",
+      "kind": "enum"
+    },
+    {
+      "name": "/gnc/pointing_error (deg)",
+      "kind": "discrete"
+    },
+    {
+      "name": "/imager/mode",
+      "kind": "enum"
+    },
+    {
+      "name": "/telecom/realized_data_rate (bps)",
+      "kind": "discrete"
+    },
+    {
+      "name": "/data/stored_data (GB)",
+      "kind": "polynomial"
+    },
+    {
+      "name": "/data/net_data_rate (bps)",
+      "kind": "discrete"
+    },
+    {
+      "name": "/data/data_downlinked (GB)",
+      "kind": "polynomial"
+    },
+    {
+      "name": "/data/data_lost (GB)",
+      "kind": "polynomial"
+    }
+  ]
+}

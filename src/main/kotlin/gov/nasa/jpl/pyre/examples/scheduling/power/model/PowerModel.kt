@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.examples.scheduling.power.model
 
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.GncControlMode
 import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel.ImagerMode
+import gov.nasa.jpl.pyre.examples.scheduling.power.model.Device.Companion.Device
 import gov.nasa.jpl.pyre.examples.units.MILLIWATT
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.plus
@@ -15,6 +16,7 @@ import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantit
 import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.derivative
 import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.minus
 import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.register
+import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.registeredIntegral
 import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.valueIn
 import gov.nasa.jpl.pyre.flame.units.Quantity
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.HOUR
@@ -28,6 +30,7 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
+import kotlinx.serialization.Serializable
 
 val WATT_HOUR = Unit.derived("Wh", WATT * HOUR)
 
@@ -97,6 +100,7 @@ class PowerModel(
     val heater1: Device<OnOff>
     val heater2: Device<OnOff>
 
+    @Serializable
     enum class OnOff { ON, OFF }
 
     val totalPowerDraw: QuantityResource
@@ -137,10 +141,9 @@ class PowerModel(
             batteryEnergy = batteryIntegral.integral.also { register(it, WATT_HOUR) }
             batterySOC = (batteryEnergy / config.batteryCapacity).valueIn(Unit.SCALAR)
                 .named { "battery_soc" }.also { register(it) }
-            energyOverdrawn = batteryIntegral.underflow
-                .named { "energy_overdrawn" }.also { register(it, WATT_HOUR) }
-            powerOverdrawn = energyOverdrawn.derivative()
+            powerOverdrawn = batteryIntegral.underflow
                 .named { "power_overdrawn" }.also { register(it, WATT) }
+            energyOverdrawn = powerOverdrawn.registeredIntegral("energy_overdrawn", 0.0 * WATT_HOUR)
         }
     }
 }

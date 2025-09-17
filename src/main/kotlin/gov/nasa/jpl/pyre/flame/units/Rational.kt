@@ -29,6 +29,9 @@ class Rational private constructor(val numerator: Int, val denominator: Int) : C
         return 31 * numerator + denominator
     }
 
+    override fun toString(): String =
+        if (denominator == 1) numerator.toString() else "$numerator / $denominator"
+
     companion object {
         fun of(numerator: Int, denominator: Int = 1): Rational {
             // Special case: infinity immediately returns their normalized forms

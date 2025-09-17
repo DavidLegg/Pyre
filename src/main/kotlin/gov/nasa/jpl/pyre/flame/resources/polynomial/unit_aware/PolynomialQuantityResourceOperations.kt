@@ -155,7 +155,7 @@ object PolynomialQuantityResourceOperations {
             UnitAware(
                 valueIn(startingValue.unit / SECOND).integral(name, startingValue.valueIn(startingValue.unit)),
                 startingValue.unit
-            )
+            ) named { name }
         }
 
     context (scope: InitScope)
@@ -177,8 +177,8 @@ object PolynomialQuantityResourceOperations {
             startingValue.valueIn(unit))
         return ClampedQuantityIntegralResult(
             UnitAware(scalarResult.integral, unit, scalarResult.integral::toString),
-            UnitAware(scalarResult.overflow, unit, scalarResult.overflow::toString),
-            UnitAware(scalarResult.underflow, unit, scalarResult.underflow::toString))
+            UnitAware(scalarResult.overflow, unit / SECOND, scalarResult.overflow::toString),
+            UnitAware(scalarResult.underflow, unit / SECOND, scalarResult.underflow::toString))
     }
 
     data class ClampedQuantityIntegralResult(

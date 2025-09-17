@@ -11,13 +11,15 @@ class ResourceView:
     name: str
     kind: str
     discrete_values: List[str]
+    resolution: pd.Timedelta
 
     @classmethod
     def from_json_obj(cls, json_obj: dict) -> 'ResourceView':
         return ResourceView(
             json_obj['name'],
             json_obj.get('kind', 'discrete'),
-            json_obj.get('discrete_values', [])
+            json_obj.get('discrete_values', []),
+            pd.to_timedelta(json_obj.get('resolution', '1 hr')),
         )
 
 
@@ -97,11 +99,25 @@ def main(data: str, view: str, plan: Optional[str] = None):
             tick_to_label = {idx: label for label, idx in state_table.items()}
             ax.set_yticks(list(range(len(state_table))), [tick_to_label[i] for i in range(len(state_table))])
         elif resource_view.kind == 'polynomial':
-            # TODO: How to plot polynomials?
-            #   Perhaps an extra view parameter to give the number of sample points / sample period?
-            #   Or, perhaps there's some way to intelligently figure out sample period based on degree?
-            #   At a minimum, degree <= 1 implies only start and end are needed.
-            raise NotImplementedError('polynomial view')
+            end_time = resource_data.index[-1]
+            resource_data.dropna(inplace=True)
+            times = resource_data.index.to_series()
+            plot_data = []
+            plot_index = []
+            for coef_str, start, end in zip(resource_data, times, times.shift(-1).fillna(end_time)):
+                # Each point ends when a new polynomial point is available
+                coefs: List[float] = json.loads(coef_str)
+                if len(coefs) <= 2:
+                    # Linear segment - for performance, just add a start and end point
+                    b = 0.0 if len(coefs) < 1 else coefs[0]
+                    m = 0.0 if len(coefs) < 2 else coefs[1]
+                    plot_index += [start, end]
+                    plot_data += [b, m * (end - start).total_seconds() + b]
+                else:
+                    # TODO: Use resource_view.resolution to sample within the interval
+                    raise NotImplementedError("polynomials with degree >= 2")
+            plot_series = pd.Series(plot_data, index=plot_index)
+            plot_series.plot(ax=ax)
         elif resource_view.kind == 'span': # Alternatively, 'event' to show points, or 'activity' to specialize further?
             # TODO: How to plot activities?
             #   Perhaps add a y tick label for each activity type, akin to enum, then a horizontal blip for each span?
@@ -124,7 +140,7 @@ def read_data(csv_file: str, resources: Set[str]) -> pd.DataFrame:
             print(f'Detected data file is in events format')
         else:
             print(f"Warning! Assuming data file is in events format."
-                  f" Use suffix '.events.csv' to confirm this format, or '.timelines.csv' to indicate events format.")
+                  f" Use suffix '.events.csv' to confirm this format, or '.timelines.csv' to indicate timelines format.")
         # We can't down-select as we read events
         data = pd.read_csv(csv_file)
         print(f'Reformatting events as timelines')

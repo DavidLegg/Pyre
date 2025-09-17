@@ -3,6 +3,7 @@ package gov.nasa.jpl.pyre.flame.plans
 import gov.nasa.jpl.pyre.coals.Closeable
 import gov.nasa.jpl.pyre.coals.Closeable.Companion.asCloseable
 import gov.nasa.jpl.pyre.coals.Closeable.Companion.use
+import gov.nasa.jpl.pyre.coals.Serialization.decodeFromFile
 import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.toFile
 import gov.nasa.jpl.pyre.ember.ReportHandler
@@ -67,9 +68,7 @@ inline fun <reified M> runStandardPlanSimulation(
         { CsvReportHandler(it, jsonFormat).asCloseable() },
 ) {
     val setupPath = Path(setupFile).absolute()
-    val setup = setupPath.inputStream().use {
-        jsonFormat.decodeFromStream<StandardPlanSimulationSetup<M>>(it)
-    }
+    val setup = jsonFormat.decodeFromFile<StandardPlanSimulationSetup<M>>(setupPath)
     // Set up output to go to the output file if specified, or stdout if not.
     val println: (String) -> Unit
     val outputStream: OutputStream
@@ -87,9 +86,7 @@ inline fun <reified M> runStandardPlanSimulation(
 
     val planPath = setupPath.resolveSibling(setup.planFile)
     println("Reading plan $planPath")
-    val plan = planPath.inputStream().use {
-        jsonFormat.decodeFromStream<Plan<M>>(it)
-    }
+    val plan = jsonFormat.decodeFromFile<Plan<M>>(planPath)
     outputStream.use { out ->
         buildReportHandler(out).use { baseReportHandler ->
             runBlocking {

@@ -252,8 +252,23 @@ object PolynomialResourceOperations {
     )
 
     data class ClampedIntegralResult(
+        /**
+         * The clamped integral value
+         */
         val integral: PolynomialResource,
+        /**
+         * The rate of overflow.
+         *
+         * Positive only when the integral is clamping to the upper bound,
+         * otherwise zero.
+         */
         val overflow: PolynomialResource,
+        /**
+         * The rate of underflow.
+         *
+         * Positive only when the integral is clamping to the lower bound,
+         * otherwise zero.
+         */
         val underflow: PolynomialResource,
     )
 

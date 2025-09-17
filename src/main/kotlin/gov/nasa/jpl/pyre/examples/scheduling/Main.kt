@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.examples.scheduling
 
 import gov.nasa.jpl.pyre.coals.InvertibleFunction
+import gov.nasa.jpl.pyre.coals.Serialization.encodeToFile
 import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Serialization.alias
@@ -35,9 +36,9 @@ import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
 import gov.nasa.jpl.pyre.examples.scheduling.utils.SchedulingAlgorithms.scheduleActivityToEndNear
 import gov.nasa.jpl.pyre.examples.scheduling.utils.SchedulingSystem
 import gov.nasa.jpl.pyre.examples.units.KILOWATT_HOUR
-import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.activities
+import gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation
 import gov.nasa.jpl.pyre.flame.units.StandardUnits
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.DEGREE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.GIGABYTE
@@ -53,10 +54,15 @@ import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.contextual
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation
+import org.apache.commons.math3.geometry.euclidean.threed.Vector3D
 import kotlin.collections.forEach
-import kotlin.collections.listOf
+import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.Path
 import kotlin.io.path.absolute
+import kotlin.io.path.createDirectories
+import kotlin.io.path.deleteRecursively
+import kotlin.io.path.div
+import kotlin.io.path.exists
 import kotlin.io.path.inputStream
 import kotlin.time.Instant
 import kotlin.time.TimeSource
@@ -65,13 +71,89 @@ import kotlin.time.TimeSource
 // We'll use this to make our scheduling procedure highly efficient.
 private val GNC_TURN_MAX_DURATION = 45 * MINUTE
 
-@OptIn(ExperimentalSerializationApi::class)
+private val STANDARD_CONFIG = SystemModel.Config(
+    GeometryModel.Config(1 * HOUR),
+    GncModel.Config(1 * HOUR, 1 * MINUTE, 0.5 * DEGREE),
+    TelecomModel.Config(),
+    DataModel.Config(32.0 * GIGABYTE),
+    PowerModel.Config(300.0 * WATT, 2.2 * KILOWATT_HOUR),
+    ImagerModel.Config(1.2 * MEGABYTE / IMAGE, 15.0 * IMAGE / StandardUnits.MINUTE),
+)
+val JSON_FORMAT = Json {
+    serializersModule = SerializersModule {
+        // Instant serialization
+        contextual<Instant>(String.serializer().alias(InvertibleFunction.of(
+            Instant::parse,
+            Instant::toString,
+        )))
+        // Vector3D serialization
+        contextual(DoubleArraySerializer().alias(InvertibleFunction.of(
+            { Vector3D(it[0], it[1], it[2]) },
+            { doubleArrayOf(it.x, it.y, it.z) }
+        )))
+        // Rotation serialization
+        contextual(DoubleArraySerializer().alias(InvertibleFunction.of(
+            { Rotation(it[0], it[1], it[2], it[3], false) },
+            { doubleArrayOf(it.q0, it.q1, it.q2, it.q3) }
+        )))
+
+        activities<SystemModel> {
+            // System activities
+            // These are primarily "Adapter" or "glue" activities,
+            // which adapt a subsystem activity to the system level, or glue together subsystem views of an activity.
+            activity(GncActivity::class)
+            activity(TelecomActivity::class)
+            activity(ImagerActivity::class)
+
+            // Subsystem activities
+            // These are the "meaty" activities, which describe detailed interactions with a single subsystem.
+            subsystemActivities<GncModel> {
+                activity(GncSetAgility::class)
+                activity(GncSetSystemMode::class)
+                activity(GncTurn::class)
+            }
+
+            subsystemActivities<TelecomModel> {
+                activity(RadioPowerOff::class)
+                activity(RadioPowerOn::class)
+                activity(RadioSetDownlinkRate::class)
+                activity(TelecomPass::class)
+            }
+
+            subsystemActivities<ImagerModel> {
+                activity(ImagerPowerOn::class)
+                activity(ImagerPowerOff::class)
+                activity(ImagerDoObservation::class)
+            }
+        }
+    }
+}
+
 fun main(args: Array<String>) {
+    when (args[0].lowercase()) {
+        "simulate" -> simulationMain(args.sliceArray(1..<args.size))
+        "schedule" -> schedulingMain(args.sliceArray(1..<args.size))
+        else -> throw IllegalArgumentException("First argument must be a command: simulate, schedule")
+    }
+}
+
+fun simulationMain(args: Array<String>) {
+    runStandardPlanSimulation(
+        args[0],
+        { SystemModel(this, STANDARD_CONFIG) },
+        JSON_FORMAT,
+    )
+}
+
+@OptIn(ExperimentalSerializationApi::class, ExperimentalPathApi::class)
+fun schedulingMain(args: Array<String>) {
     val commScheduleFile = Path(args[0]).absolute()
     val scienceOpFile = Path(args[1]).absolute()
+    val outputDir = Path(args[2]).absolute()
     println("Scheduling input files:")
     println("  Comm Passes: $commScheduleFile")
     println("  Science Ops: $scienceOpFile")
+    println("  Output Dir:  $outputDir")
 
     val clock = TimeSource.Monotonic
     println("Begin scheduling procedure")
@@ -82,69 +164,18 @@ fun main(args: Array<String>) {
 
     val planStart = Instant.parse("2020-01-01T00:00:00Z")
     val planEnd = Instant.parse("2021-01-01T00:00:00Z")
-    val jsonFormat = Json {
-        serializersModule = SerializersModule {
-            // Instant serialization
-            contextual<Instant>(String.serializer().alias(InvertibleFunction.of(
-                Instant::parse,
-                Instant::toString,
-            )))
-            // Rotation serialization
-            contextual(DoubleArraySerializer().alias(InvertibleFunction.of(
-                { Rotation(it[0], it[1], it[2], it[3], false) },
-                { doubleArrayOf(it.q0, it.q1, it.q2, it.q3) }
-            )))
-
-            activities<SystemModel> {
-                // System activities
-                // These are primarily "Adapter" or "glue" activities,
-                // which adapt a subsystem activity to the system level, or glue together subsystem views of an activity.
-                activity(GncActivity::class)
-                activity(TelecomActivity::class)
-                activity(ImagerActivity::class)
-
-                // Subsystem activities
-                // These are the "meaty" activities, which describe detailed interactions with a single subsystem.
-                subsystemActivities<GncModel> {
-                    activity(GncSetAgility::class)
-                    activity(GncSetSystemMode::class)
-                    activity(GncTurn::class)
-                }
-
-                subsystemActivities<TelecomModel> {
-                    activity(RadioPowerOff::class)
-                    activity(RadioPowerOn::class)
-                    activity(RadioSetDownlinkRate::class)
-                    activity(TelecomPass::class)
-                }
-
-                subsystemActivities<ImagerModel> {
-                    activity(ImagerPowerOn::class)
-                    activity(ImagerPowerOff::class)
-                    activity(ImagerDoObservation::class)
-                }
-            }
-        }
-    }
     val baseScheduler = SchedulingSystem.withoutIncon(
         planStart,
-        SystemModel.Config(
-            GeometryModel.Config(1 * HOUR),
-            GncModel.Config(1 * HOUR, 1 * MINUTE, 0.5 * DEGREE),
-            TelecomModel.Config(),
-            DataModel.Config(3.1 * GIGABYTE),
-            PowerModel.Config(300.0 * WATT, 2.2 * KILOWATT_HOUR),
-            ImagerModel.Config(12.0 * MEGABYTE / IMAGE, 15.0 * IMAGE / StandardUnits.MINUTE),
-        ),
+        STANDARD_CONFIG,
         ::SystemModel,
-        jsonFormat,
+        JSON_FORMAT,
     )
 
     val commPasses: List<CommPass> = commScheduleFile.inputStream()
-        .use { jsonFormat.decodeFromStream<List<CommPass>>(it) }
+        .use { JSON_FORMAT.decodeFromStream<List<CommPass>>(it) }
         .sortedBy { it.start }
     val scienceOps: List<ScienceOp> = scienceOpFile.inputStream()
-        .use { jsonFormat.decodeFromStream<List<ScienceOp>>(it) }
+        .use { JSON_FORMAT.decodeFromStream<List<ScienceOp>>(it) }
         .sortedBy { it.start }
 
     val setupEnd = clock.markNow()
@@ -235,6 +266,18 @@ fun main(args: Array<String>) {
     //    factoring in the time to do turns to the target.
 
     // TODO: Schedule layer 4 - required additional downlinks - as needed to prevent data overflow
+
+    println("Begin writing output")
+    val outputStart = clock.markNow()
+
+    val plan = layer2Scheduler.plan()
+
+    if (outputDir.exists()) outputDir.deleteRecursively()
+    outputDir.createDirectories()
+    JSON_FORMAT.encodeToFile(plan, outputDir / "plan.json")
+
+    val outputEnd = clock.markNow()
+    println("End writing output - ${outputEnd - outputStart}")
 
     val schedulingEnd = clock.markNow()
     println("End scheduling procedure - ${schedulingEnd - schedulingStart}")

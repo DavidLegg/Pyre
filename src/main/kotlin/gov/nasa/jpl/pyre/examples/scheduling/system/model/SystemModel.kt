@@ -1,5 +1,8 @@
 package gov.nasa.jpl.pyre.examples.scheduling.system.model
 
+import gov.nasa.jpl.pyre.ember.Duration.Companion.DAY
+import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
+import gov.nasa.jpl.pyre.ember.times
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.DataModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget
@@ -15,6 +18,8 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.equals
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.pyre.spark.tasks.Reactions.every
+import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
 
 class SystemModel(
     context: InitScope,
