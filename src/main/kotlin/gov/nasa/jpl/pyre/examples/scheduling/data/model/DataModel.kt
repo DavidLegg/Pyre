@@ -29,8 +29,8 @@ val BITS_PER_SECOND = Unit.derived("bps", BIT / SECOND)
  */
 class DataModel(
     context: InitScope,
-    config: Config,
-    inputs: Inputs,
+    val config: Config,
+    val inputs: Inputs,
 ) {
     data class Config(
         val dataCapacity: Quantity,

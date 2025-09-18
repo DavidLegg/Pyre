@@ -12,7 +12,6 @@ import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.Plan
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
 import gov.nasa.jpl.pyre.flame.plans.activities
-import gov.nasa.jpl.pyre.flame.plans.activity
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.flame.resources.caching.ResourceCaching.fileBackedResource
 import gov.nasa.jpl.pyre.flame.resources.caching.ResourceCachingTest.OriginalResourceModel.*

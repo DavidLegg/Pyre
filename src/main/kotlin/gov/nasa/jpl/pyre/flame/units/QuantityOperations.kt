@@ -75,6 +75,8 @@ object QuantityOperations {
         }
     }
 
+    fun abs(x: Quantity): Quantity = UnitAware(kotlin.math.abs(x.valueIn(x.unit)), x.unit)
+
     /**
      * Variation of [kotlin.math.sin] accepting a [Quantity] in units of Angle
      */
