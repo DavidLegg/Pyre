@@ -11,5 +11,4 @@ The currently developed layers, from most foundational to least, are:
 - [coals](coals/README.md) - Generic programming utilities applicable to any Kotlin project.
 - [ember](ember/README.md) - The lowest runnable layer, defining a minimal simulation.
 - [spark](spark/README.md) - An "ergonomics" layer, wrapping ember in user-friendly utilities deemed essential to the success of Pyre.
-
-[//]: # ("flame" would be the next layer, probably. This would be optional stuff that's nevertheless maintained by Pyre)
+- [flame](flame/README.md) - Advanced functionality, not essential but generally useful to at least some users of Pyre.
