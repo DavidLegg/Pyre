@@ -74,7 +74,7 @@ object ReportHandling {
     /**
      * Split channels out according to a hierarchical structure.
      *
-     * By default, channel names are split by backslash (/), the default delimiter used by [gov.nasa.jpl.pyre.flame.tasks.subContext].
+     * By default, channel names are split by backslash (/), the default delimiter used by [gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext].
      *
      * Use [HierarchicalReportingStructure.reportTo] and [HierarchicalReportingStructure.split] to construct the handler.
      */
