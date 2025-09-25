@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.examples.scheduling.utils
+package gov.nasa.jpl.pyre.flame.scheduling
 
 import gov.nasa.jpl.pyre.ember.Duration.Companion.EPSILON
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
@@ -20,6 +20,7 @@ import kotlin.time.Instant
  * A suite of useful scheduling algorithms, written as extensions on [SchedulingSystem].
  *
  * These encode more sophisticated scheduling patterns than simply placing an activity at a certain start time.
+ * Many of these make extensive use of [SchedulingSystem.copy] to perform backtracking search.
  */
 object SchedulingAlgorithms {
     private val END_TIME_SOLVER = BracketingNthOrderBrentSolver(

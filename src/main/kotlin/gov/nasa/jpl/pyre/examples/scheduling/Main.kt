@@ -4,7 +4,6 @@ import gov.nasa.jpl.pyre.coals.InvertibleFunction
 import gov.nasa.jpl.pyre.coals.Serialization.encodeToFile
 import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.ember.times
 import gov.nasa.jpl.pyre.ember.toKotlinDuration
@@ -34,8 +33,8 @@ import gov.nasa.jpl.pyre.examples.scheduling.telecom.activities.RadioPowerOn
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.activities.RadioSetDownlinkRate
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.activities.TelecomPass
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
-import gov.nasa.jpl.pyre.examples.scheduling.utils.SchedulingAlgorithms.scheduleActivityToEndNear
-import gov.nasa.jpl.pyre.examples.scheduling.utils.SchedulingSystem
+import gov.nasa.jpl.pyre.flame.scheduling.SchedulingAlgorithms.scheduleActivityToEndNear
+import gov.nasa.jpl.pyre.flame.scheduling.SchedulingSystem
 import gov.nasa.jpl.pyre.examples.units.KILOWATT_HOUR
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.activities
@@ -47,12 +46,6 @@ import gov.nasa.jpl.pyre.flame.units.StandardUnits.MEGABYTE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.WATT
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.div
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.every
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.spawn
-import gov.nasa.jpl.pyre.spark.tasks.task
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.builtins.DoubleArraySerializer
 import kotlinx.serialization.builtins.serializer

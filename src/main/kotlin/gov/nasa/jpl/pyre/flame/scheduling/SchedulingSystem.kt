@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.examples.scheduling.utils
+package gov.nasa.jpl.pyre.flame.scheduling
 
 import gov.nasa.jpl.pyre.coals.andThen;
 import gov.nasa.jpl.pyre.ember.InconProvider
@@ -19,6 +19,24 @@ import kotlin.reflect.typeOf
 import kotlin.require
 import kotlin.time.Instant
 
+/**
+ * Provides foundational scheduling capabilities.
+ * Contains a nominal plan and an in-progress simulation.
+ *
+ * Activities may be added to the plan, and the simulation may be advanced in time.
+ * These operations may be freely interleaved, to support incremental approaches to activity planning.
+ * The current nominal plan and simulation results are available at all times.
+ *
+ * Additionally, provides [SchedulingSystem.copy] to duplicate the entire scheduling system.
+ * This includes building a functionally identical but independent simulation, which allows for backtracking.
+ * For example, it's common to advance the simulation to a time t1, make a copy, schedule an activity in that copy,
+ * and advance the copy to run that newly-scheduled activity.
+ * If that's unsatisfactory, we throw out the copy, make a new copy (which will be back at t1 again), and repeat.
+ *
+ * For more complex scheduling cases, see [SchedulingAlgorithms], which builds on the foundations provided here.
+ *
+ * @see SchedulingAlgorithms
+ */
 class SchedulingSystem<M, C> private constructor(
     startTime: Instant?,
     private val config: C,

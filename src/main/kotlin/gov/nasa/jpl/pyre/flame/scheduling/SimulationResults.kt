@@ -1,8 +1,9 @@
-package gov.nasa.jpl.pyre.examples.scheduling.utils
+package gov.nasa.jpl.pyre.flame.scheduling
 
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
+import kotlin.collections.iterator
 import kotlin.time.Instant
 
 data class SimulationResults(
