@@ -1,6 +1,10 @@
 {
   "resources": [
     {
+      "name": "activities",
+      "kind": "span"
+    },
+    {
       "name": "/gnc/is_settled",
       "kind": "enum"
     },

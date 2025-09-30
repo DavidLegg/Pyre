@@ -53,7 +53,8 @@ object SchedulingAlgorithms {
     fun <M, C> SchedulingSystem<M, C>.scheduleActivityToEndNear(
         activity: Activity<M>,
         endTime: Instant,
-        earliestStart: Instant = time()
+        earliestStart: Instant = time(),
+        name: String = requireNotNull(activity::class.simpleName),
     ) {
         // If the earliest start is later than now, save computation by copying the scheduler
         // and advancing the copy to the earliest start.
@@ -64,7 +65,7 @@ object SchedulingAlgorithms {
             // Compute the start time as an offset from now:
             val tInstant = now + (tDouble roundTimes SECOND).toKotlinDuration()
             // Copy this scheduler and run the activity at that start time
-            val tEnd = testScheduler.copy().runUntil(GroundedActivity(tInstant, activity))
+            val tEnd = testScheduler.copy().runUntil(GroundedActivity(tInstant, activity, name=name))
             // Return the error in end time, also in seconds.
             // Using seconds as the input and output unit ensures slopes near 1.0, for a well-conditioned root-finding problem.
             (tEnd - endTime).toDouble(DurationUnit.SECONDS)
@@ -83,7 +84,7 @@ object SchedulingAlgorithms {
                 AllowedSolution.BELOW_SIDE,
             )
             // Having selected our start time as a double, add the activity to this at that time:
-            this += GroundedActivity(now + (selectedStartDouble roundTimes SECOND).toKotlinDuration(), activity)
+            this += GroundedActivity(now + (selectedStartDouble roundTimes SECOND).toKotlinDuration(), activity, name=name)
             return
         } catch (e: NoBracketingException) {
             exc = e

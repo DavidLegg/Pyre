@@ -1,4 +1,4 @@
 {
   "plan": "output/plan.json",
-  "output": "output/simulation-output.csv"
+  "output": "output/simulation-output.events.csv"
 }

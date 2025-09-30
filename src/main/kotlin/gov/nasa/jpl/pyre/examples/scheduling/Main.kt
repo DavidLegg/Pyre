@@ -199,7 +199,8 @@ fun schedulingMain(args: Array<String>) {
             TelecomActivity(TelecomPass(
                 (it.end - it.start).toPyreDuration(),
                 it.downlinkRate,
-            ))
+            )),
+            name = TelecomPass::class.simpleName!!,
         )
     }
 
@@ -208,7 +209,8 @@ fun schedulingMain(args: Array<String>) {
             it.start,
             ImagerActivity(ImagerDoObservation(
                 (it.end - it.start).toPyreDuration(),
-            ))
+            )),
+            name = ImagerDoObservation::class.simpleName!!,
         )
     }
 
@@ -247,7 +249,7 @@ fun schedulingMain(args: Array<String>) {
     for ((turn, turnEnd) in criticalTurns) {
         println("  Scheduling turn to ${turn.primaryPointingTarget} ending at $turnEnd")
         layer2Scheduler.runUntil(turnEnd - GNC_TURN_MAX_DURATION.toKotlinDuration())
-        layer2Scheduler.scheduleActivityToEndNear(GncActivity(turn), turnEnd)
+        layer2Scheduler.scheduleActivityToEndNear(GncActivity(turn), turnEnd, name="Turn to ${turn.primaryPointingTarget}")
     }
 
     // Note:
@@ -262,10 +264,8 @@ fun schedulingMain(args: Array<String>) {
     val layer2End = clock.markNow()
     println("End layer 2 - ${layer2End - layer2Start}")
 
-    // TODO: Schedule layer 3 - opportunistic science - time permitting, schedule all the observations you can,
-    //    factoring in the time to do turns to the target.
-
-    // TODO: Schedule layer 4 - required additional downlinks - as needed to prevent data overflow
+    // TODO: Schedule layer 3 - opportunistic science and downlink - time and data permitting, schedule all the observations you can,
+    //    factoring in the time to do turns to the target and our options to downlink the data.
 
     println("Begin writing output")
     val outputStart = clock.markNow()

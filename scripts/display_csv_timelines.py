@@ -119,9 +119,24 @@ def main(data: str, view: str, plan: Optional[str] = None):
             plot_series = pd.Series(plot_data, index=plot_index)
             plot_series.plot(ax=ax)
         elif resource_view.kind == 'span': # Alternatively, 'event' to show points, or 'activity' to specialize further?
-            # TODO: How to plot activities?
-            #   Perhaps add a y tick label for each activity type, akin to enum, then a horizontal blip for each span?
-            raise NotImplementedError('span view')
+            resource_data = resource_data.dropna().apply(json.loads)
+            end_events = resource_data[resource_data.apply(lambda x: 'end' in x)]
+            spans = pd.DataFrame(list(end_events), columns=['name', 'type', 'start', 'end'])
+            spans.start = pd.to_datetime(spans.start)
+            spans.end = pd.to_datetime(spans.end)
+            spans.sort_values('start', inplace=True)
+            active_spans = []
+            for _, span in spans.iterrows():
+                active_spans = [(t, i) for t, i in active_spans if t >= span.end]
+                active_indices = {i for _, i in active_spans}
+                y = -min(i for i in range(len(active_spans) + 1) if i not in active_indices)
+                pd.Series([y, y], index=[span.start, span.end]).plot(ax=ax)
+                ax.annotate(
+                    span['name'], # Not the series name, the field called "name"
+                    xy=(span.start, y), xycoords='data',
+                )
+                active_spans.append((span.end, -y))
+            ax.get_yaxis().set_ticks([])
         else:
             raise ValueError(f"'{resource_view.kind}' is not a recognized resource kind. Use 'continuous' or 'discrete'")
     plt.show()
