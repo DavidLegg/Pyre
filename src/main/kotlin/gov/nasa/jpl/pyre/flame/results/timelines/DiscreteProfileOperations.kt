@@ -8,13 +8,9 @@ import gov.nasa.jpl.pyre.flame.results.timelines.BooleanProfileOperations.not
 import gov.nasa.jpl.pyre.flame.results.timelines.BooleanProfileOperations.or
 import gov.nasa.jpl.pyre.flame.results.timelines.DiscreteProfile.DiscreteProfileMonad.map
 import gov.nasa.jpl.pyre.flame.results.timelines.DiscreteProfile.DiscreteProfileMonad.pure
-import gov.nasa.jpl.pyre.flame.results.timelines.SetProfileOperations.empty
-import gov.nasa.jpl.pyre.flame.results.timelines.SetProfileOperations.singleton
-import gov.nasa.jpl.pyre.flame.results.timelines.SetProfileOperations.union
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
 import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
-import kotlin.reflect.KClass
-import kotlin.time.Instant
+import java.util.TreeMap
 
 object DiscreteProfileOperations {
     fun <T> constant(value: T): DiscreteProfile<T> = pure(value)
@@ -27,11 +23,14 @@ object DiscreteProfileOperations {
         val initialValue = requireNotNull(values.firstEntry()) {
             "No data reported"
         }.value
-        return DiscreteProfile(initialValue, values)
+        return DiscreteProfile(initialValue, TreeMap(values))
     }
 
     fun <T> SimulationResults.discreteProfile(name: String): DiscreteProfile<T> =
         resources.getValue(name).toDiscreteProfile()
+
+    fun SimulationResults.running(activity: Activity<*>): BooleanProfile =
+        activities[activity]?.let { interval(it.start, it.end) } ?: constant(false)
 
     fun SimulationResults.running(predicate: (ActivityEvent) -> Boolean): BooleanProfile = activities.values
         .filter(predicate)

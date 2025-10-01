@@ -17,7 +17,8 @@ object SetProfileOperations {
 
     fun <T> singleton(value: T, start: Instant, end: Instant) = DiscreteProfile(
         emptySet(),
-        sortedMapOf(start to setOf(value), end to emptySet()))
+        start to setOf(value),
+        end to emptySet())
 
     infix fun <T> SetProfile<T>.union(other: SetProfile<T>): SetProfile<T> =
         map(this, other) { s, t -> s union t }

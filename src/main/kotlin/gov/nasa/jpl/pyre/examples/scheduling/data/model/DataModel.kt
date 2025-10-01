@@ -91,10 +91,13 @@ class DataModel(
         with (context) {
             netDataRate = (inputs.dataRate - inputs.downlinkDataRate)
                 .named { "net_data_rate" }.also { register(it, BITS_PER_SECOND) }
+            val dataCapacity = constant(config.dataCapacity)
+                .named { "data_capacity" }
+                .also { register(it, GIGABYTE) }
             val storageIntegral = netDataRate.asPolynomial().clampedIntegral(
                 "stored_data",
                 constant(0.0 * BYTE),
-                constant(config.dataCapacity),
+                dataCapacity,
                 0.0 * MEGABYTE,
             )
             storedData = storageIntegral.integral.also { register(it, GIGABYTE) }

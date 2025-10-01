@@ -13,4 +13,11 @@ object DoubleProfileOperations {
         map(this, other) { x, y -> x < y }
     infix fun DoubleProfile.lessThanOrEquals(other: DoubleProfile): BooleanProfile =
         map(this, other) { x, y -> x <= y }
+
+    operator fun DoubleProfile.unaryPlus(): DoubleProfile = map(this) { +it }
+    operator fun DoubleProfile.unaryMinus(): DoubleProfile = map(this) { -it }
+    operator fun DoubleProfile.plus(other: DoubleProfile): DoubleProfile = map(this, other) { x, y -> x + y }
+    operator fun DoubleProfile.minus(other: DoubleProfile): DoubleProfile = map(this, other) { x, y -> x - y }
+    operator fun DoubleProfile.times(other: DoubleProfile): DoubleProfile = map(this, other) { x, y -> x * y }
+    operator fun DoubleProfile.div(other: DoubleProfile): DoubleProfile = map(this, other) { x, y -> x / y }
 }
