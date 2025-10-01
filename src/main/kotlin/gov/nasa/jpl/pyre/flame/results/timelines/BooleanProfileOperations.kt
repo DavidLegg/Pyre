@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.flame.results.timelines
 
 import gov.nasa.jpl.pyre.flame.results.timelines.DiscreteProfile.DiscreteProfileMonad.map
+import java.util.TreeMap
 import kotlin.time.Instant
 
 typealias BooleanProfile = DiscreteProfile<Boolean>
@@ -8,8 +9,8 @@ typealias BooleanProfile = DiscreteProfile<Boolean>
 object BooleanProfileOperations {
     fun interval(start: Instant, end: Instant?): BooleanProfile = DiscreteProfile(
         false,
-        if (end == null) sortedMapOf(start to true)
-        else sortedMapOf(start to true, end to false))
+        if (end == null) TreeMap(sortedMapOf(start to true))
+            else TreeMap(sortedMapOf(start to true, end to false)))
 
     infix fun BooleanProfile.and(other: BooleanProfile): BooleanProfile = map(this, other, Boolean::and)
     infix fun BooleanProfile.or(other: BooleanProfile): BooleanProfile = map(this, other, Boolean::or)
@@ -29,6 +30,12 @@ object BooleanProfileOperations {
     fun BooleanProfile.never(): Boolean = !initialValue && values.values.all { !it }
     fun BooleanProfile.sometimes(): Boolean = !never()
     fun BooleanProfile.sometimesNot(): Boolean = !always()
+
+    /**
+     * True if this profile is true whenever mask is true.
+     * Value of this profile does not matter when mask is false.
+     */
+    fun BooleanProfile.covers(mask: BooleanProfile): Boolean = (mask and not(this)).never()
 
     /**
      * Return the time ranges when this profile is true

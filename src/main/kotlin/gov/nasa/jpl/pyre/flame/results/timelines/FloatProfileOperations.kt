@@ -14,5 +14,12 @@ object FloatProfileOperations {
     infix fun FloatProfile.lessThanOrEquals(other: FloatProfile): BooleanProfile =
         map(this, other) { x, y -> x <= y }
 
+    operator fun FloatProfile.unaryPlus(): FloatProfile = map(this) { +it }
+    operator fun FloatProfile.unaryMinus(): FloatProfile = map(this) { -it }
+    operator fun FloatProfile.plus(other: FloatProfile): FloatProfile = map(this, other) { x, y -> x + y }
+    operator fun FloatProfile.minus(other: FloatProfile): FloatProfile = map(this, other) { x, y -> x - y }
+    operator fun FloatProfile.times(other: FloatProfile): FloatProfile = map(this, other) { x, y -> x * y }
+    operator fun FloatProfile.div(other: FloatProfile): FloatProfile = map(this, other) { x, y -> x / y }
+
     fun FloatProfile.toDouble(): DoubleProfile = map(this, Float::toDouble)
 }

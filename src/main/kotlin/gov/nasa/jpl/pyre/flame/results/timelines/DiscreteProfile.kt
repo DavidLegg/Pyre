@@ -1,13 +1,18 @@
 package gov.nasa.jpl.pyre.flame.results.timelines
 
 import gov.nasa.jpl.pyre.coals.curry
-import java.util.SortedMap
+import java.util.NavigableMap
+import java.util.TreeMap
 import kotlin.time.Instant
 
 class DiscreteProfile<T>(
     val initialValue: T,
-    val values: SortedMap<Instant, T>,
+    val values: NavigableMap<Instant, T>,
 ) {
+    constructor(initialValue: T, vararg values: Pair<Instant, T>) : this(initialValue, TreeMap(sortedMapOf(*values)))
+
+    fun at(time: Instant): T = values.floorEntry(time)?.value ?: initialValue
+
     override fun toString(): String = "DiscreteProfile(\n  ${" ".repeat(20)} - $initialValue,${
         values.map { (t, v) -> "\n  $t - $v" }.joinToString(",")
     }\n)"
@@ -16,13 +21,13 @@ class DiscreteProfile<T>(
      * Discrete timelines form a monad, which lets us express a wide variety of operations on them.
      */
     companion object DiscreteProfileMonad {
-        fun <A> pure(a: A) = DiscreteProfile(a, sortedMapOf())
+        fun <A> pure(a: A) = DiscreteProfile(a, TreeMap())
         fun <A, B> apply(a: DiscreteProfile<A>, f: DiscreteProfile<(A) -> B>): DiscreteProfile<B> {
             var a0 = a.initialValue
             var f0 = f.initialValue
             val initialB = f0(a0)
             var b0 = initialB
-            val resultValues = mutableMapOf<Instant, B>()
+            val resultValues = TreeMap<Instant, B>()
             fun update(t: Instant, b: B) {
                 if (b != b0) resultValues[t] = b
                 b0 = b
@@ -49,10 +54,10 @@ class DiscreteProfile<T>(
                 update(t, f0(a0))
             }
 
-            return DiscreteProfile(initialB, resultValues.toSortedMap())
+            return DiscreteProfile(initialB, resultValues)
         }
         fun <A> join(a: DiscreteProfile<DiscreteProfile<A>>): DiscreteProfile<A> {
-            val resultValues = mutableMapOf<Instant, A>()
+            val resultValues = TreeMap<Instant, A>()
             val futureMetaSegments = a.values.entries.toMutableList()
             fun nextMetaSegmentStart() = futureMetaSegments.firstOrNull()?.key ?: Instant.DISTANT_FUTURE
             fun addSegment(segment: DiscreteProfile<A>) = segment.values.entries
@@ -62,7 +67,7 @@ class DiscreteProfile<T>(
             while (futureMetaSegments.isNotEmpty()) {
                         addSegment(futureMetaSegments.removeFirst().value)
                     }
-            return DiscreteProfile(a.initialValue.initialValue, resultValues.toSortedMap())
+            return DiscreteProfile(a.initialValue.initialValue, resultValues)
         }
         fun <A, B> map(a: DiscreteProfile<A>, f: (A) -> B) = apply(a, pure(f))
         // Auxiliary methods - These are defined only in terms of pure/apply/join above, and can be copied from Monad to Monad
