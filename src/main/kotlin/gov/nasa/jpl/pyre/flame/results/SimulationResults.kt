@@ -1,7 +1,7 @@
-package gov.nasa.jpl.pyre.flame.scheduling
+package gov.nasa.jpl.pyre.flame.results
 
 import gov.nasa.jpl.pyre.flame.plans.Activity
-import gov.nasa.jpl.pyre.flame.plans.ActivityActions.ActivityEvent
+import gov.nasa.jpl.pyre.flame.plans.ActivityActions
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
 import kotlin.collections.iterator
 import kotlin.time.Instant
@@ -10,7 +10,7 @@ data class SimulationResults(
     val startTime: Instant,
     val endTime: Instant,
     val resources: Map<String, List<ChannelizedReport<*>>>,
-    val activities: Map<Activity<*>, ActivityEvent>,
+    val activities: Map<Activity<*>, ActivityActions.ActivityEvent>,
 ) {
     fun restrict(newStartTime: Instant = startTime, newEndTime: Instant = endTime): SimulationResults {
         val newResources = resources.mapValues {  (_, events) ->
@@ -35,7 +35,7 @@ data class SimulationResults(
         val newStartTime = minOf(startTime, other.startTime)
         val newEndTime = maxOf(endTime, other.endTime)
         val newResources: MutableMap<String, MutableList<ChannelizedReport<*>>> = mutableMapOf()
-        val newActivities: MutableMap<Activity<*>, ActivityEvent> = mutableMapOf()
+        val newActivities: MutableMap<Activity<*>, ActivityActions.ActivityEvent> = mutableMapOf()
 
         fun collect(resources: Map<String, List<ChannelizedReport<*>>>) {
             for ((resourceName, events) in resources) {
