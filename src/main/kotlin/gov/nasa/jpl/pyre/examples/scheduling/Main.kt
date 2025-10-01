@@ -39,6 +39,10 @@ import gov.nasa.jpl.pyre.examples.units.KILOWATT_HOUR
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.activities
 import gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation
+import gov.nasa.jpl.pyre.flame.results.timelines.BooleanProfileOperations.and
+import gov.nasa.jpl.pyre.flame.results.timelines.BooleanProfileOperations.sometimes
+import gov.nasa.jpl.pyre.flame.results.timelines.BooleanProfileOperations.windows
+import gov.nasa.jpl.pyre.flame.results.timelines.DiscreteProfileOperations.running
 import gov.nasa.jpl.pyre.flame.units.StandardUnits
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.DEGREE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.GIGABYTE
@@ -263,6 +267,32 @@ fun schedulingMain(args: Array<String>) {
 
     val layer2End = clock.markNow()
     println("End layer 2 - ${layer2End - layer2Start}")
+
+    val results = layer2Scheduler.results()
+    val turning = results.running { (it.activity as? GncActivity)?.subsystemActivity is GncTurn }
+    val observing = results.running { (it.activity as? ImagerActivity)?.subsystemActivity is ImagerDoObservation }
+    val communicating = results.running { (it.activity as? TelecomActivity)?.subsystemActivity is TelecomPass }
+
+    if ((observing and communicating).sometimes()) {
+        println("Warning! Critical observation(s) and critical comm pass(es) overlap!")
+        for (window in (observing and communicating).windows()) {
+            println("  ${window.start} - ${window.endExclusive}")
+        }
+    }
+
+    if ((turning and observing).sometimes()) {
+        println("Warning! Critical turn(s) and critical observation(s) overlap!")
+        for (window in (turning and observing).windows()) {
+            println("  ${window.start} - ${window.endExclusive}")
+        }
+    }
+
+    if ((turning and communicating).sometimes()) {
+        println("Warning! Critical turn(s) and critical comm pass(es) overlap!")
+        for (window in (turning and communicating).windows()) {
+            println("  ${window.start} - ${window.endExclusive}")
+        }
+    }
 
     // TODO: Schedule layer 3 - opportunistic science and downlink - time and data permitting, schedule all the observations you can,
     //    factoring in the time to do turns to the target and our options to downlink the data.
