@@ -97,7 +97,7 @@ interface TaskScope : ResourceScope {
     }
 }
 
-interface InitScope : SparkScope, BasicInitScope {
+interface InitScope : SparkScope, BasicInitScope, ResourceScope {
     /**
      * Run block whenever the simulation starts.
      *
@@ -115,6 +115,9 @@ interface InitScope : SparkScope, BasicInitScope {
      * as well as report the state of all resources, which may have changed due to that manual fincon adjustment.
      */
     fun onStartup(name: String, block: suspend context (TaskScope) () -> Unit)
+
+    override suspend fun <V, E> read(cell: CellSet.CellHandle<V, E>): V =
+        (this as BasicInitScope).read(cell)
 
     companion object {
         context (scope: InitScope)

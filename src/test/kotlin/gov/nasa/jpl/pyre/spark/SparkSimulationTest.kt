@@ -50,27 +50,30 @@ class SparkSimulationTest {
         endTime: Duration,
         incon: JsonElement? = null,
         takeFincon: Boolean = false,
-        initialize: context (InitScope) () -> Unit,
+        initialize: suspend context (InitScope) () -> Unit,
     ): SimulationResult {
         assertDoesNotThrow {
             // Build a simulation that'll write reports to memory
             val reports = mutableListOf<JsonElement>()
+            context (scope: BasicInitScope)
+            suspend fun fullInit() {
+                with(object : InitScope, BasicInitScope by scope {
+                    override val simulationClock = resource("simulation_clock", Timer(ZERO, 1))
+                    override val simulationEpoch = Instant.parse("2000-01-01T00:00:00Z")
+                    override fun toString() = ""
+                    override fun onStartup(name: String, block: suspend context(TaskScope) () -> Unit) =
+                        throw NotImplementedError()
+                }) {
+                    initialize()
+                }
+            }
+
             val simulation = SimpleSimulation(SimulationSetup(
                 reportHandler = { value, type ->
                     reports.add(Json.encodeToJsonElement(Json.serializersModule.serializer(type), value))
                 },
                 inconProvider = incon?.let { Json.decodeJsonConditionsFromJsonElement(it) },
-                initialize = context (scope: BasicInitScope) fun() {
-                    with(object : InitScope, BasicInitScope by scope {
-                        override val simulationClock = resource("simulation_clock", Timer(ZERO, 1))
-                        override val simulationEpoch = Instant.parse("2000-01-01T00:00:00Z")
-                        override fun toString() = ""
-                        override fun onStartup(name: String, block: suspend context(TaskScope) () -> Unit) =
-                            throw NotImplementedError()
-                    }) {
-                        initialize()
-                    }
-                },
+                initialize = { fullInit() },
             ))
             // Run the simulation to the end
             simulation.runUntil(endTime)
@@ -136,6 +139,35 @@ class SparkSimulationTest {
                 element { assertEquals("Done", string()) }
                 assert(atEnd())
             }
+        }
+    }
+
+    @Test
+    fun primitive_discrete_resources_can_be_read_during_init() {
+        runSimulation(HOUR) {
+            val intR: MutableResource<Discrete<Int>> = discreteResource("intR", 0)
+            val longR: MutableResource<Discrete<Long>> = discreteResource("longR", 1L)
+            val boolR: MutableResource<Discrete<Boolean>> = discreteResource("boolR", false)
+            val stringR: MutableResource<Discrete<String>> = discreteResource("stringR", "string value")
+            val doubleR: MutableResource<Discrete<Double>> = discreteResource("doubleR", 2.0)
+            val floatR: MutableResource<Discrete<Float>> = discreteResource("floatR", 3.0f)
+            val enumR: MutableResource<Discrete<PowerState>> = discreteResource("enumR", PowerState.OFF)
+
+            val i: Int = intR.getValue()
+            val l: Long = longR.getValue()
+            val b: Boolean = boolR.getValue()
+            val s: String = stringR.getValue()
+            val d: Double = doubleR.getValue()
+            val f: Float = floatR.getValue()
+            val e: PowerState = enumR.getValue()
+
+            assertEquals(0, i)
+            assertEquals(1L, l)
+            assertEquals(false, b)
+            assertEquals("string value", s)
+            assertEquals(2.0, d)
+            assertEquals(3.0f, f)
+            assertEquals(PowerState.OFF, e)
         }
     }
 

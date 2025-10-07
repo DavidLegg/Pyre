@@ -8,6 +8,7 @@ import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.allocate
+import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.read
 import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.decodeJsonConditionsFromJsonElement
 import gov.nasa.jpl.pyre.ember.Task.PureStepResult.*
@@ -141,6 +142,14 @@ class SimulationTest {
             }
         }
         assertEquals(mutableListOf(JsonPrimitive("x = 42")), results.reports)
+    }
+
+    @Test
+    fun task_can_read_cell_during_init() {
+        runSimulation(HOUR) {
+            val x = allocate(intCounterCell("x", 42))
+            assertEquals(42, read(x))
+        }
     }
 
     @Test

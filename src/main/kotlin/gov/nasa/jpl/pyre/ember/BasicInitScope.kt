@@ -7,6 +7,7 @@ package gov.nasa.jpl.pyre.ember
 interface BasicInitScope {
     fun <T: Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E>
     fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>)
+    fun <T, E> read(cell: CellSet.CellHandle<T, E>): T
 
     companion object {
         context (scope: BasicInitScope)
@@ -14,5 +15,8 @@ interface BasicInitScope {
 
         context (scope: BasicInitScope)
         fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) = scope.spawn(name, step)
+
+        context (scope: BasicInitScope)
+        fun <T, E> read(cell: CellSet.CellHandle<T, E>): T = scope.read(cell)
     }
 }
