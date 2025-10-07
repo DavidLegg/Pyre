@@ -68,7 +68,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
     fun initScope() = object : BasicInitScope {
         override fun <T: Any, E> allocate(cell: Cell<T, E>) = cells.allocate(cell)
         override fun <T> spawn(name: String, step: () -> PureStepResult<T>) = addTask(name, step)
-        override fun <T : Any, E> read(cellHandle: CellHandle<T, E>): T = cells[cellHandle].value
+        override fun <T, E> read(cell: CellHandle<T, E>): T = cells[cell].value
     }
 
     fun time() = time

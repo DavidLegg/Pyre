@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
+import kotlinx.coroutines.runBlocking
 
 /**
  * The minimal type of simulation, in which the entire simulation is set up "at the start".
@@ -11,7 +12,7 @@ class SimpleSimulation(setup: SimulationSetup) {
         val reportHandler: ReportHandler,
         val inconProvider: InconProvider?,
         val startingTime: Duration = ZERO,
-        val initialize: context (BasicInitScope) () -> Unit,
+        val initialize: suspend context (BasicInitScope) () -> Unit,
     )
 
     private val state: SimulationState
@@ -20,7 +21,8 @@ class SimpleSimulation(setup: SimulationSetup) {
         with (setup) {
             state = SimulationState(reportHandler)
             // Initialize the model, which gives us cells and tasks
-            initialize(state.initScope())
+            // We'll just "runBlocking" this, because we know that we won't actually block during initialization.
+            runBlocking { initialize(state.initScope()) }
             // Restore the model if we have an incon
             inconProvider?.let(state::restore)
         }

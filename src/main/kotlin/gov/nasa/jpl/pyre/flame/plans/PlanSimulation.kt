@@ -4,7 +4,6 @@ import gov.nasa.jpl.pyre.coals.Reflection.withArg
 import gov.nasa.jpl.pyre.ember.Cell
 import gov.nasa.jpl.pyre.ember.CellSet
 import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.ember.FinconCollector
 import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.within
@@ -33,6 +32,7 @@ import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.spark.tasks.SparkScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.task
+import kotlinx.coroutines.runBlocking
 import kotlin.reflect.KType
 import kotlin.reflect.full.withNullability
 import kotlin.reflect.typeOf
@@ -63,7 +63,7 @@ class PlanSimulation<M> {
         simulationEpoch: Instant?,
         simulationStart: Duration?,
         inconProvider: InconProvider?,
-        constructModel: context (InitScope) () -> M,
+        constructModel: suspend context (InitScope) () -> M,
         modelClass: KType,
     ) {
         val simulationEpoch = requireNotNull(simulationEpoch ?: inconProvider?.within("simulation", "epoch")?.provide<Instant>())
@@ -78,8 +78,8 @@ class PlanSimulation<M> {
             override fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) =
                 initContext.spawn("/$name", step)
 
-            override fun <T : Any, E> read(cellHandle: CellSet.CellHandle<T, E>): T =
-                initContext.read(cellHandle)
+            override fun <T, E> read(cell: CellSet.CellHandle<T, E>): T =
+                initContext.read(cell)
 
             override fun onStartup(name: String, block: suspend TaskScope.() -> Unit) {
                 startupTasks += name to block
@@ -91,7 +91,8 @@ class PlanSimulation<M> {
         }
         with (sparkScope) {
             // Construct the model itself
-            val model = constructModel()
+            // Just "runBlocking" this, because we know the init shouldn't actually block
+            val model = runBlocking { constructModel() }
 
             // Construct the activity daemon
             // This reaction loop will build an activity whenever the directive resource is loaded.
@@ -133,7 +134,7 @@ class PlanSimulation<M> {
         inline fun <reified M> withIncon(
             noinline reportHandler: ReportHandler,
             inconProvider: InconProvider,
-            noinline constructModel: InitScope.() -> M,
+            noinline constructModel: suspend InitScope.() -> M,
         ) = withIncon(
             reportHandler,
             inconProvider,
@@ -144,7 +145,7 @@ class PlanSimulation<M> {
         fun <M> withIncon(
             reportHandler: ReportHandler,
             inconProvider: InconProvider,
-            constructModel: InitScope.() -> M,
+            constructModel: suspend InitScope.() -> M,
             modelClass: KType,
         ) = PlanSimulation(
             reportHandler = reportHandler,
@@ -159,7 +160,7 @@ class PlanSimulation<M> {
             noinline reportHandler: ReportHandler,
             simulationEpoch: Instant,
             simulationStart: Instant,
-            noinline constructModel: InitScope.() -> M,
+            noinline constructModel: suspend InitScope.() -> M,
         ) = withoutIncon(
             reportHandler,
             simulationEpoch,
@@ -172,7 +173,7 @@ class PlanSimulation<M> {
             reportHandler: ReportHandler,
             simulationEpoch: Instant,
             simulationStart: Instant,
-            constructModel: InitScope.() -> M,
+            constructModel: suspend InitScope.() -> M,
             modelClass: KType,
         ) = PlanSimulation(
             reportHandler = reportHandler,
