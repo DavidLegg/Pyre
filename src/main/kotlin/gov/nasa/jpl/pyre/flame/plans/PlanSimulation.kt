@@ -78,6 +78,9 @@ class PlanSimulation<M> {
             override fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) =
                 initContext.spawn("/$name", step)
 
+            override fun <T : Any, E> read(cellHandle: CellSet.CellHandle<T, E>): T =
+                initContext.read(cellHandle)
+
             override fun onStartup(name: String, block: suspend TaskScope.() -> Unit) {
                 startupTasks += name to block
             }
