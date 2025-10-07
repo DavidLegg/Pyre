@@ -1,11 +1,11 @@
-package gov.nasa.jpl.pyre.flame.results.timelines
+package gov.nasa.jpl.pyre.flame.results.profiles.discrete
 
 import gov.nasa.jpl.pyre.coals.curry
 import java.util.NavigableMap
 import java.util.TreeMap
 import kotlin.time.Instant
 
-class DiscreteProfile<T>(
+class DiscreteProfile__deprecated<T>(
     val initialValue: T,
     val values: NavigableMap<Instant, T>,
 ) {

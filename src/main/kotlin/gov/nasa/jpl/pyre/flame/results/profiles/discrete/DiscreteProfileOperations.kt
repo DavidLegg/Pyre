@@ -1,13 +1,14 @@
-package gov.nasa.jpl.pyre.flame.results.timelines
+package gov.nasa.jpl.pyre.flame.results.profiles.discrete
 
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.flame.results.SimulationResults
-import gov.nasa.jpl.pyre.flame.results.timelines.BooleanProfileOperations.interval
-import gov.nasa.jpl.pyre.flame.results.timelines.BooleanProfileOperations.not
-import gov.nasa.jpl.pyre.flame.results.timelines.BooleanProfileOperations.or
-import gov.nasa.jpl.pyre.flame.results.timelines.DiscreteProfile.DiscreteProfileMonad.map
-import gov.nasa.jpl.pyre.flame.results.timelines.DiscreteProfile.DiscreteProfileMonad.pure
+import gov.nasa.jpl.pyre.flame.results.profiles.Profile
+import gov.nasa.jpl.pyre.flame.results.profiles.discrete.BooleanProfileOperations.interval
+import gov.nasa.jpl.pyre.flame.results.profiles.discrete.BooleanProfileOperations.not
+import gov.nasa.jpl.pyre.flame.results.profiles.discrete.BooleanProfileOperations.or
+import gov.nasa.jpl.pyre.flame.results.profiles.discrete.DiscreteProfile.DiscreteProfileMonad.map
+import gov.nasa.jpl.pyre.flame.results.profiles.discrete.DiscreteProfile.DiscreteProfileMonad.pure
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
 import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 import java.util.TreeMap

@@ -1,7 +1,7 @@
-package gov.nasa.jpl.pyre.flame.results.timelines
+package gov.nasa.jpl.pyre.flame.results.profiles.discrete
 
-import gov.nasa.jpl.pyre.flame.results.timelines.DiscreteProfile.DiscreteProfileMonad.map
-import gov.nasa.jpl.pyre.flame.results.timelines.DiscreteProfileOperations.constant
+import gov.nasa.jpl.pyre.flame.results.profiles.discrete.DiscreteProfile.DiscreteProfileMonad.map
+import gov.nasa.jpl.pyre.flame.results.profiles.discrete.DiscreteProfileOperations.constant
 import kotlin.collections.intersect
 import kotlin.collections.minus
 import kotlin.collections.plus

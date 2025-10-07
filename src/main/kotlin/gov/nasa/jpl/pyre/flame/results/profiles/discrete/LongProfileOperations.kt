@@ -1,6 +1,6 @@
-package gov.nasa.jpl.pyre.flame.results.timelines
+package gov.nasa.jpl.pyre.flame.results.profiles.discrete
 
-import gov.nasa.jpl.pyre.flame.results.timelines.DiscreteProfile.DiscreteProfileMonad.map
+import gov.nasa.jpl.pyre.flame.results.profiles.discrete.DiscreteProfile.DiscreteProfileMonad.map
 
 typealias LongProfile = DiscreteProfile<Long>
 

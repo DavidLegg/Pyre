@@ -1,17 +1,12 @@
-package gov.nasa.jpl.pyre.flame.results.timelines
+package gov.nasa.jpl.pyre.flame.results.profiles.discrete
 
-import gov.nasa.jpl.pyre.flame.results.timelines.DiscreteProfile.DiscreteProfileMonad.map
-import java.util.TreeMap
+import gov.nasa.jpl.pyre.flame.results.profiles.discrete.DiscreteProfileMonad.map
+import kotlin.collections.iterator
 import kotlin.time.Instant
 
 typealias BooleanProfile = DiscreteProfile<Boolean>
 
 object BooleanProfileOperations {
-    fun interval(start: Instant, end: Instant?): BooleanProfile = DiscreteProfile(
-        false,
-        if (end == null) TreeMap(sortedMapOf(start to true))
-            else TreeMap(sortedMapOf(start to true, end to false)))
-
     infix fun BooleanProfile.and(other: BooleanProfile): BooleanProfile = map(this, other, Boolean::and)
     infix fun BooleanProfile.or(other: BooleanProfile): BooleanProfile = map(this, other, Boolean::or)
     fun not(timeline: BooleanProfile): BooleanProfile = map(timeline, Boolean::not)
@@ -26,8 +21,8 @@ object BooleanProfileOperations {
      */
     operator fun BooleanProfile.minus(other: BooleanProfile): BooleanProfile = this and not(other)
 
-    fun BooleanProfile.always(): Boolean = initialValue && values.values.all { it }
-    fun BooleanProfile.never(): Boolean = !initialValue && values.values.all { !it }
+    fun BooleanProfile.always(): Boolean = segments.all { it.data.value }
+    fun BooleanProfile.never(): Boolean = segments.none { it.data.value }
     fun BooleanProfile.sometimes(): Boolean = !never()
     fun BooleanProfile.sometimesNot(): Boolean = !always()
 
