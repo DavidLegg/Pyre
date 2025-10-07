@@ -88,7 +88,12 @@ class PlanSimulationTest {
 
     @Test
     fun model_with_resources_can_be_created() {
-        val reports = ChannelizedReports()
+        val jsonFormat = Json {
+            serializersModule = SerializersModule {
+                contextual(Instant::class, String.serializer().alias(InvertibleFunction.of(Instant::parse, Instant::toString)))
+            }
+        }
+        val reports = ChannelizedReports(jsonFormat)
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation = PlanSimulation.withoutIncon(
             reportHandler = reports.handler(),
@@ -114,7 +119,12 @@ class PlanSimulationTest {
 
     @Test
     fun activities_can_be_created() {
-        val reports = ChannelizedReports()
+        val jsonFormat = Json {
+            serializersModule = SerializersModule {
+                contextual(Instant::class, String.serializer().alias(InvertibleFunction.of(Instant::parse, Instant::toString)))
+            }
+        }
+        val reports = ChannelizedReports(jsonFormat)
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation = PlanSimulation.withoutIncon(
             reportHandler = reports.handler(),
@@ -258,7 +268,12 @@ class PlanSimulationTest {
 
     @Test
     fun activities_can_interact_with_model() {
-        val reports = ChannelizedReports()
+        val jsonFormat = Json {
+            serializersModule = SerializersModule {
+                contextual(Instant::class, String.serializer().alias(InvertibleFunction.of(Instant::parse, Instant::toString)))
+            }
+        }
+        val reports = ChannelizedReports(jsonFormat)
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation = PlanSimulation.withoutIncon(
             reportHandler = reports.handler(),
@@ -416,8 +431,6 @@ class PlanSimulationTest {
 
     @Test
     fun activities_can_be_saved_and_restored() {
-        val reports1 = ChannelizedReports()
-        val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val jsonFormat = Json {
             serializersModule = SerializersModule {
                 include(TestModel.activitySerializersModule)
@@ -425,6 +438,8 @@ class PlanSimulationTest {
                     InvertibleFunction.of(Instant::parse, Instant::toString)))
             }
         }
+        val reports1 = ChannelizedReports(jsonFormat)
+        val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation1 = PlanSimulation.withoutIncon(
             reportHandler = reports1.handler(),
             simulationStart = epoch,
@@ -454,7 +469,7 @@ class PlanSimulationTest {
 
         val fincon1 = jsonFormat.encodeToJsonElement(JsonConditions(jsonFormat).also(simulation1::save))
 
-        val reports2 = ChannelizedReports()
+        val reports2 = ChannelizedReports(jsonFormat)
         val simulation2 = PlanSimulation.withIncon(
             reportHandler = reports2.handler(),
             inconProvider = jsonFormat.decodeJsonConditionsFromJsonElement(fincon1),
@@ -486,7 +501,7 @@ class PlanSimulationTest {
 
         val fincon2 = jsonFormat.encodeToJsonElement(JsonConditions(jsonFormat).also(simulation2::save))
 
-        val reports3 = ChannelizedReports()
+        val reports3 = ChannelizedReports(jsonFormat)
         val simulation3 = PlanSimulation.withIncon(
             reportHandler = reports3.handler(),
             inconProvider = jsonFormat.decodeJsonConditionsFromJsonElement(fincon2),

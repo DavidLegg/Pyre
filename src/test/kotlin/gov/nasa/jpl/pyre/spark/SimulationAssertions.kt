@@ -1,10 +1,9 @@
 package gov.nasa.jpl.pyre.spark
 
+import gov.nasa.jpl.pyre.assertNullOrMissing
 import gov.nasa.jpl.pyre.boolean
 import gov.nasa.jpl.pyre.double
-import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.ReportHandler
-import gov.nasa.jpl.pyre.ember.toKotlinDuration
 import gov.nasa.jpl.pyre.int
 import gov.nasa.jpl.pyre.spark.ChannelizedReports.Report
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
@@ -14,6 +13,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.serializer
 import kotlin.reflect.KType
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.time.Instant
 
 class ChannelizedReports(
@@ -53,6 +53,7 @@ class ChannelAssertContext(val channel: List<Report>) {
     private var n: Int = 0
 
     fun at(time: Instant) { this.time = time }
+    fun time() = time
     fun element(block: JsonElement.() -> Unit) {
         val report = channel[n++]
         assertEquals(time, report.time)
@@ -64,18 +65,24 @@ class ChannelAssertContext(val channel: List<Report>) {
 fun ChannelAssertContext.end() {
     assert(atEnd())
 }
-fun ChannelAssertContext.activityStart(name: String, typeName: String = name) {
+fun ChannelAssertContext.activityStart(name: String, typeName: String = name, startTime: String = time().toString()) {
     element {
         assertEquals(name, string("name"))
         assertEquals(typeName, string("type"))
-        assertEquals("start", string("event"))
+        assertEquals(startTime, string("start"))
+        assertNullOrMissing("end")
     }
 }
-fun ChannelAssertContext.activityEnd(name: String, typeName: String = name) {
+fun ChannelAssertContext.activityEnd(name: String, typeName: String = name, startTime: String? = null, endTime: String = time().toString()) {
     element {
         assertEquals(name, string("name"))
         assertEquals(typeName, string("type"))
-        assertEquals("end", string("event"))
+        if (startTime == null) {
+            assertNotNull(string("start"))
+        } else {
+            assertEquals(startTime, string("start"))
+        }
+        assertEquals(endTime, string("end"))
     }
 }
 fun ChannelAssertContext.log(message: String) {
