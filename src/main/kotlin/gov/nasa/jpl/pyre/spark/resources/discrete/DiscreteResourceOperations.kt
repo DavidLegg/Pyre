@@ -56,6 +56,11 @@ object DiscreteResourceOperations {
     infix fun <T : Comparable<T>> DiscreteResource<T>.greaterThan(other: T): BooleanResource = this greaterThan pure(other)
     infix fun <T : Comparable<T>> DiscreteResource<T>.greaterThanOrEquals(other: T): BooleanResource = this greaterThanOrEquals pure(other)
 
+    infix fun <T : Comparable<T>> T.lessThan(other: DiscreteResource<T>): BooleanResource = pure(this) lessThan other
+    infix fun <T : Comparable<T>> T.lessThanOrEquals(other: DiscreteResource<T>): BooleanResource = pure(this) lessThanOrEquals other
+    infix fun <T : Comparable<T>> T.greaterThan(other: DiscreteResource<T>): BooleanResource = pure(this) greaterThan other
+    infix fun <T : Comparable<T>> T.greaterThanOrEquals(other: DiscreteResource<T>): BooleanResource = pure(this) greaterThanOrEquals other
+
     infix fun <T> DiscreteResource<T>.equals(other: DiscreteResource<T>): BooleanResource =
         map(this, other) { x, y -> x == y } named { "($this) == ($other)" }
     infix fun <T> DiscreteResource<T>.notEquals(other: DiscreteResource<T>): BooleanResource =

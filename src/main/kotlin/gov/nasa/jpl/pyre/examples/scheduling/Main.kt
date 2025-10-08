@@ -39,16 +39,13 @@ import gov.nasa.jpl.pyre.examples.units.KILOWATT_HOUR
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.activities
 import gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation
-import gov.nasa.jpl.pyre.flame.results.profiles.discrete.BooleanProfile
-import gov.nasa.jpl.pyre.flame.results.profiles.discrete.BooleanProfileOperations.and
-import gov.nasa.jpl.pyre.flame.results.profiles.discrete.BooleanProfileOperations.covers
-import gov.nasa.jpl.pyre.flame.results.profiles.discrete.BooleanProfileOperations.interval
-import gov.nasa.jpl.pyre.flame.results.profiles.discrete.BooleanProfileOperations.not
-import gov.nasa.jpl.pyre.flame.results.profiles.discrete.BooleanProfileOperations.or
-import gov.nasa.jpl.pyre.flame.results.profiles.discrete.BooleanProfileOperations.sometimes
-import gov.nasa.jpl.pyre.flame.results.profiles.discrete.BooleanProfileOperations.windows
-import gov.nasa.jpl.pyre.flame.results.profiles.discrete.DiscreteProfileOperations.running
-import gov.nasa.jpl.pyre.flame.results.profiles.discrete.DiscreteProfileOperations.toDiscreteProfile
+import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.compute
+import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.lastValue
+import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.BooleanProfileOperations.and
+import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.BooleanProfileOperations.or
+import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.BooleanProfileOperations.sometimes
+import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.BooleanProfileOperations.windows
+import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.IntProfileOperations.countActivities
 import gov.nasa.jpl.pyre.flame.units.StandardUnits
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.DEGREE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.GIGABYTE
@@ -56,6 +53,8 @@ import gov.nasa.jpl.pyre.flame.units.StandardUnits.MEGABYTE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.WATT
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.div
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
+import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThan
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.builtins.DoubleArraySerializer
 import kotlinx.serialization.builtins.serializer
@@ -243,25 +242,31 @@ fun schedulingMain(args: Array<String>) {
     // Then, collect the results and do a sweep looking for conflicts.
     // Since these are critical activities, we won't change anything, just warn the user if they happen.
     val layer2Results = layer2Scheduler.results()
-    val turning = layer2Results.running { (it.activity as? GncActivity)?.subsystemActivity is GncTurn }
-    val observing = layer2Results.running { (it.activity as? ImagerActivity)?.subsystemActivity is ImagerDoObservation }
-    val communicating = layer2Results.running { (it.activity as? TelecomActivity)?.subsystemActivity is TelecomPass }
+    val turning = layer2Results.compute {
+        countActivities { (it.activity as? GncActivity)?.subsystemActivity is GncTurn } greaterThan 0
+    }
+    val observing = layer2Results.compute {
+        countActivities { (it.activity as? ImagerActivity)?.subsystemActivity is ImagerDoObservation } greaterThan 0
+    }
+    val communicating = layer2Results.compute {
+        countActivities { (it.activity as? TelecomActivity)?.subsystemActivity is TelecomPass } greaterThan 0
+    }
 
-    if ((observing and communicating).sometimes()) {
+    (observing and communicating).takeIf { it.sometimes() }?.let {
         println("Warning! Critical observation(s) and critical comm pass(es) overlap!")
-        for (window in (observing and communicating).windows()) {
+        for (window in it.windows()) {
             println("  ${window.start} - ${window.endExclusive}")
         }
     }
 
-    if ((turning and observing).sometimes()) {
+    (turning and observing).takeIf { it.sometimes() }?.let {
         println("Warning! Critical turn(s) and critical observation(s) overlap!")
         for (window in (turning and observing).windows()) {
             println("  ${window.start} - ${window.endExclusive}")
         }
     }
 
-    if ((turning and communicating).sometimes()) {
+    (turning and communicating).takeIf { it.sometimes() }?.let {
         println("Warning! Critical turn(s) and critical comm pass(es) overlap!")
         for (window in (turning and communicating).windows()) {
             println("  ${window.start} - ${window.endExclusive}")
@@ -281,31 +286,6 @@ fun schedulingMain(args: Array<String>) {
     val layer3Scheduler = baseScheduler.copy()
     layer3Scheduler += layer2Scheduler.plan()
 
-    // criticalActivityHappening uses results from layer 2, and contains all the future critical activities we will do
-    val criticalActivityHappening = turning or communicating or observing
-    // We then query the results from layer 3, which includes all the non-critical activities we've scheduled so far,
-    // but doesn't include the future. Combining these tells us when we're actually available.
-    fun spacecraftAvailable(): BooleanProfile {
-        val results = layer3Scheduler.results()
-        val turning = results.running { (it.activity as? GncActivity)?.subsystemActivity is GncTurn }
-        val observing = results.running { (it.activity as? ImagerActivity)?.subsystemActivity is ImagerDoObservation }
-        val communicating = results.running { (it.activity as? TelecomActivity)?.subsystemActivity is TelecomPass }
-        return not(criticalActivityHappening or turning or observing or communicating)
-    }
-
-    // Similarly, we can get the results from the layer 3 scheduler to read the most up-to-date "current" resource values.
-    // This lets the scheduler react to activities it placed in this layer - e.g., if it places enough downlinks to
-    // clear out the data storage, it knows it can place additional observations to take advantage of that capacity.
-    fun fractionDataCapacityUsed(): Double {
-        val results = layer3Scheduler.results()
-        // TODO: polynomial profiles
-        val dataCapacity = results.resources.getValue("/data/data_capacity (GB)").toDiscreteProfile<Double>().at(layer3Scheduler.time())
-        val dataStored = results.resources.getValue("/data/stored_data (GB)").toDiscreteProfile<Double>().at(layer3Scheduler.time())
-        return dataStored / dataCapacity
-    }
-    val minimumDataFractionForDownlink = 0.2
-    val maximumDataFractionForScience = 0.8
-
     // For each event, build the window of interest around it.
     val scienceOpWindows = scienceOps.map { it to (it.start - GNC_TURN_MAX_DURATION.toKotlinDuration() to it.end + GNC_TURN_MAX_DURATION.toKotlinDuration()) }
     val commWindows = commPasses.map { it to (it.start to it.end) }
@@ -314,17 +294,40 @@ fun schedulingMain(args: Array<String>) {
         // Advance the scheduler to the beginning of the window
         // This will give us the best available information about resources and running activities.
         layer3Scheduler.runUntil(window.first)
-        // If the spacecraft is not available for the entire window of interest, skip this event.
-        if (!spacecraftAvailable().covers(interval(window.first, window.second))) continue
+        // Make a copy of the scheduler, and run it through the end of the window.
+        // This will tell us how activities scheduled so far on this layer overlap this window.
+        val layer3Results = layer3Scheduler.copy().apply { runUntil(window.second) }.results()
+        // We need the spacecraft to be available over the entire window.
+        // Restrict this computation to just the window of interest.
+        val spacecraftUnavailable = layer3Results.compute(window.first, window.second) {
+            // Count all the activities which are any kind of conflicting behavior
+            // The spacecraft is busy if any of these activities are happening
+            countActivities {
+                (it.activity as? GncActivity)?.subsystemActivity is GncTurn
+                        || (it.activity as? ImagerActivity)?.subsystemActivity is ImagerDoObservation
+                        || (it.activity as? TelecomActivity)?.subsystemActivity is TelecomPass
+            } greaterThan 0
+        }
+        // If the spacecraft is unavailable at any time during the window of interest, move on to the next opportunity.
+        if (spacecraftUnavailable.sometimes()) continue
+
+        // Compute how much data we've used, as a fraction of the total data capacity
+        // Note that this is using the latest values as of the start of the window,
+        // and just doing the computation in primitives, rather than using `compute` to do more sophisticated analysis.
+        val dataCapacity = layer3Results.lastValue<Double, Discrete<Double>>("/data/data_capacity (GB)")
+        val dataStored = layer3Results.lastValue<Double, Discrete<Double>>("/data/stored_data (GB)")
+        val fractionDataCapacityUsed = dataStored / dataCapacity
+        val minimumDataFractionForDownlink = 0.2
+        val maximumDataFractionForScience = 0.8
 
         when (event) {
-            is ScienceOp -> if (fractionDataCapacityUsed() < maximumDataFractionForScience) {
+            is ScienceOp -> if (fractionDataCapacityUsed < maximumDataFractionForScience) {
                 // If we have enough data storage to hold the results, then schedule this observation.
                 layer3Scheduler.scheduleActivityToEndNear(scienceOpTurn(event.target), event.start)
                 layer3Scheduler += scienceOpActivity(event)
                 layer3Scheduler += GroundedActivity(event.end, backgroundTurn())
             }
-            is CommPass -> if (fractionDataCapacityUsed() > minimumDataFractionForDownlink) {
+            is CommPass -> if (fractionDataCapacityUsed > minimumDataFractionForDownlink) {
                 // If we have enough data to be worth downlinking, then schedule the comm pass.
                 layer3Scheduler += commPassActivity(event)
             }

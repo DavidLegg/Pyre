@@ -11,6 +11,10 @@ typealias DoubleResource = DiscreteResource<Double>
 typealias MutableDoubleResource = MutableDiscreteResource<Double>
 
 object DoubleResourceOperations {
+    operator fun DoubleResource.unaryPlus(): DoubleResource =
+        map(this) { +it } named { "(+$this)"}
+    operator fun DoubleResource.unaryMinus(): DoubleResource =
+        map(this) { -it } named { "(-$this)"}
     operator fun DoubleResource.plus(other: DoubleResource): DoubleResource =
         map(this, other) { x, y -> x + y } named { "($this) + ($other)" }
     operator fun DoubleResource.minus(other: DoubleResource): DoubleResource =
@@ -33,33 +37,6 @@ object DoubleResourceOperations {
     operator fun Double.times(other: DoubleResource): DoubleResource = pure(this) * other
     operator fun Double.div(other: DoubleResource): DoubleResource = pure(this) / other
     operator fun Double.rem(other: DoubleResource): DoubleResource = pure(this) % other
-
-    infix fun DoubleResource.greaterThan(other: DoubleResource): BooleanResource =
-        map(this, other) { x, y -> x > y } named { "($this) > ($other)" }
-    infix fun DoubleResource.greaterThanOrEquals(other: DoubleResource): BooleanResource =
-        map(this, other) { x, y -> x >= y } named { "($this) >= ($other)" }
-    infix fun DoubleResource.lessThan(other: DoubleResource): BooleanResource =
-        map(this, other) { x, y -> x < y } named { "($this) < ($other)" }
-    infix fun DoubleResource.lessThanOrEquals(other: DoubleResource): BooleanResource =
-        map(this, other) { x, y -> x <= y } named { "($this) <= ($other)" }
-
-    infix fun DoubleResource.greaterThan(other: Double): BooleanResource =
-        map(this) { it > other } named { "($this) > ($other)" }
-    infix fun DoubleResource.greaterThanOrEquals(other: Double): BooleanResource =
-        map(this) { it >= other } named { "($this) >= ($other)" }
-    infix fun DoubleResource.lessThan(other: Double): BooleanResource =
-        map(this) { it < other } named { "($this) < ($other)" }
-    infix fun DoubleResource.lessThanOrEquals(other: Double): BooleanResource =
-        map(this) { it <= other } named { "($this) <= ($other)" }
-
-    infix fun Double.greaterThan(other: DoubleResource): BooleanResource =
-        map(other) { this > it } named { "($this) > ($other)" }
-    infix fun Double.greaterThanOrEquals(other: DoubleResource): BooleanResource =
-        map(other) { this >= it } named { "($this) >= ($other)" }
-    infix fun Double.lessThan(other: DoubleResource): BooleanResource =
-        map(other) { this < it } named { "($this) < ($other)" }
-    infix fun Double.lessThanOrEquals(other: DoubleResource): BooleanResource =
-        map(other) { this <= it } named { "($this) <= ($other)" }
 
     context(scope: TaskScope)
     suspend fun MutableDoubleResource.increase(amount: Double) =
