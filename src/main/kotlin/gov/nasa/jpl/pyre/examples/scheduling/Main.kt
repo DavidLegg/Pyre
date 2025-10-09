@@ -39,7 +39,11 @@ import gov.nasa.jpl.pyre.examples.units.KILOWATT_HOUR
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.activities
 import gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation
+import gov.nasa.jpl.pyre.flame.results.SimulationResults
+import gov.nasa.jpl.pyre.flame.results.profiles_2.Profile
+import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.compute
+import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.getProfile
 import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.lastValue
 import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.BooleanProfileOperations.and
 import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.BooleanProfileOperations.sometimes
@@ -54,6 +58,7 @@ import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.div
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThan
+import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.builtins.DoubleArraySerializer
 import kotlinx.serialization.builtins.serializer
@@ -207,6 +212,7 @@ fun schedulingMain(args: Array<String>) {
     layer1Scheduler += scienceOps.filter { it.critical }.map(::scienceOpActivity)
 
     layer1Scheduler.runUntil(planEnd)
+    val layer1Results = layer1Scheduler.results()
 
     val layer1End = clock.markNow()
     println("End layer 1 - ${layer1End - layer1Start}")
@@ -223,22 +229,14 @@ fun schedulingMain(args: Array<String>) {
 
     // We need to turn to each critical science opportunity, then turn back to the background attitude.
     // The background attitude points our antenna at Earth, so we don't need to turn for comm passes.
+    // When scheduling turns, we'll just run the GNC subsystem model, not the full system model.
+    // To power that, we need to collect some profiles from the results of the last layer.
+    val gncInputProfiles = GncInputProfiles(layer1Results)
     scienceOps.filter { it.critical }.forEach {
         print(".")
-        layer2Scheduler.runUntil(it.start - GNC_TURN_MAX_DURATION.toKotlinDuration())
-        // TODO: This is a performance bottleneck
-        //   Consider building a GNC subsystem scheduler to do the turn scheduling, and then just copy the turn over to the main scheduler.
-        //   Write a function to encapsulate scheduling a turn like that, and then use that function everywhere.
-        layer2Scheduler.scheduleActivityToEndNear(scienceOpTurn(it.target), it.start)
-        layer2Scheduler += GroundedActivity(it.end, backgroundTurn())
+        layer2Scheduler.scheduleScienceOpTurns(it, gncInputProfiles)
     }
     println()
-
-    // Note:
-    //   A real scheduler would not just blindly lay down these turns - it should also check that those turns
-    //   don't conflict with any of the critical activities themselves.
-    //   (It should also probably be scheduling turns back from the activity to a safer attitude.)
-    //   For this demo, at this stage, just laying down all the turns in one shot like this is sufficient.
 
     // Finally, advance the layer 2 scheduler to the end of the plan to finish out simulation:
     layer2Scheduler.runUntil(planEnd)
@@ -294,6 +292,8 @@ fun schedulingMain(args: Array<String>) {
     val scienceOpWindows = scienceOps.map { it to (it.start - GNC_TURN_MAX_DURATION.toKotlinDuration() to it.end + GNC_TURN_MAX_DURATION.toKotlinDuration()) }
     val commWindows = commPasses.map { it to (it.start to it.end) }
 
+    val gncInputProfiles2 = GncInputProfiles(layer2Results)
+
     for ((event, window) in (scienceOpWindows + commWindows).sortedBy { it.second.first }) {
         print(".")
         // Advance the scheduler to the beginning of the window
@@ -328,9 +328,12 @@ fun schedulingMain(args: Array<String>) {
         when (event) {
             is ScienceOp -> if (fractionDataCapacityUsed < maximumDataFractionForScience) {
                 // If we have enough data storage to hold the results, then schedule this observation.
-                layer3Scheduler.scheduleActivityToEndNear(scienceOpTurn(event.target), event.start)
                 layer3Scheduler += scienceOpActivity(event)
-                layer3Scheduler += GroundedActivity(event.end, backgroundTurn())
+                // Similar to before, use pre-computed profiles based on the prior layer to drive a GNC subsystem model
+                // for turn scheduling, which should be faster than a full system model.
+                // In one profiled run, using a GNC subsystem model instead of a full-system model here
+                // reduced the total time to schedule all non-critical turns from ~25s to ~7s.
+                layer3Scheduler.scheduleScienceOpTurns(event, gncInputProfiles2)
             }
             is CommPass -> if (fractionDataCapacityUsed > minimumDataFractionForDownlink) {
                 // If we have enough data to be worth downlinking, then schedule the comm pass.
@@ -390,7 +393,7 @@ fun backgroundTurn() = GncActivity(GncTurn(
     BodyAxis.PLUS_Y,
 ))
 
-fun scienceOpTurn(target: PointingTarget) = GncActivity(GncTurn(
+fun scienceOpTurn(target: PointingTarget) = GncTurn(
     target,
     if (
         target == PointingTarget.J2000_NEG_Z
@@ -398,4 +401,52 @@ fun scienceOpTurn(target: PointingTarget) = GncActivity(GncTurn(
     ) PointingTarget.J2000_POS_Y else PointingTarget.J2000_NEG_Z,
     BodyAxis.IMAGER,
     BodyAxis.PLUS_Y,
-))
+)
+
+data class GncInputProfiles(
+    val pointingTargets: Map<PointingTarget, Profile<Discrete<Vector3D>>>,
+) {
+    // Given some sim results, build the profiles
+    constructor (results: SimulationResults) : this(PointingTarget.entries.associateWith {
+        results.getProfile("/geometry/pointing_direction/$it")
+    })
+
+    // Given an init scope in a particular simulation, build the resources to feed a GncModel
+    context (scope: InitScope)
+    fun asInputs(): GncModel.Inputs = GncModel.Inputs(pointingTargets.mapValues { it.value.asResource() })
+}
+
+fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
+    // For performance testing, we have one method that defers to either of two implementations:
+    scheduleScienceOpTurns_subsystem(scienceOp, gncInputProfiles)
+    // scheduleScienceOpTurns_direct(scienceOp, gncInputProfiles)
+}
+
+fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_subsystem(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
+    // Build a dedicated GNC scheduler, rather than running the full system, for performance.
+    val gncScheduler = SchedulingSystem.withoutIncon(
+        scienceOp.start - GNC_TURN_MAX_DURATION.toKotlinDuration(),
+        this.config.gncConfig,
+        { config ->
+            // Instead of other subsystems, fill the inputs for the GNC system with replays of the prior layer.
+            // Since we know GNC turns won't change geometry profiles, we can save work by just replaying geometry.
+            GncModel(this, config, gncInputProfiles.asInputs())
+        },
+        jsonFormat = JSON_FORMAT,
+    )
+    // Activate the system by adding a dummy activity. In a different model, we might need to import an incon instead.
+    gncScheduler += GncSetSystemMode(GncModel.GncSystemMode.ACTIVE)
+    // Use the GNC scheduler to find when to start the turn
+    val turn = gncScheduler.scheduleActivityToEndNear(scienceOpTurn(scienceOp.target), scienceOp.start)
+    // Then, load that turn into the full system scheduler, recalling that we need to wrap the GNC subsystem activity into a system activity.
+    this += GroundedActivity(turn.time, GncActivity(turn.activity))
+    // Also add a turn away from the target, back to the background attitude. This doesn't need advanced scheduling.
+    this += GroundedActivity(scienceOp.end, backgroundTurn())
+}
+
+fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_direct(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
+    // Advance the scheduler to the earliest time a turn may start, to avoid re-simulating more than necessary
+    this.runUntil(scienceOp.start - GNC_TURN_MAX_DURATION.toKotlinDuration())
+    this.scheduleActivityToEndNear(GncActivity(scienceOpTurn(scienceOp.target)), scienceOp.start)
+    this += GroundedActivity(scienceOp.end, backgroundTurn())
+}

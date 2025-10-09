@@ -40,7 +40,7 @@ import kotlin.time.Instant
  */
 class SchedulingSystem<M, C> private constructor(
     startTime: Instant?,
-    private val config: C,
+    val config: C,
     private val constructModel: suspend InitScope.(C) -> M,
     private val modelClass: KType,
     private val jsonFormat: Json,
@@ -133,6 +133,7 @@ class SchedulingSystem<M, C> private constructor(
     fun addActivities(activities: Collection<GroundedActivity<M>>) = activities.forEach(::addActivity)
     fun addPlan(plan: Plan<M>) = addActivities(plan.activities)
 
+    operator fun plusAssign(activity: Activity<M>) = addActivity(GroundedActivity(time(), activity))
     operator fun plusAssign(activity: GroundedActivity<M>) = addActivity(activity)
     operator fun plusAssign(activities: Collection<GroundedActivity<M>>) = addActivities(activities)
     operator fun plusAssign(plan: Plan<M>) = addPlan(plan)

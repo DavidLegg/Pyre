@@ -302,12 +302,13 @@ class SimulationState(private val reportHandler: ReportHandler) {
      * The exact format of this dump is subject to change over time.
      */
     fun dump() {
-        println("Simulation time: $time")
-        println("Active tasks:")
-        tasks.forEach { (time, task) -> println("  $time - ${task.id}") }
-        println("Waiting tasks:")
+        println("${this::class.simpleName} dump:")
+        println("  Simulation time: $time")
+        println("  Active tasks:")
+        tasks.sortedBy { it.time }.forEach { (time, task) -> println("    $time - ${task.id}") }
+        println("  Waiting tasks:")
         val waitingTasks = awaitingTasks.toMutableSet()
         waitingTasks += listeningTasks.keys
-        waitingTasks.forEach { println("  ${it.rewaitTask.id}") }
+        waitingTasks.forEach { println("    ${it.rewaitTask.id}") }
     }
 }

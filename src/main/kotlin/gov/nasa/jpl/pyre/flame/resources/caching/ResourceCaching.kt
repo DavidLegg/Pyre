@@ -10,6 +10,7 @@ import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.Expiring
 import gov.nasa.jpl.pyre.spark.resources.Expiry
+import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
 import gov.nasa.jpl.pyre.spark.resources.FullDynamics
 import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.resources.Resource
@@ -20,10 +21,7 @@ import gov.nasa.jpl.pyre.spark.resources.named
 import gov.nasa.jpl.pyre.spark.resources.resource
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.onStartup
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.wheneverChanges
-import gov.nasa.jpl.pyre.spark.tasks.task
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -48,10 +46,11 @@ object ResourceCaching {
         noinline equals: (D, D) -> Boolean = Any::equals,
     ): Resource<D> {
         val cache: MutableResource<D> = resource(name, defaultDynamics)
-        val cacheIsOutOfDate = ResourceMonad.map(this, cache) { t, c -> Discrete(!equals(t, c)) } named { "$cache is out of date" }
+        val cacheIsOutOfDate = ResourceMonad.map(this, cache) { t, c -> Discrete(!equals(t, c)) }
+            .named { "$cache is out of date" }
         spawn("Update $name", whenever(cacheIsOutOfDate) {
-            val d = this.getDynamics()
-            cache.emit({ _: FullDynamics<D> -> d } named { "Update cache to $d" })
+            val d = this.getDynamics().data
+            cache.emit({ _: FullDynamics<D> -> Expiring(d, NEVER) } named { "Update cache to $d" })
         })
         return cache
     }

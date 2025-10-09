@@ -28,7 +28,7 @@ object ProfileOperations {
      *
      * @param name Name of the resulting profile
      */
-    fun <V, D : Dynamics<V, D>> List<ChannelizedReport<*>>.asProfile(name: String, end: Instant): Profile<D> {
+    fun <D : Dynamics<*, D>> List<ChannelizedReport<*>>.asProfile(name: String, end: Instant): Profile<D> {
         @Suppress("UNCHECKED_CAST")
         val segments = this as List<ChannelizedReport<D>>
         require(segments.isNotEmpty())
@@ -40,7 +40,7 @@ object ProfileOperations {
      *
      * @param name The channel name to read, also becomes the profile name.
      */
-    fun <V, D : Dynamics<V, D>> SimulationResults.getProfile(name: String): Profile<D> =
+    fun <D : Dynamics<*, D>> SimulationResults.getProfile(name: String): Profile<D> =
         resources.getValue(name).asProfile(name, endTime)
 
     /**
@@ -50,7 +50,7 @@ object ProfileOperations {
      */
     fun <V, D : Dynamics<V, D>> SimulationResults.lastValue(name: String): V =
         // TODO: This is not the most efficient way to do this - consider extracting only the last segment instead
-        getProfile<V, D>(name).let { it[it.end] }
+        getProfile<D>(name).let { it[it.end] }
 
     /**
      * Create a resource which exactly replays this [Profile].
@@ -60,10 +60,19 @@ object ProfileOperations {
      * instead of running the full system.
      */
     context (scope: InitScope)
-    fun <V, D : Dynamics<V, D>> Profile<D>.asResource(): Resource<D> =
+    fun <D : Dynamics<*, D>> Profile<D>.asResource(): Resource<D> =
         ResourceMonad.bind(simulationClock) {
             ThinResourceMonad.pure(this.getSegment(simulationEpoch + it.time.toKotlinDuration()))
         }
+
+    /**
+     * Create a resource which exactly replays the channel named [name].
+     *
+     * Combines [getProfile] with [asResource]
+     */
+    context (scope: InitScope)
+    fun <D : Dynamics<*, D>> SimulationResults.getResource(name: String): Resource<D> =
+        getProfile<D>(name).asResource()
 
     /**
      * Compute a profile by running a simulation.
