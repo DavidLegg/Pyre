@@ -79,7 +79,7 @@ object ProfileOperations {
         // Construct and run a simulation to compute the derived profile
         PlanSimulation.withoutIncon(
             channels(
-                "__result" to { value, _ -> results.add(value as ChannelizedReport<*>) }
+                "/__result" to { value, _ -> results.add(value as ChannelizedReport<*>) }
             ),
             start,
             start,

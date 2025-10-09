@@ -81,7 +81,7 @@ fun <D> noncommutingEffects(): EffectTrait<ResourceEffect<D>> = resourceEffectTr
     throw IllegalArgumentException("Non-commuting concurrent effects: $left vs. $right - Cell does not support concurrent effects.")
 }
 
-fun <D> autoEffects(resultsEqual: (FullDynamics<D>, FullDynamics<D>) -> Boolean = { r, s -> r == s}): EffectTrait<ResourceEffect<D>> =
+fun <D> autoEffects(resultsEqual: (FullDynamics<D>, FullDynamics<D>) -> Boolean = { r, s -> r == s }): EffectTrait<ResourceEffect<D>> =
     resourceEffectTrait { left, right -> {
         val result1 = left(right(it))
         val result2 = right(left(it))

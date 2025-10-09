@@ -42,7 +42,6 @@ import gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation
 import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.compute
 import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.lastValue
 import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.BooleanProfileOperations.and
-import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.BooleanProfileOperations.or
 import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.BooleanProfileOperations.sometimes
 import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.BooleanProfileOperations.windows
 import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.IntProfileOperations.countActivities
@@ -225,10 +224,15 @@ fun schedulingMain(args: Array<String>) {
     // We need to turn to each critical science opportunity, then turn back to the background attitude.
     // The background attitude points our antenna at Earth, so we don't need to turn for comm passes.
     scienceOps.filter { it.critical }.forEach {
+        print(".")
         layer2Scheduler.runUntil(it.start - GNC_TURN_MAX_DURATION.toKotlinDuration())
+        // TODO: This is a performance bottleneck
+        //   Consider building a GNC subsystem scheduler to do the turn scheduling, and then just copy the turn over to the main scheduler.
+        //   Write a function to encapsulate scheduling a turn like that, and then use that function everywhere.
         layer2Scheduler.scheduleActivityToEndNear(scienceOpTurn(it.target), it.start)
         layer2Scheduler += GroundedActivity(it.end, backgroundTurn())
     }
+    println()
 
     // Note:
     //   A real scheduler would not just blindly lay down these turns - it should also check that those turns
@@ -291,6 +295,7 @@ fun schedulingMain(args: Array<String>) {
     val commWindows = commPasses.map { it to (it.start to it.end) }
 
     for ((event, window) in (scienceOpWindows + commWindows).sortedBy { it.second.first }) {
+        print(".")
         // Advance the scheduler to the beginning of the window
         // This will give us the best available information about resources and running activities.
         layer3Scheduler.runUntil(window.first)
@@ -335,6 +340,7 @@ fun schedulingMain(args: Array<String>) {
             else -> throw UnsupportedOperationException("Unexpected event type!")
         }
     }
+    println()
 
     // Run this scheduler to the end to finish out the results.
     layer3Scheduler.runUntil(planEnd)

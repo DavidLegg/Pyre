@@ -16,6 +16,7 @@ import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.unaryPlu
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.decrement
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delayUntil
 import gov.nasa.jpl.pyre.spark.tasks.task
 
@@ -30,10 +31,13 @@ object IntProfileOperations {
      * @param predicate Count only activities satisfying this predicate; defaults to counting all activities.
      */
     context (scope: InitScope)
-    fun SimulationResults.countActivities(predicate: (ActivityEvent) -> Boolean = { true }): IntResource {
+    suspend fun SimulationResults.countActivities(predicate: (ActivityEvent) -> Boolean = { true }): IntResource {
         // Run a simulation where we keep track of how many matching activities are running
         val counter = discreteResource("running activities satisfying $predicate", 0)
-        activities.values.filter(predicate).forEach {
+        activities.values
+            // Restrict to activities that haven't already ended and satisfy the predicate
+            .filter { (it.end?.let { it >= now() } ?: true) && predicate(it) }
+            .forEach {
             // If the activity satisfies predicate, spawn a task for it
             spawn(it.name, task {
                 // Increment when the activity starts
