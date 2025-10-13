@@ -40,15 +40,15 @@ import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.activities
 import gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation
 import gov.nasa.jpl.pyre.flame.results.SimulationResults
-import gov.nasa.jpl.pyre.flame.results.profiles_2.Profile
-import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.asResource
-import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.compute
-import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.getProfile
-import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.lastValue
-import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.BooleanProfileOperations.and
-import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.BooleanProfileOperations.sometimes
-import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.BooleanProfileOperations.windows
-import gov.nasa.jpl.pyre.flame.results.profiles_2.discrete.IntProfileOperations.countActivities
+import gov.nasa.jpl.pyre.flame.results.Profile
+import gov.nasa.jpl.pyre.flame.results.ProfileOperations.asResource
+import gov.nasa.jpl.pyre.flame.results.ProfileOperations.compute
+import gov.nasa.jpl.pyre.flame.results.ProfileOperations.getProfile
+import gov.nasa.jpl.pyre.flame.results.ProfileOperations.lastValue
+import gov.nasa.jpl.pyre.flame.results.discrete.BooleanProfileOperations.and
+import gov.nasa.jpl.pyre.flame.results.discrete.BooleanProfileOperations.sometimes
+import gov.nasa.jpl.pyre.flame.results.discrete.BooleanProfileOperations.windows
+import gov.nasa.jpl.pyre.flame.results.discrete.IntProfileOperations.countActivities
 import gov.nasa.jpl.pyre.flame.units.StandardUnits
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.DEGREE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.GIGABYTE
@@ -278,6 +278,7 @@ fun schedulingMain(args: Array<String>) {
     val layer2End = clock.markNow()
     println("End layer 2 - ${layer2End - layer2Start}")
 
+    /* DEBUG BEGIN - Disable Layer 3
     // Layer 3 shows even more sophistication in scheduling.
     // Here, we interleave querying the results and scheduling activities to roughly optimize our data return,
     // while taking into account constraints like data storage.
@@ -350,11 +351,14 @@ fun schedulingMain(args: Array<String>) {
 
     val layer3End = clock.markNow()
     println("End layer 3 - ${layer3End - layer3Start}")
+    DEBUG END - Disable Layer 3 */
 
     println("Begin writing output")
     val outputStart = clock.markNow()
 
-    val plan = layer3Scheduler.plan()
+    // DEBUG
+    // val plan = layer3Scheduler.plan()
+    val plan = layer2Scheduler.plan()
 
     if (outputDir.exists()) outputDir.deleteRecursively()
     outputDir.createDirectories()
@@ -418,11 +422,17 @@ data class GncInputProfiles(
 
 fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
     // For performance testing, we have one method that defers to either of two implementations:
+    // TODO - the subsystem turn scheduler chooses different (and far more conflicting) times than the direct scheduler!
+    //   This is because the subsystem scheduler is starting with the S/C in its default attitude, and turning from that.
+    //   Could fix this by providing an initial attitude - incon from the full system perhaps?
+    //   Good time to test if incons can be split like that.
     scheduleScienceOpTurns_subsystem(scienceOp, gncInputProfiles)
     // scheduleScienceOpTurns_direct(scienceOp, gncInputProfiles)
 }
 
 fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_subsystem(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
+    // Collect a fincon from the full system and cut it down to a fincon for the GNC subsystem
+    this.fincon()
     // Build a dedicated GNC scheduler, rather than running the full system, for performance.
     val gncScheduler = SchedulingSystem.withoutIncon(
         scienceOp.start - GNC_TURN_MAX_DURATION.toKotlinDuration(),

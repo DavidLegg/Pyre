@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.flame.results.profiles_2.discrete
+package gov.nasa.jpl.pyre.flame.results.discrete
 
 typealias StringProfile = DiscreteProfile<String>
 

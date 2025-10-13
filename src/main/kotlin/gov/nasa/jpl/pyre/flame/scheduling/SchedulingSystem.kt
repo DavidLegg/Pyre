@@ -147,17 +147,17 @@ class SchedulingSystem<M, C> private constructor(
         activitySpans.toMap(),
     )
 
+    fun fincon() = JsonConditions(jsonFormat).also(simulation::save)
+
     fun copy(newConfig: C = config): SchedulingSystem<M, C> {
-        // Collect the state of this simulation
-        val incon = JsonConditions(jsonFormat).also(simulation::save)
-        // Use that to initialize a new simulation, configured with newConfig as well.
+        // Initialize a new simulation, configured with newConfig and this sim's fincon
         val result = SchedulingSystem(
             startTime,
             newConfig,
             constructModel,
             modelClass,
             jsonFormat,
-            incon,
+            fincon(),
         )
         // Copy over all the other bookkeeping data
         // TODO: Consider using a reference back to these data instead of copying all of them

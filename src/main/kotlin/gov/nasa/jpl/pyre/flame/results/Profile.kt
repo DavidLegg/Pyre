@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.flame.results.profiles_2
+package gov.nasa.jpl.pyre.flame.results
 
 import gov.nasa.jpl.pyre.ember.toPyreDuration
 import gov.nasa.jpl.pyre.spark.resources.Dynamics

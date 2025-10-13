@@ -1,10 +1,10 @@
-package gov.nasa.jpl.pyre.flame.results.profiles_2.discrete
+package gov.nasa.jpl.pyre.flame.results.discrete
 
 import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.flame.plans.ActivityActions.ActivityEvent
+import gov.nasa.jpl.pyre.flame.results.ProfileOperations.asResource
+import gov.nasa.jpl.pyre.flame.results.ProfileOperations.compute
 import gov.nasa.jpl.pyre.flame.results.SimulationResults
-import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.asResource
-import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.compute
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.div

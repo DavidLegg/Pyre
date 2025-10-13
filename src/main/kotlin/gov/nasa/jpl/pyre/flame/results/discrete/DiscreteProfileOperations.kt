@@ -1,8 +1,8 @@
-package gov.nasa.jpl.pyre.flame.results.profiles_2.discrete
+package gov.nasa.jpl.pyre.flame.results.discrete
 
-import gov.nasa.jpl.pyre.flame.results.profiles_2.Profile
-import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.asResource
-import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.compute
+import gov.nasa.jpl.pyre.flame.results.Profile
+import gov.nasa.jpl.pyre.flame.results.ProfileOperations.asResource
+import gov.nasa.jpl.pyre.flame.results.ProfileOperations.compute
 import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThanOrEquals

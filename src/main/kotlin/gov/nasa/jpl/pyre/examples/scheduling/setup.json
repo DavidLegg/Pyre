@@ -1,4 +1,5 @@
 {
   "plan": "output/plan.json",
-  "output": "output/simulation-output.events.csv"
+  "output": "output/simulation-output.events.csv",
+  "final_conditions": "output/simulation-fincon.json"
 }

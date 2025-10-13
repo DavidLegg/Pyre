@@ -1,5 +1,7 @@
 import json
+import os.path
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List, Optional, Set, Annotated
 
 import typer
@@ -42,6 +44,7 @@ def main(data: str, view: str, plan: Optional[str] = None):
     print(f'Reading view file {view}')
     view_obj = View.from_json_file(view)
     print(f'Reading data file {data}')
+    plot_name = Path(data).stem
     data = read_data(data, {r.name for r in view_obj.resources})
     if plan is not None:
         print(f'Reading plan file {plan}')
@@ -55,7 +58,7 @@ def main(data: str, view: str, plan: Optional[str] = None):
         start = data.index[0]
         end = data.index[-1]
     print(f'Plotting')
-    fig, axes = plt.subplots(nrows=len(view_obj.resources), sharex=True, layout="constrained")
+    fig, axes = plt.subplots(nrows=len(view_obj.resources), sharex=True, layout="constrained", num=plot_name)
     axes[0].set_xlim(start, end)
     for resource_view, ax in zip(view_obj.resources, axes):
         ax.set_title(resource_view.name)

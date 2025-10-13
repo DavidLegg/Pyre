@@ -1,12 +1,11 @@
-package gov.nasa.jpl.pyre.flame.results.profiles_2
+package gov.nasa.jpl.pyre.flame.results
 
 import gov.nasa.jpl.pyre.ember.toKotlinDuration
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channels
-import gov.nasa.jpl.pyre.flame.results.SimulationResults
-import gov.nasa.jpl.pyre.flame.results.profiles_2.Profile.Companion.end
-import gov.nasa.jpl.pyre.flame.results.profiles_2.Profile.Companion.get
-import gov.nasa.jpl.pyre.flame.results.profiles_2.ProfileOperations.asResource
+import gov.nasa.jpl.pyre.flame.results.Profile.Companion.end
+import gov.nasa.jpl.pyre.flame.results.Profile.Companion.get
+import gov.nasa.jpl.pyre.flame.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
 import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
