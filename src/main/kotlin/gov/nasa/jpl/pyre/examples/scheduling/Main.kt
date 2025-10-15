@@ -44,6 +44,7 @@ import gov.nasa.jpl.pyre.flame.results.Profile
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.compute
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.getProfile
+import gov.nasa.jpl.pyre.flame.results.ProfileOperations.lastValue
 import gov.nasa.jpl.pyre.flame.results.discrete.BooleanProfileOperations.and
 import gov.nasa.jpl.pyre.flame.results.discrete.BooleanProfileOperations.sometimes
 import gov.nasa.jpl.pyre.flame.results.discrete.BooleanProfileOperations.windows
@@ -137,6 +138,32 @@ val JSON_FORMAT = Json {
                 activity(ImagerPowerOff::class)
                 activity(ImagerDoObservation::class)
             }
+        }
+    }
+}
+
+val GNC_JSON_FORMAT = Json {
+    serializersModule = SerializersModule {
+        // Instant serialization
+        contextual<Instant>(String.serializer().alias(InvertibleFunction.of(
+            Instant::parse,
+            Instant::toString,
+        )))
+        // Vector3D serialization
+        contextual(DoubleArraySerializer().alias(InvertibleFunction.of(
+            { Vector3D(it[0], it[1], it[2]) },
+            { doubleArrayOf(it.x, it.y, it.z) }
+        )))
+        // Rotation serialization
+        contextual(DoubleArraySerializer().alias(InvertibleFunction.of(
+            { Rotation(it[0], it[1], it[2], it[3], false) },
+            { doubleArrayOf(it.q0, it.q1, it.q2, it.q3) }
+        )))
+
+        activities<GncModel> {
+            activity(GncSetAgility::class)
+            activity(GncSetSystemMode::class)
+            activity(GncTurn::class)
         }
     }
 }
@@ -280,7 +307,6 @@ fun schedulingMain(args: Array<String>) {
     val layer2End = clock.markNow()
     println("End layer 2 - ${layer2End - layer2Start}")
 
-    /* DEBUG BEGIN - Disable Layer 3
     // Layer 3 shows even more sophistication in scheduling.
     // Here, we interleave querying the results and scheduling activities to roughly optimize our data return,
     // while taking into account constraints like data storage.
@@ -353,7 +379,6 @@ fun schedulingMain(args: Array<String>) {
 
     val layer3End = clock.markNow()
     println("End layer 3 - ${layer3End - layer3Start}")
-    DEBUG END - Disable Layer 3 */
 
     println("Begin writing output")
     val outputStart = clock.markNow()
@@ -424,8 +449,20 @@ data class GncInputProfiles(
 
 fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
     // For performance testing, we have one method that defers to either of two implementations:
-    scheduleScienceOpTurns_subsystem(scienceOp, gncInputProfiles)
-//     scheduleScienceOpTurns_direct(scienceOp, gncInputProfiles)
+
+    // Direct scheduling is the easier and more reliable way to do this
+    scheduleScienceOpTurns_direct(scienceOp, gncInputProfiles)
+
+    // Subsystem scheduling runs faster (~25% faster for this example)
+    // by building just a subsystem and simulating that, not the full system.
+    // There are a fair number of caveats to doing this, though.
+    // scheduleScienceOpTurns_subsystem(scienceOp, gncInputProfiles)
+}
+
+fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_direct(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
+    // Advance the scheduler to the earliest time a turn may start, to avoid re-simulating more than necessary
+    this.scheduleActivityToEndNear(GncActivity(scienceOpTurn(scienceOp.target)), scienceOp.start)
+    this += GroundedActivity(scienceOp.end, backgroundTurn())
 }
 
 fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_subsystem(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
@@ -434,7 +471,9 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_sub
         // Collect a fincon from the full system to ensure the new scheduler is in the same state
         // Note that this is a "rough" fincon - some tasks will restart because subsystems don't align perfectly with full-systems,
         // but it should be "good enough" to get a high-precision turn time estimate.
-        fincon(),
+        // Part of this requires building a subsystem-specific JSON_FORMAT, so that activities get dumped during restore.
+        // This is a bit of a kludge, but again it's largely "good enough".
+        fincon().copy(GNC_JSON_FORMAT),
         config.gncConfig,
         { config ->
             // Instead of other subsystems, fill the inputs for the GNC system with replays of the prior layer.
@@ -442,18 +481,12 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_sub
             // Note that we need to build the GNC model in subContext("gnc") to line up with the full system fincon.
             GncModel(subContext("gnc"), config, gncInputProfiles.asInputs())
         },
-        jsonFormat = JSON_FORMAT,
+        jsonFormat = GNC_JSON_FORMAT,
     )
     // Use the GNC scheduler to find when to start the turn
     val turn = gncScheduler.scheduleActivityToEndNear(scienceOpTurn(scienceOp.target), scienceOp.start)
     // Then, load that turn into the full system scheduler, recalling that we need to wrap the GNC subsystem activity into a system activity.
     this += GroundedActivity(turn.time, GncActivity(turn.activity))
     // Also add a turn away from the target, back to the background attitude. This doesn't need advanced scheduling.
-    this += GroundedActivity(scienceOp.end, backgroundTurn())
-}
-
-fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_direct(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
-    // Advance the scheduler to the earliest time a turn may start, to avoid re-simulating more than necessary
-    this.scheduleActivityToEndNear(GncActivity(scienceOpTurn(scienceOp.target)), scienceOp.start)
     this += GroundedActivity(scienceOp.end, backgroundTurn())
 }
