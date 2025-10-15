@@ -11,6 +11,7 @@ import gov.nasa.jpl.pyre.flame.plans.Plan
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.assumeType
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channels
+import gov.nasa.jpl.pyre.flame.results.SimulationResults
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import kotlinx.serialization.json.Json
@@ -39,7 +40,7 @@ import kotlin.time.Instant
  */
 class SchedulingSystem<M, C> private constructor(
     startTime: Instant?,
-    private val config: C,
+    val config: C,
     private val constructModel: suspend InitScope.(C) -> M,
     private val modelClass: KType,
     private val jsonFormat: Json,
@@ -132,6 +133,7 @@ class SchedulingSystem<M, C> private constructor(
     fun addActivities(activities: Collection<GroundedActivity<M>>) = activities.forEach(::addActivity)
     fun addPlan(plan: Plan<M>) = addActivities(plan.activities)
 
+    operator fun plusAssign(activity: Activity<M>) = addActivity(GroundedActivity(time(), activity))
     operator fun plusAssign(activity: GroundedActivity<M>) = addActivity(activity)
     operator fun plusAssign(activities: Collection<GroundedActivity<M>>) = addActivities(activities)
     operator fun plusAssign(plan: Plan<M>) = addPlan(plan)
@@ -145,17 +147,17 @@ class SchedulingSystem<M, C> private constructor(
         activitySpans.toMap(),
     )
 
+    fun fincon() = JsonConditions(jsonFormat).also(simulation::save)
+
     fun copy(newConfig: C = config): SchedulingSystem<M, C> {
-        // Collect the state of this simulation
-        val incon = JsonConditions(jsonFormat).also(simulation::save)
-        // Use that to initialize a new simulation, configured with newConfig as well.
+        // Initialize a new simulation, configured with newConfig and this sim's fincon
         val result = SchedulingSystem(
             startTime,
             newConfig,
             constructModel,
             modelClass,
             jsonFormat,
-            incon,
+            fincon(),
         )
         // Copy over all the other bookkeeping data
         // TODO: Consider using a reference back to these data instead of copying all of them

@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
 import gov.nasa.jpl.pyre.coals.named
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
 import gov.nasa.jpl.pyre.spark.resources.named
@@ -10,16 +11,20 @@ typealias LongResource = DiscreteResource<Long>
 typealias MutableLongResource = MutableDiscreteResource<Long>
 
 object LongResourceOperations {
+    operator fun LongResource.unaryPlus(): LongResource =
+        map(this) { +it } named { "(+$this)"}
+    operator fun LongResource.unaryMinus(): LongResource =
+        map(this) { -it } named { "(-$this)"}
     operator fun LongResource.plus(other: LongResource): LongResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x + y } named { "($this) + ($other)" }
+        map(this, other) { x, y -> x + y } named { "($this) + ($other)" }
     operator fun LongResource.minus(other: LongResource): LongResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x - y } named { "($this) - ($other)" }
+        map(this, other) { x, y -> x - y } named { "($this) - ($other)" }
     operator fun LongResource.times(other: LongResource): LongResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x * y } named { "($this) * ($other)" }
+        map(this, other) { x, y -> x * y } named { "($this) * ($other)" }
     operator fun LongResource.div(other: LongResource): LongResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x / y } named { "($this) / ($other)" }
+        map(this, other) { x, y -> x / y } named { "($this) / ($other)" }
     operator fun LongResource.rem(other: LongResource): LongResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x % y } named { "($this) % ($other)" }
+        map(this, other) { x, y -> x % y } named { "($this) % ($other)" }
 
     operator fun LongResource.plus(other: Long): LongResource = this + pure(other)
     operator fun LongResource.minus(other: Long): LongResource = this - pure(other)

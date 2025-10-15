@@ -55,15 +55,15 @@ object SchedulingAlgorithms {
         endTime: Instant,
         earliestStart: Instant = time(),
         name: String = requireNotNull(activity::class.simpleName),
-    ) {
+    ): GroundedActivity<M> {
         // If the earliest start is later than now, save computation by copying the scheduler
         // and advancing the copy to the earliest start.
         // This avoids modifying this scheduler, and avoids re-simulating now through earliestStart.
         val testScheduler = if (time() >= earliestStart) this else copy().apply { runUntil(earliestStart) }
-        val now = testScheduler.time()
+        val start = testScheduler.time()
         val f = UnivariateFunction { tDouble ->
             // Compute the start time as an offset from now:
-            val tInstant = now + (tDouble roundTimes SECOND).toKotlinDuration()
+            val tInstant = start + (tDouble roundTimes SECOND).toKotlinDuration()
             // Copy this scheduler and run the activity at that start time
             val tEnd = testScheduler.copy().runUntil(GroundedActivity(tInstant, activity, name=name))
             // Return the error in end time, also in seconds.
@@ -80,12 +80,13 @@ object SchedulingAlgorithms {
                 100,
                 f,
                 0.0,
-                (endTime - now).toDouble(DurationUnit.SECONDS),
+                (endTime - start).toDouble(DurationUnit.SECONDS),
                 AllowedSolution.BELOW_SIDE,
             )
             // Having selected our start time as a double, add the activity to this at that time:
-            this += GroundedActivity(now + (selectedStartDouble roundTimes SECOND).toKotlinDuration(), activity, name=name)
-            return
+            val groundedActivity = GroundedActivity(start + (selectedStartDouble roundTimes SECOND).toKotlinDuration(), activity, name=name)
+            this += groundedActivity
+            return groundedActivity
         } catch (e: NoBracketingException) {
             exc = e
         } catch (e: TooManyEvaluationsException) {

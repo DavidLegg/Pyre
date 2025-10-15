@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
 import gov.nasa.jpl.pyre.coals.named
+import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
 import gov.nasa.jpl.pyre.spark.resources.named
@@ -10,16 +11,20 @@ typealias FloatResource = DiscreteResource<Float>
 typealias MutableFloatResource = MutableDiscreteResource<Float>
 
 object FloatResourceOperations {
+    operator fun FloatResource.unaryPlus(): FloatResource =
+        map(this) { +it } named { "(+$this)"}
+    operator fun FloatResource.unaryMinus(): FloatResource =
+        map(this) { -it } named { "(-$this)"}
     operator fun FloatResource.plus(other: FloatResource): FloatResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x + y } named { "($this) + ($other)" }
+        map(this, other) { x, y -> x + y } named { "($this) + ($other)" }
     operator fun FloatResource.minus(other: FloatResource): FloatResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x - y } named { "($this) - ($other)" }
+        map(this, other) { x, y -> x - y } named { "($this) - ($other)" }
     operator fun FloatResource.times(other: FloatResource): FloatResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x * y } named { "($this) * ($other)" }
+        map(this, other) { x, y -> x * y } named { "($this) * ($other)" }
     operator fun FloatResource.div(other: FloatResource): FloatResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x / y } named { "($this) / ($other)" }
+        map(this, other) { x, y -> x / y } named { "($this) / ($other)" }
     operator fun FloatResource.rem(other: FloatResource): FloatResource =
-        DiscreteResourceMonad.map(this, other) { x, y -> x % y } named { "($this) % ($other)" }
+        map(this, other) { x, y -> x % y } named { "($this) % ($other)" }
 
     operator fun FloatResource.plus(other: Float): FloatResource = this + pure(other)
     operator fun FloatResource.minus(other: Float): FloatResource = this - pure(other)

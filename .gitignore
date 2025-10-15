@@ -6,6 +6,8 @@ temp/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+src/main/kotlin/gov/nasa/jpl/pyre/examples/scheduling/output-saved/
+
 ### IntelliJ IDEA ###
 .idea/
 *.iws

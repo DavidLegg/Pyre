@@ -8,7 +8,6 @@ import gov.nasa.jpl.pyre.flame.resources.caching.ResourceCaching.cached
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.MutableQuantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.DurationQuantityResourceOperations.asQuantity
-import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.VsQuantity.greaterThan
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.VsQuantity.lessThanOrEquals
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.getValue
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.quantityResource
@@ -48,7 +47,6 @@ import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.restart
 import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.timer
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.wheneverChanges
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
 import kotlinx.serialization.Serializable
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation
@@ -217,15 +215,6 @@ class GncModel(
             val secondaryBodyAxisVector = (map(secondaryBodyAxis, BodyAxis::vector)
                     named { "${secondaryBodyAxis}_vector" }).also { register(it) }
 
-            wheneverChanges(primaryBodyAxis) { println("DEBUG - CH - primaryBodyAxis = ${primaryBodyAxis.getValue()}") }
-            wheneverChanges(secondaryBodyAxis) { println("DEBUG - CH - secondaryBodyAxis = ${secondaryBodyAxis.getValue()}") }
-            wheneverChanges(primaryPointingTarget) { println("DEBUG - CH - primaryPointingTarget = ${primaryPointingTarget.getValue()}") }
-            wheneverChanges(secondaryPointingTarget) { println("DEBUG - CH - secondaryPointingTarget = ${secondaryPointingTarget.getValue()}") }
-            wheneverChanges(primaryBodyAxisVector) { println("DEBUG - CH - primaryBodyAxisVector = ${primaryBodyAxisVector.getValue()}") }
-            wheneverChanges(secondaryBodyAxisVector) { println("DEBUG - CH - secondaryBodyAxisVector = ${secondaryBodyAxisVector.getValue()}") }
-            wheneverChanges(primaryPointingTargetVector) { println("DEBUG - CH - primaryPointingTargetVector = ${primaryPointingTargetVector.getValue()}") }
-            wheneverChanges(secondaryPointingTargetVector) { println("DEBUG - CH - secondaryPointingTargetVector = ${secondaryPointingTargetVector.getValue()}") }
-
             val targetAttitudeCacheUpdateTolerance = config.pointingErrorTolerance.valueIn(RADIAN) * 1e-2
             targetAttitude = map(
                 primaryBodyAxisVector,
@@ -235,7 +224,7 @@ class GncModel(
                 ::Rotation
             ).named { "target_attitude" }
                 // Register the cached version because Rotation has a poorly-behaved equality
-                .also { register(it.cached("target_attitude", Discrete(Rotation.IDENTITY), {
+                .also { register(it.cached("target_attitude(c)", Discrete(Rotation.IDENTITY), {
                     r, s -> r.value.applyInverseTo(s.value).angle < targetAttitudeCacheUpdateTolerance
             })) }
 
