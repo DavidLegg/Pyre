@@ -44,7 +44,6 @@ import gov.nasa.jpl.pyre.flame.results.Profile
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.compute
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.getProfile
-import gov.nasa.jpl.pyre.flame.results.ProfileOperations.lastValue
 import gov.nasa.jpl.pyre.flame.results.discrete.BooleanProfileOperations.and
 import gov.nasa.jpl.pyre.flame.results.discrete.BooleanProfileOperations.sometimes
 import gov.nasa.jpl.pyre.flame.results.discrete.BooleanProfileOperations.windows
@@ -59,6 +58,7 @@ import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.builtins.DoubleArraySerializer
 import kotlinx.serialization.builtins.serializer
@@ -234,6 +234,8 @@ fun schedulingMain(args: Array<String>) {
     val gncInputProfiles = GncInputProfiles(layer1Results)
     scienceOps.filter { it.critical }.forEach {
         print(".")
+        // Advance the scheduler to the earliest time the turn may start, to minimize re-simulation.
+        layer2Scheduler.runUntil(it.start - GNC_TURN_MAX_DURATION.toKotlinDuration())
         layer2Scheduler.scheduleScienceOpTurns(it, gncInputProfiles)
     }
     println()
@@ -422,30 +424,26 @@ data class GncInputProfiles(
 
 fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
     // For performance testing, we have one method that defers to either of two implementations:
-    // TODO - the subsystem turn scheduler chooses different (and far more conflicting) times than the direct scheduler!
-    //   This is because the subsystem scheduler is starting with the S/C in its default attitude, and turning from that.
-    //   Could fix this by providing an initial attitude - incon from the full system perhaps?
-    //   Good time to test if incons can be split like that.
     scheduleScienceOpTurns_subsystem(scienceOp, gncInputProfiles)
-    // scheduleScienceOpTurns_direct(scienceOp, gncInputProfiles)
+//     scheduleScienceOpTurns_direct(scienceOp, gncInputProfiles)
 }
 
 fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_subsystem(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
-    // Collect a fincon from the full system and cut it down to a fincon for the GNC subsystem
-    this.fincon()
     // Build a dedicated GNC scheduler, rather than running the full system, for performance.
-    val gncScheduler = SchedulingSystem.withoutIncon(
-        scienceOp.start - GNC_TURN_MAX_DURATION.toKotlinDuration(),
-        this.config.gncConfig,
+    val gncScheduler = SchedulingSystem.withIncon(
+        // Collect a fincon from the full system to ensure the new scheduler is in the same state
+        // Note that this is a "rough" fincon - some tasks will restart because subsystems don't align perfectly with full-systems,
+        // but it should be "good enough" to get a high-precision turn time estimate.
+        fincon(),
+        config.gncConfig,
         { config ->
             // Instead of other subsystems, fill the inputs for the GNC system with replays of the prior layer.
             // Since we know GNC turns won't change geometry profiles, we can save work by just replaying geometry.
-            GncModel(this, config, gncInputProfiles.asInputs())
+            // Note that we need to build the GNC model in subContext("gnc") to line up with the full system fincon.
+            GncModel(subContext("gnc"), config, gncInputProfiles.asInputs())
         },
         jsonFormat = JSON_FORMAT,
     )
-    // Activate the system by adding a dummy activity. In a different model, we might need to import an incon instead.
-    gncScheduler += GncSetSystemMode(GncModel.GncSystemMode.ACTIVE)
     // Use the GNC scheduler to find when to start the turn
     val turn = gncScheduler.scheduleActivityToEndNear(scienceOpTurn(scienceOp.target), scienceOp.start)
     // Then, load that turn into the full system scheduler, recalling that we need to wrap the GNC subsystem activity into a system activity.
@@ -456,7 +454,6 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_sub
 
 fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_direct(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
     // Advance the scheduler to the earliest time a turn may start, to avoid re-simulating more than necessary
-    this.runUntil(scienceOp.start - GNC_TURN_MAX_DURATION.toKotlinDuration())
     this.scheduleActivityToEndNear(GncActivity(scienceOpTurn(scienceOp.target)), scienceOp.start)
     this += GroundedActivity(scienceOp.end, backgroundTurn())
 }

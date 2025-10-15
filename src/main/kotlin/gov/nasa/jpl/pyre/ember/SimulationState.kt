@@ -8,6 +8,7 @@ import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.within
 import gov.nasa.jpl.pyre.ember.InconProvider.Companion.within
 import gov.nasa.jpl.pyre.ember.InconProvidingContext.Companion.provide
 import gov.nasa.jpl.pyre.ember.Task.PureStepResult
+import kotlinx.serialization.SerializationException
 import java.util.Comparator.comparing
 import java.util.PriorityQueue
 import kotlin.reflect.KType
@@ -271,21 +272,25 @@ class SimulationState(private val reportHandler: ReportHandler) {
         }
         cells.restore(inconProvider.within("cells"))
         val taskProvider = inconProvider.within("tasks")
-        // TODO: Think about how to handle adding/removing root tasks as the model changes.
-        //   If a root task is removed, it's fincon is silently ignored. This is probably fine.
-        //   If a root task is added, it won't have a fincon. It should be started anew, I think.
-        //   This case corresponds to not having a fincon at all for this root task.
-        //   Before I add handling to support this case, I need to save off the root tasks (or at least their IDs)
-        //   after initializing and before running. That way, I can record "root task that finished all its children"
-        //   as an empty list, distinct from "root task that's new in this simulation", with no incon entry.
         val rootTasks = tasks.toList()
         tasks.clear()
         for (rootTask in rootTasks) {
-            // For any child reported in the fincon, call restore using that child's id (encoded as the condition keys)
-            // to get the state history which spawned and later ran that child.
-            taskProvider.within(rootTask.task.id.rootId.conditionKeys() + "children").provide<List<List<String>>>()?.forEach {
-                // Since that child is reported as needing to be restored, throw an error if there's no incon data for it
-                tasks += requireNotNull(restoreTask(rootTask.task, taskProvider.within(it.asSequence())))
+            val idsToRestore = taskProvider.within(rootTask.task.id.rootId.conditionKeys() + "children").provide<List<List<String>>>()
+            if (idsToRestore == null) {
+                InternalLogger.log { "Task ${rootTask.task.id.rootId} not present in conditions, adding root task." }
+                tasks += TaskEntry(time, rootTask.task)
+            } else {
+                try {
+                    // For any child reported in the fincon, call restore using that child's id (encoded as the condition keys)
+                    // to get the state history which spawned and later ran that child.
+                    tasks += idsToRestore.map {
+                        // Since that child is reported as needing to be restored, throw an error if there's no incon data for it
+                        requireNotNull(restoreTask(rootTask.task, taskProvider.within(it.asSequence())))
+                    }
+                } catch (_: SerializationException) {
+                    InternalLogger.log { "Task ${rootTask.task.id.rootId} failed to restore cleanly. Restarting root task instead." }
+                    tasks += TaskEntry(time, rootTask.task)
+                }
             }
         }
     }
