@@ -23,6 +23,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
     // TODO: For performance, it may be simpler to maintain a priority multimap keyed on task time,
     //  rather than collecting a batch of tasks when running them...
     //  Consider replacing tasks with a more efficient data structure
+    private val rootTasks: MutableList<TaskEntry> = mutableListOf()
     private val tasks: PriorityQueue<TaskEntry> = PriorityQueue(comparing(TaskEntry::time))
     // TODO: For the sake of restoring awaiting tasks, we may need to save pseudo-tasks,
     //  which defer back to the original task on everything except runStep, instead of the Await step itself.
@@ -75,7 +76,9 @@ class SimulationState(private val reportHandler: ReportHandler) {
     fun time() = time
 
     fun <T> addTask(name: String, step: PureTaskStep<T>, time: Duration = time()) {
-        addTask(Task.of(name, step), time)
+        val task = Task.of(name, step)
+        rootTasks += TaskEntry(time, task)
+        addTask(task, time)
     }
 
     private fun addTask(task: Task<*>, time: Duration) {
@@ -256,13 +259,19 @@ class SimulationState(private val reportHandler: ReportHandler) {
                 .within("time")
                 .report<Duration>(time)
         }
-        tasksToSave.groupBy {
+        val tasksByRootTaskId = tasksToSave.groupBy {
             var rootId = it.task.id.rootId
             while (rootId.parent != null) rootId = rootId.parent
             rootId
-        }.forEach { rootTaskId, tasks ->
-           taskCollector.within(rootTaskId.conditionKeys() + "children")
-               .report(tasks.map { it.task.id.rootId.conditionKeys().toList() })
+        }
+        // Report the running children for every root task.
+        // If a root task and all its children are complete, report an empty list of running children.
+        // This distinguishes completed root tasks from new root tasks, where a root task is added because the model changes.
+        for (rootTask in rootTasks) {
+            val rootTaskId = rootTask.task.id.rootId
+            val tasks = tasksByRootTaskId.getOrDefault(rootTaskId, listOf())
+            taskCollector.within(rootTaskId.conditionKeys() + "children")
+                .report(tasks.map { it.task.id.rootId.conditionKeys().toList() })
         }
     }
 
@@ -272,7 +281,6 @@ class SimulationState(private val reportHandler: ReportHandler) {
         }
         cells.restore(inconProvider.within("cells"))
         val taskProvider = inconProvider.within("tasks")
-        val rootTasks = tasks.toList()
         tasks.clear()
         for (rootTask in rootTasks) {
             val idsToRestore = taskProvider.within(rootTask.task.id.rootId.conditionKeys() + "children").provide<List<List<String>>>()
