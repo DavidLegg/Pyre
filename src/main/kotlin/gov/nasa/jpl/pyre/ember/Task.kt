@@ -71,8 +71,6 @@ interface Task<T> {
     // These are easy to write, but insufficient to run without first wrapping with additional save/restore functions.
     // This is what a "full" task step has - note the continuations are full-fledged Tasks, not merely task steps.
 
-    // TODO: Should there be any checking of things like task name collisions?
-    //   Maybe that can be handled elsewhere...
     sealed interface PureStepResult<T> {
         data class Complete<T>(val value: T) : PureStepResult<T> {
             override fun toString() = "Complete($value)"
@@ -98,7 +96,6 @@ interface Task<T> {
         class Restart<T> : PureStepResult<T> {
             override fun toString() = "Restart"
         }
-        // TODO - other task results / steps?
     }
 
     sealed interface TaskStepResult<T> {

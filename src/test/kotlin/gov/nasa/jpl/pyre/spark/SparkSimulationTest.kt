@@ -234,7 +234,6 @@ class SparkSimulationTest {
             val warmupPower = discreteResource("warmupPower", 3.0)
             val onPower = discreteResource("onPower", 10.0)
             val miscPower = discreteResource("miscPower", 2.0)
-            // TODO: clean these up using multi-arg monad methods
             // TODO: Consider a "derived resource builder", akin to TaskBuilder, to use coroutines to define the derivation...
             val devicePower = with (DiscreteResourceMonad) {
                 bind (state) {

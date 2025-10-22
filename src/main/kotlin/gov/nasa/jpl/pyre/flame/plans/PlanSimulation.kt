@@ -228,8 +228,7 @@ class PlanSimulation<M> {
 
     fun addActivities(activities: List<GroundedActivity<M>>) {
         InternalLogger.block({ "Loading ${activities.size} activities" }) {
-            // TODO: Test this activityDirective trickery
-            // TODO: If it works, consider formalizing it a bit more as a way to "safely" ingest info into the sim.
+            // TODO: Consider formalizing this as a way to "safely" ingest info into the sim.
             val activitiesToLoad = activities.toMutableList()
             var activityLoaderActive = true
 

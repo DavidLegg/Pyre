@@ -223,10 +223,6 @@ class PlanSimulationTest {
             context(scope: TaskScope)
             override suspend fun effectModel(model: TestModel) {
                 if (model.deviceState.getValue() != STANDBY) {
-                    // TODO: Spawn activity
-                    //   - Put model in SparkTaskScope?
-                    //   - Add name to Activity interface
-                    //   - Add spawn(Activity) to SparkTaskScope, using that name and model
                     spawn(DeviceBoot(), model)
                     await(model.deviceState equals STANDBY)
                 }
@@ -480,9 +476,6 @@ class PlanSimulationTest {
             GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), DeviceActivate(20 * MINUTE))
         ))
         simulation2.runUntil(Instant.parse("2020-01-01T02:00:00Z"))
-
-        // TODO: The fincon for the activities task shows a lot of history, when it ought to show only an await after the restart.
-        //   Look into the task history / restart logic to see why that's happening...
 
         with (reports2) {
             channel("activities") {
