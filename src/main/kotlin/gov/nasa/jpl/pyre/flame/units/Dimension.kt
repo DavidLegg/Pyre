@@ -28,15 +28,24 @@ class Dimension private constructor(
 
     override fun hashCode(): Int = definition.hashCode()
 
-    override fun toString(): String {
-        return definition.map { (d, p) ->
+    override fun toString(): String = productString(definition)
+
+    /**
+     * Supports [Unit.toString()], not meant to be called directly in user code.
+     */
+    fun baseUnitString(): String = productString(definition.mapKeys { BASE_UNITS.getValue(it.key) })
+
+    private fun productString(terms: Map<*, Rational>): String = terms
+        .map { (x, p) ->
             when {
-                p == ONE -> d.toString()
-                p > ZERO -> "$d^$p"
-                else -> "$d^($p)"
+                p == ONE -> x.toString()
+                p.denominator == 1 -> "$x^$p"
+                else -> "$x^($p)"
             }
-        }.joinToString(" ")
-    }
+        }
+        // Sort the resulting string terms for consistency
+        .sorted()
+        .joinToString(" ")
 
     companion object {
         /**
@@ -44,14 +53,23 @@ class Dimension private constructor(
          */
         val SCALAR = Dimension(emptyMap())
 
+        private val BASE_UNITS = mutableMapOf<BaseDimension, Unit>()
+
         // Base dimensions can only be created through the base function
         /**
          * Create a base dimension. Base dimensions are incompatible with all other dimensions.
+         *
+         * Instead of calling this function directly, consider calling [Unit.base] to create the unit with its dimension.
+         *
          * For example, SI base dimensions include mass, time, and length.
          * Non-base dimensions are derived by multiplying, dividing, and taking powers of, base dimensions.
          * For example, speed = length / time, and force = mass * length / time^2
          */
-        fun base(name: String) = Dimension(mapOf(BaseDimension(name) to ONE))
+        fun baseUnit(dimensionName: String, unitConstructor: (Dimension) -> Unit): Unit {
+            val baseDimension = BaseDimension(dimensionName)
+            val dimension = Dimension(mapOf(baseDimension to ONE))
+            return unitConstructor(dimension).also { BASE_UNITS[baseDimension] = it }
+        }
 
         private fun dimension(definition: Map<BaseDimension, Rational>): Dimension {
             return Dimension(definition.filter { it.value != ZERO }.toMap())

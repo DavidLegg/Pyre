@@ -9,7 +9,7 @@ import kotlin.math.pow
  * Relative degrees Fahrenheit and relative degrees Celsius *are* representable, but the distinction between
  * relative and absolute units is often neglected.
  */
-class Unit(
+class Unit private constructor(
     val name: String?,
     val scale: Double,
     val dimension: Dimension,
@@ -21,8 +21,9 @@ class Unit(
     fun pow(power: Rational) = Unit(null, scale.pow(power.numerator.toDouble() / power.denominator.toDouble()), dimension.pow(power))
     fun pow(power: Int) = Unit(null, scale.pow(power), dimension.pow(power))
 
-    // TODO: Need to print string with base units, not dimension
-    override fun toString(): String = name ?: "${if (scale == 1.0) "" else "$scale "}$dimension"
+    override fun toString(): String = name ?: dimension.baseUnitString().let {
+        if (scale == 1.0) it else "($scale $it)"
+    }
 
     companion object {
         /**
@@ -34,10 +35,11 @@ class Unit(
         /**
          * Define a new base unit and base dimension. For example:
          * ```
-         * val (kg, mass) = Unit.base("kg", "mass")
+         * val KILOGRAM = Unit.base("kg", "mass")
          * ```
          */
-        fun base(name: String, dimensionName: String): Unit = Unit(name, 1.0, Dimension.base(dimensionName))
+        fun base(name: String, dimensionName: String): Unit =
+            Dimension.baseUnit(dimensionName) { Unit(name, 1.0, it) }
 
         /**
          * Define a named unit derived from a quantity, i.e. a (potentially anonymous) unit and a scale.
