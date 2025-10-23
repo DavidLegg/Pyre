@@ -72,13 +72,13 @@ class PlanSimulation<M> {
         val initContext = state.initScope()
         val startupTasks: MutableList<Pair<String, suspend context (TaskScope) () -> Unit>> = mutableListOf()
         sparkScope = object : InitScope {
-            override fun <T : Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E> =
+            override fun <T : Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> =
                 initContext.allocate(cell.copy(name = "/${cell.name}"))
 
             override fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) =
                 initContext.spawn("/$name", step)
 
-            override fun <T, E> read(cell: CellSet.CellHandle<T, E>): T =
+            override fun <T> read(cell: CellSet.CellHandle<T>): T =
                 initContext.read(cell)
 
             override fun onStartup(name: String, block: suspend TaskScope.() -> Unit) {

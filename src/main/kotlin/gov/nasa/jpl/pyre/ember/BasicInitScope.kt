@@ -5,18 +5,18 @@ package gov.nasa.jpl.pyre.ember
  * Note that this is the only time we're allowed to allocate cells.
  */
 interface BasicInitScope {
-    fun <T: Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E>
+    fun <T: Any> allocate(cell: Cell<T>): CellSet.CellHandle<T>
     fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>)
-    fun <T, E> read(cell: CellSet.CellHandle<T, E>): T
+    fun <T> read(cell: CellSet.CellHandle<T>): T
 
     companion object {
         context (scope: BasicInitScope)
-        fun <T: Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E> = scope.allocate(cell)
+        fun <T: Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> = scope.allocate(cell)
 
         context (scope: BasicInitScope)
         fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) = scope.spawn(name, step)
 
         context (scope: BasicInitScope)
-        fun <T, E> read(cell: CellSet.CellHandle<T, E>): T = scope.read(cell)
+        fun <T> read(cell: CellSet.CellHandle<T>): T = scope.read(cell)
     }
 }

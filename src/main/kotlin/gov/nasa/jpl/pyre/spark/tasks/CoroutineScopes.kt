@@ -4,6 +4,7 @@ import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
 import gov.nasa.jpl.pyre.ember.Condition
 import gov.nasa.jpl.pyre.ember.Condition.ConditionResult
+import gov.nasa.jpl.pyre.ember.Effect
 import gov.nasa.jpl.pyre.ember.PureTaskStep
 import gov.nasa.jpl.pyre.ember.Task
 import gov.nasa.jpl.pyre.ember.Task.PureStepResult.*
@@ -49,7 +50,7 @@ private class ConditionBuilder(
     private val start: Continuation<Unit> = block.createCoroutineUnintercepted(this, this)
     private var nextResult: Condition? = null
 
-    override suspend fun <V, E> read(cell: CellHandle<V, E>) =
+    override suspend fun <V> read(cell: CellHandle<V>) =
         suspendCoroutineUninterceptedOrReturn { c ->
             nextResult = Condition.Read(cell) { value ->
                 nextResult = null
@@ -131,7 +132,7 @@ private class TaskBuilder<T>(
     private val start: Continuation<Unit> = block.createCoroutineUnintercepted(this, this)
     private var nextResult: Task.PureStepResult<T>? = null
 
-    override suspend fun <V, E> read(cell: CellHandle<V, E>): V =
+    override suspend fun <V> read(cell: CellHandle<V>): V =
         suspendCoroutineUninterceptedOrReturn { c ->
             nextResult = Read(cell) { value ->
                 nextResult = null
@@ -141,7 +142,7 @@ private class TaskBuilder<T>(
             COROUTINE_SUSPENDED
         }
 
-    override suspend fun <V, E> emit(cell: CellHandle<V, E>, effect: E) =
+    override suspend fun <V> emit(cell: CellHandle<V>, effect: Effect<V>) =
         suspendCoroutineUninterceptedOrReturn { c ->
             nextResult = Emit(cell, effect, continueWith(c))
             COROUTINE_SUSPENDED

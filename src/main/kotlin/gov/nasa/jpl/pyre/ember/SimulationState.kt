@@ -27,9 +27,9 @@ class SimulationState(private val reportHandler: ReportHandler) {
     private val tasks: PriorityQueue<TaskEntry> = PriorityQueue(comparing(TaskEntry::time))
     // TODO: For the sake of restoring awaiting tasks, we may need to save pseudo-tasks,
     //  which defer back to the original task on everything except runStep, instead of the Await step itself.
-    private val cellListeners: MutableMap<CellHandle<*, *>, MutableSet<AwaitingTask<*>>> = mutableMapOf()
-    private val listeningTasks: MutableMap<AwaitingTask<*>, Set<CellHandle<*, *>>> = mutableMapOf()
-    private val modifiedCells: MutableSet<CellHandle<*, *>> = mutableSetOf()
+    private val cellListeners: MutableMap<CellHandle<*>, MutableSet<AwaitingTask<*>>> = mutableMapOf()
+    private val listeningTasks: MutableMap<AwaitingTask<*>, Set<CellHandle<*>>> = mutableMapOf()
+    private val modifiedCells: MutableSet<CellHandle<*>> = mutableSetOf()
 
     private class AwaitingTask<T>(
         val await: Await<T>,
@@ -68,9 +68,9 @@ class SimulationState(private val reportHandler: ReportHandler) {
     private val awaitingTasks: MutableSet<AwaitingTask<*>> = mutableSetOf()
 
     fun initScope() = object : BasicInitScope {
-        override fun <T: Any, E> allocate(cell: Cell<T, E>) = cells.allocate(cell)
+        override fun <T: Any> allocate(cell: Cell<T>) = cells.allocate(cell)
         override fun <T> spawn(name: String, step: () -> PureStepResult<T>) = addTask(name, step)
-        override fun <T, E> read(cell: CellHandle<T, E>): T = cells[cell].value
+        override fun <T> read(cell: CellHandle<T>): T = cells[cell].value
     }
 
     fun time() = time
@@ -179,14 +179,14 @@ class SimulationState(private val reportHandler: ReportHandler) {
     }
 
     private fun <T> runTask(task: Task<T>, cellSet: CellSet) {
-        fun <V, E, T> runTaskRead(stepResult: Read<V, E, T>) =
+        fun <V, T> runTaskRead(stepResult: Read<V, T>) =
             runTask(stepResult.continuation(cellSet[stepResult.cell].value), cellSet)
 
         fun runTaskAwait(stepResult: Await<T>) {
             awaitingTasks += AwaitingTask(stepResult, task, this)
         }
 
-        fun <V, E, T> runTaskEmit(step: Emit<V, E, T>) {
+        fun <V, T> runTaskEmit(step: Emit<V, T>) {
             // We mark the cell as modified, instead of directly adding listeners, to keep the simulation deterministic.
             // This is because a task T may await this cell in parallel with this.
             // If T is ahead of this in the batch, adding listeners would add it;
@@ -215,8 +215,8 @@ class SimulationState(private val reportHandler: ReportHandler) {
             is Complete -> Unit // Nothing to do
             is Delay -> addTask(stepResult.continuation, time + stepResult.time)
             is Await -> runTaskAwait(stepResult)
-            is Emit<*, *, *> -> runTaskEmit(stepResult)
-            is Read<*, *, *> -> runTaskRead(stepResult)
+            is Emit<*, *> -> runTaskEmit(stepResult)
+            is Read<*, *> -> runTaskRead(stepResult)
             is Report<*, *> -> runTaskReport(stepResult)
             is Spawn<*, *> -> {
                 addTask(stepResult.child, time)
@@ -226,7 +226,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
         }
     }
 
-    private fun evaluateCondition(condition: Condition, cellSet: CellSet): Pair<Set<CellHandle<*, *>>, ConditionResult> {
+    private fun evaluateCondition(condition: Condition, cellSet: CellSet): Pair<Set<CellHandle<*>>, ConditionResult> {
         InternalLogger.log { "Eval $condition" }
         fun <V> evaluateRead(read: Condition.Read<V>) =
             with (evaluateCondition(read.continuation(cellSet[read.cell].value), cellSet)) { copy(first = first + read.cell) }
