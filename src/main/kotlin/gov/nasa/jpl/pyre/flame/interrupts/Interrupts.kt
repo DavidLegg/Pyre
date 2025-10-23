@@ -3,6 +3,7 @@ package gov.nasa.jpl.pyre.flame.interrupts
 import gov.nasa.jpl.pyre.ember.CellSet
 import gov.nasa.jpl.pyre.ember.Condition
 import gov.nasa.jpl.pyre.ember.Duration
+import gov.nasa.jpl.pyre.ember.Effect
 import gov.nasa.jpl.pyre.ember.plus
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.or
@@ -36,7 +37,7 @@ object Interrupts {
         // Construct a new TaskScope, which will throw AbortTaskException if we abort.
         // That will stop the rest of nominal behavior from executing.
         val abortScope = object : TaskScope by scope {
-            override suspend fun <V, E> emit(cell: CellSet.CellHandle<V, E>, effect: E) {
+            override suspend fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>) {
                 scope.emit(cell, effect)
                 // It's possible that the effect we just emitted caused our own abort condition to fire!
                 if (hasAborted.getValue()) throw AbortTaskException()

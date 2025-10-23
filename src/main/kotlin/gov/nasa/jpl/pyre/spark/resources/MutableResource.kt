@@ -4,7 +4,6 @@ import gov.nasa.jpl.pyre.coals.Reflection.withArg
 import gov.nasa.jpl.pyre.coals.andThen
 import gov.nasa.jpl.pyre.coals.identity
 import gov.nasa.jpl.pyre.coals.named
-import gov.nasa.jpl.pyre.ember.Cell.EffectTrait
 import gov.nasa.jpl.pyre.ember.*
 import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.allocate
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
@@ -18,7 +17,8 @@ interface MutableResource<D> : Resource<D> {
     context (scope: TaskScope)
     suspend fun emit(effect: ResourceEffect<D>)
 }
-typealias ResourceEffect<D> = (FullDynamics<D>) -> FullDynamics<D>
+typealias ResourceEffect<D> = Effect<FullDynamics<D>>
+typealias MergeResourceEffect<D> = (ResourceEffect<D>, ResourceEffect<D>) -> ResourceEffect<D>
 
 context (scope: TaskScope)
 suspend fun <D> MutableResource<D>.emit(effect: (D) -> D) = this.emit({ it: FullDynamics<D> ->
@@ -32,31 +32,30 @@ context (scope: InitScope)
 inline fun <V, reified D : Dynamics<V, D>> resource(
     name: String,
     initialDynamics: D,
-    effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
-) = resource(name, initialDynamics, typeOf<D>(), effectTrait)
+    noinline mergeConcurrentEffects: MergeResourceEffect<D> = autoEffects(),
+) = resource(name, initialDynamics, typeOf<D>(), mergeConcurrentEffects)
 
 context (scope: InitScope)
 fun <V, D : Dynamics<V, D>> resource(
     name: String,
     initialDynamics: D,
     dynamicsType: KType,
-    effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
-) = resource(name, DynamicsMonad.pure(initialDynamics), FullDynamics::class.withArg(dynamicsType), effectTrait)
+    mergeConcurrentEffects: MergeResourceEffect<D> = autoEffects(),
+) = resource(name, DynamicsMonad.pure(initialDynamics), FullDynamics::class.withArg(dynamicsType), mergeConcurrentEffects)
 
 context (scope: InitScope)
 fun <V, D : Dynamics<V, D>> resource(
     name: String,
     initialDynamics: FullDynamics<D>,
     fullDynamicsType: KType,
-    effectTrait: EffectTrait<ResourceEffect<D>> = autoEffects(),
+    mergeConcurrentEffects: MergeResourceEffect<D> = autoEffects(),
 ): MutableResource<D> {
     val cell = allocate(Cell(
         name,
         initialDynamics,
         fullDynamicsType,
         { d, t -> d.step(t) },
-        { d, effect -> effect(d) },
-        effectTrait,
+        mergeConcurrentEffects,
     ))
 
     return object : MutableResource<D> {
@@ -68,21 +67,14 @@ fun <V, D : Dynamics<V, D>> resource(
     } named { name }
 }
 
-fun <D> resourceEffectTrait(concurrent: (left: ResourceEffect<D>, right: ResourceEffect<D>) -> ResourceEffect<D>) =
-    object : EffectTrait<ResourceEffect<D>> {
-        override fun empty(): ResourceEffect<D> = identity<FullDynamics<D>>() named { "(empty effect)" }
-        override fun sequential(first: ResourceEffect<D>, second: ResourceEffect<D>) = (first andThen second) named { "($first), ($second)" }
-        override fun concurrent(left: ResourceEffect<D>, right: ResourceEffect<D>) = concurrent(left, right) named { "($left) | ($right)" }
-    }
+fun <D> commutingEffects(): MergeResourceEffect<D> = { left, right -> left andThen right }
 
-fun <D> commutingEffects(): EffectTrait<ResourceEffect<D>> = resourceEffectTrait { left, right -> left andThen right }
-
-fun <D> noncommutingEffects(): EffectTrait<ResourceEffect<D>> = resourceEffectTrait { left, right ->
+fun <D> noncommutingEffects(): MergeResourceEffect<D> = { left, right ->
     throw IllegalArgumentException("Non-commuting concurrent effects: $left vs. $right - Cell does not support concurrent effects.")
 }
 
-fun <D> autoEffects(resultsEqual: (FullDynamics<D>, FullDynamics<D>) -> Boolean = { r, s -> r == s }): EffectTrait<ResourceEffect<D>> =
-    resourceEffectTrait { left, right -> {
+fun <D> autoEffects(resultsEqual: (FullDynamics<D>, FullDynamics<D>) -> Boolean = { r, s -> r == s }): MergeResourceEffect<D> =
+    { left, right -> {
         val result1 = left(right(it))
         val result2 = right(left(it))
         require(resultsEqual(result1, result2)) {

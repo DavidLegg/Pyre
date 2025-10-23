@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.*
-import gov.nasa.jpl.pyre.ember.Cell.EffectTrait
+import gov.nasa.jpl.pyre.coals.andThen
 import gov.nasa.jpl.pyre.ember.SimpleSimulation.SimulationSetup
 import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
@@ -65,24 +65,8 @@ class SimulationTest {
         value,
         typeOf<Int>(),
         { x, _ -> x },
-        { x, n -> x + n },
-        object : EffectTrait<Int> {
-            override fun empty() = 0
-            override fun concurrent(left: Int, right: Int) = left + right
-            override fun sequential(first: Int, second: Int) = first + second
-        }
+        { l, r -> l andThen r }
     )
-
-    private fun <T> setEffectTrait() = object : EffectTrait<T?> {
-        override fun empty(): T? = null
-        override fun concurrent(left: T?, right: T?): T? =
-            if (left != null && right != null) {
-                throw IllegalArgumentException("Concurrent non-commuting effects")
-            } else {
-                left ?: right
-            }
-        override fun sequential(first: T?, second: T?): T? = second ?: first
-    }
 
     @Serializable
     private data class LinearDynamics(val value: Double, val rate: Double)
@@ -92,8 +76,7 @@ class SimulationTest {
         LinearDynamics(value, rate),
         typeOf<LinearDynamics>(),
         ::linearDynamicsStep,
-        { d, e -> e ?: d },
-        setEffectTrait<LinearDynamics>()
+        { l, r -> l andThen r }
     )
 
     private fun clockCell(name: String, t: Duration) = Cell(
@@ -101,8 +84,7 @@ class SimulationTest {
         t,
         typeOf<Duration>(),
         { s, delta -> s + delta },
-        { s, e -> e ?: s },
-        setEffectTrait<Duration>()
+        { l, r -> l andThen r }
     )
 
     @Test
@@ -157,7 +139,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 42))
             spawn("emit effect") {
-                Emit(x, 13) {
+                Emit(x, { it + 13 }) {
                     Read(x) {
                         Report("x = $it", typeOf<String>()) {
                             Complete(Unit)
@@ -186,11 +168,7 @@ class SimulationTest {
             // This is *not* a good way to implement stepping, since multiple steps, each < 1 minute,
             // will not change the value, but a single >1 minute step would.
             // It's fine for this test, though.
-            val x = allocate(Cell("x", 0, typeOf<Int>(), { x, t -> x + (t / MINUTE).toInt() }, { x, n -> x + n }, object : EffectTrait<Int> {
-                override fun empty() = 0
-                override fun concurrent(left: Int, right: Int) = left + right
-                override fun sequential(first: Int, second: Int) = first + second
-            }))
+            val x = allocate(Cell("x", 0, typeOf<Int>(), { x, t -> x + (t / MINUTE).toInt() }, { l, r -> l andThen r }))
             spawn("step cell") {
                 Read(x) {
                     Report("now x = $it", typeOf<String>()) {
@@ -219,7 +197,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
             spawn("Task A") {
-                Emit(x, 5) {
+                Emit(x, { it + 5 }) {
                     Read(x) {
                         Report("A says: x = $it", typeOf<String>()) {
                             Complete(Unit)
@@ -228,7 +206,7 @@ class SimulationTest {
                 }
             }
             spawn("Task B") {
-                Emit(x, 3) {
+                Emit(x, { it + 3 }) {
                     Read(x) {
                         Report("B says: x = $it", typeOf<String>()) {
                             Complete(Unit)
@@ -263,7 +241,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
             spawn("Task A") {
-                Emit(x, 5) {
+                Emit(x, { it + 5 }) {
                     Read(x) {
                         Report("A says: x = $it", typeOf<String>()) {
                             Complete(Unit)
@@ -295,40 +273,12 @@ class SimulationTest {
     }
 
     @Test
-    fun sequential_unobserved_effects_are_joined_using_effect_trait() {
-        val results = runSimulation(HOUR) {
-            // Note: This is *not* a correct effect trait, but it's simple and lets us observe what's happening better.
-            val x = allocate(Cell("x", 10, typeOf<Int>(), { x, _ -> x }, { x, n -> x + n }, object : EffectTrait<Int> {
-                override fun empty() = 0
-                override fun concurrent(left: Int, right: Int) = 0
-                override fun sequential(first: Int, second: Int) = first + second + 100
-            }))
-            spawn("emit effect") {
-                Emit(x, 5) {
-                    Emit(x, 6) {
-                        Read(x) {
-                            Report("x = $it", typeOf<String>()) {
-                                Complete(Unit)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        assertEquals(mutableListOf(JsonPrimitive("x = 121")), results.reports)
-    }
-
-    @Test
     fun concurrent_effects_are_joined_using_effect_trait() {
         val results = runSimulation(HOUR) {
             // Note: This is *not* a correct effect trait, but it's simple and lets us observe what's happening better.
-            val x = allocate(Cell("x", 10, typeOf<Int>(), { x, _ -> x }, { x, n -> x + n }, object : EffectTrait<Int> {
-                override fun empty() = 0
-                override fun concurrent(left: Int, right: Int) = left + right + 100
-                override fun sequential(first: Int, second: Int) = first + second
-            }))
+            val x = allocate(Cell("x", 10, typeOf<Int>(), { x, _ -> x }, { l, r -> { 100 + r(l(it)) } }))
             spawn("Task A") {
-                Emit(x, 5) {
+                Emit(x, { it + 5 }) {
                     Read(x) {
                         Report("A says: x = $it", typeOf<String>()) {
                             Complete(Unit)
@@ -337,7 +287,7 @@ class SimulationTest {
                 }
             }
             spawn("Task B") {
-                Emit(x, 3) {
+                Emit(x, { it + 3 }) {
                     Read(x) {
                         Report("B says: x = $it", typeOf<String>()) {
                             Complete(Unit)
@@ -389,11 +339,11 @@ class SimulationTest {
                 }
             }
             spawn("Counter") {
-                Emit(x, 1) {
+                Emit(x, { it + 1 }) {
                     Delay(ZERO) {
-                        Emit(x, 1) {
+                        Emit(x, { it + 1 }) {
                             Delay(ZERO) {
-                                Emit(x, 1) {
+                                Emit(x, { it + 1 }) {
                                     Complete(Unit)
                                 }
                             }
@@ -443,11 +393,11 @@ class SimulationTest {
                 }
             }
             spawn("Counter") {
-                Emit(x, 1) {
+                Emit(x, { it + 1 }) {
                     Delay(ZERO) {
-                        Emit(y, -1) {
+                        Emit(y, { it - 1 }) {
                             Delay(ZERO) {
-                                Emit(x, 1) {
+                                Emit(x, { it + 1 }) {
                                     Complete(Unit)
                                 }
                             }
@@ -537,13 +487,13 @@ class SimulationTest {
                 }
             }
             spawn("Interrupter") {
-                Emit(y, 1) {
+                Emit(y, { it + 1 }) {
                     Delay(6 * SECOND) {
-                        Emit(y, 1) {
-                            Emit(x, LinearDynamics(19.0, -0.5)) {
+                        Emit(y, { it + 1 }) {
+                            Emit(x, { LinearDynamics(19.0, -0.5) }) {
                                 Delay(20 * MINUTE) {
-                                    Emit(y, 1) {
-                                        Emit(x, LinearDynamics(35.0, 0.0)) {
+                                    Emit(y, { it + 1 }) {
+                                        Emit(x, { LinearDynamics(35.0, 0.0) }) {
                                             Complete(Unit)
                                         }
                                     }
@@ -598,13 +548,13 @@ class SimulationTest {
                 }
             }
             spawn("Interrupter") {
-                Emit(y, 1) {
+                Emit(y, { it + 1 }) {
                     Delay(6 * SECOND) {
-                        Emit(y, 1) {
-                            Emit(x, LinearDynamics(19.0, -0.5)) {
+                        Emit(y, { it + 1 }) {
+                            Emit(x, { LinearDynamics(19.0, -0.5) }) {
                                 Delay(20 * MINUTE) {
-                                    Emit(y, 1) {
-                                        Emit(x, LinearDynamics(19.0, 0.1)) {
+                                    Emit(y, { it + 1 }) {
+                                        Emit(x, { LinearDynamics(19.0, 0.1) }) {
                                             Complete(Unit)
                                         }
                                     }
@@ -686,7 +636,7 @@ class SimulationTest {
 
             spawn("Interrupter") {
                 Delay(5 * SECOND) {
-                    Emit(x, LinearDynamics(20.0, 0.0)) {
+                    Emit(x, { LinearDynamics(20.0, 0.0) }) {
                         Complete(Unit)
                     }
                 }
@@ -967,7 +917,7 @@ class SimulationTest {
             val clock = allocate(clockCell("clock", ZERO))
             spawn("Repeater") {
                 Delay(10 * MINUTE) {
-                    Emit(x, 1) {
+                    Emit(x, { it + 1 }) {
                         Read(clock) { time ->
                             Read(x) {
                                 Report("x = $it at $time", typeOf<String>()) {
@@ -998,7 +948,7 @@ class SimulationTest {
             val clock = allocate(clockCell("clock", ZERO))
             spawn("Repeater") {
                 Delay(10 * MINUTE) {
-                    Emit(x, 1) {
+                    Emit(x, { it + 1 }) {
                         Read(clock) { time ->
                             Read(x) {
                                 Report("x = $it at $time", typeOf<String>()) {
@@ -1043,7 +993,7 @@ class SimulationTest {
             spawn("Repeater") {
                 plays++
                 Delay(10 * MINUTE) {
-                    Emit(x, 1) {
+                    Emit(x, { it + 1 }) {
                         Read(clock) { time ->
                             Read(x) {
                                 Report("x = $it at $time", typeOf<String>()) {
@@ -1096,13 +1046,13 @@ class SimulationTest {
             var x = allocate(intCounterCell("x", 0))
 
             spawn("Counter") {
-                Emit(x, 1) {
+                Emit(x, { it + 1 }) {
                     Delay(ZERO) {
-                        Emit(x, 1) {
+                        Emit(x, { it + 1 }) {
                             Delay(ZERO) {
-                                Emit(x, 1) {
+                                Emit(x, { it + 1 }) {
                                     Delay(ZERO) {
-                                        Emit(x, 1) {
+                                        Emit(x, { it + 1 }) {
                                             Complete(Unit)
                                         }
                                     }
@@ -1369,7 +1319,7 @@ class SimulationTest {
                                 }
                             }
                         }) {
-                            Emit(n, 1) {
+                            Emit(n, { it + 1 }) {
                                 Restart<Unit>()
                             }
                         }
@@ -1426,7 +1376,7 @@ class SimulationTest {
                             Read(clock) { time ->
                                 Read(n) {
                                     Report("Iteration $it at $time", typeOf<String>()) {
-                                        Emit(n, 1) {
+                                        Emit(n, { it + 1 }) {
                                             Restart<Unit>()
                                         }
                                     }

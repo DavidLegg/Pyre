@@ -10,7 +10,7 @@ sealed interface Condition {
     data class UnsatisfiedUntil(val time: Duration?) : ConditionResult {
         override fun toString(): String = "UnsatisfiedUntil(${time ?: "FOREVER"})"
     }
-    data class Read<V>(val cell: CellSet.CellHandle<V, *>, val continuation: (V) -> Condition) : Condition {
+    data class Read<V>(val cell: CellSet.CellHandle<V>, val continuation: (V) -> Condition) : Condition {
         override fun toString() = "Read(${cell.name}, ...)"
     }
 

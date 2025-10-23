@@ -7,6 +7,7 @@ import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.PureTaskStep
 import gov.nasa.jpl.pyre.ember.BasicInitScope
+import gov.nasa.jpl.pyre.ember.Effect
 import gov.nasa.jpl.pyre.ember.Task
 import gov.nasa.jpl.pyre.ember.minus
 import gov.nasa.jpl.pyre.ember.toKotlinDuration
@@ -44,11 +45,11 @@ interface SparkScope {
 }
 
 interface ResourceScope : SparkScope {
-    suspend fun <V, E> read(cell: CellSet.CellHandle<V, E>): V
+    suspend fun <V> read(cell: CellSet.CellHandle<V>): V
 
     companion object {
         context (scope: ResourceScope)
-        suspend fun <V, E> read(cell: CellSet.CellHandle<V, E>): V = scope.read(cell)
+        suspend fun <V> read(cell: CellSet.CellHandle<V>): V = scope.read(cell)
 
         context (scope: ResourceScope)
         suspend fun now() = simulationEpoch + simulationClock.getValue().toKotlinDuration()
@@ -58,7 +59,7 @@ interface ResourceScope : SparkScope {
 interface ConditionScope : ResourceScope
 
 interface TaskScope : ResourceScope {
-    suspend fun <V, E> emit(cell: CellSet.CellHandle<V, E>, effect: E)
+    suspend fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>)
     suspend fun <T> report(value: T, type: KType)
     suspend fun delay(time: Duration)
     suspend fun await(condition: () -> Condition)
@@ -69,7 +70,7 @@ interface TaskScope : ResourceScope {
         suspend inline fun <reified T> report(value: T) = report(value, typeOf<T>())
 
         context (scope: TaskScope)
-        suspend fun <V, E> emit(cell: CellSet.CellHandle<V, E>, effect: E) = scope.emit(cell, effect)
+        suspend fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>) = scope.emit(cell, effect)
 
         context (scope: TaskScope)
         suspend fun <T> report(value: T, type: KType) = scope.report(value, type)
@@ -116,7 +117,7 @@ interface InitScope : SparkScope, BasicInitScope, ResourceScope {
      */
     fun onStartup(name: String, block: suspend context (TaskScope) () -> Unit)
 
-    override suspend fun <V, E> read(cell: CellSet.CellHandle<V, E>): V =
+    override suspend fun <V> read(cell: CellSet.CellHandle<V>): V =
         (this as BasicInitScope).read(cell)
 
     companion object {
@@ -130,7 +131,7 @@ interface InitScope : SparkScope, BasicInitScope, ResourceScope {
          */
         context (scope: InitScope)
         fun subContext(contextName: String) = object : InitScope by scope {
-            override fun <T : Any, E> allocate(cell: Cell<T, E>): CellSet.CellHandle<T, E> =
+            override fun <T : Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> =
                 scope.allocate(cell.copy(name = "$contextName/${cell.name}"))
 
             override fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) =

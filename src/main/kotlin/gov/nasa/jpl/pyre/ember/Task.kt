@@ -75,10 +75,10 @@ interface Task<T> {
         data class Complete<T>(val value: T) : PureStepResult<T> {
             override fun toString() = "Complete($value)"
         }
-        data class Read<V, E, T>(val cell: CellHandle<V, E>, val continuation: (V) -> PureStepResult<T>) : PureStepResult<T> {
+        data class Read<V, T>(val cell: CellHandle<V>, val continuation: (V) -> PureStepResult<T>) : PureStepResult<T> {
             override fun toString() = "Read(${cell.name})"
         }
-        data class Emit<V, E, T>(val cell: CellHandle<V, E>, val effect: E, val continuation: PureTaskStep<T>) : PureStepResult<T> {
+        data class Emit<V, T>(val cell: CellHandle<V>, val effect: Effect<V>, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Emit(${cell.name}, $effect)"
         }
         data class Report<V, T>(val value: V, val type: KType, val continuation: PureTaskStep<T>) : PureStepResult<T> {
@@ -102,10 +102,10 @@ interface Task<T> {
         data class Complete<T>(val value: T) : TaskStepResult<T> {
             override fun toString() = "Complete($value)"
         }
-        data class Read<V, E, T>(val cell: CellHandle<V, E>, val continuation: (V) -> Task<T>) : TaskStepResult<T> {
+        data class Read<V, T>(val cell: CellHandle<V>, val continuation: (V) -> Task<T>) : TaskStepResult<T> {
             override fun toString() = "Read(${cell.name})"
         }
-        data class Emit<V, E, T>(val cell: CellHandle<V, E>, val effect: E, val continuation: Task<T>) : TaskStepResult<T> {
+        data class Emit<V, T>(val cell: CellHandle<V>, val effect: Effect<V>, val continuation: Task<T>) : TaskStepResult<T> {
             override fun toString() = "Emit(${cell.name}, $effect)"
         }
         data class Report<V, T>(val value: V, val type: KType, val continuation: Task<T>) : TaskStepResult<T> {
@@ -157,8 +157,8 @@ private class PureTask<T>(
     override fun runStep(): TaskStepResult<T> {
         return when (val stepResult = step()) {
             is PureStepResult.Complete -> TaskStepResult.Complete(stepResult.value)
-            is PureStepResult.Read<*, *, T> -> runRead(stepResult)
-            is PureStepResult.Emit<*, *, T> -> runEmit(stepResult)
+            is PureStepResult.Read<*, T> -> runRead(stepResult)
+            is PureStepResult.Emit<*, T> -> runEmit(stepResult)
             is PureStepResult.Report<*, T> -> runReport(stepResult)
             is PureStepResult.Delay -> TaskStepResult.Delay(
                 stepResult.time,
@@ -173,7 +173,7 @@ private class PureTask<T>(
         }
     }
 
-    private fun <V, E> runRead(step: PureStepResult.Read<V, E, T>) = TaskStepResult.Read(step.cell) { value ->
+    private fun <V> runRead(step: PureStepResult.Read<V, T>) = TaskStepResult.Read(step.cell) { value ->
         PureTask(
             id.nextStep(),
             // Important: step.continuation is deferred to Task.runStep.
@@ -185,7 +185,7 @@ private class PureTask<T>(
         )
     }
 
-    private fun <V, E> runEmit(step: PureStepResult.Emit<V, E, T>) = TaskStepResult.Emit(
+    private fun <V> runEmit(step: PureStepResult.Emit<V, T>) = TaskStepResult.Emit(
         step.cell,
         step.effect,
         PureTask(id.nextStep(), step.continuation, { saveData(); report<TaskHistoryStep>(EmitMarker) }, rootTask)
@@ -224,8 +224,8 @@ private class PureTask<T>(
         return with (this.runStep()) {
             when (this) {
                 is TaskStepResult.Complete -> throw IllegalArgumentException("Extra restore data for completed task")
-                is TaskStepResult.Read<*, *, T> -> restoreRead(this, inconProvider)
-                is TaskStepResult.Emit<*, *, T> -> restoreWith<EmitMarker>(inconProvider) {
+                is TaskStepResult.Read<*, T> -> restoreRead(this, inconProvider)
+                is TaskStepResult.Emit<*, T> -> restoreWith<EmitMarker>(inconProvider) {
                     (continuation as PureTask<T>).restoreSingle(inconProvider)
                 }
                 is TaskStepResult.Report<*, T> -> restoreWith<ReportMarker>(inconProvider) {
@@ -250,8 +250,8 @@ private class PureTask<T>(
         }
     }
 
-    private fun <V, E> restoreRead(
-        step: TaskStepResult.Read<V, E, T>,
+    private fun <V> restoreRead(
+        step: TaskStepResult.Read<V, T>,
         inconProvider: InconProvidingContext,
     ): Task<*> = inconProvider.provide<ReadMarker<V>>(ReadMarker.concreteType(step.cell.valueType))?.let {
         (step.continuation(it.value) as PureTask<T>).restoreSingle(inconProvider)
