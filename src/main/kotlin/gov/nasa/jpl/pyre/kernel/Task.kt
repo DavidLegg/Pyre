@@ -145,7 +145,7 @@ interface Task<T> {
 // Although you could technically implement Task from scratch,
 // it's so complicated in practice that everyone basically uses PureTask.
 // Even I use it to test the kernel engine, since writing Task from scratch would be so miserable.
-// For that reason, I'm keeping this in kernel instead of spark.
+// For that reason, I'm keeping this in kernel instead of foundation.
 private class PureTask<T>(
     override val id: TaskId,
     private val step: PureTaskStep<T>,

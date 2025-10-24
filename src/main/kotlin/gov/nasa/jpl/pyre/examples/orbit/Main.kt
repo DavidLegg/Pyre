@@ -12,8 +12,8 @@ import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.assumeType
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channels
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.reportAllTo
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.split
-import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad.map
+import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteMonad.map
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule

@@ -5,15 +5,15 @@ import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.or
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
-import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.greaterThanOrEquals
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.or
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenTrue
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.or
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.greaterThanOrEquals
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.or
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenTrue
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 
 /**
  * Provides utilities for interrupting a task.

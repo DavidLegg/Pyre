@@ -9,10 +9,10 @@ import gov.nasa.jpl.pyre.flame.units.QuantityOperations.valueIn
 import gov.nasa.jpl.pyre.flame.units.Unit
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 
 // We can define a brand new dimension, like "image", to use the unit system to check calculations around images.
 // Note that this will be a different "image" unit and dimension than any other, even if somewhere else we define

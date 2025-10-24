@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.spark.tasks
+package gov.nasa.jpl.pyre.foundation.tasks
 
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
@@ -40,13 +40,13 @@ import kotlin.reflect.KType
  * ```
  */
 // Reconstruct the ConditionBuilder with each re-evaluation of the condition
-context (scope: SparkScope)
+context (scope: SimulationScope)
 fun condition(block: suspend context (ConditionScope) () -> ConditionResult): () -> Condition = { ConditionBuilder(scope, block).getCondition() }
 
 private class ConditionBuilder(
-    sparkScope: SparkScope,
+    simulationScope: SimulationScope,
     block: suspend context (ConditionScope) () -> ConditionResult,
-) : ConditionScope, Continuation<ConditionResult>, SparkScope by sparkScope {
+) : ConditionScope, Continuation<ConditionResult>, SimulationScope by simulationScope {
     private val start: Continuation<Unit> = block.createCoroutineUnintercepted(this, this)
     private var nextResult: Condition? = null
 
@@ -100,7 +100,7 @@ sealed interface TaskScopeResult<T> {
  * @see task
  * @see repeatingTask
  */
-context (scope: SparkScope)
+context (scope: SimulationScope)
 fun <T> coroutineTask(block: suspend context (TaskScope) () -> TaskScopeResult<T>): PureTaskStep<T> =
     // Running the task step creates a new TaskBuilder, allowing for repeating tasks
     { TaskBuilder(scope, block).runTask() }
@@ -111,7 +111,7 @@ fun <T> coroutineTask(block: suspend context (TaskScope) () -> TaskScopeResult<T
  * @see coroutineTask
  * @see repeatingTask
  */
-context (scope: SparkScope)
+context (scope: SimulationScope)
 fun <T> task(block: suspend context (TaskScope) () -> T): PureTaskStep<T> =
     coroutineTask { TaskScopeResult.Complete(block()) }
 
@@ -121,14 +121,14 @@ fun <T> task(block: suspend context (TaskScope) () -> T): PureTaskStep<T> =
  * @see coroutineTask
  * @see task
  */
-context (scope: SparkScope)
+context (scope: SimulationScope)
 fun repeatingTask(block: suspend context (TaskScope) () -> Unit): PureTaskStep<Unit> =
     coroutineTask { block(); TaskScopeResult.Restart() }
 
 private class TaskBuilder<T>(
-    sparkScope: SparkScope,
+    simulationScope: SimulationScope,
     block: suspend context (TaskScope) () -> TaskScopeResult<T>
-) : TaskScope, Continuation<TaskScopeResult<T>>, SparkScope by sparkScope {
+) : TaskScope, Continuation<TaskScopeResult<T>>, SimulationScope by simulationScope {
     private val start: Continuation<Unit> = block.createCoroutineUnintercepted(this, this)
     private var nextResult: Task.PureStepResult<T>? = null
 

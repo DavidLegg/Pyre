@@ -1,11 +1,9 @@
 package gov.nasa.jpl.pyre.flame.units
 
-import gov.nasa.jpl.pyre.spark.reporting.Reporting
-import gov.nasa.jpl.pyre.spark.resources.Dynamics
-import gov.nasa.jpl.pyre.spark.resources.MutableResource
-import gov.nasa.jpl.pyre.spark.resources.Resource
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting
+import gov.nasa.jpl.pyre.foundation.resources.Dynamics
+import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import kotlin.reflect.KType
 
 class UnitAware<out T>(

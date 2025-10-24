@@ -2,12 +2,12 @@ package gov.nasa.jpl.pyre.flame.results.discrete
 
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.compute
-import gov.nasa.jpl.pyre.spark.resources.discrete.FloatResourceOperations.div
-import gov.nasa.jpl.pyre.spark.resources.discrete.FloatResourceOperations.minus
-import gov.nasa.jpl.pyre.spark.resources.discrete.FloatResourceOperations.plus
-import gov.nasa.jpl.pyre.spark.resources.discrete.FloatResourceOperations.times
-import gov.nasa.jpl.pyre.spark.resources.discrete.FloatResourceOperations.unaryMinus
-import gov.nasa.jpl.pyre.spark.resources.discrete.FloatResourceOperations.unaryPlus
+import gov.nasa.jpl.pyre.foundation.resources.discrete.FloatResourceOperations.div
+import gov.nasa.jpl.pyre.foundation.resources.discrete.FloatResourceOperations.minus
+import gov.nasa.jpl.pyre.foundation.resources.discrete.FloatResourceOperations.plus
+import gov.nasa.jpl.pyre.foundation.resources.discrete.FloatResourceOperations.times
+import gov.nasa.jpl.pyre.foundation.resources.discrete.FloatResourceOperations.unaryMinus
+import gov.nasa.jpl.pyre.foundation.resources.discrete.FloatResourceOperations.unaryPlus
 
 typealias FloatProfile = DiscreteProfile<Float>
 

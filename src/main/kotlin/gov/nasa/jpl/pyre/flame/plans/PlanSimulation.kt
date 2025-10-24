@@ -16,22 +16,22 @@ import gov.nasa.jpl.pyre.kernel.SimulationState
 import gov.nasa.jpl.pyre.kernel.Task
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.resources.resource
-import gov.nasa.jpl.pyre.spark.resources.timer.Timer
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScopeResult
-import gov.nasa.jpl.pyre.spark.tasks.coroutineTask
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.isNotNull
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.isNull
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
-import gov.nasa.jpl.pyre.spark.tasks.SparkScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.tasks.task
+import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.resources.resource
+import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScopeResult
+import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.isNotNull
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.isNull
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.tasks.task
 import kotlinx.coroutines.runBlocking
 import kotlin.reflect.KType
 import kotlin.reflect.full.withNullability
@@ -54,7 +54,7 @@ import kotlin.time.Instant
  * 4. cutting a fincon in preparation for the next cycle.
  */
 class PlanSimulation<M> {
-    private val sparkScope: SparkScope
+    private val simulationScope: SimulationScope
     private val state: SimulationState
     private val activityResource: MutableDiscreteResource<GroundedActivity<M>?>
 
@@ -71,7 +71,7 @@ class PlanSimulation<M> {
         state = SimulationState(reportHandler)
         val initContext = state.initScope()
         val startupTasks: MutableList<Pair<String, suspend context (TaskScope) () -> Unit>> = mutableListOf()
-        sparkScope = object : InitScope {
+        simulationScope = object : InitScope {
             override fun <T : Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> =
                 initContext.allocate(cell.copy(name = "/${cell.name}"))
 
@@ -89,7 +89,7 @@ class PlanSimulation<M> {
             override val simulationEpoch = simulationEpoch
             override fun toString() = ""
         }
-        with (sparkScope) {
+        with (simulationScope) {
             // Construct the model itself
             // Just "runBlocking" this, because we know the init shouldn't actually block
             val model = runBlocking { constructModel() }
@@ -185,7 +185,7 @@ class PlanSimulation<M> {
         )
     }
 
-    fun time() = sparkScope.simulationEpoch + state.time().toKotlinDuration()
+    fun time() = simulationScope.simulationEpoch + state.time().toKotlinDuration()
 
     /**
      * Run the simulation until [endTime].
@@ -194,9 +194,9 @@ class PlanSimulation<M> {
      * without advancing in time, an exception is thrown to avoid infinite loops.
      */
     fun runUntil(endTime: Instant) {
-        val endDuration = (endTime - sparkScope.simulationEpoch).toPyreDuration()
+        val endDuration = (endTime - simulationScope.simulationEpoch).toPyreDuration()
         require(endDuration >= state.time()) {
-            "Simulation time is currently ${sparkScope.simulationEpoch + state.time().toKotlinDuration()}, cannot step backwards to $endTime"
+            "Simulation time is currently ${simulationScope.simulationEpoch + state.time().toKotlinDuration()}, cannot step backwards to $endTime"
         }
         while (state.time() < endDuration) stepTo(endTime)
     }
@@ -210,7 +210,7 @@ class PlanSimulation<M> {
      * without advancing in time, an exception is thrown to avoid infinite loops.
      */
     fun stepTo(endTime: Instant) {
-        val endDuration = (endTime - sparkScope.simulationEpoch).toPyreDuration()
+        val endDuration = (endTime - simulationScope.simulationEpoch).toPyreDuration()
         val timeBeforeStep = state.time()
         state.stepTo(endDuration)
         if (state.time() > timeBeforeStep) {
@@ -223,7 +223,7 @@ class PlanSimulation<M> {
 
     fun save(finconCollector: FinconCollector) {
         state.save(finconCollector)
-        finconCollector.within("simulation", "epoch").report(sparkScope.simulationEpoch)
+        finconCollector.within("simulation", "epoch").report(simulationScope.simulationEpoch)
     }
 
     fun addActivities(activities: List<GroundedActivity<M>>) {
@@ -242,7 +242,7 @@ class PlanSimulation<M> {
             // before the simulation advances in time.
             // Combined with the loop below to exercise this task to completion, thereby unloading this unsafe task,
             // the simulation is always in a safe state to save/restore when this function returns.
-            state.addTask("activity loader", with (sparkScope) {
+            state.addTask("activity loader", with (simulationScope) {
                 coroutineTask {
                     if (activitiesToLoad.isEmpty()) {
                         activityLoaderActive = false
@@ -265,7 +265,7 @@ class PlanSimulation<M> {
 
     fun runPlan(plan: Plan<M>) {
         InternalLogger.block({ "Running plan" }) {
-            val absoluteSimulationTime = sparkScope.simulationEpoch + state.time().toKotlinDuration()
+            val absoluteSimulationTime = simulationScope.simulationEpoch + state.time().toKotlinDuration()
             require(plan.startTime == absoluteSimulationTime) {
                 "Cannot run plan starting at ${plan.startTime}. Simulation is at $absoluteSimulationTime"
             }

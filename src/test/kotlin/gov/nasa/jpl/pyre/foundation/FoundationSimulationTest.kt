@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.spark
+package gov.nasa.jpl.pyre.foundation
 
 import gov.nasa.jpl.pyre.array
 import gov.nasa.jpl.pyre.kernel.*
@@ -10,24 +10,24 @@ import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.decodeJsonConditionsFromJsonElement
 import gov.nasa.jpl.pyre.kernel.SimpleSimulation
 import gov.nasa.jpl.pyre.kernel.SimpleSimulation.SimulationSetup
-import gov.nasa.jpl.pyre.spark.resources.MutableResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.*
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.emit
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThan
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.lessThan
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.resources.resource
-import gov.nasa.jpl.pyre.spark.resources.timer.Timer
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.onceWhenever
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.report
-import gov.nasa.jpl.pyre.spark.tasks.repeatingTask
-import gov.nasa.jpl.pyre.spark.tasks.task
+import gov.nasa.jpl.pyre.foundation.resources.MutableResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.*
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.emit
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.lessThan
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.resources.resource
+import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.onceWhenever
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.report
+import gov.nasa.jpl.pyre.foundation.tasks.repeatingTask
+import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.string
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -40,7 +40,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
 
-class SparkSimulationTest {
+class FoundationSimulationTest {
     private data class SimulationResult(
         val reports: List<JsonElement>,
         val fincon: JsonElement?,

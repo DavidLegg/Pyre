@@ -2,21 +2,21 @@ package gov.nasa.jpl.pyre.flame.resources.unstructured
 
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.spark.resources.Dynamics
-import gov.nasa.jpl.pyre.spark.resources.DynamicsMonad
-import gov.nasa.jpl.pyre.spark.resources.FullDynamics
-import gov.nasa.jpl.pyre.spark.resources.Resource
-import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
-import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.tasks.SparkScope
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
+import gov.nasa.jpl.pyre.foundation.resources.Dynamics
+import gov.nasa.jpl.pyre.foundation.resources.DynamicsMonad
+import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
+import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
+import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
 
 object UnstructuredResourceOperations {
     /**
-     * Return an [UnstructuredResource], given a function of absolute time as measured by [SparkScope.simulationClock].
+     * Return an [UnstructuredResource], given a function of absolute time as measured by [SimulationScope.simulationClock].
      */
-    context(context: SparkScope)
+    context(context: SimulationScope)
     fun <A> timeBased(fn: (Duration) -> A) = object : UnstructuredResource<A> {
         context(scope: ResourceScope)
         override suspend fun getDynamics(): FullDynamics<Unstructured<A>> {

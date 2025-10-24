@@ -1,16 +1,16 @@
-package gov.nasa.jpl.pyre.spark.resources.discrete
+package gov.nasa.jpl.pyre.foundation.resources.discrete
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
-import gov.nasa.jpl.pyre.spark.resources.MutableResource
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
-import gov.nasa.jpl.pyre.spark.resources.emit
-import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.resources.resource
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
+import gov.nasa.jpl.pyre.foundation.resources.MutableResource
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.pyre.foundation.resources.emit
+import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.resources.resource
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 

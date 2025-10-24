@@ -87,7 +87,7 @@ class DurationSerializer: KSerializer<Duration> {
     }
 }
 
-// TODO: These should move to spark layer
+// TODO: These should move to foundation layer
 // Operator overloads:
 operator fun Duration.plus(other: Duration): Duration = Duration(ticks + other.ticks)
 operator fun Duration.minus(other: Duration): Duration = Duration(ticks - other.ticks)

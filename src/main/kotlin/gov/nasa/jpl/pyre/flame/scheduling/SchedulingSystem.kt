@@ -12,8 +12,8 @@ import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.assumeType
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channels
 import gov.nasa.jpl.pyre.flame.results.SimulationResults
-import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import kotlinx.serialization.json.Json
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf

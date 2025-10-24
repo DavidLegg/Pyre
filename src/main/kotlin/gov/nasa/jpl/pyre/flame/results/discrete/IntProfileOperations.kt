@@ -5,20 +5,20 @@ import gov.nasa.jpl.pyre.flame.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.compute
 import gov.nasa.jpl.pyre.flame.results.SimulationResults
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.div
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.minus
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.plus
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.times
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.unaryMinus
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.unaryPlus
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.decrement
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResourceOperations.increment
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delayUntil
-import gov.nasa.jpl.pyre.spark.tasks.task
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.div
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.minus
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.plus
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.times
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.unaryMinus
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.unaryPlus
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.decrement
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delayUntil
+import gov.nasa.jpl.pyre.foundation.tasks.task
 
 typealias IntProfile = DiscreteProfile<Int>
 

@@ -2,7 +2,7 @@ package gov.nasa.jpl.pyre.flame.results
 
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.ActivityActions
-import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
 import kotlin.collections.iterator
 import kotlin.time.Instant
 

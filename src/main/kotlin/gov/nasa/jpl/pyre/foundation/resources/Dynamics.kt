@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.spark.resources
+package gov.nasa.jpl.pyre.foundation.resources
 
 import gov.nasa.jpl.pyre.kernel.Duration
 

@@ -7,10 +7,10 @@ import gov.nasa.jpl.pyre.flame.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.assumeType
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channels
-import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.tasks.task
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.tasks.task
 import kotlin.time.Instant
 
 object UnitTesting {

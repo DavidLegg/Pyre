@@ -8,11 +8,11 @@ import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.div
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.lessThanOrEquals
-import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
-import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResource
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 
 class BatteryModel(
     context: InitScope,

@@ -7,7 +7,6 @@ import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantit
 import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.clampedIntegral
 import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.constant
-import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.derivative
 import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.minus
 import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.register
 import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.registeredIntegral
@@ -20,7 +19,7 @@ import gov.nasa.jpl.pyre.flame.units.StandardUnits.SECOND
 import gov.nasa.jpl.pyre.flame.units.Unit
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 
 val BITS_PER_SECOND = Unit.derived("bps", BIT / SECOND)
 

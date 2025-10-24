@@ -1,14 +1,14 @@
 package gov.nasa.jpl.pyre.flame.debugging
 
 import gov.nasa.jpl.pyre.kernel.Condition
-import gov.nasa.jpl.pyre.spark.resources.FullDynamics
-import gov.nasa.jpl.pyre.spark.resources.MutableResource
-import gov.nasa.jpl.pyre.spark.resources.Resource
-import gov.nasa.jpl.pyre.spark.resources.ResourceEffect
-import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
+import gov.nasa.jpl.pyre.foundation.resources.MutableResource
+import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.resources.ResourceEffect
+import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 
 object Tracing {
     /**

@@ -2,16 +2,16 @@ package gov.nasa.jpl.pyre.flame.resources.lens
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.spark.resources.DynamicsMonad
-import gov.nasa.jpl.pyre.spark.resources.FullDynamics
-import gov.nasa.jpl.pyre.spark.resources.MutableResource
-import gov.nasa.jpl.pyre.spark.resources.Resource
-import gov.nasa.jpl.pyre.spark.resources.ResourceEffect
-import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.resources.DynamicsMonad
+import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
+import gov.nasa.jpl.pyre.foundation.resources.MutableResource
+import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.resources.ResourceEffect
+import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 
 object MutableResourceLens {
     fun <K, V> select(key: DiscreteResource<K>, selector: (K) -> MutableResource<V>): MutableResource<V> =

@@ -1,8 +1,8 @@
-package gov.nasa.jpl.pyre.spark.resources.timer
+package gov.nasa.jpl.pyre.foundation.resources.timer
 
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.*
-import gov.nasa.jpl.pyre.spark.resources.Dynamics
+import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import kotlinx.serialization.Serializable
 
 @Serializable

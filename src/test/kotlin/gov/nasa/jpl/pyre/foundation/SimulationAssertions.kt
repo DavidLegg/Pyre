@@ -1,12 +1,12 @@
-package gov.nasa.jpl.pyre.spark
+package gov.nasa.jpl.pyre.foundation
 
 import gov.nasa.jpl.pyre.assertNullOrMissing
 import gov.nasa.jpl.pyre.boolean
 import gov.nasa.jpl.pyre.double
 import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.int
-import gov.nasa.jpl.pyre.spark.ChannelizedReports.Report
-import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.ChannelizedReports.Report
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
 import gov.nasa.jpl.pyre.string
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement

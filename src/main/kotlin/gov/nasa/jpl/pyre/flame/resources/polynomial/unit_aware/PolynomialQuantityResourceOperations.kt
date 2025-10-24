@@ -26,14 +26,14 @@ import gov.nasa.jpl.pyre.flame.units.StandardUnits.SECOND
 import gov.nasa.jpl.pyre.flame.units.Unit
 import gov.nasa.jpl.pyre.flame.units.UnitAware
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
-import gov.nasa.jpl.pyre.spark.resources.ResourceMonad.pure
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.resources.resource
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
-import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.pure
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
+import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.resources.resource
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
+import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 
 typealias PolynomialQuantityResource = UnitAware<PolynomialResource>
 typealias MutablePolynomialQuantityResource = UnitAware<MutablePolynomialResource>

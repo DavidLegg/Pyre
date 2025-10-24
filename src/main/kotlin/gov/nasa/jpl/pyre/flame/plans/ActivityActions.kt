@@ -2,12 +2,12 @@ package gov.nasa.jpl.pyre.flame.plans
 
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
-import gov.nasa.jpl.pyre.spark.reporting.Reporting.report
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.spawn
-import gov.nasa.jpl.pyre.spark.tasks.task
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.report
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.spawn
+import gov.nasa.jpl.pyre.foundation.tasks.task
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient

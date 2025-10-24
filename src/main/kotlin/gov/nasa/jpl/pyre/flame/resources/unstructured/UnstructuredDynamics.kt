@@ -4,13 +4,13 @@ import gov.nasa.jpl.pyre.utilities.curry
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.spark.resources.Dynamics
-import gov.nasa.jpl.pyre.spark.resources.DynamicsMonad
-import gov.nasa.jpl.pyre.spark.resources.FullDynamics
-import gov.nasa.jpl.pyre.spark.resources.MutableResource
-import gov.nasa.jpl.pyre.spark.resources.Resource
-import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
-import gov.nasa.jpl.pyre.spark.resources.named
+import gov.nasa.jpl.pyre.foundation.resources.Dynamics
+import gov.nasa.jpl.pyre.foundation.resources.DynamicsMonad
+import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
+import gov.nasa.jpl.pyre.foundation.resources.MutableResource
+import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
+import gov.nasa.jpl.pyre.foundation.resources.named
 
 interface Unstructured<A> : Dynamics<A, Unstructured<A>> {
     companion object {

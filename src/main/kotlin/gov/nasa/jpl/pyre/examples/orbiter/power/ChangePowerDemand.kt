@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.examples.orbiter.power
 
 import gov.nasa.jpl.pyre.flame.plans.Activity
-import gov.nasa.jpl.pyre.spark.resources.discrete.DoubleResourceOperations.increase
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.increase
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.Serializable
 
 @Serializable

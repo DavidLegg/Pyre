@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.flame.reporting
 
 import gov.nasa.jpl.pyre.kernel.ReportHandler
-import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
 import java.io.OutputStream

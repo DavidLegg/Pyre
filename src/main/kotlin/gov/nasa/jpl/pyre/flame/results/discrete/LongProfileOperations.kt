@@ -2,12 +2,12 @@ package gov.nasa.jpl.pyre.flame.results.discrete
 
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.compute
-import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.div
-import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.minus
-import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.plus
-import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.times
-import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.unaryMinus
-import gov.nasa.jpl.pyre.spark.resources.discrete.LongResourceOperations.unaryPlus
+import gov.nasa.jpl.pyre.foundation.resources.discrete.LongResourceOperations.div
+import gov.nasa.jpl.pyre.foundation.resources.discrete.LongResourceOperations.minus
+import gov.nasa.jpl.pyre.foundation.resources.discrete.LongResourceOperations.plus
+import gov.nasa.jpl.pyre.foundation.resources.discrete.LongResourceOperations.times
+import gov.nasa.jpl.pyre.foundation.resources.discrete.LongResourceOperations.unaryMinus
+import gov.nasa.jpl.pyre.foundation.resources.discrete.LongResourceOperations.unaryPlus
 
 typealias LongProfile = DiscreteProfile<Long>
 

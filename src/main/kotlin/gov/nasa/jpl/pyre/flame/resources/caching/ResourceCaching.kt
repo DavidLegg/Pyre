@@ -6,22 +6,22 @@ import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromJsonElement
 import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
-import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
-import gov.nasa.jpl.pyre.spark.resources.Dynamics
-import gov.nasa.jpl.pyre.spark.resources.Expiring
-import gov.nasa.jpl.pyre.spark.resources.Expiry
-import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
-import gov.nasa.jpl.pyre.spark.resources.FullDynamics
-import gov.nasa.jpl.pyre.spark.resources.MutableResource
-import gov.nasa.jpl.pyre.spark.resources.Resource
-import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
-import gov.nasa.jpl.pyre.spark.resources.ThinResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
-import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.resources.resource
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.resources.Dynamics
+import gov.nasa.jpl.pyre.foundation.resources.Expiring
+import gov.nasa.jpl.pyre.foundation.resources.Expiry
+import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
+import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
+import gov.nasa.jpl.pyre.foundation.resources.MutableResource
+import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
+import gov.nasa.jpl.pyre.foundation.resources.ThinResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
+import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.resources.resource
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -56,7 +56,7 @@ object ResourceCaching {
     }
 
     /**
-     * Trimmed down version of [gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport] for use with [precomputedResource].
+     * Trimmed down version of [gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport] for use with [precomputedResource].
      */
     @Serializable
     data class ResourcePoint<D>(

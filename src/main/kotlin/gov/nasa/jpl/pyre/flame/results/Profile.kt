@@ -1,9 +1,9 @@
 package gov.nasa.jpl.pyre.flame.results
 
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
-import gov.nasa.jpl.pyre.spark.resources.Dynamics
-import gov.nasa.jpl.pyre.spark.resources.Expiring
-import gov.nasa.jpl.pyre.spark.resources.Expiry
+import gov.nasa.jpl.pyre.foundation.resources.Dynamics
+import gov.nasa.jpl.pyre.foundation.resources.Expiring
+import gov.nasa.jpl.pyre.foundation.resources.Expiry
 import java.util.NavigableMap
 import java.util.TreeMap
 import kotlin.time.Instant

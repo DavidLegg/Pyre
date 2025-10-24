@@ -15,9 +15,9 @@ import gov.nasa.jpl.pyre.flame.units.StandardUnits.GIGABYTE
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.MEGABYTE
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.div
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
 import org.junit.jupiter.api.Test
 import kotlin.time.Instant
 

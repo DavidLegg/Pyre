@@ -3,11 +3,11 @@ package gov.nasa.jpl.pyre.flame.results.discrete
 import gov.nasa.jpl.pyre.flame.results.Profile
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.compute
-import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThan
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.greaterThanOrEquals
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.lessThan
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.lessThanOrEquals
+import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThanOrEquals
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.lessThan
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.lessThanOrEquals
 
 typealias DiscreteProfile<V> = Profile<Discrete<V>>
 

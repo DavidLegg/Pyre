@@ -3,7 +3,7 @@ package gov.nasa.jpl.pyre.flame.reporting
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.utilities.andThen
 import gov.nasa.jpl.pyre.kernel.ReportHandler
-import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
@@ -74,7 +74,7 @@ object ReportHandling {
     /**
      * Split channels out according to a hierarchical structure.
      *
-     * By default, channel names are split by backslash (/), the default delimiter used by [gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext].
+     * By default, channel names are split by backslash (/), the default delimiter used by [gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext].
      *
      * Use [HierarchicalReportingStructure.reportTo] and [HierarchicalReportingStructure.split] to construct the handler.
      */

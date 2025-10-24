@@ -1,7 +1,7 @@
-package gov.nasa.jpl.pyre.spark.resources
+package gov.nasa.jpl.pyre.foundation.resources
 
 import gov.nasa.jpl.pyre.utilities.curry
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
 
 fun interface ThinResource<D> {
     context (scope: ResourceScope)

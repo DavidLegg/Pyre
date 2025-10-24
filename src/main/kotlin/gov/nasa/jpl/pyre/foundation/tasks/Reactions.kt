@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.spark.tasks
+package gov.nasa.jpl.pyre.foundation.tasks
 
 import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.kernel.Condition
@@ -7,12 +7,12 @@ import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.minus
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.not
-import gov.nasa.jpl.pyre.spark.resources.*
-import gov.nasa.jpl.pyre.spark.tasks.SparkScope.Companion.simulationClock
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.await
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
+import gov.nasa.jpl.pyre.foundation.resources.*
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.await
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
 
 // Conditions are isomorphic to boolean discrete resources.
 // Realize this isomorphism through the whenTrue function, and apply it implicitly by overloading await.
@@ -20,7 +20,7 @@ import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
 // Doing so reduces maintenance burden by letting maintainers focus only on resource derivation.
 
 object Reactions {
-    context (scope: SparkScope)
+    context (scope: SimulationScope)
     fun whenTrue(resource: BooleanResource): () -> Condition = condition {
         with (resource.getDynamics()) {
             if (data.value) SatisfiedAt(ZERO) else UnsatisfiedUntil(expiry.time)
@@ -35,7 +35,7 @@ object Reactions {
      * Note that this waits for block to finish before restarting, but doesn't wait for the condition resource to be false.
      * If block finishes without changing the condition resource, then block will simply run again.
      */
-    context (scope: SparkScope)
+    context (scope: SimulationScope)
     fun whenever(condition: BooleanResource, block: suspend context (TaskScope) () -> Unit): PureTaskStep<Unit> = repeatingTask {
         await(condition)
         block()
@@ -46,7 +46,7 @@ object Reactions {
      * Note that this waits for block to finish before restarting.
      * Spawn a sub-task from block if multiple reactions may need to run simultaneously.
      */
-    context (scope: SparkScope)
+    context (scope: SimulationScope)
     fun onceWhenever(condition: BooleanResource, block: suspend context (TaskScope) () -> Unit): PureTaskStep<Unit> = repeatingTask {
         await(condition)
         block()
@@ -118,13 +118,13 @@ object Reactions {
         is UnsatisfiedUntil -> Expiry(time)
     }
 
-    context (scope: SparkScope)
+    context (scope: SimulationScope)
     fun <V, D : Dynamics<V, D>> wheneverChanges(resource: Resource<D>, block: suspend context (TaskScope) () -> Unit): PureTaskStep<Unit> = repeatingTask {
         await(dynamicsChange(resource))
         block()
     }
 
-    context (scope: SparkScope)
+    context (scope: SimulationScope)
     fun every(interval: Duration, block: suspend context (TaskScope) () -> Unit): PureTaskStep<Unit> = repeatingTask {
         delay(interval)
         block()

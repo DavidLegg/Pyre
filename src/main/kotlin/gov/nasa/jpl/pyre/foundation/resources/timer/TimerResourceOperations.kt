@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.spark.resources.timer
+package gov.nasa.jpl.pyre.foundation.resources.timer
 
 import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.kernel.Duration
@@ -8,25 +8,25 @@ import gov.nasa.jpl.pyre.kernel.abs
 import gov.nasa.jpl.pyre.kernel.div
 import gov.nasa.jpl.pyre.kernel.minus
 import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.spark.resources.Expiring
-import gov.nasa.jpl.pyre.spark.resources.Expiry
-import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
-import gov.nasa.jpl.pyre.spark.resources.MutableResource
-import gov.nasa.jpl.pyre.spark.resources.Resource
-import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
-import gov.nasa.jpl.pyre.spark.resources.ResourceMonad.bind
-import gov.nasa.jpl.pyre.spark.resources.ResourceMonad.map
-import gov.nasa.jpl.pyre.spark.resources.ThinResourceMonad
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad
-import gov.nasa.jpl.pyre.spark.resources.discrete.IntResource
-import gov.nasa.jpl.pyre.spark.resources.emit
-import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.resources.resource
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.resources.Expiring
+import gov.nasa.jpl.pyre.foundation.resources.Expiry
+import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
+import gov.nasa.jpl.pyre.foundation.resources.MutableResource
+import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
+import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.bind
+import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.map
+import gov.nasa.jpl.pyre.foundation.resources.ThinResourceMonad
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
+import gov.nasa.jpl.pyre.foundation.resources.emit
+import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.resources.resource
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlin.math.abs
 
 object TimerResourceOperations {

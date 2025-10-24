@@ -1,15 +1,15 @@
-package gov.nasa.jpl.pyre.spark.reporting
+package gov.nasa.jpl.pyre.foundation.reporting
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
-import gov.nasa.jpl.pyre.spark.resources.Dynamics
-import gov.nasa.jpl.pyre.spark.resources.Resource
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.wheneverChanges
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.onStartup
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.report
+import gov.nasa.jpl.pyre.foundation.resources.Dynamics
+import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.wheneverChanges
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.onStartup
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.report
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KType
@@ -79,7 +79,7 @@ object Reporting {
 
     /**
      * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
-     * Use the resource's own toString method as its name, for use with [gov.nasa.jpl.pyre.spark.resources.named].
+     * Use the resource's own toString method as its name, for use with [gov.nasa.jpl.pyre.foundation.resources.named].
      */
     context (scope: InitScope)
     inline fun <V, reified D : Dynamics<V, D>> register(resource: Resource<D>) =

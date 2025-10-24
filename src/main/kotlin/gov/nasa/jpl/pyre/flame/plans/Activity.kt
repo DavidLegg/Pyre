@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.flame.plans
 
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable

@@ -1,14 +1,14 @@
-package gov.nasa.jpl.pyre.spark.resources
+package gov.nasa.jpl.pyre.foundation.resources
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.utilities.andThen
 import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.kernel.*
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.allocate
-import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 

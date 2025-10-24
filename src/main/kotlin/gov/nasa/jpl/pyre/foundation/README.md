@@ -1,19 +1,19 @@
-# Pyre - Spark
+# Pyre - Foundation
 
-Spark is the principal "ergonomics" layer of Pyre, building on top of kernel.
+Foundation is the principal "ergonomics" layer of Pyre, building on top of kernel.
 It's meant to contain functionality which is essential to the real-world use of Pyre.
 
 When deciding whether some new feature belongs in this layer, we ask:
 1. Can an equivalent simulation be written without this feature, even if doing so would be painful?
     - If not, this feature changes the fundamental capability of Pyre, and belongs in kernel instead.
 2. Are most modelers using Pyre expected to use this feature?
-    - If not, this feature is not central / essential enough to go in spark. It belongs in a higher level.
+    - If not, this feature is not central / essential enough to go in foundation. It belongs in a higher level.
 
 ## Coroutines
 
-By far the most important concept added in Spark is the use of coroutines to build tasks.
+By far the most important concept added in foundation is the use of coroutines to build tasks.
 Coroutines (aka "suspend functions") look like regular Kotlin code, but the compiler automatically splits them into continuations.
-Spark can reorganize these coroutines as simulation tasks to integrate them with the save/restore system built in kernel.
+Foundation can reorganize these coroutines as simulation tasks to integrate them with the save/restore system built in kernel.
 
 This capability is offered through three primary task constructors:
 - `task` - a simple task, which runs once from start to finish.
@@ -22,7 +22,7 @@ This capability is offered through three primary task constructors:
 
 ## Resources
 
-Another important concept added in Spark is the resource framework.
+Another important concept added in foundation is the resource framework.
 A resource is an abstraction over cells, representing a state being tracked in the simulation.
 
 Some resources are backed by a cell; these are "mutable" because tasks may emit an effect on these resources to change them.
@@ -59,7 +59,7 @@ define a derived resource.
 
 ## Conditions and Reactions
 
-The last important concept introduced by Spark is "reactions".
+The last important concept introduced by foundation is "reactions".
 Reactions are a class of patterns for building tasks which "react" to some condition to perform some (usually small) task.
 Working in close conjunction with Reactions is the identification of conditions with boolean resources using `whenTrue`.
 This means that all derivations built for boolean resources can be used as conditions for a task to await.

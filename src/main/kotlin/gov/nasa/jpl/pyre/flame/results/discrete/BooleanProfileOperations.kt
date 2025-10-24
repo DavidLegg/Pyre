@@ -1,12 +1,11 @@
 package gov.nasa.jpl.pyre.flame.results.discrete
 
-import gov.nasa.jpl.pyre.flame.results.Profile
 import gov.nasa.jpl.pyre.flame.results.Profile.Companion.end
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.compute
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.not
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.or
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.or
 import kotlin.collections.iterator
 import kotlin.time.Instant
 

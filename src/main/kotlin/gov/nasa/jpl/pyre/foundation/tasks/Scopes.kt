@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.spark.tasks
+package gov.nasa.jpl.pyre.foundation.tasks
 
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.CellSet
@@ -12,19 +12,19 @@ import gov.nasa.jpl.pyre.kernel.Task
 import gov.nasa.jpl.pyre.kernel.minus
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
-import gov.nasa.jpl.pyre.spark.resources.Resource
-import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.resources.timer.Timer
-import gov.nasa.jpl.pyre.spark.tasks.SparkScope.Companion.simulationClock
-import gov.nasa.jpl.pyre.spark.tasks.SparkScope.Companion.simulationEpoch
+import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.time.Instant
 
 /**
- * A context for all the "global" conveniences offered by Spark during simulation.
+ * A context for all the "global" conveniences offered by foundation during simulation.
  */
-interface SparkScope {
+interface SimulationScope {
     /**
      * Primary simulation clock. Simulation time should be derived from this clock.
      */
@@ -36,15 +36,15 @@ interface SparkScope {
     val simulationEpoch: Instant
 
     companion object {
-        context (scope: SparkScope)
+        context (scope: SimulationScope)
         val simulationClock get() = scope.simulationClock
 
-        context (scope: SparkScope)
+        context (scope: SimulationScope)
         val simulationEpoch get() = scope.simulationEpoch
     }
 }
 
-interface ResourceScope : SparkScope {
+interface ResourceScope : SimulationScope {
     suspend fun <V> read(cell: CellSet.CellHandle<V>): V
 
     companion object {
@@ -85,20 +85,20 @@ interface TaskScope : ResourceScope {
         suspend fun <S> spawn(childName: String, child: PureTaskStep<S>) = scope.spawn(childName, child)
 
         /**
-         * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]
+         * Delay until the given absolute simulation time, measured against [SimulationScope.simulationClock]
          */
         context (scope: TaskScope)
         suspend fun delayUntil(time: Duration) = delay(maxOf(time - simulationClock.getValue(), ZERO))
 
         /**
-         * Delay until the given absolute simulation time, measured against [SparkTaskScope.simulationClock]
+         * Delay until the given absolute simulation time, measured against [SimulationScope.simulationClock]
          */
         context (scope: TaskScope)
         suspend fun delayUntil(time: Instant) = delayUntil((time - simulationEpoch).toPyreDuration())
     }
 }
 
-interface InitScope : SparkScope, BasicInitScope, ResourceScope {
+interface InitScope : SimulationScope, BasicInitScope, ResourceScope {
     /**
      * Run block whenever the simulation starts.
      *

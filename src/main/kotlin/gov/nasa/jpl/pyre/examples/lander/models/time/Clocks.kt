@@ -3,7 +3,7 @@ package gov.nasa.jpl.pyre.examples.lander.models.time
 import gov.nasa.jpl.pyre.flame.resources.unstructured.UnstructuredResource
 import gov.nasa.jpl.pyre.flame.resources.unstructured.UnstructuredResourceApplicative.map
 import gov.nasa.jpl.pyre.flame.resources.unstructured.UnstructuredResourceOperations.asUnstructured
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import kotlin.time.ExperimentalTime
 import kotlin.time.toJavaInstant
 
