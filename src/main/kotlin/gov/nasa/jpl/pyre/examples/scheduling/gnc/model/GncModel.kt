@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.examples.scheduling.gnc.model
 
-import gov.nasa.jpl.pyre.ember.Duration
+import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget.*
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.BodyAxis.*
@@ -9,7 +9,6 @@ import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.MutableQuantityReso
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.DurationQuantityResourceOperations.asQuantity
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.VsQuantity.lessThanOrEquals
-import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.getValue
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.quantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.register
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.times
@@ -47,7 +46,6 @@ import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.restart
 import gov.nasa.jpl.pyre.spark.resources.timer.TimerResourceOperations.timer
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
 import kotlinx.serialization.Serializable
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation
 import org.apache.commons.math3.geometry.euclidean.threed.RotationConvention

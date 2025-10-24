@@ -1,7 +1,7 @@
-package gov.nasa.jpl.pyre.ember
+package gov.nasa.jpl.pyre.kernel
 
-import gov.nasa.jpl.pyre.ember.FinconCollectingContext.Companion.report
-import gov.nasa.jpl.pyre.ember.InconProvidingContext.Companion.provide
+import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
+import gov.nasa.jpl.pyre.kernel.InconProvidingContext.Companion.provide
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -21,8 +21,6 @@ import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.encodeToStream
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
-import java.io.FileInputStream
-import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.file.Path

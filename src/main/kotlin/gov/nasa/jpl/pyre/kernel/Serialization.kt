@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.ember
+package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import kotlinx.serialization.KSerializer

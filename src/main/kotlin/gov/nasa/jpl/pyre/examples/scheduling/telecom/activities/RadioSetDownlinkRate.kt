@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.examples.scheduling.telecom.activities
 
-import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.ember.times
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.BITS_PER_SECOND
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
 import gov.nasa.jpl.pyre.flame.plans.Activity

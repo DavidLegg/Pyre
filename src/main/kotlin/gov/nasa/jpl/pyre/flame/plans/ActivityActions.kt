@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.flame.plans
 
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.toPyreDuration
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.spark.reporting.Reporting.report
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope

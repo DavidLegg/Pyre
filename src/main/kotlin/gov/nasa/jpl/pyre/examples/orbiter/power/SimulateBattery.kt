@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.examples.orbiter.power
 
-import gov.nasa.jpl.pyre.ember.JsonConditions
-import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.encodeToStream
+import gov.nasa.jpl.pyre.kernel.JsonConditions
+import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.encodeToStream
 import gov.nasa.jpl.pyre.flame.plans.Plan
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
 import gov.nasa.jpl.pyre.flame.plans.activities

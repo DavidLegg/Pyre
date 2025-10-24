@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.ember
+package gov.nasa.jpl.pyre.kernel
 
 interface Conditions : FinconCollector, InconProvider {
     override fun within(key: String) : Conditions

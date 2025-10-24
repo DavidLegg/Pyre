@@ -1,13 +1,13 @@
-package gov.nasa.jpl.pyre.ember
+package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
-import gov.nasa.jpl.pyre.ember.FinconCollectingContext.Companion.report
-import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.within
-import gov.nasa.jpl.pyre.ember.InconProvider.Companion.within
-import gov.nasa.jpl.pyre.ember.InconProvidingContext.Companion.provide
-import gov.nasa.jpl.pyre.ember.PureTask.TaskHistoryStep.*
-import gov.nasa.jpl.pyre.ember.Task.*
+import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
+import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
+import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
+import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
+import gov.nasa.jpl.pyre.kernel.InconProvidingContext.Companion.provide
+import gov.nasa.jpl.pyre.kernel.PureTask.TaskHistoryStep.*
+import gov.nasa.jpl.pyre.kernel.Task.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KType
@@ -144,8 +144,8 @@ interface Task<T> {
 
 // Although you could technically implement Task from scratch,
 // it's so complicated in practice that everyone basically uses PureTask.
-// Even I use it to test the ember engine, since writing Task from scratch would be so miserable.
-// For that reason, I'm keeping this in ember instead of spark.
+// Even I use it to test the kernel engine, since writing Task from scratch would be so miserable.
+// For that reason, I'm keeping this in kernel instead of spark.
 private class PureTask<T>(
     override val id: TaskId,
     private val step: PureTaskStep<T>,

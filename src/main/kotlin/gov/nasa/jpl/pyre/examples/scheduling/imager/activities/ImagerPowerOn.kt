@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.examples.scheduling.imager.activities
 
-import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.ember.times
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
+import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel
 import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel.ImagerMode
 import gov.nasa.jpl.pyre.flame.plans.Activity

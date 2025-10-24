@@ -2,7 +2,7 @@ package gov.nasa.jpl.pyre.flame.reporting
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.utilities.andThen
-import gov.nasa.jpl.pyre.ember.ReportHandler
+import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json

@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.examples.sequencing
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.ember.Serialization.alias
+import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.examples.sequencing.activities.ActivateSequence
 import gov.nasa.jpl.pyre.examples.sequencing.activities.LoadSequence
 import gov.nasa.jpl.pyre.examples.sequencing.activities.UnloadSequence

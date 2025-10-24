@@ -9,6 +9,6 @@ Such classes impose additional maintenance burden while providing little benefit
 
 The currently developed layers, from most foundational to least, are:
 - [utilities](utilities/README.md) - Generic programming utilities applicable to any Kotlin project.
-- [ember](ember/README.md) - The lowest runnable layer, defining a minimal simulation.
-- [spark](spark/README.md) - An "ergonomics" layer, wrapping ember in user-friendly utilities deemed essential to the success of Pyre.
+- [kernel](kernel/README.md) - The lowest runnable layer, defining a minimal simulation.
+- [spark](spark/README.md) - An "ergonomics" layer, wrapping `kernel` in user-friendly utilities deemed essential to the success of Pyre.
 - [flame](flame/README.md) - Advanced functionality, not essential but generally useful to at least some users of Pyre.

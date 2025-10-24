@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.examples.lander.models.apss
 
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.ember.ratioOver
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.ratioOver
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.registeredIntegral

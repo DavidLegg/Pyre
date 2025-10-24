@@ -1,15 +1,15 @@
 package gov.nasa.jpl.pyre.spark
 
 import gov.nasa.jpl.pyre.array
-import gov.nasa.jpl.pyre.ember.*
-import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
-import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.spawn
-import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.decodeJsonConditionsFromJsonElement
-import gov.nasa.jpl.pyre.ember.SimpleSimulation
-import gov.nasa.jpl.pyre.ember.SimpleSimulation.SimulationSetup
+import gov.nasa.jpl.pyre.kernel.*
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
+import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
+import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.decodeJsonConditionsFromJsonElement
+import gov.nasa.jpl.pyre.kernel.SimpleSimulation
+import gov.nasa.jpl.pyre.kernel.SimpleSimulation.SimulationSetup
 import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.*
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource

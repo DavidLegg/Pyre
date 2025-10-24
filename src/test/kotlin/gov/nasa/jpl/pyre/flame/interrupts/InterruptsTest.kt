@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.flame.interrupts
 
-import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.ember.times
-import gov.nasa.jpl.pyre.ember.toKotlinDuration
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
+import gov.nasa.jpl.pyre.kernel.times
+import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.flame.interrupts.Interrupts.abortIf
 import gov.nasa.jpl.pyre.flame.testing.UnitTesting.runUnitTest
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource

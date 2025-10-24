@@ -1,10 +1,10 @@
 package gov.nasa.jpl.pyre.flame.interrupts
 
-import gov.nasa.jpl.pyre.ember.CellSet
-import gov.nasa.jpl.pyre.ember.Condition
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.Effect
-import gov.nasa.jpl.pyre.ember.plus
+import gov.nasa.jpl.pyre.kernel.CellSet
+import gov.nasa.jpl.pyre.kernel.Condition
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.Effect
+import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.or
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure

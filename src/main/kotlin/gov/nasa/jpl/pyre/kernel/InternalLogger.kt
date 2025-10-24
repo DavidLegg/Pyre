@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.ember
+package gov.nasa.jpl.pyre.kernel
 
 /**
  * Logger for use by the simulator itself.

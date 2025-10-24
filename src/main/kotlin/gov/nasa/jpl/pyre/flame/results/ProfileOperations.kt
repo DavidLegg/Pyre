@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.flame.results
 
-import gov.nasa.jpl.pyre.ember.toKotlinDuration
+import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.channels
 import gov.nasa.jpl.pyre.flame.results.Profile.Companion.end

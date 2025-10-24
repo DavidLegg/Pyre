@@ -2,9 +2,9 @@ package gov.nasa.jpl.pyre.spark.resources
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.utilities.curry
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.*
-import gov.nasa.jpl.pyre.ember.Serialization.alias
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.*
+import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable

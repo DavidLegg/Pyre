@@ -3,7 +3,7 @@ package gov.nasa.jpl.pyre.spark
 import gov.nasa.jpl.pyre.assertNullOrMissing
 import gov.nasa.jpl.pyre.boolean
 import gov.nasa.jpl.pyre.double
-import gov.nasa.jpl.pyre.ember.ReportHandler
+import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.int
 import gov.nasa.jpl.pyre.spark.ChannelizedReports.Report
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport

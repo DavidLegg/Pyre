@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.flame.testing
 
 import gov.nasa.jpl.pyre.utilities.andThen
-import gov.nasa.jpl.pyre.ember.ReportHandler
+import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.flame.plans.PlanSimulation

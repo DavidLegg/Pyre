@@ -3,8 +3,8 @@ package gov.nasa.jpl.pyre.spark.resources
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.utilities.andThen
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.ember.*
-import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.allocate
+import gov.nasa.jpl.pyre.kernel.*
+import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.allocate
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope

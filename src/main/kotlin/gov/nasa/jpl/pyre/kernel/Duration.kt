@@ -1,9 +1,9 @@
-package gov.nasa.jpl.pyre.ember
+package gov.nasa.jpl.pyre.kernel
 
-import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
-import gov.nasa.jpl.pyre.ember.Duration.Companion.MICROSECOND
-import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.MICROSECOND
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -11,7 +11,6 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import kotlinx.serialization.serializer
 import java.time.temporal.ChronoUnit
 import kotlin.math.abs
 import kotlin.math.ceil

@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.examples.orbit
 
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.ember.ratioOver
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.ratioOver
 import gov.nasa.jpl.pyre.spark.resources.FullDynamics
 import gov.nasa.jpl.pyre.spark.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource

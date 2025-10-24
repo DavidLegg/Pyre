@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.examples.sequencing.sequence_engine
 
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.plus
-import gov.nasa.jpl.pyre.ember.toPyreDuration
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.plus
+import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.Absolute
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.CommandComplete
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.Relative

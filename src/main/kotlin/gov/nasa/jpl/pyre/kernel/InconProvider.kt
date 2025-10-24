@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.ember
+package gov.nasa.jpl.pyre.kernel
 
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf

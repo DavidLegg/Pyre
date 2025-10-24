@@ -1,13 +1,13 @@
 package gov.nasa.jpl.pyre.spark.resources.timer
 
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.Duration.Companion.EPSILON
-import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.ember.abs
-import gov.nasa.jpl.pyre.ember.div
-import gov.nasa.jpl.pyre.ember.minus
-import gov.nasa.jpl.pyre.ember.plus
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.EPSILON
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
+import gov.nasa.jpl.pyre.kernel.abs
+import gov.nasa.jpl.pyre.kernel.div
+import gov.nasa.jpl.pyre.kernel.minus
+import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.spark.resources.Expiring
 import gov.nasa.jpl.pyre.spark.resources.Expiry
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER

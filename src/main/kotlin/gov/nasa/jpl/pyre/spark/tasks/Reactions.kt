@@ -1,12 +1,12 @@
 package gov.nasa.jpl.pyre.spark.tasks
 
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.ember.Condition
-import gov.nasa.jpl.pyre.ember.Condition.*
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.ember.PureTaskStep
-import gov.nasa.jpl.pyre.ember.minus
+import gov.nasa.jpl.pyre.kernel.Condition
+import gov.nasa.jpl.pyre.kernel.Condition.*
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
+import gov.nasa.jpl.pyre.kernel.PureTaskStep
+import gov.nasa.jpl.pyre.kernel.minus
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.spark.resources.*

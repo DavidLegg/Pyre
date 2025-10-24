@@ -1,10 +1,10 @@
 package gov.nasa.jpl.pyre.flame.scheduling
 
-import gov.nasa.jpl.pyre.ember.Duration.Companion.EPSILON
-import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.ember.ratioOver
-import gov.nasa.jpl.pyre.ember.roundTimes
-import gov.nasa.jpl.pyre.ember.toKotlinDuration
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.EPSILON
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.ratioOver
+import gov.nasa.jpl.pyre.kernel.roundTimes
+import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import org.apache.commons.math3.analysis.UnivariateFunction

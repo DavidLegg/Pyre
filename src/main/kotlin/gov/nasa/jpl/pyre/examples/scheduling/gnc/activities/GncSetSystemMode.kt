@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.examples.scheduling.gnc.activities
 
-import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.ember.times
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.GncSystemMode
 import gov.nasa.jpl.pyre.flame.plans.Activity

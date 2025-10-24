@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.examples.orbit
 
-import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
 import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource

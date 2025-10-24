@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.examples.scheduling.data.model
 
 import gov.nasa.jpl.pyre.UnitAwareAssertions.assertEquals
-import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.ember.times
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.MutableQuantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.getValue
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.quantityResource
@@ -18,7 +18,6 @@ import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.spark.tasks.InitScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
-import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import kotlin.time.Instant
 

@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.flame.resources.unstructured
 
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.plus
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.DynamicsMonad
 import gov.nasa.jpl.pyre.spark.resources.FullDynamics

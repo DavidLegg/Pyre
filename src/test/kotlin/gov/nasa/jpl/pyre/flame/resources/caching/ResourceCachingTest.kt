@@ -1,12 +1,12 @@
 package gov.nasa.jpl.pyre.flame.resources.caching
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
-import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.ember.Serialization.alias
-import gov.nasa.jpl.pyre.ember.plus
-import gov.nasa.jpl.pyre.ember.times
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.Serialization.alias
+import gov.nasa.jpl.pyre.kernel.plus
+import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.flame.plans.Activity
 import gov.nasa.jpl.pyre.flame.plans.GroundedActivity
 import gov.nasa.jpl.pyre.flame.plans.Plan

@@ -4,9 +4,9 @@ import gov.nasa.jpl.pyre.utilities.Closeable
 import gov.nasa.jpl.pyre.utilities.Closeable.Companion.asCloseable
 import gov.nasa.jpl.pyre.utilities.Closeable.Companion.use
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromFile
-import gov.nasa.jpl.pyre.ember.JsonConditions
-import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.toFile
-import gov.nasa.jpl.pyre.ember.ReportHandler
+import gov.nasa.jpl.pyre.kernel.JsonConditions
+import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.toFile
+import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.flame.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.flame.reporting.ParallelReportHandler.Companion.inParallel
 import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler

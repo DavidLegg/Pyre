@@ -2,8 +2,8 @@ package gov.nasa.jpl.pyre.spark.resources.discrete
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.utilities.curry
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.Serialization.alias
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.DynamicsMonad
 import gov.nasa.jpl.pyre.spark.resources.FullDynamics

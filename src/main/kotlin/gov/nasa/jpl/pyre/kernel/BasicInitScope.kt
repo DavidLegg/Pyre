@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.ember
+package gov.nasa.jpl.pyre.kernel
 
 /**
  * These are the actions allowed during "initialization", before the simulation starts running.

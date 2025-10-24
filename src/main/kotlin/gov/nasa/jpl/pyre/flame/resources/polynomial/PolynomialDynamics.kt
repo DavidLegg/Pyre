@@ -1,11 +1,11 @@
 package gov.nasa.jpl.pyre.flame.resources.polynomial
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.ember.*
-import gov.nasa.jpl.pyre.ember.Duration.Companion.EPSILON
-import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.ember.Serialization.alias
+import gov.nasa.jpl.pyre.kernel.*
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.EPSILON
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
+import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.spark.resources.*
 import gov.nasa.jpl.pyre.spark.resources.ExpiringMonad.map
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER

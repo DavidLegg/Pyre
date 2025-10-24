@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.examples.sequencing.sequence_engine
 
-import gov.nasa.jpl.pyre.ember.Duration.Companion.MILLISECOND
-import gov.nasa.jpl.pyre.ember.times
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.MILLISECOND
+import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
 import gov.nasa.jpl.pyre.examples.sequencing.fsw.FswModel.GlobalIntVarName
 import gov.nasa.jpl.pyre.examples.sequencing.primeness.SideIndicator.PRIME

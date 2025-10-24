@@ -1,13 +1,13 @@
-# Pyre - Ember
+# Pyre - Kernel
 
-Ember is the lowest runnable layer of Pyre.
+Kernel is the lowest runnable layer of Pyre.
 This layer intends to define the bare minimum of types and logic to run a simulation.
 This layer intends to be ergonomic to run, but not necessarily to write.
 
 Additions intending to make these types more ergonomic to write should go in higher layers.
 
 Modifications to this layer are highly discouraged, because of the broad ramifications of such a change.
-Whenever possible, new functionality should build on top of, rather than supplant, functionality in ember.
+Whenever possible, new functionality should build on top of, rather than supplant, functionality in kernel.
 
 ## Defining a Simulation
 
@@ -35,8 +35,8 @@ The effects from all tasks are merged together, with each cell defining how to m
 After running a task batch, the engine determines which conditions need to be re-evaluated,
 and satisfied conditions schedule their awaiting tasks to resume appropriately.
 
-During this process, tasks may report arbitrary JSON results.
-Ember is agnostic to the structure or meaning of these results, or how those results are further handled.
+During this process, tasks may report arbitrary results.
+Kernel is agnostic to the structure or meaning of these results, or how those results are further handled.
 A hook in the simulation setup allows the caller to define how to handle results.
 This is the only legal way to report results from the simulation.
 Results reported any other way, for instance by direct file I/O, may be corrupted by save/restore cycles or repeated execution.

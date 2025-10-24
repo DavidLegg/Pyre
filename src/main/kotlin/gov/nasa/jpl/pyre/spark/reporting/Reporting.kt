@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.spark.reporting
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.spawn
+import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.tasks.Reactions.wheneverChanges

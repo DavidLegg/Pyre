@@ -4,8 +4,8 @@ import gov.nasa.jpl.pyre.utilities.Closeable
 import gov.nasa.jpl.pyre.utilities.Closeable.Companion.closesWith
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromJsonElement
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.spawn
-import gov.nasa.jpl.pyre.ember.toPyreDuration
+import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
+import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport
 import gov.nasa.jpl.pyre.spark.resources.Dynamics
 import gov.nasa.jpl.pyre.spark.resources.Expiring

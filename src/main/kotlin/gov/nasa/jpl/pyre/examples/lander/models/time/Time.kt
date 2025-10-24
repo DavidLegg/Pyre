@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.examples.lander.models.time
 
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.toJavaDuration
-import gov.nasa.jpl.pyre.ember.toPyreDuration
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.toJavaDuration
+import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset

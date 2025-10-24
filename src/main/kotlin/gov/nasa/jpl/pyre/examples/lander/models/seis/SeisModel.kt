@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.examples.lander.models.seis
 
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.ember.ratioOver
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.ratioOver
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel.PelItem
 import gov.nasa.jpl.pyre.examples.lander.models.seis.SeisConfig.*

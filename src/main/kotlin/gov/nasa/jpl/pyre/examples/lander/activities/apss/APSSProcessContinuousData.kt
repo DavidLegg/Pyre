@@ -1,10 +1,10 @@
 package gov.nasa.jpl.pyre.examples.lander.activities.apss
 
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.ember.ratioOver
-import gov.nasa.jpl.pyre.ember.times
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.ratioOver
+import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.lander.Mission
 import gov.nasa.jpl.pyre.examples.lander.models.apss.APSSModel.Companion.LIMIT_RESOLUTION
 import gov.nasa.jpl.pyre.examples.lander.models.data.DataConfig.APID.APID_APSS_CONTINUOUS_SCI

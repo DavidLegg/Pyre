@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.flame.results.discrete
 
-import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.spawn
+import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.flame.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.flame.results.ProfileOperations.compute

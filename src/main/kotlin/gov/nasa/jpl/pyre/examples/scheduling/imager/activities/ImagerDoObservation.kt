@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.examples.scheduling.imager.activities
 
-import gov.nasa.jpl.pyre.ember.Duration
+import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel
 import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel.ImagerMode
 import gov.nasa.jpl.pyre.flame.plans.Activity

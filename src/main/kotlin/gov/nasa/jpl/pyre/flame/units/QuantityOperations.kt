@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.flame.units
 
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.ratioOver
-import gov.nasa.jpl.pyre.ember.roundTimes
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.ratioOver
+import gov.nasa.jpl.pyre.kernel.roundTimes
 import gov.nasa.jpl.pyre.flame.units.StandardUnits.RADIAN
 import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
 import kotlin.math.cos

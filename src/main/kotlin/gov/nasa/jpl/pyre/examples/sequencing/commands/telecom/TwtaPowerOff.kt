@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.examples.sequencing.commands.telecom
 
-import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
 import gov.nasa.jpl.pyre.examples.sequencing.primeness.SideIndicator
 import gov.nasa.jpl.pyre.flame.plans.Activity

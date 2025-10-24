@@ -1,9 +1,9 @@
 package gov.nasa.jpl.pyre.flame.resources.polynomial
 
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.ember.Condition
-import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.spawn
-import gov.nasa.jpl.pyre.ember.plus
+import gov.nasa.jpl.pyre.kernel.Condition
+import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
+import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.flame.resources.polynomial.Polynomial.Companion.polynomial
 import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.*

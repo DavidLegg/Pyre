@@ -1,6 +1,6 @@
-package gov.nasa.jpl.pyre.ember
+package gov.nasa.jpl.pyre.kernel
 
-import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import kotlinx.coroutines.runBlocking
 
 /**

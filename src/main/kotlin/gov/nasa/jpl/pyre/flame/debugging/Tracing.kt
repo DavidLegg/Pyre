@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.flame.debugging
 
-import gov.nasa.jpl.pyre.ember.Condition
+import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.spark.resources.FullDynamics
 import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.resources.Resource

@@ -1,10 +1,10 @@
 package gov.nasa.jpl.pyre.examples.scheduling.geometry.model
 
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.ember.plus
-import gov.nasa.jpl.pyre.ember.rem
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
+import gov.nasa.jpl.pyre.kernel.plus
+import gov.nasa.jpl.pyre.kernel.rem
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.utils.QuantityVector
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget.*
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.utils.QuantityVectorOperations.minus

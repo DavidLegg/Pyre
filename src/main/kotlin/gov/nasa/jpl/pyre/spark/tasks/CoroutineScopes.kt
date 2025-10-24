@@ -1,13 +1,13 @@
 package gov.nasa.jpl.pyre.spark.tasks
 
-import gov.nasa.jpl.pyre.ember.Duration
-import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
-import gov.nasa.jpl.pyre.ember.Condition
-import gov.nasa.jpl.pyre.ember.Condition.ConditionResult
-import gov.nasa.jpl.pyre.ember.Effect
-import gov.nasa.jpl.pyre.ember.PureTaskStep
-import gov.nasa.jpl.pyre.ember.Task
-import gov.nasa.jpl.pyre.ember.Task.PureStepResult.*
+import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
+import gov.nasa.jpl.pyre.kernel.Condition
+import gov.nasa.jpl.pyre.kernel.Condition.ConditionResult
+import gov.nasa.jpl.pyre.kernel.Effect
+import gov.nasa.jpl.pyre.kernel.PureTaskStep
+import gov.nasa.jpl.pyre.kernel.Task
+import gov.nasa.jpl.pyre.kernel.Task.PureStepResult.*
 import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
 import kotlin.reflect.KType
