@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
-import gov.nasa.jpl.pyre.coals.named
+import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.spark.resources.Resource
 import gov.nasa.jpl.pyre.spark.resources.ResourceMonad
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.bind

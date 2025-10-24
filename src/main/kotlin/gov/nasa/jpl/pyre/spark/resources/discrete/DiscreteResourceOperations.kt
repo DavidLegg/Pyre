@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
-import gov.nasa.jpl.pyre.coals.Reflection.withArg
-import gov.nasa.jpl.pyre.coals.named
+import gov.nasa.jpl.pyre.utilities.Reflection.withArg
+import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.spark.reporting.Reporting.register
 import gov.nasa.jpl.pyre.spark.resources.MutableResource
 import gov.nasa.jpl.pyre.spark.tasks.TaskScope

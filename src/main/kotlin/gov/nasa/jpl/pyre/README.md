@@ -8,7 +8,7 @@ We discourage the use of "pass-through" or "facade" classes, such that each laye
 Such classes impose additional maintenance burden while providing little benefit, since the functionality at each layer is closely coupled anyways.
 
 The currently developed layers, from most foundational to least, are:
-- [coals](coals/README.md) - Generic programming utilities applicable to any Kotlin project.
+- [utilities](utilities/README.md) - Generic programming utilities applicable to any Kotlin project.
 - [ember](ember/README.md) - The lowest runnable layer, defining a minimal simulation.
 - [spark](spark/README.md) - An "ergonomics" layer, wrapping ember in user-friendly utilities deemed essential to the success of Pyre.
 - [flame](flame/README.md) - Advanced functionality, not essential but generally useful to at least some users of Pyre.

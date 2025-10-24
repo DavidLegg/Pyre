@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.examples.orbit
 
-import gov.nasa.jpl.pyre.coals.Closeable.Companion.closesWith
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
-import gov.nasa.jpl.pyre.coals.andThen
+import gov.nasa.jpl.pyre.utilities.Closeable.Companion.closesWith
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
+import gov.nasa.jpl.pyre.utilities.andThen
 import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
 import gov.nasa.jpl.pyre.flame.plans.activities

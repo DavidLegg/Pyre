@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.ember
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder

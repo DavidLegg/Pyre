@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.flame.resources.lens
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
-import gov.nasa.jpl.pyre.coals.named
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
+import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.spark.resources.DynamicsMonad
 import gov.nasa.jpl.pyre.spark.resources.FullDynamics
 import gov.nasa.jpl.pyre.spark.resources.MutableResource

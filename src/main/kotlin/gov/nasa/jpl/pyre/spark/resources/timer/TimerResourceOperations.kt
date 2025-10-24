@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.spark.resources.timer
 
-import gov.nasa.jpl.pyre.coals.named
+import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.EPSILON
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO

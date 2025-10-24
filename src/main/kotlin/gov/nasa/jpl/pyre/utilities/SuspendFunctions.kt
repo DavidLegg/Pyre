@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.coals
+package gov.nasa.jpl.pyre.utilities
 
 fun <A, R> suspend(lambda: suspend (A) -> R) = lambda
 fun <A, B, R> suspend(lambda: suspend (A, B) -> R) = lambda

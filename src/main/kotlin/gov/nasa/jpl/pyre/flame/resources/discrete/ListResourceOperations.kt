@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.flame.resources.discrete
 
-import gov.nasa.jpl.pyre.coals.named
+import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map

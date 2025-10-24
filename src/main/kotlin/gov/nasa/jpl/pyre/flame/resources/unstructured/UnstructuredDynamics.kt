@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.flame.resources.unstructured
 
-import gov.nasa.jpl.pyre.coals.curry
+import gov.nasa.jpl.pyre.utilities.curry
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.ember.plus

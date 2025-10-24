@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.spark.resources
 
-import gov.nasa.jpl.pyre.coals.curry
+import gov.nasa.jpl.pyre.utilities.curry
 import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
 
 fun interface ThinResource<D> {

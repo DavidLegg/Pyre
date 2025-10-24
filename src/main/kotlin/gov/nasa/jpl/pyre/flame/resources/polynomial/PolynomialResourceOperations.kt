@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.flame.resources.polynomial
 
-import gov.nasa.jpl.pyre.coals.named
+import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.ember.Condition
 import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.ember.plus

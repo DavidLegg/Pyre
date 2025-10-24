@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.flame.scheduling
 
-import gov.nasa.jpl.pyre.coals.andThen;
+import gov.nasa.jpl.pyre.utilities.andThen;
 import gov.nasa.jpl.pyre.ember.InconProvider
 import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.ReportHandler

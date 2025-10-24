@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.examples.scheduling.power.model
 
-import gov.nasa.jpl.pyre.coals.Reflection.withArg
+import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.register
 import gov.nasa.jpl.pyre.flame.units.Quantity

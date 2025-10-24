@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.examples.sequencing
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.examples.sequencing.activities.ActivateSequence
 import gov.nasa.jpl.pyre.examples.sequencing.activities.LoadSequence

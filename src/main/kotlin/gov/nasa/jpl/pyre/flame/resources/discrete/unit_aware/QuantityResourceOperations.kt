@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.ratioOver
 import gov.nasa.jpl.pyre.ember.roundTimes
@@ -18,7 +18,6 @@ import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource

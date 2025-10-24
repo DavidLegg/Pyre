@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.spark.resources.discrete
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
-import gov.nasa.jpl.pyre.coals.curry
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
+import gov.nasa.jpl.pyre.utilities.curry
 import gov.nasa.jpl.pyre.ember.Duration
 import gov.nasa.jpl.pyre.ember.Serialization.alias
 import gov.nasa.jpl.pyre.spark.resources.Dynamics

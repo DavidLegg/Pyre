@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.coals
+package gov.nasa.jpl.pyre.utilities
 
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi

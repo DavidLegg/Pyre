@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.coals
+package gov.nasa.jpl.pyre.utilities
 
 fun <A> identity(): (A) -> A = {it}
 infix fun <A, B, C> ((A) -> B).andThen(g: (B) -> C): (A) -> C = { g(this(it)) }

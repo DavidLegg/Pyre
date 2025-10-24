@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.ember
 
 import gov.nasa.jpl.pyre.*
-import gov.nasa.jpl.pyre.coals.andThen
+import gov.nasa.jpl.pyre.utilities.andThen
 import gov.nasa.jpl.pyre.ember.SimpleSimulation.SimulationSetup
 import gov.nasa.jpl.pyre.ember.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.ember.Duration.Companion.MINUTE

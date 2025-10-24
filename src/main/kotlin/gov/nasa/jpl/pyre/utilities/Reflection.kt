@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.coals
+package gov.nasa.jpl.pyre.utilities
 
 import kotlin.reflect.KClassifier
 import kotlin.reflect.KType

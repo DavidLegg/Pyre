@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.flame.plans
 
-import gov.nasa.jpl.pyre.coals.Reflection.withArg
+import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.ember.Cell
 import gov.nasa.jpl.pyre.ember.CellSet
 import gov.nasa.jpl.pyre.ember.Duration

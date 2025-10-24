@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.examples.scheduling.geometry.utils
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.flame.resources.lens.MutableResourceLens.view
 import gov.nasa.jpl.pyre.flame.units.Quantity
 import gov.nasa.jpl.pyre.flame.units.ScalableScope

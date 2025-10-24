@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.flame.resources.polynomial
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.ember.*
 import gov.nasa.jpl.pyre.ember.Duration.Companion.EPSILON
 import gov.nasa.jpl.pyre.ember.Duration.Companion.SECOND

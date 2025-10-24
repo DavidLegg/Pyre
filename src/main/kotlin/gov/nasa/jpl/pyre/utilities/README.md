@@ -1,6 +1,6 @@
-# Pyre - Coals
+# Pyre - Utilities
 
-This is the lowest layer of Pyre, and functions as a general-purpose "utility" layer.
+This is the lowest layer of Pyre, a general-purpose utility layer.
 
 Utilities in this layer should be agnostic to Pyre's main purpose of being a simulator.
 For example, general functional-programming utilities belong in this layer.

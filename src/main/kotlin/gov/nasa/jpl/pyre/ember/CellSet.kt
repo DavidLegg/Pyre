@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.ember
 
-import gov.nasa.jpl.pyre.coals.andThen
+import gov.nasa.jpl.pyre.utilities.andThen
 import kotlin.reflect.KType
 
 @Suppress("UNCHECKED_CAST")

@@ -1,9 +1,9 @@
 package gov.nasa.jpl.pyre.flame.resources.caching
 
-import gov.nasa.jpl.pyre.coals.Closeable
-import gov.nasa.jpl.pyre.coals.Closeable.Companion.closesWith
-import gov.nasa.jpl.pyre.coals.Serialization.decodeFromJsonElement
-import gov.nasa.jpl.pyre.coals.named
+import gov.nasa.jpl.pyre.utilities.Closeable
+import gov.nasa.jpl.pyre.utilities.Closeable.Companion.closesWith
+import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromJsonElement
+import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.ember.toPyreDuration
 import gov.nasa.jpl.pyre.spark.reporting.ChannelizedReport

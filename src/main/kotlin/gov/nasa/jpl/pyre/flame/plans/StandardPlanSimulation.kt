@@ -1,9 +1,9 @@
 package gov.nasa.jpl.pyre.flame.plans
 
-import gov.nasa.jpl.pyre.coals.Closeable
-import gov.nasa.jpl.pyre.coals.Closeable.Companion.asCloseable
-import gov.nasa.jpl.pyre.coals.Closeable.Companion.use
-import gov.nasa.jpl.pyre.coals.Serialization.decodeFromFile
+import gov.nasa.jpl.pyre.utilities.Closeable
+import gov.nasa.jpl.pyre.utilities.Closeable.Companion.asCloseable
+import gov.nasa.jpl.pyre.utilities.Closeable.Companion.use
+import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromFile
 import gov.nasa.jpl.pyre.ember.JsonConditions
 import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.toFile
 import gov.nasa.jpl.pyre.ember.ReportHandler
@@ -16,11 +16,9 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.decodeFromStream
 import java.io.OutputStream
 import kotlin.io.path.Path
 import kotlin.io.path.absolute
-import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 
 @Serializable

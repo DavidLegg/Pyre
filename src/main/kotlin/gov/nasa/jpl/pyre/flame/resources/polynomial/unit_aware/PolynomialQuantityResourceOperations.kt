@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResource
 import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.valueIn
 import gov.nasa.jpl.pyre.flame.resources.lens.MutableResourceLens.view

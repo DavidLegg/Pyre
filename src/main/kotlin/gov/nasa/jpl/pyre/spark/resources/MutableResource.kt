@@ -1,9 +1,8 @@
 package gov.nasa.jpl.pyre.spark.resources
 
-import gov.nasa.jpl.pyre.coals.Reflection.withArg
-import gov.nasa.jpl.pyre.coals.andThen
-import gov.nasa.jpl.pyre.coals.identity
-import gov.nasa.jpl.pyre.coals.named
+import gov.nasa.jpl.pyre.utilities.Reflection.withArg
+import gov.nasa.jpl.pyre.utilities.andThen
+import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.ember.*
 import gov.nasa.jpl.pyre.ember.BasicInitScope.Companion.allocate
 import gov.nasa.jpl.pyre.spark.resources.Expiry.Companion.NEVER

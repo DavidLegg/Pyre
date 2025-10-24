@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.ember
 
-import gov.nasa.jpl.pyre.coals.Reflection.withArg
+import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.ember.CellSet.CellHandle
 import gov.nasa.jpl.pyre.ember.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.ember.FinconCollector.Companion.within

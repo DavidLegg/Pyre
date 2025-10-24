@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.coals
+package gov.nasa.jpl.pyre.utilities
 
 interface InvertibleFunction<A, B> : (A) -> B {
     val inverse : InvertibleFunction<B, A>
