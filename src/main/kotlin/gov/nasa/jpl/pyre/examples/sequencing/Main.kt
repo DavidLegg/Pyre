@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.examples.sequencing
 
-import gov.nasa.jpl.pyre.flame.plans.runStandardPlanSimulation
+import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
 import kotlin.io.path.Path
 import kotlin.io.path.absolute
 

@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.examples.lander.models.data
 
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 
 class HKModel(context: InitScope) {
     // 52 bits/second; 0.1872 Mbits/hour

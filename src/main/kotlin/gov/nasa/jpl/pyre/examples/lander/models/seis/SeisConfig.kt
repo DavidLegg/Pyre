@@ -1,9 +1,9 @@
 package gov.nasa.jpl.pyre.examples.lander.models.seis
 
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import kotlinx.serialization.Serializable
 
 class SeisConfig {

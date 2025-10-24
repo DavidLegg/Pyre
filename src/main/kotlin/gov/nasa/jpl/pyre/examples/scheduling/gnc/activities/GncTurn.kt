@@ -1,17 +1,12 @@
 package gov.nasa.jpl.pyre.examples.scheduling.gnc.activities
 
-import gov.nasa.jpl.pyre.ember.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.BodyAxis
-import gov.nasa.jpl.pyre.flame.plans.Activity
-import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.getValue
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope.Companion.delay
+import gov.nasa.jpl.pyre.general.plans.Activity
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

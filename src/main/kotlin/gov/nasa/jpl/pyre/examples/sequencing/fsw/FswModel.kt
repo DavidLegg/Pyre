@@ -2,10 +2,10 @@ package gov.nasa.jpl.pyre.examples.sequencing.fsw
 
 import gov.nasa.jpl.pyre.examples.sequencing.primeness.DualString
 import gov.nasa.jpl.pyre.examples.sequencing.primeness.Side
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 
 class FswModel(
     context: InitScope,

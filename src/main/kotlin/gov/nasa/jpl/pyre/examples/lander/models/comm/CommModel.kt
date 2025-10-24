@@ -1,14 +1,14 @@
 package gov.nasa.jpl.pyre.examples.lander.models.comm
 
-import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResource
-import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.asPolynomial
-import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.registeredIntegral
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.registeredIntegral
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 
 class CommModel(
     context: InitScope,

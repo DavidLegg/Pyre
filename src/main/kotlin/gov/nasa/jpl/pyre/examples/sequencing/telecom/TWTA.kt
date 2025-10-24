@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.examples.sequencing.telecom
 
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableBooleanResource
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 
 class TWTA(
     context: InitScope

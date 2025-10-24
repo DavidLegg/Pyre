@@ -1,15 +1,15 @@
 package gov.nasa.jpl.pyre.examples.orbiter.power
 
-import gov.nasa.jpl.pyre.ember.JsonConditions
-import gov.nasa.jpl.pyre.ember.JsonConditions.Companion.encodeToStream
-import gov.nasa.jpl.pyre.flame.plans.Plan
-import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
-import gov.nasa.jpl.pyre.flame.plans.activities
-import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.pyre.kernel.JsonConditions
+import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.encodeToStream
+import gov.nasa.jpl.pyre.general.plans.Plan
+import gov.nasa.jpl.pyre.general.plans.PlanSimulation
+import gov.nasa.jpl.pyre.general.plans.activities
+import gov.nasa.jpl.pyre.general.reporting.ReportHandling.jsonlReportHandler
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream

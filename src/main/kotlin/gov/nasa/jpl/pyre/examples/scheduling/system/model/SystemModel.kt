@@ -9,12 +9,12 @@ import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel
 import gov.nasa.jpl.pyre.examples.scheduling.power.model.PowerModel
 import gov.nasa.jpl.pyre.examples.scheduling.power.model.PowerModel.OnOff
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.equals
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.equals
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 
 class SystemModel(
     context: InitScope,

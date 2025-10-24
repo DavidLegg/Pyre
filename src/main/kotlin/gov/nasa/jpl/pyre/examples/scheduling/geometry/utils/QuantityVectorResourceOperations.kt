@@ -1,25 +1,25 @@
 package gov.nasa.jpl.pyre.examples.scheduling.geometry.utils
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
-import gov.nasa.jpl.pyre.flame.resources.lens.MutableResourceLens.view
-import gov.nasa.jpl.pyre.flame.units.Quantity
-import gov.nasa.jpl.pyre.flame.units.ScalableScope
-import gov.nasa.jpl.pyre.flame.units.Unit
-import gov.nasa.jpl.pyre.flame.units.UnitAware
-import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
-import gov.nasa.jpl.pyre.flame.units.VectorScope
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteMonad
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.map
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceMonad.pure
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.resources.named
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.ResourceScope
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
+import gov.nasa.jpl.pyre.general.resources.lens.MutableResourceLens.view
+import gov.nasa.jpl.pyre.general.units.Quantity
+import gov.nasa.jpl.pyre.general.units.ScalableScope
+import gov.nasa.jpl.pyre.general.units.Unit
+import gov.nasa.jpl.pyre.general.units.UnitAware
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.named
+import gov.nasa.jpl.pyre.general.units.VectorScope
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteMonad
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D
 
 typealias QuantityVectorResource = UnitAware<DiscreteResource<Vector3D>>

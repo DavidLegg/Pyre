@@ -1,17 +1,17 @@
 package gov.nasa.jpl.pyre.examples.lander.models.dsn
 
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.and
-import gov.nasa.jpl.pyre.spark.resources.discrete.BooleanResourceOperations.not
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.equals
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.spark.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.whenever
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.equals
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 
 class DSNModel(
     context: InitScope,

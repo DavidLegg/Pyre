@@ -1,11 +1,11 @@
 package gov.nasa.jpl.pyre.examples.sequencing.activities
 
 import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
-import gov.nasa.jpl.pyre.flame.plans.Activity
-import gov.nasa.jpl.pyre.spark.resources.discrete.DiscreteResourceOperations.notEquals
-import gov.nasa.jpl.pyre.spark.resources.getValue
-import gov.nasa.jpl.pyre.spark.tasks.Reactions.await
-import gov.nasa.jpl.pyre.spark.tasks.TaskScope
+import gov.nasa.jpl.pyre.general.plans.Activity
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.notEquals
+import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

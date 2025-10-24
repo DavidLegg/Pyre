@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.examples.sequencing
 
-import gov.nasa.jpl.pyre.coals.InvertibleFunction
-import gov.nasa.jpl.pyre.ember.Serialization.alias
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
+import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.examples.sequencing.activities.ActivateSequence
 import gov.nasa.jpl.pyre.examples.sequencing.activities.LoadSequence
 import gov.nasa.jpl.pyre.examples.sequencing.activities.UnloadSequence
@@ -9,9 +9,9 @@ import gov.nasa.jpl.pyre.examples.sequencing.commands.ALL_MODELED_COMMANDS
 import gov.nasa.jpl.pyre.examples.sequencing.fsw.FswModel
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequencingModel
 import gov.nasa.jpl.pyre.examples.sequencing.telecom.TelecomModel
-import gov.nasa.jpl.pyre.flame.plans.activities
-import gov.nasa.jpl.pyre.spark.tasks.InitScope
-import gov.nasa.jpl.pyre.spark.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.pyre.general.plans.activities
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
