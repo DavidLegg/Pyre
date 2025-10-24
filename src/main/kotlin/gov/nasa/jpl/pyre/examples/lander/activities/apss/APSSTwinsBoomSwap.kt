@@ -7,7 +7,7 @@ import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.lander.Mission
 import gov.nasa.jpl.pyre.examples.lander.models.apss.APSSModel.Component.*
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel.PelItem.*
-import gov.nasa.jpl.pyre.flame.plans.Activity
+import gov.nasa.jpl.pyre.general.plans.Activity
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock

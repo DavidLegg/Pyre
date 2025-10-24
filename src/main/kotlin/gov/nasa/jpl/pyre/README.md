@@ -13,4 +13,4 @@ The currently developed layers, from most foundational to least, are:
 - [foundation](foundation/README.md) - 
     The lowest layer most modelers directly interact with, used by virtually all modelers.
     An "ergonomics" wrapper around kernel, to facilitate more advanced functionality.
-- [flame](flame/README.md) - Advanced functionality, not essential but generally useful to at least some users of Pyre.
+- [general](general/README.md) - Advanced functionality, not essential but generally useful to at least some users of Pyre.

@@ -1,13 +1,13 @@
 package gov.nasa.jpl.pyre.examples.scheduling.power.model
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResource
-import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.register
-import gov.nasa.jpl.pyre.flame.units.Quantity
-import gov.nasa.jpl.pyre.flame.units.QuantityOperations.valueIn
-import gov.nasa.jpl.pyre.flame.units.StandardUnits.WATT
-import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
-import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
+import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResource
+import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResourceOperations.register
+import gov.nasa.jpl.pyre.general.units.Quantity
+import gov.nasa.jpl.pyre.general.units.QuantityOperations.valueIn
+import gov.nasa.jpl.pyre.general.units.StandardUnits.WATT
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.named
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource

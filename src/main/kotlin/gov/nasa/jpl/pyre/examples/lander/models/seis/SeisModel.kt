@@ -6,9 +6,9 @@ import gov.nasa.jpl.pyre.kernel.ratioOver
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel.PelItem
 import gov.nasa.jpl.pyre.examples.lander.models.seis.SeisConfig.*
-import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResource
-import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.asPolynomial
-import gov.nasa.jpl.pyre.flame.resources.polynomial.PolynomialResourceOperations.registeredIntegral
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.registeredIntegral
 import gov.nasa.jpl.pyre.foundation.resources.discrete.*
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource

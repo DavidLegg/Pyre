@@ -1,24 +1,24 @@
 package gov.nasa.jpl.pyre.examples.scheduling.data.model
 
-import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResource
-import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.minus
-import gov.nasa.jpl.pyre.flame.resources.discrete.unit_aware.QuantityResourceOperations.register
-import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResource
-import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.asPolynomial
-import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.clampedIntegral
-import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.constant
-import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.minus
-import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.register
-import gov.nasa.jpl.pyre.flame.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.registeredIntegral
-import gov.nasa.jpl.pyre.flame.units.Quantity
-import gov.nasa.jpl.pyre.flame.units.StandardUnits.BIT
-import gov.nasa.jpl.pyre.flame.units.StandardUnits.BYTE
-import gov.nasa.jpl.pyre.flame.units.StandardUnits.GIGABYTE
-import gov.nasa.jpl.pyre.flame.units.StandardUnits.MEGABYTE
-import gov.nasa.jpl.pyre.flame.units.StandardUnits.SECOND
-import gov.nasa.jpl.pyre.flame.units.Unit
-import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
-import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
+import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResource
+import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResourceOperations.minus
+import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResourceOperations.register
+import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResource
+import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.asPolynomial
+import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.clampedIntegral
+import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.constant
+import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.minus
+import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.register
+import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.registeredIntegral
+import gov.nasa.jpl.pyre.general.units.Quantity
+import gov.nasa.jpl.pyre.general.units.StandardUnits.BIT
+import gov.nasa.jpl.pyre.general.units.StandardUnits.BYTE
+import gov.nasa.jpl.pyre.general.units.StandardUnits.GIGABYTE
+import gov.nasa.jpl.pyre.general.units.StandardUnits.MEGABYTE
+import gov.nasa.jpl.pyre.general.units.StandardUnits.SECOND
+import gov.nasa.jpl.pyre.general.units.Unit
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.named
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 
 val BITS_PER_SECOND = Unit.derived("bps", BIT / SECOND)

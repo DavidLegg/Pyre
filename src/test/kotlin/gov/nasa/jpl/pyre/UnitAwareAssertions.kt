@@ -1,9 +1,9 @@
 package gov.nasa.jpl.pyre
 
-import gov.nasa.jpl.pyre.flame.units.Quantity
-import gov.nasa.jpl.pyre.flame.units.QuantityOperations.abs
-import gov.nasa.jpl.pyre.flame.units.QuantityOperations.times
-import gov.nasa.jpl.pyre.flame.units.QuantityOperations.valueIn
+import gov.nasa.jpl.pyre.general.units.Quantity
+import gov.nasa.jpl.pyre.general.units.QuantityOperations.abs
+import gov.nasa.jpl.pyre.general.units.QuantityOperations.times
+import gov.nasa.jpl.pyre.general.units.QuantityOperations.valueIn
 
 object UnitAwareAssertions {
     fun assertEquals(

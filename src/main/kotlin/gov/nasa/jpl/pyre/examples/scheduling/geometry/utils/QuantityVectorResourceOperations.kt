@@ -1,13 +1,13 @@
 package gov.nasa.jpl.pyre.examples.scheduling.geometry.utils
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.flame.resources.lens.MutableResourceLens.view
-import gov.nasa.jpl.pyre.flame.units.Quantity
-import gov.nasa.jpl.pyre.flame.units.ScalableScope
-import gov.nasa.jpl.pyre.flame.units.Unit
-import gov.nasa.jpl.pyre.flame.units.UnitAware
-import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.named
-import gov.nasa.jpl.pyre.flame.units.VectorScope
+import gov.nasa.jpl.pyre.general.resources.lens.MutableResourceLens.view
+import gov.nasa.jpl.pyre.general.units.Quantity
+import gov.nasa.jpl.pyre.general.units.ScalableScope
+import gov.nasa.jpl.pyre.general.units.Unit
+import gov.nasa.jpl.pyre.general.units.UnitAware
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.named
+import gov.nasa.jpl.pyre.general.units.VectorScope
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteMonad
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map

@@ -2,10 +2,10 @@ package gov.nasa.jpl.pyre.examples.orbiter.power
 
 import gov.nasa.jpl.pyre.kernel.JsonConditions
 import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.encodeToStream
-import gov.nasa.jpl.pyre.flame.plans.Plan
-import gov.nasa.jpl.pyre.flame.plans.PlanSimulation
-import gov.nasa.jpl.pyre.flame.plans.activities
-import gov.nasa.jpl.pyre.flame.reporting.ReportHandling.jsonlReportHandler
+import gov.nasa.jpl.pyre.general.plans.Plan
+import gov.nasa.jpl.pyre.general.plans.PlanSimulation
+import gov.nasa.jpl.pyre.general.plans.activities
+import gov.nasa.jpl.pyre.general.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope

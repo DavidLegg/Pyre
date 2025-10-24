@@ -1,11 +1,11 @@
 package gov.nasa.jpl.pyre.examples.scheduling.geometry.utils
 
-import gov.nasa.jpl.pyre.flame.units.QuantityOperations.valueIn
-import gov.nasa.jpl.pyre.flame.units.Quantity
-import gov.nasa.jpl.pyre.flame.units.Unit
-import gov.nasa.jpl.pyre.flame.units.UnitAware
-import gov.nasa.jpl.pyre.flame.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.flame.units.VectorScope
+import gov.nasa.jpl.pyre.general.units.QuantityOperations.valueIn
+import gov.nasa.jpl.pyre.general.units.Quantity
+import gov.nasa.jpl.pyre.general.units.Unit
+import gov.nasa.jpl.pyre.general.units.UnitAware
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
+import gov.nasa.jpl.pyre.general.units.VectorScope
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D
 
 typealias QuantityVector = UnitAware<Vector3D>

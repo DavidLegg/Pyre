@@ -4,7 +4,7 @@ import gov.nasa.jpl.pyre.kernel.Duration.Companion.MILLISECOND
 import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
 import gov.nasa.jpl.pyre.examples.sequencing.primeness.SideIndicator
-import gov.nasa.jpl.pyre.flame.plans.Activity
+import gov.nasa.jpl.pyre.general.plans.Activity
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
