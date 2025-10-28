@@ -17,6 +17,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperation
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.lessThan
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.resources.resource
 import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
@@ -351,6 +352,24 @@ class FoundationSimulationTest {
                 element { assertEquals("Minimum violated: -4 < 1", string()) }
                 assert(atEnd())
             }
+        }
+    }
+
+    @Test
+    fun tasks_may_run_many_non_yielding_steps() {
+        // Note: This is technically not specific to foundation, it only relies on kernel functionality.
+        // However, it's hard to write a repeating task like this without coroutines.
+        // The main concern here is stack overflow - it's easy to write non-obvious recursion into the task or cell
+        // handling, such that an intensive task like this will blow up the stack.
+        runSimulation(HOUR) {
+            val counter = discreteResource("counter", 0)
+
+            spawn("intensive task", task {
+                repeat(100_000) {
+                    counter.increment()
+                    report("Counter is now ${counter.getValue()}")
+                }
+            })
         }
     }
 }

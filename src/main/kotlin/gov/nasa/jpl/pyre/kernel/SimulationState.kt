@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.kernel.Task.TaskStepResult.*
 import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
+import gov.nasa.jpl.pyre.kernel.CellSet.Companion.join
 import gov.nasa.jpl.pyre.kernel.Condition.ConditionResult
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
@@ -117,7 +118,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
                 }
             }
             // Finally join those branched states back into the trunk state.
-            cells = CellSet.join(cellSetBranches)
+            cells = cells.join(cellSetBranches)
 
             // Now, collect all the reactions to effects made by this batch.
             // Since awaitingTasks is a set, it de-duplicates reactions automatically.
@@ -179,14 +180,18 @@ class SimulationState(private val reportHandler: ReportHandler) {
     }
 
     private fun <T> runTask(task: Task<T>, cellSet: CellSet) {
-        fun <V, T> runTaskRead(stepResult: Read<V, T>) =
-            runTask(stepResult.continuation(cellSet[stepResult.cell].value), cellSet)
+        // "trampoline" through the continuations of task
+        // That is, iterate on nextTask - each iteration runs one step of task, then updates nextTask with the next step.
+        // When there are no more steps to run now, break out of the loop and quit.
+        // While a little less natural than just recurring on runTask, this avoids stack overflow on "intensive tasks",
+        // tasks which run many steps without yielding.
+        var nextTask = task
 
-        fun runTaskAwait(stepResult: Await<T>) {
-            awaitingTasks += AwaitingTask(stepResult, task, this)
+        fun <V> runTaskRead(stepResult: Read<V, T>) {
+            nextTask = stepResult.continuation(cellSet[stepResult.cell].value)
         }
 
-        fun <V, T> runTaskEmit(step: Emit<V, T>) {
+        fun <V> runTaskEmit(step: Emit<V, T>) {
             // We mark the cell as modified, instead of directly adding listeners, to keep the simulation deterministic.
             // This is because a task T may await this cell in parallel with this.
             // If T is ahead of this in the batch, adding listeners would add it;
@@ -195,34 +200,42 @@ class SimulationState(private val reportHandler: ReportHandler) {
             // T will always be added, which is conservative and deterministic.
             cellSet.emit(step.cell, step.effect)
             modifiedCells += step.cell
-            runTask(step.continuation, cellSet)
+            nextTask = step.continuation
         }
 
-        fun <V, T> runTaskReport(step: Report<V, T>) {
-            reportHandler(step.value, step.type)
-            runTask(step.continuation, cellSet)
-        }
-
-        val stepResult = InternalLogger.block({ "Run ${task.id} ..." }, { "... returns $it" }) {
-            try {
-                task.runStep()
-            } catch (e: Throwable) {
-                System.err.println("Error while running ${task.id}: $e")
-                throw e
+        while (true) {
+            val stepResult = InternalLogger.block({ "Run ${nextTask.id} ..." }, { "... returns $it" }) {
+                try {
+                    nextTask.runStep()
+                } catch (e: Throwable) {
+                    System.err.println("Error while running ${nextTask.id}: $e")
+                    throw e
+                }
             }
-        }
-        when (stepResult) {
-            is Complete -> Unit // Nothing to do
-            is Delay -> addTask(stepResult.continuation, time + stepResult.time)
-            is Await -> runTaskAwait(stepResult)
-            is Emit<*, *> -> runTaskEmit(stepResult)
-            is Read<*, *> -> runTaskRead(stepResult)
-            is Report<*, *> -> runTaskReport(stepResult)
-            is Spawn<*, *> -> {
-                addTask(stepResult.child, time)
-                runTask(stepResult.continuation, cellSet)
+            when (stepResult) {
+                is Complete -> break // Nothing to do
+                is Delay -> {
+                    addTask(stepResult.continuation, time + stepResult.time)
+                    break
+                }
+                is Await -> {
+                    awaitingTasks += AwaitingTask(stepResult, nextTask, this)
+                    break
+                }
+                is Emit<*, T> -> runTaskEmit(stepResult)
+                is Read<*, T> -> runTaskRead(stepResult)
+                is Report<*, T> -> {
+                    reportHandler(stepResult.value, stepResult.type)
+                    nextTask = stepResult.continuation
+                }
+                is Spawn<*, T> -> {
+                    addTask(stepResult.child, time)
+                    nextTask = stepResult.continuation
+                }
+                is NoOp -> {
+                    nextTask = stepResult.continuation
+                }
             }
-            is NoOp -> runTask(stepResult.continuation, cellSet)
         }
     }
 
@@ -236,9 +249,6 @@ class SimulationState(private val reportHandler: ReportHandler) {
             is Condition.Read<*> -> evaluateRead(condition)
         }
     }
-
-    // REVIEW: Not completely sure this save/restore procedure will work.
-    // This needs to be tested fairly extensively...
 
     fun save(finconCollector: FinconCollector) {
         with (finconCollector.within("simulation")) {

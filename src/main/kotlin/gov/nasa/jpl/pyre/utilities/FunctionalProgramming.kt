@@ -1,20 +1,20 @@
 package gov.nasa.jpl.pyre.utilities
 
 fun <A> identity(): (A) -> A = {it}
-infix fun <A, B, C> ((A) -> B).andThen(g: (B) -> C): (A) -> C = { g(this(it)) }
-infix fun <A, B, C> ((B) -> C).compose(g: (A) -> B): (A) -> C = g andThen this
+inline infix fun <A, B, C> ((A) -> B).andThen(crossinline g: (B) -> C): (A) -> C = { g(this(it)) }
+inline infix fun <A, B, C> ((B) -> C).compose(crossinline g: (A) -> B): (A) -> C = { this(g(it)) }
 
 // Special composition operators to treat Pairs as a single arg to a 2-arg function.
 // This is especially useful for report handlers, which have a value and a type.
 
-infix fun <A, B, C, D> ((A, B) -> C).andThen(g: (C) -> D): (A, B) -> D = { a, b -> g(this(a, b)) }
-infix fun <A, B, C, D> ((C) -> D).compose(g: (A, B) -> C): (A, B) -> D = g andThen this
+inline infix fun <A, B, C, D> ((A, B) -> C).andThen(crossinline g: (C) -> D): (A, B) -> D = { a, b -> g(this(a, b)) }
+inline infix fun <A, B, C, D> ((C) -> D).compose(crossinline g: (A, B) -> C): (A, B) -> D = { a, b -> this(g(a, b)) }
 
-infix fun <A, B, C, D> ((A) -> Pair<B, C>).andThen(g: (B, C) -> D): (A) -> D = { this(it).run { g(first, second) } }
-infix fun <A, B, C, D> ((B, C) -> D).compose(g: (A) -> Pair<B, C>): (A) -> D = g andThen this
+inline infix fun <A, B, C, D> ((A) -> Pair<B, C>).andThen(crossinline g: (B, C) -> D): (A) -> D = { val (b, c) = this(it); g(b, c) }
+inline infix fun <A, B, C, D> ((B, C) -> D).compose(crossinline g: (A) -> Pair<B, C>): (A) -> D = { val (b, c) = g(it); this(b, c) }
 
-infix fun <A, B, C, D, E> ((A, B) -> Pair<C, D>).andThen(g: (C, D) -> E): (A, B) -> E = { a, b -> this(a, b).run { g(first, second) } }
-infix fun <A, B, C, D, E> ((C, D) -> E).compose(g: (A, B) -> Pair<C, D>): (A, B) -> E = g andThen this
+inline infix fun <A, B, C, D, E> ((A, B) -> Pair<C, D>).andThen(crossinline g: (C, D) -> E): (A, B) -> E = { a, b -> val (c, d) = this(a, b); g(c, d) }
+inline infix fun <A, B, C, D, E> ((C, D) -> E).compose(crossinline g: (A, B) -> Pair<C, D>): (A, B) -> E = { a, b -> val (c, d) = g(a, b); this(c, d) }
 
 inline fun <A, B, C> curry(crossinline fn: (A, B) -> C):
             (A) -> (B) -> C =
