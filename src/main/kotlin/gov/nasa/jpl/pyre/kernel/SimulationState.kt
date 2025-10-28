@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.kernel.Task.TaskStepResult.*
 import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
+import gov.nasa.jpl.pyre.kernel.CellSet.Companion.join
 import gov.nasa.jpl.pyre.kernel.Condition.ConditionResult
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
@@ -117,7 +118,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
                 }
             }
             // Finally join those branched states back into the trunk state.
-            cells = CellSet.join(cellSetBranches)
+            cells = cells.join(cellSetBranches)
 
             // Now, collect all the reactions to effects made by this batch.
             // Since awaitingTasks is a set, it de-duplicates reactions automatically.

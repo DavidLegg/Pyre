@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.utilities.andThen
+import kotlin.collections.mapValuesTo
 import kotlin.reflect.KType
 
 @Suppress("UNCHECKED_CAST")
@@ -19,30 +20,20 @@ class CellSet private constructor(
         CellHandle<T>(cell.name, cell.valueType)
             .also { map[it] = CellState(cell, null) }
 
-    operator fun <T> get(cellHandle: CellHandle<T>): Cell<T> {
-        val cellState = map[cellHandle] as CellState<T>
-        val cell = cellState.cell
-        return cell.copy(value = cellState.getValue())
-    }
-
-    private fun <T> CellState<T>.getValue(): T {
-        return effect?.let { it(cell.value) } ?: cell.value
-    }
+    operator fun <T> get(cellHandle: CellHandle<T>): Cell<T> =
+        (map.getValue(cellHandle) as CellState<T>).cell
 
     fun <T> emit(cellHandle: CellHandle<T>, effect: Effect<T>) =
-        map.compute(cellHandle) { _, cellState -> (cellState as CellState<T>)
-            .copy(effect = cellState.effect?.let { it andThen effect } ?: effect) }
+        map.compute(cellHandle) { _, cellState -> CellState(
+            (cellState as CellState<T>).cell.copy(value = effect(cellState.cell.value)),
+            cellState.effect?.let { it andThen effect } ?: effect)
+        }
 
-    fun split(): CellSet {
-        fun <T> collapseCellState(cs: CellState<T>) = CellState(
-            cs.cell.copy(value=cs.getValue()),
-            null)
-        return CellSet(map.mapValuesTo(mutableMapOf()) { (_, cellState) -> collapseCellState(cellState) })
-    }
+    fun split(): CellSet = CellSet(map.toMutableMap())
 
     fun save(finconCollector: FinconCollector) {
         fun <T> saveCell(state: CellState<T>) = with(state.cell) {
-            finconCollector.within(name).report(state.getValue(), valueType)
+            finconCollector.within(name).report(state.cell.value, valueType)
         }
         map.values.forEach { saveCell(it) }
     }
@@ -59,28 +50,38 @@ class CellSet private constructor(
 
     fun stepBy(delta: Duration) {
         fun <T> stepCell(state: CellState<T>) = with(state.cell) {
-            CellState(copy(value = stepBy(state.getValue(), delta)), null)
+            CellState(copy(value = stepBy(state.cell.value, delta)), null)
         }
         map.replaceAll { _, state -> stepCell(state) }
     }
 
     companion object {
-        fun join(cellSets: Collection<CellSet>): CellSet {
-            val mergedMap: MutableMap<CellHandle<*>, CellState<*>> = mutableMapOf()
-            for (cs in cellSets) {
-                cs.map.forEach { (handle, state) -> mergedMap.merge(handle, state) { s1, s2 -> join(s1, s2) } }
-            }
-            return CellSet(mergedMap)
-        }
+        /**
+         * Join a collection of branches that were [split] from this CellSet.
+         */
+        fun CellSet.join(cellSets: Collection<CellSet>): CellSet =
+            CellSet(map.mapValuesTo(mutableMapOf()) { (handle, baseCell) ->
+                baseCell.join(cellSets.map { it.map.getValue(handle) })
+            })
 
-        private fun <T> join(s1: CellState<T>, s2: CellState<*>): CellState<T> {
-            // Just a sanity check - this could be omitted for performance...
-            require(s1.cell.value == s2.cell.value)
-            return s1.copy(effect = s1.effect?.let { e1 ->
-                s2.effect?.let { e2 ->
-                    s1.cell.mergeConcurrentEffects(e1, e2 as Effect<T>)
-                } ?: e1
-            } ?: (s2.effect as Effect<T>?))
+        private fun <T> CellState<T>.join(branches: Collection<CellState<*>>): CellState<T> {
+            val nontrivialBranches = branches.filter { it.effect != null }
+            return when (nontrivialBranches.size) {
+                // No nontrivial branches - return the base cell unchanged
+                0 -> this
+                // One nontrivial branch - return that branch's cell, but null out the effects (which are now collapsed)
+                1 -> (nontrivialBranches.first() as CellState<T>).copy(effect = null)
+                // Multiple nontrivial branches - concurrent-merge their effects and apply to base value
+                else -> {
+                    val netEffect = nontrivialBranches
+                        .map { it.effect as Effect<T> }
+                        .reduce(cell.mergeConcurrentEffects)
+                    CellState(
+                        cell.copy(value = netEffect(cell.value)),
+                        null
+                    )
+                }
+            }
         }
     }
 }
