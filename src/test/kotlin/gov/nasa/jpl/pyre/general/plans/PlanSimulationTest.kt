@@ -36,6 +36,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperation
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.plus
 import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope

@@ -28,6 +28,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.StringResource
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.every
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

@@ -4,9 +4,9 @@ import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.utilities.andThen
 import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.kernel.*
-import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.allocate
 import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.allocate
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlin.reflect.KType
@@ -50,7 +50,7 @@ fun <V, D : Dynamics<V, D>> resource(
     mergeConcurrentEffects: MergeResourceEffect<D> = autoEffects(),
 ): MutableResource<D> {
     val cell = allocate(Cell(
-        name,
+        Name(name),
         initialDynamics,
         fullDynamicsType,
         { d, t -> d.step(t) },

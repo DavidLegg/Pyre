@@ -5,6 +5,7 @@ import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Condition.ConditionResult
 import gov.nasa.jpl.pyre.kernel.Effect
+import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.Task
 import gov.nasa.jpl.pyre.kernel.Task.PureStepResult.*
@@ -166,7 +167,7 @@ private class TaskBuilder<T>(
             COROUTINE_SUSPENDED
         }
 
-    override suspend fun <S> spawn(childName: String, child: PureTaskStep<S>) =
+    override suspend fun <S> spawn(childName: Name, child: PureTaskStep<S>) =
         suspendCoroutineUninterceptedOrReturn { c ->
             // Running the task step creates a new TaskBuilder, allowing for repeating tasks
             nextResult = Spawn(childName, child, continueWith(c))

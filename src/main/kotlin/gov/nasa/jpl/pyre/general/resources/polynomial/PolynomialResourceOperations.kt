@@ -2,7 +2,6 @@ package gov.nasa.jpl.pyre.general.resources.polynomial
 
 import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.kernel.Condition
-import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial.Companion.polynomial
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
@@ -15,6 +14,8 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.foundation.tasks.*
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.dynamicsChange
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.or
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenTrue
@@ -145,8 +146,12 @@ object PolynomialResourceOperations {
 
         val integrand = this
         val integral = polynomialResource(name, startingValue)
-        val overflow = polynomialResource("$name.overflow", 0.0)
-        val underflow = polynomialResource("$name.underflow", 0.0)
+        val (overflow, underflow) = subContext(name) {
+            Pair(
+                polynomialResource("overflow", 0.0),
+                polynomialResource("underflow", 0.0),
+            )
+        }
 
         // Run once immediately to get the loop started.
         var condition = { Condition.TRUE }

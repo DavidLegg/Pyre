@@ -6,7 +6,6 @@ import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.decodeJsonConditionsFromJsonElement
 import gov.nasa.jpl.pyre.kernel.SimpleSimulation
 import gov.nasa.jpl.pyre.kernel.SimpleSimulation.SimulationSetup
@@ -24,6 +23,7 @@ import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.onceWhenever
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.report
@@ -59,10 +59,11 @@ class FoundationSimulationTest {
             context (scope: BasicInitScope)
             suspend fun fullInit() {
                 with(object : InitScope, BasicInitScope by scope {
+                    override val contextName: Name? = null
                     override val simulationClock = resource("simulation_clock", Timer(ZERO, 1))
                     override val simulationEpoch = Instant.parse("2000-01-01T00:00:00Z")
                     override fun toString() = ""
-                    override fun onStartup(name: String, block: suspend context(TaskScope) () -> Unit) =
+                    override fun onStartup(name: Name, block: suspend context(TaskScope) () -> Unit) =
                         throw NotImplementedError()
                 }) {
                     initialize()

@@ -8,6 +8,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.Reactions.wheneverChanges
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.onStartup
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.report
 import kotlinx.serialization.Contextual
