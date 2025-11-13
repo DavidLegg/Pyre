@@ -11,6 +11,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.onStartup
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.report
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KType
@@ -62,12 +63,12 @@ object Reporting {
         dynamicsType: KType,
     ) {
         val reportType = ChannelizedReport::class.withArg(dynamicsType)
-        val reportedResourceName = "$scope/$name"
-        onStartup("Report initial value for resource $reportedResourceName") {
-            report(reportedResourceName, resource.getDynamics().data, reportType)
+        val reportedResourceName = scope.contextName / name
+        onStartup("Report initial value for resource $name") {
+            report(reportedResourceName.toString(), resource.getDynamics().data, reportType)
         }
-        spawn("Report resource $reportedResourceName", wheneverChanges(resource) {
-            report(reportedResourceName, resource.getDynamics().data, reportType)
+        spawn("Report resource $name", wheneverChanges(resource) {
+            report(reportedResourceName.toString(), resource.getDynamics().data, reportType)
         })
     }
 

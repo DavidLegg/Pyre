@@ -135,7 +135,7 @@ class GeometryModel(
             distanceToMars = map((spacecraftPosition - marsPosition).valueIn(AU)) { it.norm } * AU
             distanceToSun = map((spacecraftPosition - sunPosition).valueIn(AU)) { it.norm } * AU
 
-            with (subContext("pointing_direction")) {
+            subContext("pointing_direction") {
                 pointingDirection = mapOf(
                     J2000_POS_X to pure(Vector3D.PLUS_I),
                     J2000_POS_Y to pure(Vector3D.PLUS_J),

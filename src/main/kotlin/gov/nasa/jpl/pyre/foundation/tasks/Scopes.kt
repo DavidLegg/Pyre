@@ -24,6 +24,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationCl
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import kotlin.contracts.ExperimentalContracts
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.time.Instant
@@ -185,8 +186,13 @@ interface InitScope : SimulationScope, ResourceScope {
         /**
          * Runs [block] in a sub-scope of [InitScope], adding [contextName] to all resources' and tasks' namespaces.
          */
+        @OptIn(ExperimentalContracts::class)
         context (scope: InitScope)
-        fun <R> subContext(contextName: String, block: context (InitScope) () -> R): R =
-            context(subContext(contextName)) { block() }
+        inline fun <R> subContext(contextName: String, block: context (InitScope) () -> R): R {
+            kotlin.contracts.contract {
+                callsInPlace(block, kotlin.contracts.InvocationKind.EXACTLY_ONCE)
+            }
+            return block(subContext(contextName))
+        }
     }
 }

@@ -63,7 +63,7 @@ class DataModel(context: InitScope) {
                 ChannelName.VC12 to VirtualChannel(subContext(ChannelName.VC12.toString()), 0.03, ChannelName.DISCARD)
             )
 
-            with (subContext("apids")) {
+            subContext("apids") {
                 apidModelMap = DataConfig.APID.entries.associateWith {
                     APIDModel(subContext(it.toString()), virtualChannelMap)
                 }
@@ -158,11 +158,11 @@ class DataModel(context: InitScope) {
                     registeredDiscardRate = overflowRate
                     registeredDiscardVolume = overflow
                 }
-                with (subContext("overflow")) {
+                subContext("overflow") {
                     register("rate", registeredOverflowRate)
                     register("volume", registeredOverflowVolume)
                 }
-                with (subContext("discard")) {
+                subContext("discard") {
                     register("rate", registeredDiscardRate)
                     register("volume", registeredDiscardVolume)
                 }
