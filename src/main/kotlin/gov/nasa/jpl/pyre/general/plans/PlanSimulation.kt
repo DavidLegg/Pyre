@@ -31,9 +31,11 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlinx.coroutines.runBlocking
 import kotlin.reflect.KType
 import kotlin.reflect.full.withNullability
@@ -77,8 +79,9 @@ class PlanSimulation<M> {
             override fun <T : Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> =
                 initContext.allocate(cell)
 
-            override fun <T> spawn(name: Name, step: () -> Task.PureStepResult<T>) =
-                initContext.spawn(name, step)
+            override fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) =
+                // When spawning a task, build a simulation scope which incorporates the task's Name
+                initContext.spawn(name, context (subSimulationScope(contextName / name)) { coroutineTask(block) })
 
             override suspend fun <T> read(cell: CellSet.CellHandle<T>): T =
                 initContext.read(cell)

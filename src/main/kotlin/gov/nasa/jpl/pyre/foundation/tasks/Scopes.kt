@@ -1,24 +1,16 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
-import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
-import gov.nasa.jpl.pyre.foundation.resources.MergeResourceEffect
-import gov.nasa.jpl.pyre.foundation.resources.MutableResource
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.CellSet
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.kernel.PureTaskStep
-import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.Task
 import gov.nasa.jpl.pyre.kernel.minus
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.resources.ResourceEffect
 import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.resources.resource
 import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
@@ -57,6 +49,11 @@ interface SimulationScope {
 
         context (scope: SimulationScope)
         val simulationEpoch get() = scope.simulationEpoch
+
+        context (scope: SimulationScope)
+        fun subSimulationScope(contextName: Name) = object : SimulationScope by scope {
+            override val contextName = scope.contextName / contextName
+        }
     }
 }
 
@@ -79,7 +76,7 @@ interface TaskScope : ResourceScope {
     suspend fun <T> report(value: T, type: KType)
     suspend fun delay(time: Duration)
     suspend fun await(condition: () -> Condition)
-    suspend fun <S> spawn(childName: Name, child: PureTaskStep<S>)
+    suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>)
 
     companion object {
         context (scope: TaskScope)
@@ -98,10 +95,10 @@ interface TaskScope : ResourceScope {
         suspend fun await(condition: () -> Condition) = scope.await(condition)
 
         context (scope: TaskScope)
-        suspend fun <S> spawn(childName: Name, child: PureTaskStep<S>) = scope.spawn(childName, child)
+        suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>) = scope.spawn(childName, child)
 
         context (scope: TaskScope)
-        suspend fun <S> spawn(childName: String, child: PureTaskStep<S>) = spawn(Name(childName), child)
+        suspend fun <S> spawn(childName: String, child: suspend context (TaskScope) () -> TaskScopeResult<S>) = spawn(Name(childName), child)
 
         /**
          * Delay until the given absolute simulation time, measured against [SimulationScope.simulationClock]
@@ -144,10 +141,7 @@ interface InitScope : SimulationScope, ResourceScope {
     /**
      * Spawn a regular task, which will run when the simulation starts
      */
-    fun <T> spawn(name: Name, step: () -> Task.PureStepResult<T>)
-
-    override suspend fun <V> read(cell: CellSet.CellHandle<V>): V =
-        (this as BasicInitScope).read(cell)
+    fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>)
 
     companion object {
         context (scope: InitScope)
@@ -160,10 +154,10 @@ interface InitScope : SimulationScope, ResourceScope {
         fun <T: Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> = scope.allocate(cell)
 
         context (scope: InitScope)
-        fun <T> spawn(name: Name, step: () -> Task.PureStepResult<T>) = scope.spawn(name, step)
+        fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) = scope.spawn(name, block)
 
         context (scope: InitScope)
-        fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) = spawn(Name(name), step)
+        fun <T> spawn(name: String, block: suspend context (TaskScope) () -> TaskScopeResult<T>) = spawn(Name(name), block)
 
         /**
          * Adds [contextName] to the naming context, adding it as a level in the namespace of all resources and tasks
@@ -179,8 +173,8 @@ interface InitScope : SimulationScope, ResourceScope {
             override fun <T : Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> =
                 scope.allocate(cell.copy(name = Name(contextName) / cell.name))
 
-            override fun <T> spawn(name: Name, step: () -> Task.PureStepResult<T>) =
-                scope.spawn(Name(contextName) / name, step)
+            override fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) =
+                scope.spawn(Name(contextName) / name, block)
         }
 
         /**

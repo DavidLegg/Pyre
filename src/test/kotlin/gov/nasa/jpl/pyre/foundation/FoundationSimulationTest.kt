@@ -27,6 +27,8 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.report
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScopeResult
+import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
 import gov.nasa.jpl.pyre.foundation.tasks.repeatingTask
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.string
@@ -58,16 +60,18 @@ class FoundationSimulationTest {
             val reports = mutableListOf<JsonElement>()
             context (scope: BasicInitScope)
             suspend fun fullInit() {
-                with(object : InitScope, BasicInitScope by scope {
+                initialize(object : InitScope {
                     override val contextName: Name? = null
-                    override val simulationClock = resource("simulation_clock", Timer(ZERO, 1))
+                    override val simulationClock = resource<Duration, Timer>("simulation_clock", Timer(ZERO, 1))
                     override val simulationEpoch = Instant.parse("2000-01-01T00:00:00Z")
                     override fun toString() = ""
                     override fun onStartup(name: Name, block: suspend context(TaskScope) () -> Unit) =
                         throw NotImplementedError()
-                }) {
-                    initialize()
-                }
+                    override suspend fun <V> read(cell: CellSet.CellHandle<V>): V = scope.read(cell)
+                    override fun <T : Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> = scope.allocate(cell)
+                    override fun <T> spawn(name: Name, block: suspend context(TaskScope) () -> TaskScopeResult<T>) =
+                        scope.spawn(name, coroutineTask(block))
+                })
             }
 
             val simulation = SimpleSimulation(SimulationSetup(

@@ -36,7 +36,7 @@ object Reactions {
      * If block finishes without changing the condition resource, then block will simply run again.
      */
     context (scope: SimulationScope)
-    fun whenever(condition: BooleanResource, block: suspend context (TaskScope) () -> Unit): PureTaskStep<Unit> = repeatingTask {
+    fun whenever(condition: BooleanResource, block: suspend context (TaskScope) () -> Unit) = repeatingTask {
         await(condition)
         block()
     }
@@ -47,7 +47,7 @@ object Reactions {
      * Spawn a sub-task from block if multiple reactions may need to run simultaneously.
      */
     context (scope: SimulationScope)
-    fun onceWhenever(condition: BooleanResource, block: suspend context (TaskScope) () -> Unit): PureTaskStep<Unit> = repeatingTask {
+    fun onceWhenever(condition: BooleanResource, block: suspend context (TaskScope) () -> Unit) = repeatingTask {
         await(condition)
         block()
         await(!condition)
@@ -119,13 +119,13 @@ object Reactions {
     }
 
     context (scope: SimulationScope)
-    fun <V, D : Dynamics<V, D>> wheneverChanges(resource: Resource<D>, block: suspend context (TaskScope) () -> Unit): PureTaskStep<Unit> = repeatingTask {
+    fun <V, D : Dynamics<V, D>> wheneverChanges(resource: Resource<D>, block: suspend context (TaskScope) () -> Unit) = repeatingTask {
         await(dynamicsChange(resource))
         block()
     }
 
     context (scope: SimulationScope)
-    fun every(interval: Duration, block: suspend context (TaskScope) () -> Unit): PureTaskStep<Unit> = repeatingTask {
+    fun every(interval: Duration, block: suspend context (TaskScope) () -> Unit) = repeatingTask {
         delay(interval)
         block()
     }
