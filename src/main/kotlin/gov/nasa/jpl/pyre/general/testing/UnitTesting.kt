@@ -9,6 +9,7 @@ import gov.nasa.jpl.pyre.general.reporting.ReportHandling.assumeType
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.channels
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import kotlin.time.Instant

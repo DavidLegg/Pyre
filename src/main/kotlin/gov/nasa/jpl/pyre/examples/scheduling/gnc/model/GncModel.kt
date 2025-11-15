@@ -45,6 +45,7 @@ import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.grea
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.restart
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.timer
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import kotlinx.serialization.Serializable
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation

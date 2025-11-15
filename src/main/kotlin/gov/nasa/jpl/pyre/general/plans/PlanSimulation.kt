@@ -27,11 +27,15 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.isNotNull
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.isNull
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.task
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlinx.coroutines.runBlocking
 import kotlin.reflect.KType
 import kotlin.reflect.full.withNullability
@@ -70,20 +74,23 @@ class PlanSimulation<M> {
         var start: Duration = requireNotNull(simulationStart ?: inconProvider?.within("simulation", "time")?.provide<Duration>())
         state = SimulationState(reportHandler)
         val initContext = state.initScope()
-        val startupTasks: MutableList<Pair<String, suspend context (TaskScope) () -> Unit>> = mutableListOf()
+        val startupTasks: MutableList<Pair<Name, suspend context (TaskScope) () -> Unit>> = mutableListOf()
         simulationScope = object : InitScope {
             override fun <T : Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> =
-                initContext.allocate(cell.copy(name = "/${cell.name}"))
+                initContext.allocate(cell)
 
-            override fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) =
-                initContext.spawn("/$name", step)
+            override fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) =
+                // When spawning a task, build a simulation scope which incorporates the task's Name
+                initContext.spawn(name, context (subSimulationScope(contextName / name)) { coroutineTask(block) })
 
-            override fun <T> read(cell: CellSet.CellHandle<T>): T =
+            override suspend fun <T> read(cell: CellSet.CellHandle<T>): T =
                 initContext.read(cell)
 
-            override fun onStartup(name: String, block: suspend TaskScope.() -> Unit) {
+            override fun onStartup(name: Name, block: suspend TaskScope.() -> Unit) {
                 startupTasks += name to block
             }
+
+            override val contextName: Name? = null
 
             override val simulationClock = resource("simulation_clock", Timer(start, 1))
             override val simulationEpoch = simulationEpoch
@@ -242,7 +249,7 @@ class PlanSimulation<M> {
             // before the simulation advances in time.
             // Combined with the loop below to exercise this task to completion, thereby unloading this unsafe task,
             // the simulation is always in a safe state to save/restore when this function returns.
-            state.addTask("activity loader", with (simulationScope) {
+            state.addTask(Name("activity loader"), with (simulationScope) {
                 coroutineTask {
                     if (activitiesToLoad.isEmpty()) {
                         activityLoaderActive = false

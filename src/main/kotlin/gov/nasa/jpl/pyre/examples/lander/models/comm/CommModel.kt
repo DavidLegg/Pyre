@@ -37,7 +37,7 @@ class CommModel(
             dataSent = downlinkRate.asPolynomial().registeredIntegral("dataSent", 0.0)
             activeXBandAntenna = registeredDiscreteResource("activeXBandAntenna", XBandAntenna.EAST_MGA)
 
-            with (subContext("alternate_block_in_use")) {
+            subContext("alternate_block_in_use") {
                 alternateUhfBlockInUseMap = Orbiter.entries.associateWith {
                     registeredDiscreteResource(it.toString(), false)
                 }

@@ -1,5 +1,8 @@
 package gov.nasa.jpl.pyre.kernel
 
+import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
+import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
+import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import gov.nasa.jpl.pyre.utilities.andThen
 import kotlin.collections.mapValuesTo
 import kotlin.reflect.KType
@@ -9,8 +12,8 @@ class CellSet private constructor(
     private val map: MutableMap<CellHandle<*>, CellState<*>>
 ) {
     // CellHandle is class, not data class, because we *want* to use object-identity equality
-    class CellHandle<T>(val name: String, val valueType: KType) {
-        override fun toString() = name
+    class CellHandle<T>(val name: Name, val valueType: KType) {
+        override fun toString() = name.toString()
     }
     data class CellState<T>(val cell: Cell<T>, val effect: Effect<T>?)
 
@@ -33,7 +36,7 @@ class CellSet private constructor(
 
     fun save(finconCollector: FinconCollector) {
         fun <T> saveCell(state: CellState<T>) = with(state.cell) {
-            finconCollector.within(name).report(state.cell.value, valueType)
+            finconCollector.within(name.asSequence()).report(state.cell.value, valueType)
         }
         map.values.forEach { saveCell(it) }
     }
@@ -41,7 +44,7 @@ class CellSet private constructor(
     fun restore(inconProvider: InconProvider) {
         fun <T> restoreCell(handle: CellHandle<T>) = with(this[handle]) {
             // If incon is missing, ignore it and move on
-            inconProvider.within(name).provide<T>(valueType)?.let {
+            inconProvider.within(name.asSequence()).provide<T>(valueType)?.let {
                 map[handle] = CellState(copy(value=it), null)
             }
         }

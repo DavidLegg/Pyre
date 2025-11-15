@@ -80,12 +80,12 @@ class HeatProbeModel(
             sciDataSentInActivity = registeredDiscreteResource("sciDataSentInActivity", 0.0)
             ssaState = registeredDiscreteResource("ssaState", SSAState.Off)
             radState = registeredDiscreteResource("radState", RADState.Off)
-            with (subContext("tableParams")) {
+            subContext("tableParams") {
                 parametersInTable = HeatProbeParameter.entries.associateWith {
                     registeredDiscreteResource(it.toString(), defaultParameters.getValue(it))
                 }
             }
-            with (subContext("currentParams")) {
+            subContext("currentParams") {
                 parametersCurrent = HeatProbeParameter.entries.associateWith {
                     registeredDiscreteResource(it.toString(), defaultParameters.getValue(it))
                 }

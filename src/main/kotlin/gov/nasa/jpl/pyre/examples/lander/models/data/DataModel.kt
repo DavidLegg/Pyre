@@ -27,6 +27,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlin.math.min
@@ -62,7 +63,7 @@ class DataModel(context: InitScope) {
                 ChannelName.VC12 to VirtualChannel(subContext(ChannelName.VC12.toString()), 0.03, ChannelName.DISCARD)
             )
 
-            with (subContext("apids")) {
+            subContext("apids") {
                 apidModelMap = DataConfig.APID.entries.associateWith {
                     APIDModel(subContext(it.toString()), virtualChannelMap)
                 }
@@ -157,11 +158,11 @@ class DataModel(context: InitScope) {
                     registeredDiscardRate = overflowRate
                     registeredDiscardVolume = overflow
                 }
-                with (subContext("overflow")) {
+                subContext("overflow") {
                     register("rate", registeredOverflowRate)
                     register("volume", registeredOverflowVolume)
                 }
-                with (subContext("discard")) {
+                subContext("discard") {
                     register("rate", registeredDiscardRate)
                     register("volume", registeredDiscardVolume)
                 }

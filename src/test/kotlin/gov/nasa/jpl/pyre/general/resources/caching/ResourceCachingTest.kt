@@ -28,6 +28,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.StringResource
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.every
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -241,8 +242,8 @@ class ResourceCachingTest {
         // and add new initial value reports.
         assertEquals(
             listOf(
-                ChannelizedReport("/resourceB", sim2start, JsonPrimitive("Second string")),
-                ChannelizedReport("/resourceA", sim2start, JsonPrimitive(-10)),
+                ChannelizedReport("resourceB", sim2start, JsonPrimitive("Second string")),
+                ChannelizedReport("resourceA", sim2start, JsonPrimitive(-10)),
             ) +
             outputFile1.readLines()
                 .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }

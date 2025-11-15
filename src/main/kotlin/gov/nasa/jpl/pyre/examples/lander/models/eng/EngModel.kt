@@ -20,7 +20,7 @@ class EngModel(
 
     init {
         with (context) {
-            with (subContext("safe_mode")) {
+            subContext("safe_mode") {
                 safeMode = Component.entries.associateWith {
                     registeredDiscreteResource(it.toString(), false)
                 }

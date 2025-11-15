@@ -5,7 +5,8 @@ import kotlinx.coroutines.runBlocking
 
 /**
  * The minimal type of simulation, in which the entire simulation is set up "at the start".
- * Save/Restore cycles on this simulation are "pure" -
+ * Save/Restore cycles on this simulation are "pure" - a simulation created by saving and restoring a fincon
+ * should produce results identically to the original simulation.
  */
 class SimpleSimulation(setup: SimulationSetup) {
     data class SimulationSetup(

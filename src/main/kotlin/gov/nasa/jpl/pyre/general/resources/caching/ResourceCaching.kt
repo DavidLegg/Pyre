@@ -4,7 +4,6 @@ import gov.nasa.jpl.pyre.utilities.Closeable
 import gov.nasa.jpl.pyre.utilities.Closeable.Companion.closesWith
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromJsonElement
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
@@ -21,7 +20,10 @@ import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.resources.resource
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -119,11 +121,11 @@ object ResourceCaching {
         name: String,
         file: Path,
         jsonFormat: Json = Json,
-        channel: String? = null,
+        channel: Name? = null,
         dynamicsType: KType
     ): Resource<D> {
         val reader = file.bufferedReader()
-        val realChannel = channel ?: "$scope/$name"
+        val realChannel = (channel ?: (scope.contextName / name)).toString()
         val points = reader.lineSequence()
             .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
             .filter { it.channel == realChannel }
@@ -137,6 +139,6 @@ object ResourceCaching {
         name: String,
         file: Path,
         jsonFormat: Json = Json,
-        channel: String? = null,
+        channel: Name? = null,
     ): Resource<D> = fileBackedResource(name, file, jsonFormat, channel, typeOf<D>())
 }

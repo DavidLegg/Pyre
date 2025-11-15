@@ -15,7 +15,7 @@ class PowerModel(
     init {
         with (context) {
             genericPowerUsed = registeredDiscreteResource("genericPowerUsed", 0.0)
-            with (subContext("pelStates")) {
+            subContext("pelStates") {
                 pelStates = PelItem.entries.associateWith {
                     registeredDiscreteResource(it.toString(), it.defaultValue)
                 }

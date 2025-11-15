@@ -28,22 +28,22 @@ class Variables(
 
     init {
         with (context) {
-            with (subContext("int")) {
+            subContext("int") {
                 ints = Array(numberOfVariables.getOrDefault(VariableType.INT, 0)) {
                     registeredDiscreteResource(it.toString(), 0)
                 }.toList()
             }
-            with (subContext("uint")) {
+            subContext("uint") {
                 uints = Array(numberOfVariables.getOrDefault(VariableType.UINT, 0)) {
                     registeredDiscreteResource(it.toString(), 0.toUInt())
                 }.toList()
             }
-            with (subContext("float")) {
+            subContext("float") {
                 floats = Array(numberOfVariables.getOrDefault(VariableType.FLOAT, 0)) {
                     registeredDiscreteResource(it.toString(), 0.0)
                 }.toList()
             }
-            with (subContext("string")) {
+            subContext("string") {
                 strings = Array(numberOfVariables.getOrDefault(VariableType.STRING, 0)) {
                     registeredDiscreteResource(it.toString(), "")
                 }.toList()

@@ -5,10 +5,7 @@ import gov.nasa.jpl.pyre.kernel.CellSet
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.kernel.PureTaskStep
-import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.Task
 import gov.nasa.jpl.pyre.kernel.minus
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
@@ -17,14 +14,25 @@ import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import kotlin.contracts.ExperimentalContracts
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.time.Instant
+
 
 /**
  * A context for all the "global" conveniences offered by foundation during simulation.
  */
 interface SimulationScope {
+    /**
+     * A hierarchical [Name] that can be used to indicate "where" in the model or simulation we are.
+     *
+     * This is primarily used to name resources and tasks, for reporting results and debugging purposes.
+     */
+    val contextName: Name?
+
     /**
      * Primary simulation clock. Simulation time should be derived from this clock.
      */
@@ -41,6 +49,11 @@ interface SimulationScope {
 
         context (scope: SimulationScope)
         val simulationEpoch get() = scope.simulationEpoch
+
+        context (scope: SimulationScope)
+        fun subSimulationScope(contextName: Name) = object : SimulationScope by scope {
+            override val contextName = scope.contextName / contextName
+        }
     }
 }
 
@@ -63,7 +76,7 @@ interface TaskScope : ResourceScope {
     suspend fun <T> report(value: T, type: KType)
     suspend fun delay(time: Duration)
     suspend fun await(condition: () -> Condition)
-    suspend fun <S> spawn(childName: String, child: PureTaskStep<S>)
+    suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>)
 
     companion object {
         context (scope: TaskScope)
@@ -82,7 +95,10 @@ interface TaskScope : ResourceScope {
         suspend fun await(condition: () -> Condition) = scope.await(condition)
 
         context (scope: TaskScope)
-        suspend fun <S> spawn(childName: String, child: PureTaskStep<S>) = scope.spawn(childName, child)
+        suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>) = scope.spawn(childName, child)
+
+        context (scope: TaskScope)
+        suspend fun <S> spawn(childName: String, child: suspend context (TaskScope) () -> TaskScopeResult<S>) = spawn(Name(childName), child)
 
         /**
          * Delay until the given absolute simulation time, measured against [SimulationScope.simulationClock]
@@ -98,7 +114,10 @@ interface TaskScope : ResourceScope {
     }
 }
 
-interface InitScope : SimulationScope, BasicInitScope, ResourceScope {
+// Note: We specifically don't implement BasicInitScope here.
+//   We want to supplant its methods with higher-level methods that change its signature somehow.
+// TODO: Allocate/read/emit on Resource, instead of Cell, to force all cell allocation to hide behind a resource.
+interface InitScope : SimulationScope, ResourceScope {
     /**
      * Run block whenever the simulation starts.
      *
@@ -115,32 +134,59 @@ interface InitScope : SimulationScope, BasicInitScope, ResourceScope {
      * For example, we may manually adjust a fincon between runs, and want the model to update to a consistent state,
      * as well as report the state of all resources, which may have changed due to that manual fincon adjustment.
      */
-    fun onStartup(name: String, block: suspend context (TaskScope) () -> Unit)
+    fun onStartup(name: Name, block: suspend context (TaskScope) () -> Unit)
 
-    override suspend fun <V> read(cell: CellSet.CellHandle<V>): V =
-        (this as BasicInitScope).read(cell)
+    fun <T: Any> allocate(cell: Cell<T>): CellSet.CellHandle<T>
+
+    /**
+     * Spawn a regular task, which will run when the simulation starts
+     */
+    fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>)
 
     companion object {
         context (scope: InitScope)
-        fun onStartup(name: String, block: suspend context (TaskScope) () -> Unit) = scope.onStartup(name, block)
+        fun onStartup(name: Name, block: suspend context (TaskScope) () -> Unit) = scope.onStartup(name, block)
+
+        context (scope: InitScope)
+        fun onStartup(name: String, block: suspend context (TaskScope) () -> Unit) = onStartup(Name(name), block)
+
+        context (scope: InitScope)
+        fun <T: Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> = scope.allocate(cell)
+
+        context (scope: InitScope)
+        fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) = scope.spawn(name, block)
+
+        context (scope: InitScope)
+        fun <T> spawn(name: String, block: suspend context (TaskScope) () -> TaskScopeResult<T>) = spawn(Name(name), block)
 
         /**
-         * Creates a subcontext named "$this/$contextName".
-         * If models incorporate the context name into the names of tasks and resources,
-         * this provides an easy way to build hierarchical models without a lot of manual bookkeeping.
+         * Adds [contextName] to the naming context, adding it as a level in the namespace of all resources and tasks
+         * allocated through the returned [InitScope].
          */
         context (scope: InitScope)
         fun subContext(contextName: String) = object : InitScope by scope {
+            override val contextName get() = scope.contextName / contextName
+
+            override fun onStartup(name: Name, block: suspend context(TaskScope) () -> Unit) =
+                scope.onStartup(Name(contextName) / name, block)
+
             override fun <T : Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> =
-                scope.allocate(cell.copy(name = "$contextName/${cell.name}"))
+                scope.allocate(cell.copy(name = Name(contextName) / cell.name))
 
-            override fun <T> spawn(name: String, step: () -> Task.PureStepResult<T>) =
-                scope.spawn("$contextName/$name", step)
+            override fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) =
+                scope.spawn(Name(contextName) / name, block)
+        }
 
-            override fun onStartup(name: String, block: suspend TaskScope.() -> Unit) =
-                scope.onStartup("$contextName/$name", block)
-
-            override fun toString() = "$scope/$contextName"
+        /**
+         * Runs [block] in a sub-scope of [InitScope], adding [contextName] to all resources' and tasks' namespaces.
+         */
+        @OptIn(ExperimentalContracts::class)
+        context (scope: InitScope)
+        inline fun <R> subContext(contextName: String, block: context (InitScope) () -> R): R {
+            kotlin.contracts.contract {
+                callsInPlace(block, kotlin.contracts.InvocationKind.EXACTLY_ONCE)
+            }
+            return block(subContext(contextName))
         }
     }
 }

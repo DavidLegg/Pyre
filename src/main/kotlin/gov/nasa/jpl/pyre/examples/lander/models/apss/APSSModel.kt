@@ -72,17 +72,17 @@ class APSSModel(
 
     init {
         with (context) {
-            with (subContext("power_on")) {
+            subContext("power_on") {
                 paePoweredOn = registeredDiscreteResource("PAE", false)
                 components = Component.entries.associateWith {
                     ComponentModel(this, false, ComponentRate(0.0, 0.0), ComponentRate(0.0, 0.0))
                 }
             }
-            with (subContext("internal_volume")) {
+            subContext("internal_volume") {
                 internalRate = registeredDiscreteResource("rate", 0.0)
                 internalVolume = internalRate.asPolynomial().registeredIntegral("volume", 0.0)
             }
-            with (subContext("volume_to_send_to_vc")) {
+            subContext("volume_to_send_to_vc") {
                 rateToSendToVC = registeredDiscreteResource("rate", 0.0)
                 volumeToSendToVC = rateToSendToVC.asPolynomial().registeredIntegral("volume", 0.0)
             }

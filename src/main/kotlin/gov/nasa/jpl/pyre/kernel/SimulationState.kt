@@ -8,6 +8,7 @@ import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvidingContext.Companion.provide
+import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import gov.nasa.jpl.pyre.kernel.Task.PureStepResult
 import kotlinx.serialization.SerializationException
 import java.util.Comparator.comparing
@@ -70,13 +71,13 @@ class SimulationState(private val reportHandler: ReportHandler) {
 
     fun initScope() = object : BasicInitScope {
         override fun <T: Any> allocate(cell: Cell<T>) = cells.allocate(cell)
-        override fun <T> spawn(name: String, step: () -> PureStepResult<T>) = addTask(name, step)
+        override fun <T> spawn(name: Name, step: () -> PureStepResult<T>) = addTask(name, step)
         override fun <T> read(cell: CellHandle<T>): T = cells[cell].value
     }
 
     fun time() = time
 
-    fun <T> addTask(name: String, step: PureTaskStep<T>, time: Duration = time()) {
+    fun <T> addTask(name: Name, step: PureTaskStep<T>, time: Duration = time()) {
         val task = Task.of(name, step)
         rootTasks += TaskEntry(time, task)
         addTask(task, time)
@@ -113,7 +114,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
         InternalLogger.block({ "Start batch" }, { "End batch" }) {
             // For each task, split the cells so that task operates on an isolated state.
             val cellSetBranches = tasks.map { task ->
-                InternalLogger.block({ "Resume ${task.id.rootId}" }) {
+                InternalLogger.block({ "Resume ${task.id.name}" }) {
                     cells.split().also { runTask(task, it) }
                 }
             }
@@ -264,24 +265,20 @@ class SimulationState(private val reportHandler: ReportHandler) {
             tasks.filter { it !in excludedTasks } + listeningTasks.keys.map { TaskEntry(time, it.rewaitTask) }
 
         tasksToSave.forEach { (time, task) ->
-            taskCollector.within(task.id.rootId.conditionKeys())
+            taskCollector.within(task.id.name.asSequence())
                 .also(task::save)
                 .within("time")
                 .report<Duration>(time)
         }
-        val tasksByRootTaskId = tasksToSave.groupBy {
-            var rootId = it.task.id.rootId
-            while (rootId.parent != null) rootId = rootId.parent
-            rootId
-        }
+        val tasksByRootTaskName = tasksToSave.groupBy { it.task.id.rootTaskName }
         // Report the running children for every root task.
         // If a root task and all its children are complete, report an empty list of running children.
         // This distinguishes completed root tasks from new root tasks, where a root task is added because the model changes.
         for (rootTask in rootTasks) {
-            val rootTaskId = rootTask.task.id.rootId
-            val tasks = tasksByRootTaskId.getOrDefault(rootTaskId, listOf())
-            taskCollector.within(rootTaskId.conditionKeys() + "children")
-                .report(tasks.map { it.task.id.rootId.conditionKeys().toList() })
+            val rootTaskName = rootTask.task.id.rootTaskName
+            val tasks = tasksByRootTaskName.getOrDefault(rootTaskName, listOf())
+            taskCollector.within(rootTaskName.asSequence() + "children")
+                .report(tasks.map { it.task.id.name.asSequence().toList() })
         }
     }
 
@@ -293,9 +290,9 @@ class SimulationState(private val reportHandler: ReportHandler) {
         val taskProvider = inconProvider.within("tasks")
         tasks.clear()
         for (rootTask in rootTasks) {
-            val idsToRestore = taskProvider.within(rootTask.task.id.rootId.conditionKeys() + "children").provide<List<List<String>>>()
+            val idsToRestore = taskProvider.within(rootTask.task.id.name.asSequence() + "children").provide<List<List<String>>>()
             if (idsToRestore == null) {
-                InternalLogger.log { "Task ${rootTask.task.id.rootId} not present in conditions, adding root task." }
+                InternalLogger.log { "Task ${rootTask.task.id.name} not present in conditions, adding root task." }
                 tasks += TaskEntry(time, rootTask.task)
             } else {
                 try {
@@ -306,7 +303,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
                         requireNotNull(restoreTask(rootTask.task, taskProvider.within(it.asSequence())))
                     }
                 } catch (_: SerializationException) {
-                    InternalLogger.log { "Task ${rootTask.task.id.rootId} failed to restore cleanly. Restarting root task instead." }
+                    InternalLogger.log { "Task ${rootTask.task.id.name} failed to restore cleanly. Restarting root task instead." }
                     tasks += TaskEntry(time, rootTask.task)
                 }
             }

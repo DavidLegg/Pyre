@@ -36,6 +36,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperation
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.plus
 import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
@@ -104,12 +105,12 @@ class PlanSimulationTest {
         simulation.runUntil(Instant.parse("2020-01-01T01:00:00Z"))
 
         with (reports) {
-            channel("/x") {
+            channel("x") {
                 at(Instant.parse("2020-01-01T00:00:00Z"))
                 element { assertEquals(0, int()) }
                 assert(atEnd())
             }
-            channel("/y") {
+            channel("y") {
                 at(Instant.parse("2020-01-01T00:00:00Z"))
                 element { assertEquals("XYZ", string()) }
                 assert(atEnd())
@@ -146,12 +147,12 @@ class PlanSimulationTest {
         simulation.runUntil(Instant.parse("2020-01-01T01:00:00Z"))
 
         with (reports) {
-            channel("/x") {
+            channel("x") {
                 at(Instant.parse("2020-01-01T00:00:00Z"))
                 element { assertEquals(0, int()) }
                 assert(atEnd())
             }
-            channel("/y") {
+            channel("y") {
                 at(Instant.parse("2020-01-01T00:00:00Z"))
                 element { assertEquals("XYZ", string()) }
                 assert(atEnd())
@@ -340,7 +341,7 @@ class PlanSimulationTest {
                 log("Overheat Protection triggered!")
                 end()
             }
-            channel("/deviceState") {
+            channel("deviceState") {
                 at(Instant.parse("2020-01-01T00:00:00Z"))
                 value("OFF")
                 at(Instant.parse("2020-01-01T00:05:00Z"))
@@ -377,7 +378,7 @@ class PlanSimulationTest {
                 value("OFF")
                 end()
             }
-            channel("/miscPower") {
+            channel("miscPower") {
                 at(Instant.parse("2020-01-01T00:00:00Z"))
                 value(0.0)
                 at(Instant.parse("2020-01-01T01:50:00Z"))
@@ -386,7 +387,7 @@ class PlanSimulationTest {
                 value(6.0)
                 end()
             }
-            channel("/totalPower") {
+            channel("totalPower") {
                 at(Instant.parse("2020-01-01T00:00:00Z"))
                 value(0.0)
                 at(Instant.parse("2020-01-01T00:05:00Z"))

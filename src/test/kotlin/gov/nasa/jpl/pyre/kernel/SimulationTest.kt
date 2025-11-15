@@ -61,7 +61,7 @@ class SimulationTest {
     }
 
     private fun intCounterCell(name: String, value: Int) = Cell(
-        name,
+        Name(name),
         value,
         typeOf<Int>(),
         { x, _ -> x },
@@ -72,7 +72,7 @@ class SimulationTest {
     private data class LinearDynamics(val value: Double, val rate: Double)
     private fun linearDynamicsStep(d: LinearDynamics, t: Duration) = LinearDynamics(d.value + d.rate * (t ratioOver SECOND), d.rate)
     private fun linearCell(name: String, value: Double, rate: Double) = Cell(
-        name,
+        Name(name),
         LinearDynamics(value, rate),
         typeOf<LinearDynamics>(),
         ::linearDynamicsStep,
@@ -80,7 +80,7 @@ class SimulationTest {
     )
 
     private fun clockCell(name: String, t: Duration) = Cell(
-        name,
+        Name(name),
         t,
         typeOf<Duration>(),
         { s, delta -> s + delta },
@@ -95,7 +95,7 @@ class SimulationTest {
     @Test
     fun task_can_report_result() {
         val results = runSimulation(HOUR) {
-            spawn("report result") {
+            spawn(Name("report result")) {
                 Report("result", typeOf<String>()) {
                     Complete(Unit)
                 }
@@ -115,7 +115,7 @@ class SimulationTest {
     fun task_can_read_cell() {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 42))
-            spawn("read cell") {
+            spawn(Name("read cell")) {
                 Read(x) {
                     Report("x = $it", typeOf<String>()) {
                         Complete(Unit)
@@ -138,7 +138,7 @@ class SimulationTest {
     fun task_can_emit_effect() {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 42))
-            spawn("emit effect") {
+            spawn(Name("emit effect")) {
                 Emit(x, { it + 13 }) {
                     Read(x) {
                         Report("x = $it", typeOf<String>()) {
@@ -154,7 +154,7 @@ class SimulationTest {
     @Test
     fun task_can_delay() {
         runSimulation(HOUR) {
-            spawn("delay") {
+            spawn(Name("delay")) {
                 Delay(30 * MINUTE) {
                     Complete(Unit)
                 }
@@ -168,8 +168,8 @@ class SimulationTest {
             // This is *not* a good way to implement stepping, since multiple steps, each < 1 minute,
             // will not change the value, but a single >1 minute step would.
             // It's fine for this test, though.
-            val x = allocate(Cell("x", 0, typeOf<Int>(), { x, t -> x + (t / MINUTE).toInt() }, { l, r -> l andThen r }))
-            spawn("step cell") {
+            val x = allocate(Cell(Name("x"), 0, typeOf<Int>(), { x, t -> x + (t / MINUTE).toInt() }, { l, r -> l andThen r }))
+            spawn(Name("step cell")) {
                 Read(x) {
                     Report("now x = $it", typeOf<String>()) {
                         Delay(30 * MINUTE) {
@@ -196,7 +196,7 @@ class SimulationTest {
     fun parallel_tasks_do_not_observe_each_other() {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
-            spawn("Task A") {
+            spawn(Name("Task A")) {
                 Emit(x, { it + 5 }) {
                     Read(x) {
                         Report("A says: x = $it", typeOf<String>()) {
@@ -205,7 +205,7 @@ class SimulationTest {
                     }
                 }
             }
-            spawn("Task B") {
+            spawn(Name("Task B")) {
                 Emit(x, { it + 3 }) {
                     Read(x) {
                         Report("B says: x = $it", typeOf<String>()) {
@@ -214,7 +214,7 @@ class SimulationTest {
                     }
                 }
             }
-            spawn("Task C") {
+            spawn(Name("Task C")) {
                 Read(x) {
                     Report("C says: x = $it", typeOf<String>()) {
                         Read(x) {
@@ -240,7 +240,7 @@ class SimulationTest {
     fun parallel_tasks_join_effects_at_each_delay() {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
-            spawn("Task A") {
+            spawn(Name("Task A")) {
                 Emit(x, { it + 5 }) {
                     Read(x) {
                         Report("A says: x = $it", typeOf<String>()) {
@@ -249,7 +249,7 @@ class SimulationTest {
                     }
                 }
             }
-            spawn("Task B") {
+            spawn(Name("Task B")) {
                 Read(x) {
                     Report("B first says: x = $it", typeOf<String>()) {
                         Delay(ZERO) {
@@ -276,8 +276,8 @@ class SimulationTest {
     fun concurrent_effects_are_joined_using_effect_trait() {
         val results = runSimulation(HOUR) {
             // Note: This is *not* a correct effect trait, but it's simple and lets us observe what's happening better.
-            val x = allocate(Cell("x", 10, typeOf<Int>(), { x, _ -> x }, { l, r -> { 100 + r(l(it)) } }))
-            spawn("Task A") {
+            val x = allocate(Cell(Name("x"), 10, typeOf<Int>(), { x, _ -> x }, { l, r -> { 100 + r(l(it)) } }))
+            spawn(Name("Task A")) {
                 Emit(x, { it + 5 }) {
                     Read(x) {
                         Report("A says: x = $it", typeOf<String>()) {
@@ -286,7 +286,7 @@ class SimulationTest {
                     }
                 }
             }
-            spawn("Task B") {
+            spawn(Name("Task B")) {
                 Emit(x, { it + 3 }) {
                     Read(x) {
                         Report("B says: x = $it", typeOf<String>()) {
@@ -295,7 +295,7 @@ class SimulationTest {
                     }
                 }
             }
-            spawn("Task C") {
+            spawn(Name("Task C")) {
                 Delay(ZERO) {
                     Read(x) {
                         Report("C says: x = $it", typeOf<String>()) {
@@ -317,7 +317,7 @@ class SimulationTest {
     @Test
     fun task_can_await_condition() {
         runSimulation(HOUR) {
-            spawn("Await condition") {
+            spawn(Name("Await condition")) {
                 Await({ Condition.SatisfiedAt(ZERO) }) {
                     Complete(Unit)
                 }
@@ -329,7 +329,7 @@ class SimulationTest {
     fun await_trivial_condition_runs_task_in_next_batch() {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
-            spawn("Awaiter") {
+            spawn(Name("Awaiter")) {
                 Await({ Condition.SatisfiedAt(ZERO) }) {
                     Read(x) {
                         Report("Awaiter says: x = $it", typeOf<String>()) {
@@ -338,7 +338,7 @@ class SimulationTest {
                     }
                 }
             }
-            spawn("Counter") {
+            spawn(Name("Counter")) {
                 Emit(x, { it + 1 }) {
                     Delay(ZERO) {
                         Emit(x, { it + 1 }) {
@@ -358,7 +358,7 @@ class SimulationTest {
     @Test
     fun await_never_condition_does_not_run_task() {
         val results = runSimulation(HOUR) {
-            spawn("Awaiter") {
+            spawn(Name("Awaiter")) {
                 Await({ Condition.UnsatisfiedUntil(null) }) {
                     Report("Awaiter ran!", typeOf<String>()) {
                         Complete(Unit)
@@ -374,7 +374,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
             val y = allocate(intCounterCell("y", 12))
-            spawn("Awaiter") {
+            spawn(Name("Awaiter")) {
                 val condition = Condition.Read(x) { xValue ->
                     Condition.Read(y) { yValue ->
                         if (xValue >= yValue) Condition.SatisfiedAt(ZERO) else Condition.UnsatisfiedUntil(null)
@@ -392,7 +392,7 @@ class SimulationTest {
                     }
                 }
             }
-            spawn("Counter") {
+            spawn(Name("Counter")) {
                 Emit(x, { it + 1 }) {
                     Delay(ZERO) {
                         Emit(y, { it - 1 }) {
@@ -423,7 +423,7 @@ class SimulationTest {
     fun await_nonzero_condition_waits_specified_time() {
         val results = runSimulation(HOUR) {
             val x = allocate(linearCell("x", 10.0, 1.0))
-            spawn("Awaiter") {
+            spawn(Name("Awaiter")) {
                 val cond = Condition.Read(x) {
                     with (it) {
                         // Example implementation of a "greater than 20" condition for a linear dynamics type.
@@ -461,7 +461,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(intCounterCell("y", 0))
-            spawn("Awaiter") {
+            spawn(Name("Awaiter")) {
                 val cond = Condition.Read(x) {
                     with (it) {
                         // Example implementation of a "greater than 20" condition for a linear dynamics type.
@@ -486,7 +486,7 @@ class SimulationTest {
                     }
                 }
             }
-            spawn("Interrupter") {
+            spawn(Name("Interrupter")) {
                 Emit(y, { it + 1 }) {
                     Delay(6 * SECOND) {
                         Emit(y, { it + 1 }) {
@@ -522,7 +522,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(intCounterCell("y", 0))
-            spawn("Awaiter") {
+            spawn(Name("Awaiter")) {
                 val cond = Condition.Read(x) {
                     with (it) {
                         // Example implementation of a "greater than 20" condition for a linear dynamics type.
@@ -547,7 +547,7 @@ class SimulationTest {
                     }
                 }
             }
-            spawn("Interrupter") {
+            spawn(Name("Interrupter")) {
                 Emit(y, { it + 1 }) {
                     Delay(6 * SECOND) {
                         Emit(y, { it + 1 }) {
@@ -582,7 +582,7 @@ class SimulationTest {
     fun unsatisfied_condition_will_be_reevaluated() {
         val results = runSimulation(HOUR) {
             val x = allocate(linearCell("x", 10.0, 1.0))
-            spawn("Awaiter") {
+            spawn(Name("Awaiter")) {
                 Await({
                     Condition.Read(x) {
                         if (it.value >= 15) {
@@ -616,7 +616,7 @@ class SimulationTest {
     fun unsatisfied_condition_reevaluation_can_be_interrupted() {
         val results = runSimulation(HOUR) {
             val x = allocate(linearCell("x", 10.0, 1.0))
-            spawn("Awaiter") {
+            spawn(Name("Awaiter")) {
                 Await({
                     Condition.Read(x) {
                         if (it.value >= 15) {
@@ -634,7 +634,7 @@ class SimulationTest {
                 }
             }
 
-            spawn("Interrupter") {
+            spawn(Name("Interrupter")) {
                 Delay(5 * SECOND) {
                     Emit(x, { LinearDynamics(20.0, 0.0) }) {
                         Complete(Unit)
@@ -709,10 +709,10 @@ class SimulationTest {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(linearCell("y", 10.0, -0.1))
 
-            spawn("Complete Immediately") {
+            spawn(Name("Complete Immediately")) {
                 Complete(Unit)
             }
-            spawn("Single Batch Task") {
+            spawn(Name("Single Batch Task")) {
                 Read(x) { xDynamics ->
                     Read(y) { yDynamics ->
                         Report(JsonObject(mapOf(
@@ -725,7 +725,7 @@ class SimulationTest {
                     }
                 }
             }
-            spawn("Multi Batch Task") {
+            spawn(Name("Multi Batch Task")) {
                 Read(x) { xDynamics ->
                     Read(y) { yDynamics ->
                         Report(JsonObject(mapOf(
@@ -804,10 +804,10 @@ class SimulationTest {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(linearCell("y", 10.0, -0.1))
 
-            spawn("Complete Immediately") {
+            spawn(Name("Complete Immediately")) {
                 Complete(Unit)
             }
-            spawn("Single Batch Task") {
+            spawn(Name("Single Batch Task")) {
                 Read(x) { xDynamics ->
                     Read(y) { yDynamics ->
                         // Add a delay 0 to make the report order deterministic, for easier verification
@@ -823,7 +823,7 @@ class SimulationTest {
                     }
                 }
             }
-            spawn("Multi Batch Task") {
+            spawn(Name("Multi Batch Task")) {
                 Read(x) { xDynamics ->
                     Read(y) { yDynamics ->
                         Report(JsonObject(mapOf(
@@ -915,7 +915,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 0))
             val clock = allocate(clockCell("clock", ZERO))
-            spawn("Repeater") {
+            spawn(Name("Repeater")) {
                 Delay(10 * MINUTE) {
                     Emit(x, { it + 1 }) {
                         Read(clock) { time ->
@@ -946,7 +946,7 @@ class SimulationTest {
         val results = runSimulation(59 * MINUTE, takeFincon = true) {
             val x = allocate(intCounterCell("x", 0))
             val clock = allocate(clockCell("clock", ZERO))
-            spawn("Repeater") {
+            spawn(Name("Repeater")) {
                 Delay(10 * MINUTE) {
                     Emit(x, { it + 1 }) {
                         Read(clock) { time ->
@@ -990,7 +990,7 @@ class SimulationTest {
         fun initialize() {
             val x = allocate(intCounterCell("x", 0))
             val clock = allocate(clockCell("clock", ZERO))
-            spawn("Repeater") {
+            spawn(Name("Repeater")) {
                 plays++
                 Delay(10 * MINUTE) {
                     Emit(x, { it + 1 }) {
@@ -1019,9 +1019,9 @@ class SimulationTest {
     @Test
     fun tasks_can_spawn_children() {
         val results = runSimulation(HOUR) {
-            spawn("Parent") {
+            spawn(Name("Parent")) {
                 Report("Parent's report", typeOf<String>()) {
-                    Spawn("Child", {
+                    Spawn(Name("Child"), {
                         Report("Child's report", typeOf<String>()) {
                             Complete(Unit)
                         }
@@ -1045,7 +1045,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             var x = allocate(intCounterCell("x", 0))
 
-            spawn("Counter") {
+            spawn(Name("Counter")) {
                 Emit(x, { it + 1 }) {
                     Delay(ZERO) {
                         Emit(x, { it + 1 }) {
@@ -1063,10 +1063,10 @@ class SimulationTest {
                 }
             }
 
-            spawn("P") {
+            spawn(Name("P")) {
                 Read(x) {
                     Report("Tick 0: P says: x = $it", typeOf<String>()) {
-                        Spawn("C1", {
+                        Spawn(Name("C1"), {
                             Read(x) {
                                 Report("Tick 1: C1 says: x = $it", typeOf<String>()) {
                                     Delay(ZERO) {
@@ -1079,7 +1079,7 @@ class SimulationTest {
                                 }
                             }
                         }) {
-                            Spawn("C2", {
+                            Spawn(Name("C2"), {
                                 Read(x) {
                                     Report("Tick 1: C2 says: x = $it", typeOf<String>()) {
                                         Delay(ZERO) {
@@ -1136,9 +1136,9 @@ class SimulationTest {
     @Test
     fun child_tasks_can_be_saved() {
         val results = runSimulation(HOUR, takeFincon = true) {
-            spawn("P") {
+            spawn(Name("P")) {
                 Report("P -- 1", typeOf<String>()) {
-                    Spawn("C", {
+                    Spawn(Name("C"), {
                         Report("C -- 1", typeOf<String>()) {
                             Delay(45 * MINUTE) {
                                 // 00:45:00
@@ -1151,7 +1151,7 @@ class SimulationTest {
                         Delay(30 * MINUTE) {
                             // 00:30:00
                             Report("P -- 2", typeOf<String>()) {
-                                Spawn("D", {
+                                Spawn(Name("D"), {
                                     Report("D -- 1", typeOf<String>()) {
                                         Delay(45 * MINUTE) {
                                             // 01:15:00
@@ -1183,7 +1183,8 @@ class SimulationTest {
                     within("children", "$") {
                         assert((this as JsonArray).size == 2)
                         assert(JsonArray(listOf(JsonPrimitive("P"))) in this)
-                        assert(JsonArray(listOf(JsonPrimitive("P"), JsonPrimitive("D"))) in this)
+                        // Note: The child id is now independent of the parent ID, at least in theory.
+                        assert(JsonArray(listOf(JsonPrimitive("D"))) in this)
                     }
 
                     within("$") {
@@ -1204,27 +1205,27 @@ class SimulationTest {
                         }
                     }
                     assertEquals("01:30:00.000000", string("time", "$"))
+                }
 
-                    within("D") {
-                        within("$") {
-                            array {
-                                element { assertEquals("report", string("type")) }
-                                element {
-                                    assertEquals("spawn", string("type"))
-                                    assertEquals("parent", string("branch"))
-                                }
-                                element { assertEquals("delay", string("type")) }
-                                element { assertEquals("report", string("type")) }
-                                element {
-                                    assertEquals("spawn", string("type"))
-                                    assertEquals("child", string("branch"))
-                                }
-                                element { assertEquals("report", string("type")) }
-                                element { assertEquals("delay", string("type")) }
+                within("D") {
+                    within("$") {
+                        array {
+                            element { assertEquals("report", string("type")) }
+                            element {
+                                assertEquals("spawn", string("type"))
+                                assertEquals("parent", string("branch"))
                             }
+                            element { assertEquals("delay", string("type")) }
+                            element { assertEquals("report", string("type")) }
+                            element {
+                                assertEquals("spawn", string("type"))
+                                assertEquals("child", string("branch"))
+                            }
+                            element { assertEquals("report", string("type")) }
+                            element { assertEquals("delay", string("type")) }
                         }
-                        assertEquals("01:15:00.000000", string("time", "$"))
                     }
+                    assertEquals("01:15:00.000000", string("time", "$"))
                 }
             }
         }
@@ -1234,9 +1235,9 @@ class SimulationTest {
     fun child_tasks_can_be_restored() {
         context (scope: BasicInitScope)
         fun initialize() {
-            spawn("P") {
+            spawn(Name("P")) {
                 Report("P -- 1", typeOf<String>()) {
-                    Spawn("C", {
+                    Spawn(Name("C"), {
                         Report("C -- 1", typeOf<String>()) {
                             Delay(45 * MINUTE) {
                                 // 00:45:00
@@ -1249,7 +1250,7 @@ class SimulationTest {
                         Delay(30 * MINUTE) {
                             // 00:30:00
                             Report("P -- 2", typeOf<String>()) {
-                                Spawn("D", {
+                                Spawn(Name("D"), {
                                     Report("D -- 1", typeOf<String>()) {
                                         Delay(45 * MINUTE) {
                                             // 01:15:00
@@ -1303,10 +1304,10 @@ class SimulationTest {
             val n = allocate(intCounterCell("n", 1))
             val clock = allocate(clockCell("clock", ZERO))
 
-            spawn("Repeater") {
+            spawn(Name("Repeater")) {
                 Delay(10 * MINUTE) {
                     Read(n) { nValue ->
-                        Spawn("Child $nValue", {
+                        Spawn(Name("Child $nValue"), {
                             Read(clock) { time ->
                                 Report("Child $nValue start at $time", typeOf<String>()) {
                                     Delay(45 * MINUTE) {
@@ -1369,9 +1370,9 @@ class SimulationTest {
             val n = allocate(intCounterCell("n", 1))
             val clock = allocate(clockCell("clock", ZERO))
 
-            spawn("Parent") {
+            spawn(Name("Parent")) {
                 Delay(5 * MINUTE) {
-                    Spawn("Repeater", {
+                    Spawn(Name("Repeater"), {
                         Delay(10 * MINUTE) {
                             Read(clock) { time ->
                                 Read(n) {
@@ -1422,11 +1423,11 @@ class SimulationTest {
     fun grandchild_tasks_can_be_restored() {
         context (scope: BasicInitScope)
         fun initialize() {
-            spawn("P") {
+            spawn(Name("P")) {
                 Report("P -- 1", typeOf<String>()) {
-                    Spawn("C", {
+                    Spawn(Name("C"), {
                         Report("C -- 1", typeOf<String>()) {
-                            Spawn("GC", {
+                            Spawn(Name("GC"), {
                                 Report("GC -- 1", typeOf<String>()) {
                                     Delay(90 * MINUTE) {
                                         Report("GC -- 2", typeOf<String>()) {
@@ -1480,7 +1481,7 @@ class SimulationTest {
         fun initialize() {
             for (i in 1..100) {
                 // Case A - Task delays directly to fincon time
-                spawn("A$i") {
+                spawn(Name("A$i")) {
                     Report("A$i -- 1", typeOf<String>()) {
                         Delay(MINUTE) {
                             Report("A$i -- 2", typeOf<String>()) {
@@ -1497,7 +1498,7 @@ class SimulationTest {
                 // Case B - Task delays to fincon time after first batch
                 //   Fincon task delays to fincon time directly, so if there are effects due to the order that tasks
                 //   are added to the queue, this hopes to provoke those effects.
-                spawn("B$i") {
+                spawn(Name("B$i")) {
                     Report("B$i -- 1", typeOf<String>()) {
                         Delay(30 * SECOND) {
                             Delay(30 * SECOND) {
@@ -1514,10 +1515,10 @@ class SimulationTest {
                 }
 
                 // Case C - Children spawned at fincon time
-                spawn("C$i") {
+                spawn(Name("C$i")) {
                     Report("C$i -- 1", typeOf<String>()) {
                         Delay(MINUTE) {
-                            Spawn("C$i.child", {
+                            Spawn(Name("C${i}_child"), {
                                 Report("C$i -- 2", typeOf<String>()) {
                                     Delay(10 * SECOND) {
                                         Report("C$i -- 3", typeOf<String>()) {
