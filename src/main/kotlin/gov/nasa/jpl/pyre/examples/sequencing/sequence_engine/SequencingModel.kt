@@ -25,7 +25,7 @@ class SequencingModel(
 
     init {
         with (context) {
-            with (subContext("sequence_engine")) {
+            subContext("sequence_engine") {
                 engines = IntRange(0, numberOfEngines).map { i ->
                     SequenceEngine(
                         blockTypes,

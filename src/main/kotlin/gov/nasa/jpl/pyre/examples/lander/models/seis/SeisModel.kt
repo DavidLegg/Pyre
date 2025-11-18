@@ -52,28 +52,28 @@ class SeisModel(
         with (context) {
             poweredOn = registeredDiscreteResource("power_on", false)
             mdeShouldBeOn = registeredDiscreteResource("mde_should_be_on", false)
-            with (subContext("internal_volume")) {
+            subContext("internal_volume") {
                 internalRate = registeredDiscreteResource("rate", 0.0)
                 internalVolume = internalRate.asPolynomial().registeredIntegral("volume", 0.0)
             }
-            with (subContext("volume_to_send_to_vc")) {
+            subContext("volume_to_send_to_vc") {
                 rateToSendToVC = registeredDiscreteResource("rate", 0.0)
                 volumeToSendToVC = rateToSendToVC.asPolynomial().registeredIntegral("volume", 0.0)
             }
             continuousDataSentIn = registeredDiscreteResource("continuous_data_sent_in", 0.0)
             transferRate = registeredDiscreteResource("transfer_rate", 1666.66/3600.0)
             vbbMode = registeredDiscreteResource("vbb_mode", VBBMode.SCI)
-            with (subContext("channel")) {
+            subContext("channel") {
                 channelRates = Channel.entries.associateWith {
                     registeredDiscreteResource(it.toString(), ChannelRate(0.0, 0.0))
                 }
             }
-            with (subContext("device_type")) {
+            subContext("device_type") {
                 deviceTypeMetrics = DeviceType.entries.associateWith {
                     DeviceTypeMetrics(subContext(it.toString()))
                 }
             }
-            with (subContext("device_on")) {
+            subContext("device_on") {
                 deviceOn = Device.entries.associateWith {
                     discreteResource(it.toString(), false)
                 }

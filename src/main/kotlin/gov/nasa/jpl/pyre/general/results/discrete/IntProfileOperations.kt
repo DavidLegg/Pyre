@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.general.results.discrete
 
-import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.general.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.general.results.ProfileOperations.compute
@@ -16,6 +15,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.una
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.decrement
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delayUntil
 import gov.nasa.jpl.pyre.foundation.tasks.task

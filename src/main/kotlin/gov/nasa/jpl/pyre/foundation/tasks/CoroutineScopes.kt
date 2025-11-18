@@ -1,10 +1,13 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Condition.ConditionResult
 import gov.nasa.jpl.pyre.kernel.Effect
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.kernel.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.Task
 import gov.nasa.jpl.pyre.kernel.Task.PureStepResult.*
@@ -18,7 +21,7 @@ import kotlin.reflect.KType
  * That provides the ability to construct an iterator with yield statements,
  * which is structurally similar to a task with await statements.
  * From there, I generalized a little to get the various kinds of continuation types to line up.
- * That said, I'm only about 80% confident that I understand how this thing works.
+ * Despite only vaguely understanding how the control flow here operates, it's proved fairly reliable in practice.
  */
 
 /**
@@ -85,7 +88,7 @@ sealed interface TaskScopeResult<T> {
  *
  * Example:
  * ```
- * coroutineTask("observation") {
+ * coroutineTask {
  *   emit(instrumentState, SetTo(WARMUP))
  *   delay(10 * SECOND)
  *   val targetBody = read(targetBodyCell)
@@ -112,8 +115,8 @@ fun <T> coroutineTask(block: suspend context (TaskScope) () -> TaskScopeResult<T
  * @see repeatingTask
  */
 context (scope: SimulationScope)
-fun <T> task(block: suspend context (TaskScope) () -> T): PureTaskStep<T> =
-    coroutineTask { TaskScopeResult.Complete(block()) }
+fun <T> task(block: suspend context (TaskScope) () -> T): suspend context (TaskScope) () -> TaskScopeResult<T> =
+    { TaskScopeResult.Complete(block()) }
 
 /**
  * Write a coroutine Pyre task which automatically repeats.
@@ -122,8 +125,8 @@ fun <T> task(block: suspend context (TaskScope) () -> T): PureTaskStep<T> =
  * @see task
  */
 context (scope: SimulationScope)
-fun repeatingTask(block: suspend context (TaskScope) () -> Unit): PureTaskStep<Unit> =
-    coroutineTask { block(); TaskScopeResult.Restart() }
+fun repeatingTask(block: suspend context (TaskScope) () -> Unit): suspend context (TaskScope) () -> TaskScopeResult<Unit> =
+    { block(); TaskScopeResult.Restart() }
 
 private class TaskBuilder<T>(
     simulationScope: SimulationScope,
@@ -166,10 +169,15 @@ private class TaskBuilder<T>(
             COROUTINE_SUSPENDED
         }
 
-    override suspend fun <S> spawn(childName: String, child: PureTaskStep<S>) =
+    override suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>) =
         suspendCoroutineUninterceptedOrReturn { c ->
             // Running the task step creates a new TaskBuilder, allowing for repeating tasks
-            nextResult = Spawn(childName, child, continueWith(c))
+            nextResult = Spawn(
+                contextName / childName,
+                // Incorporate the child's name into the coroutineTask's context name
+                context (subSimulationScope(childName)) { coroutineTask(child) },
+                continueWith(c)
+            )
             COROUTINE_SUSPENDED
         }
 
@@ -179,7 +187,7 @@ private class TaskBuilder<T>(
     // Completion continuation implementation
     override fun resumeWith(result: Result<TaskScopeResult<T>>) {
         nextResult = when (val it = result.getOrThrow()) {
-            is TaskScopeResult.Complete -> Complete<T>(it.result)
+            is TaskScopeResult.Complete -> Complete(it.result)
             is TaskScopeResult.Restart -> Restart()
         }
     }
@@ -191,4 +199,6 @@ private class TaskBuilder<T>(
     }
 
     fun runTask(): Task.PureStepResult<T> = continueWith(start)()
+
+    override fun toString(): String = contextName.toString()
 }

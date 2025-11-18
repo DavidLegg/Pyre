@@ -42,6 +42,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pur
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.every
 import kotlinx.serialization.Serializable
@@ -134,7 +135,7 @@ class GeometryModel(
             distanceToMars = map((spacecraftPosition - marsPosition).valueIn(AU)) { it.norm } * AU
             distanceToSun = map((spacecraftPosition - sunPosition).valueIn(AU)) { it.norm } * AU
 
-            with (subContext("pointing_direction")) {
+            subContext("pointing_direction") {
                 pointingDirection = mapOf(
                     J2000_POS_X to pure(Vector3D.PLUS_I),
                     J2000_POS_Y to pure(Vector3D.PLUS_J),
@@ -179,7 +180,7 @@ class GeometryModel(
 
     context(scope: InitScope)
     private fun tickingClock(name: String, period: Duration) = discreteResource(name, ZERO).apply {
-        scope.spawn("update $name", every(period) {
+        spawn("update $name", every(period) {
             emit((DiscreteDynamicsMonad.map(period::plus)) named { "Increase by $period" })
         })
     }

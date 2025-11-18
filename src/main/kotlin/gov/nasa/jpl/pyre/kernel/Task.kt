@@ -48,22 +48,13 @@ interface Task<T> {
      */
     fun restore(inconProvider: InconProvider): Task<*>?
 
-    data class RootTaskId(val name: String, val parent: RootTaskId?) {
-        fun conditionKeys() : Sequence<String> = generateSequence(this) { it.parent }
-            .map { it.name }
-            .toList()
-            .asReversed()
-            .asSequence()
+    class TaskId(val rootTaskName: Name, val name: Name, val stepNumber: Int) {
+        constructor(name: Name) : this(name, name, 0)
 
-        override fun toString() = conditionKeys()
-            .map { if (it.contains(Regex("[ .\"\']"))) "($it)" else it }
-            .joinToString(".")
-    }
-    data class TaskId(val rootId: RootTaskId, val stepNumber: Int) {
-        fun nextStep() = TaskId(rootId, stepNumber + 1)
-        fun child(childName: String) = TaskId(RootTaskId(childName, rootId), 0)
+        fun nextStep() = TaskId(rootTaskName, name, stepNumber + 1)
+        fun child(childName: Name) = TaskId(rootTaskName, childName, 0)
 
-        override fun toString() = "$rootId[$stepNumber]"
+        override fun toString() = "$name[$stepNumber]"
     }
 
     // Explanation:
@@ -90,7 +81,7 @@ interface Task<T> {
         data class Await<T>(val condition: () -> Condition, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Await($condition)"
         }
-        data class Spawn<S, T>(val childName: String, val child: PureTaskStep<S>, val continuation: PureTaskStep<T>) : PureStepResult<T> {
+        data class Spawn<S, T>(val childName: Name, val child: PureTaskStep<S>, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Spawn($childName)"
         }
         class Restart<T> : PureStepResult<T> {
@@ -135,8 +126,8 @@ interface Task<T> {
     }
 
     companion object {
-        fun <T> of(name: String, step: PureTaskStep<T>): Task<T> {
-            return PureTask(TaskId(RootTaskId(name, null), 0), step, {}, null)
+        fun <T> of(name: Name, step: PureTaskStep<T>): Task<T> {
+            return PureTask(TaskId(name), step, {}, null)
         }
     }
 }
@@ -209,13 +200,6 @@ private class PureTask<T>(
     override fun restore(inconProvider: InconProvider): Task<*>? {
         // Restore this task itself, if there's incon data for it.
         return inconProvider.incremental(::restoreSingle)
-    }
-
-    private fun constructTaskId(components: List<String>): TaskId {
-        var rootId: RootTaskId? = null
-        components.forEach { rootId = RootTaskId(it, rootId) }
-        requireNotNull(rootId)
-        return TaskId(rootId, 0)
     }
 
     private fun restoreSingle(inconProvider: InconProvidingContext): Task<*> {
