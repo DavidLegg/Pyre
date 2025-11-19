@@ -240,13 +240,21 @@ class SimulationState(private val reportHandler: ReportHandler) {
     }
 
     private fun evaluateCondition(condition: Condition, cellSet: CellSet): Pair<Set<CellHandle<*>>, ConditionResult> {
-        fun <V> evaluateRead(read: Condition.Read<V>) =
-            with (evaluateCondition(read.continuation(cellSet[read.cell].value), cellSet)) { copy(first = first + read.cell) }
+        var nextCondition = condition
+        val readCells = mutableSetOf<CellHandle<*>>()
 
-        return when (condition) {
-            is Condition.SatisfiedAt, is Condition.UnsatisfiedUntil -> Pair(emptySet(), condition)
-            is Condition.Read<*> -> evaluateRead(condition)
+        fun <V> evaluateRead(read: Condition.Read<V>): Condition {
+            readCells += read.cell
+            return read.continuation(cellSet[read.cell].value)
         }
+
+        // Conditions are a stack of Reads around a ConditionResult
+        // Trampoline down that stack of reads to fully evaluate the condition.
+        while (nextCondition is Condition.Read<*>) {
+            nextCondition = evaluateRead(nextCondition)
+        }
+        // The only non-Read Conditions are ConditionResults, so this cast is safe.
+        return Pair(readCells.toSet(), nextCondition as ConditionResult)
     }
 
     fun save(finconCollector: FinconCollector) {
