@@ -249,6 +249,8 @@ private class PureTask<T>(
         } ?: this
     }
 
+    override fun toString(): String = id.toString()
+
     @Serializable
     sealed interface TaskHistoryStep {
         @Serializable
