@@ -108,10 +108,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
             runTaskBatch(taskBatch)
         } else {
             val stepTime = minOf(batchTime ?: endTime, endTime)
-            if (time == stepTime) {
-                InternalLogger.log { "Simulation already at $stepTime with no tasks to do." }
-            } else {
-                InternalLogger.log { "Step time to $stepTime" }
+            if (time != stepTime) {
                 require(stepTime >= time) {
                     "Requested step time $stepTime is earlier than current time $time"
                 }
@@ -122,63 +119,57 @@ class SimulationState(private val reportHandler: ReportHandler) {
     }
 
     private fun runTaskBatch(tasks: MutableSet<Task<*>>) {
-        InternalLogger.block({ "Start batch" }, { "End batch" }) {
-            // For each task, split the cells so that task operates on an isolated state.
-            val cellSetBranches = tasks.map { task ->
-                InternalLogger.block({ "Resume ${task.id.name}" }) {
-                    cells.split().also { runTask(task, it) }
-                }
-            }
-            // Finally join those branched states back into the trunk state.
-            cells = cells.join(cellSetBranches)
-
-            // Now, collect all the reactions to effects made by this batch.
-            // Since awaitingTasks is a set, it de-duplicates reactions automatically.
-            modifiedCells.flatMapTo(awaitingTasks) { cellListeners[it] ?: emptySet() }
-            modifiedCells.clear()
-
-            // Now, evaluate all the awaiting tasks.
-            // Running conditions all at once at the end of the batch avoids double-evaluation when a task
-            // affects a cell and awaits a condition on that cell, as opposed to evaluating the condition when running the task.
-            for (await in awaitingTasks) {
-                evaluateAwaitingTask(await)
-            }
-            awaitingTasks.clear()
+        // For each task, split the cells so that task operates on an isolated state.
+        val cellSetBranches = tasks.map { task ->
+            cells.split().also { runTask(task, it) }
         }
+        // Finally join those branched states back into the trunk state.
+        cells = cells.join(cellSetBranches)
+
+        // Now, collect all the reactions to effects made by this batch.
+        // Since awaitingTasks is a set, it de-duplicates reactions automatically.
+        modifiedCells.flatMapTo(awaitingTasks) { cellListeners[it] ?: emptySet() }
+        modifiedCells.clear()
+
+        // Now, evaluate all the awaiting tasks.
+        // Running conditions all at once at the end of the batch avoids double-evaluation when a task
+        // affects a cell and awaits a condition on that cell, as opposed to evaluating the condition when running the task.
+        for (await in awaitingTasks) {
+            evaluateAwaitingTask(await)
+        }
+        awaitingTasks.clear()
     }
 
     private fun <T> evaluateAwaitingTask(awaitingTask: AwaitingTask<T>) {
-        InternalLogger.block({ "Evaluating ${awaitingTask.await.condition}" }) {
-            // Reset any listeners from prior evaluations
-            resetListeners(awaitingTask)
+        // Reset any listeners from prior evaluations
+        resetListeners(awaitingTask)
 
-            // Remove the scheduled rewait or continuation, if it's there.
-            awaitingTask.scheduledTask?.let(tasks::remove)
+        // Remove the scheduled rewait or continuation, if it's there.
+        awaitingTask.scheduledTask?.let(tasks::remove)
 
-            // Evaluate the condition
-            val (cellsRead, result) = evaluateCondition(awaitingTask.await.condition(), cells)
+        // Evaluate the condition
+        val (cellsRead, result) = evaluateCondition(awaitingTask.await.condition(), cells)
 
-            // Schedule listeners to re-evaluate condition if cells change
-            for (cell in cellsRead) {
-                cellListeners.getOrPut(cell) { mutableSetOf() } += awaitingTask
+        // Schedule listeners to re-evaluate condition if cells change
+        for (cell in cellsRead) {
+            cellListeners.getOrPut(cell) { mutableSetOf() } += awaitingTask
+        }
+        listeningTasks[awaitingTask] = cellsRead
+
+        when (result) {
+            is Condition.SatisfiedAt -> {
+                // Add conditional task to resume the awaiting task when the condition is satisfied
+                val continuationEntry = TaskEntry(time + result.time, awaitingTask.continuationTask)
+                tasks += continuationEntry
+                awaitingTask.scheduledTask = continuationEntry
             }
-            listeningTasks[awaitingTask] = cellsRead
-
-            when (result) {
-                is Condition.SatisfiedAt -> {
-                    // Add conditional task to resume the awaiting task when the condition is satisfied
-                    val continuationEntry = TaskEntry(time + result.time, awaitingTask.continuationTask)
-                    tasks += continuationEntry
-                    awaitingTask.scheduledTask = continuationEntry
-                }
-                is Condition.UnsatisfiedUntil -> {
-                    if (result.time != null) {
-                        // Schedule the rewait task to re-evaluate the condition once this unsatisfied result expires
-                        val rewaitEntry = TaskEntry(time + result.time, awaitingTask.rewaitTask)
-                        tasks += rewaitEntry
-                        // Also register this scheduled run to be canceled, if an effect re-evaluates the condition sooner
-                        awaitingTask.scheduledTask = rewaitEntry
-                    }
+            is Condition.UnsatisfiedUntil -> {
+                if (result.time != null) {
+                    // Schedule the rewait task to re-evaluate the condition once this unsatisfied result expires
+                    val rewaitEntry = TaskEntry(time + result.time, awaitingTask.rewaitTask)
+                    tasks += rewaitEntry
+                    // Also register this scheduled run to be canceled, if an effect re-evaluates the condition sooner
+                    awaitingTask.scheduledTask = rewaitEntry
                 }
             }
         }
@@ -216,13 +207,11 @@ class SimulationState(private val reportHandler: ReportHandler) {
         }
 
         while (true) {
-            val stepResult = InternalLogger.block({ "Run ${nextTask.id} ..." }, { "... returns $it" }) {
-                try {
-                    nextTask.runStep()
-                } catch (e: Throwable) {
-                    System.err.println("Error while running ${nextTask.id}: $e")
-                    throw e
-                }
+            val stepResult = try {
+                nextTask.runStep()
+            } catch (e: Throwable) {
+                System.err.println("Error while running ${nextTask.id}: $e")
+                throw e
             }
             when (stepResult) {
                 is Complete -> break // Nothing to do
@@ -252,7 +241,6 @@ class SimulationState(private val reportHandler: ReportHandler) {
     }
 
     private fun evaluateCondition(condition: Condition, cellSet: CellSet): Pair<Set<CellHandle<*>>, ConditionResult> {
-        InternalLogger.log { "Eval $condition" }
         fun <V> evaluateRead(read: Condition.Read<V>) =
             with (evaluateCondition(read.continuation(cellSet[read.cell].value), cellSet)) { copy(first = first + read.cell) }
 
@@ -303,7 +291,6 @@ class SimulationState(private val reportHandler: ReportHandler) {
         for (rootTask in rootTasks) {
             val idsToRestore = taskProvider.within(rootTask.task.id.name.asSequence() + "children").provide<List<List<String>>>()
             if (idsToRestore == null) {
-                InternalLogger.log { "Task ${rootTask.task.id.name} not present in conditions, adding root task." }
                 tasks += TaskEntry(time, rootTask.task)
             } else {
                 try {
@@ -314,7 +301,6 @@ class SimulationState(private val reportHandler: ReportHandler) {
                         requireNotNull(restoreTask(rootTask.task, taskProvider.within(it.asSequence())))
                     }
                 } catch (_: SerializationException) {
-                    InternalLogger.log { "Task ${rootTask.task.id.name} failed to restore cleanly. Restarting root task instead." }
                     tasks += TaskEntry(time, rootTask.task)
                 }
             }
