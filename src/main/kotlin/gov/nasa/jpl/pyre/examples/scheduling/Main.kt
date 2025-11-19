@@ -202,7 +202,7 @@ fun schedulingMain(args: Array<String>) {
     val setupStart = clock.markNow()
 
     val planStart = Instant.parse("2020-01-01T00:00:00Z")
-    val planEnd = Instant.parse("2021-01-01T00:00:00Z")
+    val planEnd = Instant.parse("2025-01-01T00:00:00Z")
     val baseScheduler = SchedulingSystem.withoutIncon(
         planStart,
         STANDARD_CONFIG,

@@ -7,7 +7,7 @@ from typing import Generator, List
 RANDOM_SEED = 1
 
 PLAN_START = dt.datetime.fromisoformat("2020-01-01T00:00:00Z")
-PLAN_END = dt.datetime.fromisoformat("2021-01-01T00:00:00Z")
+PLAN_END = dt.datetime.fromisoformat("2025-01-01T00:00:00Z")
 
 COMM_PASS_PERIOD = dt.timedelta(hours=6)
 COMM_PASS_DEVIATION = dt.timedelta(hours=2)
@@ -99,7 +99,7 @@ def gen_spans(
         end = start + random.choice(durations)
         critical = random.random() < critical_chance
         yield Span(start, end, critical)
-        t += period
+        t = end + period
 
 
 if __name__ == '__main__':
