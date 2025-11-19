@@ -1,43 +1,91 @@
 package gov.nasa.jpl.pyre.kernel
 
+import gov.nasa.jpl.pyre.kernel.BranchCellSet.BranchCell
+import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
 import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import gov.nasa.jpl.pyre.utilities.andThen
-import kotlin.collections.mapValuesTo
 import kotlin.reflect.KType
 
 @Suppress("UNCHECKED_CAST")
-class CellSet private constructor(
-    private val map: MutableMap<CellHandle<*>, CellState<*>>
-) {
+sealed interface CellSet {
     // CellHandle is class, not data class, because we *want* to use object-identity equality
     class CellHandle<T>(val name: Name, val valueType: KType) {
         override fun toString() = name.toString()
     }
-    data class CellState<T>(val cell: Cell<T>, val effect: Effect<T>?)
 
+    operator fun <T> get(cellHandle: CellHandle<T>): Cell<T>
+    fun <T> emit(cellHandle: CellHandle<T>, effect: Effect<T>)
+}
+
+class TrunkCellSet private constructor(
+    private val map: MutableMap<CellHandle<*>, Cell<*>>
+) : CellSet {
     constructor() : this(mutableMapOf())
 
-    fun <T: Any> allocate(cell: Cell<T>) =
-        CellHandle<T>(cell.name, cell.valueType)
-            .also { map[it] = CellState(cell, null) }
+    fun <T : Any> allocate(cell: Cell<T>) =
+        CellHandle<T>(cell.name, cell.valueType).also { map[it] = cell }
 
-    operator fun <T> get(cellHandle: CellHandle<T>): Cell<T> =
-        (map.getValue(cellHandle) as CellState<T>).cell
+    @Suppress("UNCHECKED_CAST")
+    override fun <T> get(cellHandle: CellHandle<T>): Cell<T> {
+        return map.getValue(cellHandle) as Cell<T>
+    }
 
-    fun <T> emit(cellHandle: CellHandle<T>, effect: Effect<T>) =
-        map.compute(cellHandle) { _, cellState -> CellState(
-            (cellState as CellState<T>).cell.copy(value = effect(cellState.cell.value)),
-            cellState.effect?.let { it andThen effect } ?: effect)
+    @Suppress("UNCHECKED_CAST")
+    override fun <T> emit(
+        cellHandle: CellHandle<T>,
+        effect: Effect<T>
+    ) {
+        map.compute(cellHandle) { _, cell ->
+            (cell as Cell<T>).applyEffect(effect)
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> emitUnchecked(cellHandle: CellHandle<T>, effect: Effect<*>) =
+        emit(cellHandle, effect as Effect<T>)
+
+    fun split(): BranchCellSet = BranchCellSet(this)
+
+    private data class NetBranch<T>(val cell: Cell<T>?, val effect: Effect<T>)
+
+    fun join(branches: Collection<BranchCellSet>) {
+        // Collect the "net branch" for each modified cell
+        // That'll be the cell from that branch, if only one task modified that cell,
+        // or a net effect comprising all the branches' effects
+        val netBranches: MutableMap<CellHandle<*>, NetBranch<*>> = mutableMapOf()
+        @Suppress("UNCHECKED_CAST")
+        fun <T> mergeBranch(handle: CellHandle<*>, branchCell: BranchCell<T>) {
+            // Where possible, preserve the branch's cell to just reuse that
+            netBranches.merge(handle, NetBranch(branchCell.cell, branchCell.effect)) { (_, e), (_, f) ->
+                // When merging multiple branches on one cell, discard the branches' cells and combine effects concurrently
+                NetBranch(null, branchCell.cell.mergeConcurrentEffects((e as Effect<T>), (f as Effect<T>)))
+            }
+        }
+        for (branch in branches) {
+            for ((handle, branchCell) in branch.edits) {
+                mergeBranch(handle, branchCell)
+            }
         }
 
-    fun split(): CellSet = CellSet(map.toMutableMap())
+        // Apply those net branches by either adopting the net cell, if available,
+        // or applying the net effect to the trunk cell.
+        @Suppress("UNCHECKED_CAST")
+        fun <T> applyNetBranch(handle: CellHandle<*>, netBranch: NetBranch<T>) {
+            map.compute(handle) { _, cell ->
+                netBranch.cell ?: (cell as Cell<T>).applyEffect(netBranch.effect)
+            }
+        }
+        for ((handle, netBranch) in netBranches) {
+            applyNetBranch(handle, netBranch)
+        }
+    }
 
     fun save(finconCollector: FinconCollector) {
-        fun <T> saveCell(state: CellState<T>) = with(state.cell) {
-            finconCollector.within(name.asSequence()).report(state.cell.value, valueType)
-        }
+        fun <T> saveCell(cell: Cell<T>) = finconCollector
+            .within(cell.name.asSequence())
+            .report(cell.value, cell.valueType)
         map.values.forEach { saveCell(it) }
     }
 
@@ -45,46 +93,54 @@ class CellSet private constructor(
         fun <T> restoreCell(handle: CellHandle<T>) = with(this[handle]) {
             // If incon is missing, ignore it and move on
             inconProvider.within(name.asSequence()).provide<T>(valueType)?.let {
-                map[handle] = CellState(copy(value=it), null)
+                map[handle] = copy(value=it)
             }
         }
         map.keys.forEach { restoreCell(it) }
     }
 
     fun stepBy(delta: Duration) {
-        fun <T> stepCell(state: CellState<T>) = with(state.cell) {
-            CellState(copy(value = stepBy(state.cell.value, delta)), null)
-        }
+        fun <T> stepCell(cell: Cell<T>) =
+            cell.copy(value = cell.stepBy(cell.value, delta))
         map.replaceAll { _, state -> stepCell(state) }
     }
+}
 
-    companion object {
-        /**
-         * Join a collection of branches that were [split] from this CellSet.
-         */
-        fun CellSet.join(cellSets: Collection<CellSet>): CellSet =
-            CellSet(map.mapValuesTo(mutableMapOf()) { (handle, baseCell) ->
-                baseCell.join(cellSets.map { it.map.getValue(handle) })
-            })
+class BranchCellSet private constructor(
+    private val trunk: CellSet,
+    val edits: MutableMap<CellHandle<*>, BranchCell<*>>,
+) : CellSet {
+    constructor(trunk: CellSet) : this(trunk, mutableMapOf())
 
-        private fun <T> CellState<T>.join(branches: Collection<CellState<*>>): CellState<T> {
-            val nontrivialBranches = branches.filter { it.effect != null }
-            return when (nontrivialBranches.size) {
-                // No nontrivial branches - return the base cell unchanged
-                0 -> this
-                // One nontrivial branch - return that branch's cell, but null out the effects (which are now collapsed)
-                1 -> (nontrivialBranches.first() as CellState<T>).copy(effect = null)
-                // Multiple nontrivial branches - concurrent-merge their effects and apply to base value
-                else -> {
-                    val netEffect = nontrivialBranches
-                        .map { it.effect as Effect<T> }
-                        .reduce(cell.mergeConcurrentEffects)
-                    CellState(
-                        cell.copy(value = netEffect(cell.value)),
-                        null
-                    )
-                }
+    data class BranchCell<T>(
+        val cell: Cell<T>,
+        val effect: Effect<T>,
+    )
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <T> get(cellHandle: CellHandle<T>): Cell<T> =
+        (edits[cellHandle] as BranchCell<T>?)?.cell ?: trunk[cellHandle]
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <T> emit(
+        cellHandle: CellHandle<T>,
+        effect: Effect<T>
+    ) {
+        edits.compute(cellHandle) { _, branchCell ->
+            if (branchCell == null) {
+                // If we've never written to this cell before,
+                // pull the cell from the trunk and record the effect.
+                BranchCell(trunk[cellHandle].applyEffect(effect), effect)
+            } else {
+                // If we have written to this cell before,
+                // apply this effect on top of the effect already there.
+                BranchCell(
+                    (branchCell as BranchCell<T>).cell.applyEffect(effect),
+                    branchCell.effect andThen effect,
+                )
             }
         }
     }
 }
+
+private fun <T> Cell<T>.applyEffect(effect: Effect<T>) = (this as Cell<T>).copy(value = effect(value))
