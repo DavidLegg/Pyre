@@ -249,7 +249,7 @@ class PlanSimulation<M> {
             // before the simulation advances in time.
             // Combined with the loop below to exercise this task to completion, thereby unloading this unsafe task,
             // the simulation is always in a safe state to save/restore when this function returns.
-            state.addTask(Name("activity loader"), with (simulationScope) {
+            state.addEphemeralTask(Name("activity loader"), with (simulationScope) {
                 coroutineTask {
                     if (activitiesToLoad.isEmpty()) {
                         activityLoaderActive = false

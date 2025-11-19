@@ -22,10 +22,10 @@ class SimulationState(private val reportHandler: ReportHandler) {
 
     private var time: Duration = Duration(0)
     private var cells: CellSet = CellSet()
+    private val rootTasks: MutableList<TaskEntry> = mutableListOf()
     // TODO: For performance, it may be simpler to maintain a priority multimap keyed on task time,
     //  rather than collecting a batch of tasks when running them...
     //  Consider replacing tasks with a more efficient data structure
-    private val rootTasks: MutableList<TaskEntry> = mutableListOf()
     private val tasks: PriorityQueue<TaskEntry> = PriorityQueue(comparing(TaskEntry::time))
     // TODO: For the sake of restoring awaiting tasks, we may need to save pseudo-tasks,
     //  which defer back to the original task on everything except runStep, instead of the Await step itself.
@@ -81,6 +81,17 @@ class SimulationState(private val reportHandler: ReportHandler) {
         val task = Task.of(name, step)
         rootTasks += TaskEntry(time, task)
         addTask(task, time)
+    }
+
+    /**
+     * Add a task which won't be saved if a fincon is taken.
+     *
+     * The caller assumes all responsibility for ensuring that
+     * 1) A fincon without this task will nevertheless restore the simulation adequately, or
+     * 2) This task will run to completion before a fincon is taken.
+     */
+    fun <T> addEphemeralTask(name: Name, step: PureTaskStep<T>, time: Duration = time()) {
+        addTask(Task.of(name, step), time)
     }
 
     private fun addTask(task: Task<*>, time: Duration) {
