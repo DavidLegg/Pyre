@@ -2,7 +2,6 @@ package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.kernel.Task.TaskStepResult.*
 import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
-import gov.nasa.jpl.pyre.kernel.CellSet.Companion.join
 import gov.nasa.jpl.pyre.kernel.Condition.ConditionResult
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
@@ -21,7 +20,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
     private data class TaskEntry(val time: Duration, val task: Task<*>)
 
     private var time: Duration = Duration(0)
-    private var cells: CellSet = CellSet()
+    private var cells: TrunkCellSet = TrunkCellSet()
     private val rootTasks: MutableList<TaskEntry> = mutableListOf()
     // TODO: For performance, it may be simpler to maintain a priority multimap keyed on task time,
     //  rather than collecting a batch of tasks when running them...
@@ -124,7 +123,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
             cells.split().also { runTask(task, it) }
         }
         // Finally join those branched states back into the trunk state.
-        cells = cells.join(cellSetBranches)
+        cells.join(cellSetBranches)
 
         // Now, collect all the reactions to effects made by this batch.
         // Since awaitingTasks is a set, it de-duplicates reactions automatically.
