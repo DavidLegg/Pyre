@@ -82,7 +82,7 @@ import kotlin.time.TimeSource
 
 // From our knowledge of this particular model, we know that a GncTurn never takes more than 45 minutes.
 // We'll use this to make our scheduling procedure highly efficient.
-private val GNC_TURN_MAX_DURATION = 45 * MINUTE
+private val GNC_TURN_MAX_DURATION = 60 * MINUTE
 
 private val STANDARD_CONFIG = SystemModel.Config(
     GeometryModel.Config(1 * HOUR),

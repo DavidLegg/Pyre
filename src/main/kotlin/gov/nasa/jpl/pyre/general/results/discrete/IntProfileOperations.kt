@@ -33,7 +33,7 @@ object IntProfileOperations {
     context (scope: InitScope)
     suspend fun SimulationResults.countActivities(predicate: (ActivityEvent) -> Boolean = { true }): IntResource {
         // Run a simulation where we keep track of how many matching activities are running
-        val counter = discreteResource("running activities satisfying $predicate", 0)
+        val counter = discreteResource("counted activities", 0)
         activities.values
             // Restrict to activities that haven't already ended and satisfy the predicate
             .filter { (it.end?.let { it >= now() } ?: true) && predicate(it) }
