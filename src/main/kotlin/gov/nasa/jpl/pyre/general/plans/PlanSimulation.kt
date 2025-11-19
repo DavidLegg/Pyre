@@ -10,7 +10,6 @@ import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvider
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvidingContext.Companion.provide
-import gov.nasa.jpl.pyre.kernel.InternalLogger
 import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.kernel.SimulationState
 import gov.nasa.jpl.pyre.kernel.Task
@@ -112,7 +111,6 @@ class PlanSimulation<M> {
             spawn("activities", whenever(activityResource.isNotNull()) {
                 val groundedActivity = requireNotNull(activityResource.getValue())
                 activityResource.set(null)
-                InternalLogger.log { "Scheduling activity ${groundedActivity.name} @ ${groundedActivity.time}" }
                 ActivityActions.spawn(groundedActivity, model)
             })
 
@@ -120,11 +118,8 @@ class PlanSimulation<M> {
             inconProvider?.let(state::restore)
 
             // Having restored the simulation, load in the startup tasks
-            InternalLogger.block({ "Loading startup tasks" }) {
-                for ((name, block) in startupTasks) {
-                    InternalLogger.log { "Loading ${this@with}/$name" }
-                    spawn(name, task { block() })
-                }
+            for ((name, block) in startupTasks) {
+                spawn(name, task { block() })
             }
         }
     }
@@ -234,50 +229,44 @@ class PlanSimulation<M> {
     }
 
     fun addActivities(activities: List<GroundedActivity<M>>) {
-        InternalLogger.block({ "Loading ${activities.size} activities" }) {
-            // TODO: Consider formalizing this as a way to "safely" ingest info into the sim.
-            val activitiesToLoad = activities.toMutableList()
-            var activityLoaderActive = true
+        // TODO: Consider formalizing this as a way to "safely" ingest info into the sim.
+        val activitiesToLoad = activities.toMutableList()
+        var activityLoaderActive = true
 
-            // The directive loader will iteratively pull directives off the queue
-            // and set them in the activityDirectiveResource.
-            // The activity launcher will react to this by constructing and launching the activity.
-            // That nulls out the resource, allowing this task to load the next activity.
+        // The directive loader will iteratively pull directives off the queue
+        // and set them in the activityDirectiveResource.
+        // The activity launcher will react to this by constructing and launching the activity.
+        // That nulls out the resource, allowing this task to load the next activity.
 
-            // Note that because this task depends on state not captured in a cell, it is not "safe" for simulation.
-            // However, because it works in conjunction with the activity launcher, it will always complete
-            // before the simulation advances in time.
-            // Combined with the loop below to exercise this task to completion, thereby unloading this unsafe task,
-            // the simulation is always in a safe state to save/restore when this function returns.
-            state.addEphemeralTask(Name("activity loader"), with (simulationScope) {
-                coroutineTask {
-                    if (activitiesToLoad.isEmpty()) {
-                        activityLoaderActive = false
-                        TaskScopeResult.Complete(Unit)
-                    } else {
-                        await(activityResource.isNull())
-                        val a = activitiesToLoad.removeFirst()
-                        InternalLogger.log { "Loading activity ${a.name} @ ${a.time}" }
-                        activityResource.set(a)
-                        TaskScopeResult.Restart()
-                    }
+        // Note that because this task depends on state not captured in a cell, it is not "safe" for simulation.
+        // However, because it works in conjunction with the activity launcher, it will always complete
+        // before the simulation advances in time.
+        // Combined with the loop below to exercise this task to completion, thereby unloading this unsafe task,
+        // the simulation is always in a safe state to save/restore when this function returns.
+        state.addEphemeralTask(Name("activity loader"), with (simulationScope) {
+            coroutineTask {
+                if (activitiesToLoad.isEmpty()) {
+                    activityLoaderActive = false
+                    TaskScopeResult.Complete(Unit)
+                } else {
+                    await(activityResource.isNull())
+                    val a = activitiesToLoad.removeFirst()
+                    activityResource.set(a)
+                    TaskScopeResult.Restart()
                 }
-            })
+            }
+        })
 
-            // Now, actually load the plan by cycling the simulation without advancing it.
-            while (activityLoaderActive) state.stepTo(state.time())
-        }
-        InternalLogger.log { "Finished loading ${activities.size} activities" }
+        // Now, actually load the plan by cycling the simulation without advancing it.
+        while (activityLoaderActive) state.stepTo(state.time())
     }
 
     fun runPlan(plan: Plan<M>) {
-        InternalLogger.block({ "Running plan" }) {
-            val absoluteSimulationTime = simulationScope.simulationEpoch + state.time().toKotlinDuration()
-            require(plan.startTime == absoluteSimulationTime) {
-                "Cannot run plan starting at ${plan.startTime}. Simulation is at $absoluteSimulationTime"
-            }
-            addActivities(plan.activities)
-            runUntil(plan.endTime)
+        val absoluteSimulationTime = simulationScope.simulationEpoch + state.time().toKotlinDuration()
+        require(plan.startTime == absoluteSimulationTime) {
+            "Cannot run plan starting at ${plan.startTime}. Simulation is at $absoluteSimulationTime"
         }
+        addActivities(plan.activities)
+        runUntil(plan.endTime)
     }
 }
