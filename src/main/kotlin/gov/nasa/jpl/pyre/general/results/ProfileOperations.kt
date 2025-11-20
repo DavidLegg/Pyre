@@ -16,6 +16,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
 import gov.nasa.jpl.pyre.general.results.Profile.Companion.start
+import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import java.util.TreeMap
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
@@ -52,9 +53,11 @@ object ProfileOperations {
      *
      * @param name The channel name to read, also becomes the profile name.
      */
-    fun <V, D : Dynamics<V, D>> SimulationResults.lastValue(name: String): V =
-        // TODO: This is not the most efficient way to do this - consider extracting only the last segment instead
-        getProfile<D>(name).let { it[it.end] }
+    @Suppress("UNCHECKED_CAST")
+    fun <V, D : Dynamics<V, D>> SimulationResults.lastValue(name: String): V {
+        val report = resources.getValue(name).last() as ChannelizedReport<D>
+        return report.data.step((endTime - report.time).toPyreDuration()).value()
+    }
 
     /**
      * Create a resource which exactly replays this [Profile].
