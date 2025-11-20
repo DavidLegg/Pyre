@@ -15,6 +15,7 @@ import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import kotlinx.serialization.json.Json
+import java.util.PriorityQueue
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.require
@@ -46,8 +47,11 @@ class SchedulingSystem<M, C> private constructor(
     private val jsonFormat: Json,
     incon: InconProvider?,
 ) {
-    private val nominalActivities: MutableList<GroundedActivity<M>> = mutableListOf()
-    private val injectedActivities: MutableSet<GroundedActivity<M>> = mutableSetOf()
+    // TODO: Further, try making it a PQ of lists of activities, so taking that batch is trivial
+    /** Activities not yet part of the simulation */
+    private val futureActivities: PriorityQueue<GroundedActivity<M>> = PriorityQueue(compareBy { it.time })
+    /** Activities which have been incorporated into the simulation. */
+    private val pastActivities: MutableList<GroundedActivity<M>> = mutableListOf()
     private val resources: MutableMap<String, MutableList<ChannelizedReport<*>>> = mutableMapOf()
     private val activitySpans: MutableMap<Activity<*>, ActivityEvent> = mutableMapOf()
     private val reportHandler: ReportHandler = channels(
@@ -88,11 +92,12 @@ class SchedulingSystem<M, C> private constructor(
         val startTime = time()
         // Inject only the activities that we're about to run.
         // This way, we can adjust the plan that's still in the future when we're done.
-        val activitiesToRun = nominalActivities
-            .filter { it !in injectedActivities && it.time < endTime }
-            .sortedBy { it.time }
+        val activitiesToRun = mutableListOf<GroundedActivity<M>>()
+        while (futureActivities.peek()?.run { time < endTime } ?: false) {
+            activitiesToRun += futureActivities.remove()
+        }
         simulation.addActivities(activitiesToRun)
-        injectedActivities += activitiesToRun
+        pastActivities += activitiesToRun
         simulation.runUntil(endTime)
     }
 
@@ -104,21 +109,23 @@ class SchedulingSystem<M, C> private constructor(
      * In that case, also advances the simulation to [Instant.DISTANT_FUTURE].
      */
     fun runUntil(activity: GroundedActivity<M>): Instant {
-        if (activity !in nominalActivities) {
-            this += activity
-        }
+        addActivity(activity)
         // Do a regular run until the activity begins
         runUntil(activity.time)
         // So long as we haven't recorded the end of this activity, keep asking the simulation to step forward.
         while (activitySpans[activity.activity]?.end == null && simulation.time() < Instant.DISTANT_FUTURE) {
             // First, look for any activities we need to inject right now:
-            val activitiesToRun = nominalActivities.filter { it !in injectedActivities && it.time == simulation.time() }
+            val activitiesToRun = mutableListOf<GroundedActivity<M>>()
+            while (futureActivities.peek()?.run { time == simulation.time() } ?: false) {
+                activitiesToRun += futureActivities.remove()
+            }
             // Inject them into the simulation
             simulation.addActivities(activitiesToRun)
-            injectedActivities += activitiesToRun
+            pastActivities += activitiesToRun
             // Look for when we would next need to inject activities, which is the latest we can safely advance:
-            val nextActivityTime = nominalActivities.filter { it !in injectedActivities }.minOfOrNull { it.time } ?: Instant.DISTANT_FUTURE
+            val nextActivityTime = futureActivities.minOfOrNull { it.time } ?: Instant.DISTANT_FUTURE
             // Finally, step the simulation to (at most) that time
+            // Since the activity must run a task step to end, the simulation will not advance past the activity end.
             simulation.stepTo(nextActivityTime)
         }
         return activitySpans[activity.activity]?.end ?: Instant.DISTANT_FUTURE
@@ -128,7 +135,7 @@ class SchedulingSystem<M, C> private constructor(
         require(activity.time >= time()) {
             "System is at ${time()}, cannot add activity in the past at ${activity.time}"
         }
-        nominalActivities += activity
+        futureActivities += activity
     }
     fun addActivities(activities: Collection<GroundedActivity<M>>) = activities.forEach(::addActivity)
     fun addPlan(plan: Plan<M>) = addActivities(plan.activities)
@@ -138,7 +145,7 @@ class SchedulingSystem<M, C> private constructor(
     operator fun plusAssign(activities: Collection<GroundedActivity<M>>) = addActivities(activities)
     operator fun plusAssign(plan: Plan<M>) = addPlan(plan)
 
-    fun plan() = Plan(startTime, time(), nominalActivities.sortedBy { it.time })
+    fun plan() = Plan(startTime, time(), pastActivities + futureActivities)
 
     fun results() = SimulationResults(
         startTime,
@@ -160,9 +167,8 @@ class SchedulingSystem<M, C> private constructor(
             fincon(),
         )
         // Copy over all the other bookkeeping data
-        // TODO: Consider using a reference back to these data instead of copying all of them
-        result.nominalActivities.addAll(this.nominalActivities)
-        result.injectedActivities.addAll(this.injectedActivities)
+        result.futureActivities.addAll(this.futureActivities)
+        result.pastActivities.addAll(this.pastActivities)
         result.resources.putAll(this.resources)
         result.activitySpans.putAll(this.activitySpans)
         return result
