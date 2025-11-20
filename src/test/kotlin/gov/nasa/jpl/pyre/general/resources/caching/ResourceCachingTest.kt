@@ -240,16 +240,22 @@ class ResourceCachingTest {
         // Now, since we're starting the replay at ~epoch + 20 min, the output should be identical
         // iff we strip out the activities channel, drop the reports before that time,
         // and add new initial value reports.
-        assertEquals(
-            listOf(
+        val output2 = outputFile2.readLines()
+            .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
+        // Since the initial values can be reported in any order, compare those separately, as sets
+        assertEquals<Set<ChannelizedReport<JsonElement>>>(
+            setOf(
                 ChannelizedReport("resourceB", sim2start, JsonPrimitive("Second string")),
                 ChannelizedReport("resourceA", sim2start, JsonPrimitive(-10)),
-            ) +
+                ),
+            output2.take(2).toSet()
+        )
+        // All other reports should be deterministically ordered
+        assertEquals(
             outputFile1.readLines()
                 .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
                 .filter { it.time > sim2start && it.channel != "activities" },
-            outputFile2.readLines()
-                .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
+            output2.drop(2)
         )
     }
 }
