@@ -67,7 +67,7 @@ class FoundationSimulationTest {
                     override fun toString() = ""
                     override fun onStartup(name: Name, block: suspend context(TaskScope) () -> Unit) =
                         throw NotImplementedError()
-                    override suspend fun <V> read(cell: CellSet.CellHandle<V>): V = scope.read(cell)
+                    override fun <V> read(cell: CellSet.CellHandle<V>): V = scope.read(cell)
                     override fun <T : Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> = scope.allocate(cell)
                     override fun <T> spawn(name: Name, block: suspend context(TaskScope) () -> TaskScopeResult<T>) =
                         scope.spawn(name, coroutineTask(block))

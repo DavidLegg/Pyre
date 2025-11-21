@@ -62,7 +62,7 @@ fun <V, D : Dynamics<V, D>> resource(
         override suspend fun emit(effect: (FullDynamics<D>) -> FullDynamics<D>) = scope.emit(cell, effect)
 
         context(scope: ResourceScope)
-        override suspend fun getDynamics(): FullDynamics<D> = scope.read(cell)
+        override fun getDynamics(): FullDynamics<D> = scope.read(cell)
     } named { name }
 }
 

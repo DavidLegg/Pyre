@@ -1,12 +1,10 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
 import gov.nasa.jpl.pyre.kernel.Condition
-import gov.nasa.jpl.pyre.kernel.Condition.ConditionResult
+import gov.nasa.jpl.pyre.kernel.ConditionResult
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
@@ -17,69 +15,13 @@ import gov.nasa.jpl.pyre.kernel.Task.PureStepResult.*
 import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
 import kotlin.reflect.KType
-import kotlin.time.Instant
 
 
-/*
- * DL: This whole setup is modeled after kotlin.sequences.SequenceBuilderIterator.
- * That provides the ability to construct an iterator with yield statements,
- * which is structurally similar to a task with await statements.
- * From there, I generalized a little to get the various kinds of continuation types to line up.
- * Despite only vaguely understanding how the control flow here operates, it's proved fairly reliable in practice.
- */
-
-/**
- * Write a coroutine, but use it as a Pyre condition.
- *
- * Example:
- * ```
- * condition {
- *   val x = read(x_handle)
- *   val y = read(y_handle)
- *   if (x < y) {
- *     null
- *   } else if (x == y) {
- *     ZERO
- *   } else {
- *     (x - y) * SECOND
- *   }
- * }
- * ```
- */
-// Reconstruct the ConditionBuilder with each re-evaluation of the condition
 context (scope: SimulationScope)
-fun condition(block: suspend context (ConditionScope) () -> ConditionResult): () -> Condition = { ConditionBuilder(scope, block).getCondition() }
-
-private class ConditionBuilder(
-    simulationScope: SimulationScope,
-    block: suspend context (ConditionScope) () -> ConditionResult,
-) : ConditionScope, Continuation<ConditionResult>, SimulationScope by simulationScope {
-    private val start: Continuation<Unit> = block.createCoroutineUnintercepted(this, this)
-    private var nextResult: Condition? = null
-
-    override suspend fun <V> read(cell: CellHandle<V>) =
-        suspendCoroutineUninterceptedOrReturn { c ->
-            nextResult = Condition.Read(cell) { value ->
-                nextResult = null
-                c.resume(value)
-                nextResult!!
-            }
-            COROUTINE_SUSPENDED
-        }
-
-    override val context: CoroutineContext
-        get() = EmptyCoroutineContext
-
-    // Completion continuation implementation
-    override fun resumeWith(result: Result<ConditionResult>) {
-        nextResult = result.getOrThrow()
-    }
-
-    fun getCondition(): Condition {
-        nextResult = null
-        start.resume(Unit)
-        return nextResult!!
-    }
+fun condition(block: context (ConditionScope) () -> ConditionResult): Condition = { actions ->
+    block(object : ConditionScope, SimulationScope by scope {
+        override fun <V> read(cell: CellHandle<V>): V = actions.read(cell)
+    })
 }
 
 sealed interface TaskScopeResult<T> {
@@ -132,6 +74,13 @@ context (scope: SimulationScope)
 fun repeatingTask(block: suspend context (TaskScope) () -> Unit): suspend context (TaskScope) () -> TaskScopeResult<Unit> =
     { block(); TaskScopeResult.Restart() }
 
+/*
+ * This whole setup is modeled after kotlin.sequences.SequenceBuilderIterator.
+ * That provides the ability to construct an iterator with yield statements,
+ * which is structurally similar to a task with await statements.
+ * From there, I generalized a little to get the various kinds of continuation types to line up.
+ * Despite only vaguely understanding how the control flow here operates, it's proved fairly reliable in practice.
+ */
 
 private class TaskBuilder<T>(
     simulationScope: SimulationScope,
@@ -141,7 +90,7 @@ private class TaskBuilder<T>(
     private var basicTaskActions: BasicTaskActions? = null
     private var nextResult: Task.PureStepResult<T>? = null
 
-    override suspend fun <V> read(cell: CellHandle<V>): V =
+    override fun <V> read(cell: CellHandle<V>): V =
         basicTaskActions!!.read(cell)
 
     override suspend fun <V> emit(cell: CellHandle<V>, effect: Effect<V>) =
@@ -156,7 +105,7 @@ private class TaskBuilder<T>(
             COROUTINE_SUSPENDED
         }
 
-    override suspend fun await(condition: () -> Condition) =
+    override suspend fun await(condition: Condition) =
         suspendCoroutineUninterceptedOrReturn { c ->
             nextResult = Await(condition, continueWith(c))
             COROUTINE_SUSPENDED

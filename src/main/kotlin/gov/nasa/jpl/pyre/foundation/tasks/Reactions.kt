@@ -1,11 +1,8 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.kernel.Condition
-import gov.nasa.jpl.pyre.kernel.Condition.*
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.kernel.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.minus
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
@@ -13,6 +10,11 @@ import gov.nasa.jpl.pyre.foundation.resources.*
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.await
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
+import gov.nasa.jpl.pyre.kernel.Condition
+import gov.nasa.jpl.pyre.kernel.ConditionResult
+import gov.nasa.jpl.pyre.kernel.ReadActions
+import gov.nasa.jpl.pyre.kernel.SatisfiedAt
+import gov.nasa.jpl.pyre.kernel.UnsatisfiedUntil
 
 // Conditions are isomorphic to boolean discrete resources.
 // Realize this isomorphism through the whenTrue function, and apply it implicitly by overloading await.
@@ -21,7 +23,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
 
 object Reactions {
     context (scope: SimulationScope)
-    fun whenTrue(resource: BooleanResource): () -> Condition = condition {
+    fun whenTrue(resource: BooleanResource): Condition = condition {
         with (resource.getDynamics()) {
             if (data.value) SatisfiedAt(ZERO) else UnsatisfiedUntil(expiry.time)
         }
@@ -58,7 +60,7 @@ object Reactions {
      * inconsistent with the normal continuous evolution of the dynamics.
      */
     context (scope: TaskScope)
-    suspend fun <V, D : Dynamics<V, D>> dynamicsChange(resource: Resource<D>): () -> Condition {
+    suspend fun <V, D : Dynamics<V, D>> dynamicsChange(resource: Resource<D>): Condition {
         val dynamics1 = resource.getDynamics()
         val time1 = simulationClock.getValue()
         return condition {
@@ -75,12 +77,13 @@ object Reactions {
      * When possible, prefer using boolean resource derivation and [whenTrue].
      * This method is primarily for incorporating [dynamicsChange] conditions in specialized cases.
      */
-    infix fun (() -> Condition).or(other: () -> Condition): () -> Condition =
-        conditionMap(this, other) { r1, r2 ->
-            // We must take the minimum-time result. If it's a satisfaction, we're satisfied then.
-            // If it's an unsatisfied-until, we need to reevaluate then anyways.
-            if (r1.expiry() < r2.expiry()) r1 else r2
-        } named { "($this) or ($other)" }
+    infix fun (Condition).or(other: Condition): Condition = { actions: ReadActions ->
+        val r1 = this(actions)
+        val r2 = other(actions)
+        // We must take the minimum-time result. If it's a satisfaction, we're satisfied then.
+        // If it's an unsatisfied-until, we need to reevaluate then anyways.
+        if (r1.expiry() < r2.expiry()) r1 else r2
+    } named { "($this) or ($other)" }
 
     /**
      * Specialized Condition conjunction operator.
@@ -88,30 +91,17 @@ object Reactions {
      * When possible, prefer using boolean resource derivation and [whenTrue].
      * This method is primarily for incorporating [dynamicsChange] conditions in specialized cases.
      */
-    infix fun (() -> Condition).and(other: () -> Condition): () -> Condition =
-    // If both are satisfied at the same time, the conjunction is satisfied at that time.
-    // Otherwise, the conjunction is unsatisfied until the later operand time.
-    // This is because that operand is unsatisfied at least until that time, so there's no need to evaluate again earlier than that.
+    infix fun (Condition).and(other: Condition): Condition = { actions: ReadActions ->
+        // If both are satisfied at the same time, the conjunction is satisfied at that time.
+        // Otherwise, the conjunction is unsatisfied until the later operand time.
+        // This is because that operand is unsatisfied at least until that time, so there's no need to evaluate again earlier than that.
         // At that time, even if that operand is satisfied, the other operand needs to be re-evaluated anyways.
+        val r1 = this(actions)
+        val r2 = other(actions)
 
-        conditionMap(this, other) { r1, r2 ->
-            if (r1 is SatisfiedAt && r2 is SatisfiedAt && r1.time == r2.time)
-                r1
-            else
-                UnsatisfiedUntil(maxOf(r1.expiry(), r2.expiry()).time)
-        } named { "($this) or ($other)" }
-
-    private fun conditionMap(c1: () -> Condition, c2: () -> Condition, f: (ConditionResult, ConditionResult) -> Condition): () -> Condition =
-        conditionMap(c1) { r1 -> conditionMap(c2) { r2 -> f(r1, r2) }() }
-    private fun conditionMap(c1: () -> Condition, f: (ConditionResult) -> Condition): () -> Condition {
-        fun <V> mapRead(r: Read<V>) = Read(r.cell) { v -> conditionMap({ r.continuation(v) }, f)() }
-        return {
-            when (val it = c1()) {
-                is ConditionResult -> f(it)
-                is Read<*> -> mapRead(it)
-            }
-        }
-    }
+        if (r1 is SatisfiedAt && r2 is SatisfiedAt && r1.time == r2.time) r1
+        else UnsatisfiedUntil(maxOf(r1.expiry(), r2.expiry()).time)
+    } named { "($this) or ($other)" }
 
     private fun ConditionResult.expiry() = when(this) {
         is SatisfiedAt -> Expiry(time)

@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.general.interrupts
 
 import gov.nasa.jpl.pyre.kernel.CellSet
-import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.plus
@@ -14,6 +13,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.or
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenTrue
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.kernel.Condition
 
 /**
  * Provides utilities for interrupting a task.
@@ -48,7 +48,7 @@ object Interrupts {
                 await(simulationClock greaterThanOrEquals (simulationClock.getValue() + time))
             }
 
-            override suspend fun await(condition: () -> Condition) {
+            override suspend fun await(condition: Condition) {
                 // Await either the desired condition or an abort, whichever is earlier.
                 scope.await(condition or whenTrue(hasAborted))
                 // Check why we stopped, and handle a possible abort.

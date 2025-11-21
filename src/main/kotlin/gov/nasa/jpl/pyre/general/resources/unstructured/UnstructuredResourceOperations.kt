@@ -19,7 +19,7 @@ object UnstructuredResourceOperations {
     context(context: SimulationScope)
     fun <A> timeBased(fn: (Duration) -> A) = object : UnstructuredResource<A> {
         context(scope: ResourceScope)
-        override suspend fun getDynamics(): FullDynamics<Unstructured<A>> {
+        override fun getDynamics(): FullDynamics<Unstructured<A>> {
             val now = context.simulationClock.getValue()
             return DynamicsMonad.pure(Unstructured.of { fn(now + it) })
         }

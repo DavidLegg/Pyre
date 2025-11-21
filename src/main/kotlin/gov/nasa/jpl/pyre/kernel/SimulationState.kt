@@ -2,7 +2,6 @@ package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.kernel.Task.TaskStepResult.*
 import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
-import gov.nasa.jpl.pyre.kernel.Condition.ConditionResult
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
@@ -140,8 +139,14 @@ class SimulationState(private val reportHandler: ReportHandler) {
         // Remove the scheduled rewait or continuation, if it's there.
         awaitingTask.scheduledTask?.let(tasks::remove)
 
-        // Evaluate the condition
-        val (cellsRead, result) = evaluateCondition(awaitingTask.await.condition(), cells)
+        // Evaluate the condition, recording the cells we read along the way
+        val cellsRead: MutableSet<CellHandle<*>> = mutableSetOf()
+        val result = awaitingTask.await.condition(object : ReadActions {
+            override fun <V> read(cell: CellHandle<V>): V {
+                cellsRead += cell
+                return cells[cell].value
+            }
+        })
 
         // Schedule listeners to re-evaluate condition if cells change
         for (cell in cellsRead) {
@@ -150,13 +155,13 @@ class SimulationState(private val reportHandler: ReportHandler) {
         listeningTasks[awaitingTask] = cellsRead
 
         when (result) {
-            is Condition.SatisfiedAt -> {
+            is SatisfiedAt -> {
                 // Add conditional task to resume the awaiting task when the condition is satisfied
                 val continuationEntry = TaskEntry(time + result.time, awaitingTask.continuationTask)
                 tasks += continuationEntry
                 awaitingTask.scheduledTask = continuationEntry
             }
-            is Condition.UnsatisfiedUntil -> {
+            is UnsatisfiedUntil -> {
                 if (result.time != null) {
                     // Schedule the rewait task to re-evaluate the condition once this unsatisfied result expires
                     val rewaitEntry = TaskEntry(time + result.time, awaitingTask.rewaitTask)
@@ -226,24 +231,6 @@ class SimulationState(private val reportHandler: ReportHandler) {
                 }
             }
         }
-    }
-
-    private fun evaluateCondition(condition: Condition, cellSet: CellSet): Pair<Set<CellHandle<*>>, ConditionResult> {
-        var nextCondition = condition
-        val readCells = mutableSetOf<CellHandle<*>>()
-
-        fun <V> evaluateRead(read: Condition.Read<V>): Condition {
-            readCells += read.cell
-            return read.continuation(cellSet[read.cell].value)
-        }
-
-        // Conditions are a stack of Reads around a ConditionResult
-        // Trampoline down that stack of reads to fully evaluate the condition.
-        while (nextCondition is Condition.Read<*>) {
-            nextCondition = evaluateRead(nextCondition)
-        }
-        // The only non-Read Conditions are ConditionResults, so this cast is safe.
-        return Pair(readCells.toSet(), nextCondition as ConditionResult)
     }
 
     fun save(finconCollector: FinconCollector) {

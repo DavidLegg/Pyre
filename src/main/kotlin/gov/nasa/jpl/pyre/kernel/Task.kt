@@ -90,10 +90,11 @@ interface Task<T> {
         data class Complete<T>(val value: T) : PureStepResult<T> {
             override fun toString() = "Complete($value)"
         }
+        // TODO: Given how simple conditions are now, eliminate "delay" altogether and use "await" instead
         data class Delay<T>(val time: Duration, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Delay($time)"
         }
-        data class Await<T>(val condition: () -> Condition, val continuation: PureTaskStep<T>) : PureStepResult<T> {
+        data class Await<T>(val condition: Condition, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Await($condition)"
         }
         data class Spawn<S, T>(val childName: Name, val child: PureTaskStep<S>, val continuation: PureTaskStep<T>) : PureStepResult<T> {
@@ -114,9 +115,7 @@ interface Task<T> {
         data class Delay<T>(val time: Duration, val continuation: Task<T>) : TaskStepResult<T> {
             override fun toString() = "Delay($time)"
         }
-        // It's useful to users of Await, especially the coroutine builder, to run some setup code with each condition evaluation.
-        // That's why we use () -> Condition instead of just Condition.
-        data class Await<T>(val condition: () -> Condition, val continuation: Task<T>) : TaskStepResult<T> {
+        data class Await<T>(val condition: Condition, val continuation: Task<T>) : TaskStepResult<T> {
             override fun toString() = "Await($condition)"
         }
         data class Spawn<S, T>(val child: Task<S>, val continuation: Task<T>) : TaskStepResult<T> {

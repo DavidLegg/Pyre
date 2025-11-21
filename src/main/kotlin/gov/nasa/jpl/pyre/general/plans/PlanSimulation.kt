@@ -82,7 +82,7 @@ class PlanSimulation<M> {
                 // When spawning a task, build a simulation scope which incorporates the task's Name
                 initContext.spawn(name, context (subSimulationScope(contextName / name)) { coroutineTask(block) })
 
-            override suspend fun <T> read(cell: CellSet.CellHandle<T>): T =
+            override fun <T> read(cell: CellSet.CellHandle<T>): T =
                 initContext.read(cell)
 
             override fun onStartup(name: Name, block: suspend TaskScope.() -> Unit) {

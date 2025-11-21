@@ -283,7 +283,7 @@ class SimulationTest {
     fun task_can_await_condition() {
         runSimulation(HOUR) {
             spawn(Name("Await condition")) {
-                Await({ Condition.SatisfiedAt(ZERO) }) {
+                Await({ SatisfiedAt(ZERO) }) {
                     Complete(Unit)
                 }
             }
@@ -295,7 +295,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
             spawn(Name("Awaiter")) {
-                Await({ Condition.SatisfiedAt(ZERO) }) {
+                Await({ SatisfiedAt(ZERO) }) {
                     val xVal = it.read(x)
                     it.report("Awaiter says: x = $xVal", typeOf<String>())
                     Complete(Unit)
@@ -319,7 +319,7 @@ class SimulationTest {
     fun await_never_condition_does_not_run_task() {
         val results = runSimulation(HOUR) {
             spawn(Name("Awaiter")) {
-                Await({ Condition.UnsatisfiedUntil(null) }) {
+                Await({ UnsatisfiedUntil(null) }) {
                     it.report("Awaiter ran!", typeOf<String>())
                     Complete(Unit)
                 }
@@ -334,12 +334,11 @@ class SimulationTest {
             val x = allocate(intCounterCell("x", 10))
             val y = allocate(intCounterCell("y", 12))
             spawn(Name("Awaiter")) {
-                val condition = Condition.Read(x) { xValue ->
-                    Condition.Read(y) { yValue ->
-                        if (xValue >= yValue) Condition.SatisfiedAt(ZERO) else Condition.UnsatisfiedUntil(null)
-                    }
-                }
-                Await({ condition }) {
+                Await({
+                    val xValue = it.read(x)
+                    val yValue = it.read(y)
+                    if (xValue >= yValue) SatisfiedAt(ZERO) else UnsatisfiedUntil(null)
+                }) {
                     val xVal = it.read(x)
                     it.report("Awaiter says: x = $xVal", typeOf<String>())
                     val yVal = it.read(y)
@@ -376,19 +375,16 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(linearCell("x", 10.0, 1.0))
             spawn(Name("Awaiter")) {
-                val cond = Condition.Read(x) {
-                    with (it) {
-                        // Example implementation of a "greater than 20" condition for a linear dynamics type.
-                        if (value >= 20) {
-                            Condition.SatisfiedAt(ZERO)
-                        } else if (rate <= 0) {
-                            Condition.UnsatisfiedUntil(null)
-                        } else {
-                            Condition.SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
+                Await({
+                    // Example implementation of a "greater than 20" condition for a linear dynamics type.
+                    with (it.read(x)) {
+                        when {
+                            value >= 20 -> SatisfiedAt(ZERO)
+                            rate <= 0 -> UnsatisfiedUntil(null)
+                            else -> SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
                         }
                     }
-                }
-                Await({ cond }) {
+                }) {
                     val xVal = it.read(x)
                     it.report(xVal, typeOf<LinearDynamics>())
                     Complete(Unit)
@@ -412,19 +408,16 @@ class SimulationTest {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(intCounterCell("y", 0))
             spawn(Name("Awaiter")) {
-                val cond = Condition.Read(x) {
-                    with (it) {
-                        // Example implementation of a "greater than 20" condition for a linear dynamics type.
-                        if (value >= 20) {
-                            Condition.SatisfiedAt(ZERO)
-                        } else if (rate <= 0) {
-                            Condition.UnsatisfiedUntil(null)
-                        } else {
-                            Condition.SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
+                Await({
+                    // Example implementation of a "greater than 20" condition for a linear dynamics type.
+                    with (it.read(x)) {
+                        when {
+                            value >= 20 -> SatisfiedAt(ZERO)
+                            rate <= 0 -> UnsatisfiedUntil(null)
+                            else -> SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
                         }
                     }
-                }
-                Await({ cond }) {
+                }) {
                     val xVal = it.read(x)
                     it.report(xVal, typeOf<LinearDynamics>())
                     val yVal = it.read(y)
@@ -464,19 +457,16 @@ class SimulationTest {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(intCounterCell("y", 0))
             spawn(Name("Awaiter")) {
-                val cond = Condition.Read(x) {
-                    with (it) {
-                        // Example implementation of a "greater than 20" condition for a linear dynamics type.
-                        if (value >= 20) {
-                            Condition.SatisfiedAt(ZERO)
-                        } else if (rate <= 0) {
-                            Condition.UnsatisfiedUntil(null)
-                        } else {
-                            Condition.SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
+                Await({
+                    // Example implementation of a "greater than 20" condition for a linear dynamics type.
+                    with (it.read(x)) {
+                        when {
+                            value >= 20 -> SatisfiedAt(ZERO)
+                            rate <= 0 -> UnsatisfiedUntil(null)
+                            else -> SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
                         }
                     }
-                }
-                Await({ cond }) {
+                }) {
                     val xVal = it.read(x)
                     it.report(xVal, typeOf<LinearDynamics>())
                     val yVal = it.read(y)
@@ -516,13 +506,8 @@ class SimulationTest {
             val x = allocate(linearCell("x", 10.0, 1.0))
             spawn(Name("Awaiter")) {
                 Await({
-                    Condition.Read(x) {
-                        if (it.value >= 15) {
-                            Condition.SatisfiedAt(ZERO)
-                        } else {
-                            Condition.UnsatisfiedUntil(2 * SECOND)
-                        }
-                    }
+                    if (it.read(x).value >= 15) SatisfiedAt(ZERO)
+                    else UnsatisfiedUntil(2 * SECOND)
                 }) {
                     val xVal = it.read(x)
                     it.report(xVal, typeOf<LinearDynamics>())
@@ -548,13 +533,8 @@ class SimulationTest {
             val x = allocate(linearCell("x", 10.0, 1.0))
             spawn(Name("Awaiter")) {
                 Await({
-                    Condition.Read(x) {
-                        if (it.value >= 15) {
-                            Condition.SatisfiedAt(ZERO)
-                        } else {
-                            Condition.UnsatisfiedUntil(MINUTE)
-                        }
-                    }
+                    if (it.read(x).value >= 15) SatisfiedAt(ZERO)
+                    else UnsatisfiedUntil(MINUTE)
                 }) {
                     val xVal = it.read(x)
                     it.report(xVal, typeOf<LinearDynamics>())
