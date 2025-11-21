@@ -66,7 +66,7 @@ class PlanSimulation<M> {
         simulationEpoch: Instant?,
         simulationStart: Duration?,
         inconProvider: InconProvider?,
-        constructModel: suspend context (InitScope) () -> M,
+        constructModel: context (InitScope) () -> M,
         modelClass: KType,
     ) {
         val simulationEpoch = requireNotNull(simulationEpoch ?: inconProvider?.within("simulation", "epoch")?.provide<Instant>())
@@ -97,8 +97,7 @@ class PlanSimulation<M> {
         }
         with (simulationScope) {
             // Construct the model itself
-            // Just "runBlocking" this, because we know the init shouldn't actually block
-            val model = runBlocking { constructModel() }
+            val model = constructModel()
 
             // Construct the activity daemon
             // This reaction loop will build an activity whenever the directive resource is loaded.
@@ -136,7 +135,7 @@ class PlanSimulation<M> {
         inline fun <reified M> withIncon(
             noinline reportHandler: ReportHandler,
             inconProvider: InconProvider,
-            noinline constructModel: suspend InitScope.() -> M,
+            noinline constructModel: InitScope.() -> M,
         ) = withIncon(
             reportHandler,
             inconProvider,
@@ -147,7 +146,7 @@ class PlanSimulation<M> {
         fun <M> withIncon(
             reportHandler: ReportHandler,
             inconProvider: InconProvider,
-            constructModel: suspend InitScope.() -> M,
+            constructModel: InitScope.() -> M,
             modelClass: KType,
         ) = PlanSimulation(
             reportHandler = reportHandler,
@@ -162,7 +161,7 @@ class PlanSimulation<M> {
             noinline reportHandler: ReportHandler,
             simulationEpoch: Instant,
             simulationStart: Instant,
-            noinline constructModel: suspend InitScope.() -> M,
+            noinline constructModel: InitScope.() -> M,
         ) = withoutIncon(
             reportHandler,
             simulationEpoch,
@@ -175,7 +174,7 @@ class PlanSimulation<M> {
             reportHandler: ReportHandler,
             simulationEpoch: Instant,
             simulationStart: Instant,
-            constructModel: suspend InitScope.() -> M,
+            constructModel: InitScope.() -> M,
             modelClass: KType,
         ) = PlanSimulation(
             reportHandler = reportHandler,

@@ -31,7 +31,7 @@ object IntProfileOperations {
      * @param predicate Count only activities satisfying this predicate; defaults to counting all activities.
      */
     context (scope: InitScope)
-    suspend fun SimulationResults.countActivities(predicate: (ActivityEvent) -> Boolean = { true }): IntResource {
+    fun SimulationResults.countActivities(predicate: (ActivityEvent) -> Boolean = { true }): IntResource {
         // Run a simulation where we keep track of how many matching activities are running
         val counter = discreteResource("counted activities", 0)
         activities.values

@@ -42,7 +42,7 @@ import kotlin.time.Instant
 class SchedulingSystem<M, C> private constructor(
     startTime: Instant?,
     val config: C,
-    private val constructModel: suspend InitScope.(C) -> M,
+    private val constructModel: InitScope.(C) -> M,
     private val modelClass: KType,
     private val jsonFormat: Json,
     incon: InconProvider?,
@@ -178,7 +178,7 @@ class SchedulingSystem<M, C> private constructor(
         fun <M, C> withoutIncon(
             startTime: Instant,
             config: C,
-            constructModel: suspend InitScope.(C) -> M,
+            constructModel: InitScope.(C) -> M,
             modelClass: KType,
             jsonFormat: Json = Json,
         ) = SchedulingSystem(startTime, config, constructModel, modelClass, jsonFormat, null)
@@ -186,14 +186,14 @@ class SchedulingSystem<M, C> private constructor(
         inline fun <reified M, C> withoutIncon(
             startTime: Instant,
             config: C,
-            noinline constructModel: suspend InitScope.(C) -> M,
+            noinline constructModel: InitScope.(C) -> M,
             jsonFormat: Json = Json,
         ) = withoutIncon(startTime, config, constructModel, typeOf<M>(), jsonFormat)
 
         fun <M, C> withIncon(
             incon: InconProvider,
             config: C,
-            constructModel: suspend InitScope.(C) -> M,
+            constructModel: InitScope.(C) -> M,
             modelClass: KType,
             jsonFormat: Json = Json,
         ) = SchedulingSystem(null, config, constructModel, modelClass, jsonFormat, incon)
@@ -201,7 +201,7 @@ class SchedulingSystem<M, C> private constructor(
         inline fun <reified M, C> withIncon(
             incon: InconProvider,
             config: C,
-            noinline constructModel: suspend InitScope.(C) -> M,
+            noinline constructModel: InitScope.(C) -> M,
             jsonFormat: Json = Json,
         ) = withIncon(incon, config, constructModel, typeOf<M>(), jsonFormat)
     }

@@ -87,7 +87,7 @@ object ProfileOperations {
     fun <V, D : Dynamics<V, D>> computeProfile(
         start: Instant,
         end: Instant,
-        derivation: suspend context (InitScope) () -> Resource<D>,
+        derivation: context (InitScope) () -> Resource<D>,
         dynamicsType: KType,
     ): Profile<D> {
         val results = mutableListOf<ChannelizedReport<*>>()
@@ -117,7 +117,7 @@ object ProfileOperations {
     inline fun <V, reified D : Dynamics<V, D>> computeProfile(
         start: Instant,
         end: Instant,
-        noinline derivation: suspend context (InitScope) () -> Resource<D>,
+        noinline derivation: context (InitScope) () -> Resource<D>,
     ) = computeProfile(start, end, derivation, typeOf<D>())
 
     /**
@@ -126,7 +126,7 @@ object ProfileOperations {
     fun <V, D : Dynamics<V, D>> SimulationResults.compute(
         start: Instant = startTime,
         end: Instant = endTime,
-        derivation: suspend context (InitScope) SimulationResults.() -> Resource<D>,
+        derivation: context (InitScope) SimulationResults.() -> Resource<D>,
         dynamicsType: KType,
     ): Profile<D> = computeProfile(start, end, { derivation() }, dynamicsType)
 
@@ -140,7 +140,7 @@ object ProfileOperations {
     inline fun <V, reified D : Dynamics<V, D>> SimulationResults.compute(
         start: Instant = startTime,
         end: Instant = endTime,
-        noinline derivation: suspend context (InitScope) SimulationResults.() -> Resource<D>,
+        noinline derivation: context (InitScope) SimulationResults.() -> Resource<D>,
     ) = compute(start, end, derivation, typeOf<D>())
 
     /**
@@ -149,7 +149,7 @@ object ProfileOperations {
     fun <U, E : Dynamics<U, E>, V, D : Dynamics<V, D>> Profile<E>.compute(
         start: Instant = this.start,
         end: Instant = this.end,
-        derivation: suspend context (InitScope) Resource<E>.() -> Resource<D>,
+        derivation: context (InitScope) Resource<E>.() -> Resource<D>,
         dynamicsType: KType,
     ): Profile<D> = computeProfile(start, end, { asResource().derivation() }, dynamicsType)
 
@@ -159,7 +159,7 @@ object ProfileOperations {
     inline fun <U, E : Dynamics<U, E>, V, reified D : Dynamics<V, D>> Profile<E>.compute(
         start: Instant = this.start,
         end: Instant = this.end,
-        noinline derivation: suspend context (InitScope) Resource<E>.() -> Resource<D>,
+        noinline derivation: context (InitScope) Resource<E>.() -> Resource<D>,
     ) = compute(start, end, derivation, typeOf<D>())
 
     operator fun <T : Comparable<T>> ClosedRange<T>.contains(other: ClosedRange<T>): Boolean =
