@@ -12,7 +12,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KType
 
-typealias PureTaskStep<T> = () -> PureStepResult<T>
+typealias PureTaskStep<T> = (BasicTaskActions) -> PureStepResult<T>
 
 /**
  * A Task is a unit of action in the simulation.
@@ -27,7 +27,7 @@ typealias PureTaskStep<T> = () -> PureStepResult<T>
  */
 interface Task<T> {
     val id: TaskId
-    fun runStep(): TaskStepResult<T>
+    fun runStep(actions: BasicTaskActions): TaskStepResult<T>
 
     /**
      * Saves this task's history directly to the given collector.
@@ -57,23 +57,38 @@ interface Task<T> {
         override fun toString() = "$name[$stepNumber]"
     }
 
+    /**
+     * The "non-yielding" actions a [PureTask] can take.
+     *
+     * Non-yielding actions don't interrupt the flow of control, aka "yield".
+     */
+    interface BasicTaskActions {
+        fun <V> read(cell: CellHandle<V>): V
+        fun <V> emit(cell: CellHandle<V>, effect: Effect<V>)
+        fun <V> report(value: V, type: KType)
+        // Note that "spawn" is not listed here. Arguably, it's a non-yielding action and should be here.
+        // It winds up being easier to restore tasks if we can choose which branch (parent or child) to take.
+        // For this reason, it's better to treat spawn as a yielding action.
+        // This also means we can make a child run in parallel with the parent task post-spawn,
+        // which may be the more "natural" semantics for a task.
+        // It makes it "feel" like the child is spawned "immediately".
+    }
+
+
     // Explanation:
     // A "pure" task step doesn't save the information necessary to resume.
     // These are easy to write, but insufficient to run without first wrapping with additional save/restore functions.
     // This is what a "full" task step has - note the continuations are full-fledged Tasks, not merely task steps.
 
+    /**
+     * The ways a task step can "yield" back to the simulation engine, aka "yielding actions".
+     *
+     * These correspond with the task pausing (or stopping completely!),
+     * so the simulation engine can schedule other tasks before the next step of this task.
+     */
     sealed interface PureStepResult<T> {
         data class Complete<T>(val value: T) : PureStepResult<T> {
             override fun toString() = "Complete($value)"
-        }
-        data class Read<V, T>(val cell: CellHandle<V>, val continuation: (V) -> PureStepResult<T>) : PureStepResult<T> {
-            override fun toString() = "Read(${cell.name})"
-        }
-        data class Emit<V, T>(val cell: CellHandle<V>, val effect: Effect<V>, val continuation: PureTaskStep<T>) : PureStepResult<T> {
-            override fun toString() = "Emit(${cell.name}, $effect)"
-        }
-        data class Report<V, T>(val value: V, val type: KType, val continuation: PureTaskStep<T>) : PureStepResult<T> {
-            override fun toString() = "Report($value)"
         }
         data class Delay<T>(val time: Duration, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Delay($time)"
@@ -89,18 +104,12 @@ interface Task<T> {
         }
     }
 
+    /**
+     * Like [PureStepResult], but includes task history information needed to fully save and restore the task.
+     */
     sealed interface TaskStepResult<T> {
         data class Complete<T>(val value: T) : TaskStepResult<T> {
             override fun toString() = "Complete($value)"
-        }
-        data class Read<V, T>(val cell: CellHandle<V>, val continuation: (V) -> Task<T>) : TaskStepResult<T> {
-            override fun toString() = "Read(${cell.name})"
-        }
-        data class Emit<V, T>(val cell: CellHandle<V>, val effect: Effect<V>, val continuation: Task<T>) : TaskStepResult<T> {
-            override fun toString() = "Emit(${cell.name}, $effect)"
-        }
-        data class Report<V, T>(val value: V, val type: KType, val continuation: Task<T>) : TaskStepResult<T> {
-            override fun toString() = "Report($value)"
         }
         data class Delay<T>(val time: Duration, val continuation: Task<T>) : TaskStepResult<T> {
             override fun toString() = "Delay($time)"
@@ -145,52 +154,62 @@ private class PureTask<T>(
 ) : Task<T> {
     private val rootTask: PureTask<T> = rootTask ?: this
 
-    override fun runStep(): TaskStepResult<T> {
-        return when (val stepResult = step()) {
+    override fun runStep(actions: BasicTaskActions): TaskStepResult<T> {
+        val partialHistory: MutableList<FinconCollectingContext.() -> Unit> = mutableListOf()
+        fun FinconCollectingContext.reportHistory() {
+            saveData()
+            partialHistory.forEach { it() }
+        }
+        val historyCapturingActions = object : BasicTaskActions {
+            override fun <V> read(cell: CellHandle<V>): V =
+                actions.read(cell).also { value ->
+                    partialHistory += {
+                        report(ReadMarker(value), ReadMarker.concreteType(cell.valueType))
+                    }
+                }
+
+            // Emit and Report don't need to write any history; they'll just run again when restoring.
+            override fun <V> emit(cell: CellHandle<V>, effect: Effect<V>) = actions.emit(cell, effect)
+            override fun <V> report(value: V, type: KType) = actions.report(value, type)
+        }
+        return when (val stepResult = step(historyCapturingActions)) {
             is PureStepResult.Complete -> TaskStepResult.Complete(stepResult.value)
-            is PureStepResult.Read<*, T> -> runRead(stepResult)
-            is PureStepResult.Emit<*, T> -> runEmit(stepResult)
-            is PureStepResult.Report<*, T> -> runReport(stepResult)
             is PureStepResult.Delay -> TaskStepResult.Delay(
                 stepResult.time,
-                PureTask(id.nextStep(), stepResult.continuation, { saveData(); report<TaskHistoryStep>(DelayMarker) }, rootTask)
+                PureTask(
+                    id.nextStep(),
+                    stepResult.continuation,
+                    { reportHistory(); report<TaskHistoryStep>(DelayMarker) },
+                    rootTask
+                )
             )
             is PureStepResult.Await -> TaskStepResult.Await(
                 stepResult.condition,
-                PureTask(id.nextStep(), stepResult.continuation, { saveData(); report<TaskHistoryStep>(AwaitMarker) }, rootTask)
+                PureTask(
+                    id.nextStep(),
+                    stepResult.continuation,
+                    { reportHistory(); report<TaskHistoryStep>(AwaitMarker) },
+                    rootTask
+                )
             )
-            is PureStepResult.Spawn<*, T> -> runSpawn(stepResult)
+            is PureStepResult.Spawn<*, T> -> runSpawn(stepResult) { reportHistory() }
             is PureStepResult.Restart -> TaskStepResult.NoOp(rootTask)
         }
     }
 
-    private fun <V> runRead(step: PureStepResult.Read<V, T>) = TaskStepResult.Read(step.cell) { value ->
+    private fun <S> runSpawn(step: PureStepResult.Spawn<S, T>, reportHistory: FinconCollectingContext.() -> Unit) = TaskStepResult.Spawn(
+        PureTask(
+            id.child(step.childName),
+            step.child,
+            { reportHistory(); report<TaskHistoryStep>(SpawnMarker(SpawnMarkerBranch.Child)) },
+            null
+        ),
         PureTask(
             id.nextStep(),
-            // Important: step.continuation is deferred to Task.runStep.
-            // This means the outer Read.continuation can safely be called immediately after reading,
-            // without invoking client code prematurely.
-            { step.continuation(value) },
-            { saveData(); report<TaskHistoryStep>(ReadMarker(value), ReadMarker.concreteType(step.cell.valueType)) },
-            rootTask,
+            step.continuation,
+            { reportHistory(); report<TaskHistoryStep>(SpawnMarker(SpawnMarkerBranch.Parent)) },
+            rootTask
         )
-    }
-
-    private fun <V> runEmit(step: PureStepResult.Emit<V, T>) = TaskStepResult.Emit(
-        step.cell,
-        step.effect,
-        PureTask(id.nextStep(), step.continuation, { saveData(); report<TaskHistoryStep>(EmitMarker) }, rootTask)
-    )
-
-    private fun <V> runReport(step: PureStepResult.Report<V, T>) = TaskStepResult.Report(
-        step.value,
-        step.type,
-        PureTask(id.nextStep(), step.continuation, { saveData(); report<TaskHistoryStep>(ReportMarker) }, rootTask)
-    )
-
-    private fun <S> runSpawn(step: PureStepResult.Spawn<S, T>) = TaskStepResult.Spawn(
-        PureTask(id.child(step.childName), step.child, { saveData(); report<TaskHistoryStep>(SpawnMarker(SpawnMarkerBranch.Child)) }, null),
-        PureTask(id.nextStep(), step.continuation, { saveData(); report<TaskHistoryStep>(SpawnMarker(SpawnMarkerBranch.Parent)) }, rootTask)
     )
 
     override fun save(finconCollector: FinconCollector) {
@@ -205,20 +224,18 @@ private class PureTask<T>(
     private fun restoreSingle(inconProvider: InconProvidingContext): Task<*> {
         var thisTask: Task<*> = this
 
-        fun <V, T> restoreRead(step: TaskStepResult.Read<V, T>): Task<*>? =
-            // Get the read value from the task history and feed that into the continuation to replay the read
-            inconProvider.provide<ReadMarker<V>>(ReadMarker.concreteType(step.cell.valueType))?.let {
-                step.continuation(it.value)
-            }
+        val restorationActions = object : BasicTaskActions {
+            override fun <V> read(cell: CellHandle<V>): V =
+                requireNotNull(inconProvider.provide<ReadMarker<V>>(ReadMarker.concreteType(cell.valueType))) {
+                    "No restore data available to read $cell! Incon data is malformed."
+                }.value
+            override fun <V> emit(cell: CellHandle<V>, effect: Effect<V>) { /* ignore and continue */ }
+            override fun <V> report(value: V, type: KType) { /* ignore and continue */ }
+        }
 
         // Only run the next step of the task if we have history for it
         while (inconProvider.inconExists()) {
-            val nextTask = when (val stepResult = thisTask.runStep()) {
-                // When clauses are
-                is TaskStepResult.Read<*, *> -> restoreRead(stepResult)
-                // For linear non-Read steps, just check the history marker type and move on to the next step
-                is TaskStepResult.Emit<*, *> -> inconProvider.provideStep<EmitMarker> { stepResult.continuation }
-                is TaskStepResult.Report<*, *> -> inconProvider.provideStep<ReportMarker> { stepResult.continuation }
+            val nextTask = when (val stepResult = thisTask.runStep(restorationActions)) {
                 is TaskStepResult.Delay -> inconProvider.provideStep<DelayMarker> { stepResult.continuation }
                 is TaskStepResult.Await -> inconProvider.provideStep<AwaitMarker> { stepResult.continuation }
                 // For spawns, check the task history and take the branch corresponding with this history

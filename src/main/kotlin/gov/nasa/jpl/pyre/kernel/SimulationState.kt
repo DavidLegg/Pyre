@@ -8,7 +8,6 @@ import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvidingContext.Companion.provide
 import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
-import gov.nasa.jpl.pyre.kernel.Task.PureStepResult
 import kotlinx.serialization.SerializationException
 import java.util.Comparator.comparing
 import java.util.PriorityQueue
@@ -22,12 +21,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
     private var time: Duration = Duration(0)
     private var cells: TrunkCellSet = TrunkCellSet()
     private val rootTasks: MutableList<TaskEntry> = mutableListOf()
-    // TODO: For performance, it may be simpler to maintain a priority multimap keyed on task time,
-    //  rather than collecting a batch of tasks when running them...
-    //  Consider replacing tasks with a more efficient data structure
     private val tasks: PriorityQueue<TaskEntry> = PriorityQueue(comparing(TaskEntry::time))
-    // TODO: For the sake of restoring awaiting tasks, we may need to save pseudo-tasks,
-    //  which defer back to the original task on everything except runStep, instead of the Await step itself.
     private val cellListeners: MutableMap<CellHandle<*>, MutableSet<AwaitingTask<*>>> = mutableMapOf()
     private val listeningTasks: MutableMap<AwaitingTask<*>, Set<CellHandle<*>>> = mutableMapOf()
     private val modifiedCells: MutableSet<CellHandle<*>> = mutableSetOf()
@@ -38,13 +32,13 @@ class SimulationState(private val reportHandler: ReportHandler) {
         state: SimulationState,
     ) {
         val rewaitTask: Task<T> = object: Task<T> by originalTask {
-            override fun runStep(): Await<T> = await
+            override fun runStep(actions: Task.BasicTaskActions): Await<T> = await
         }
         val continuationTask: Task<T> = object : Task<T> by await.continuation {
-            override fun runStep(): Task.TaskStepResult<T> {
+            override fun runStep(actions: Task.BasicTaskActions): Task.TaskStepResult<T> {
                 // Remove all listeners before continuing so we don't re-trigger the condition
                 state.resetListeners(this@AwaitingTask)
-                return await.continuation.runStep()
+                return await.continuation.runStep(actions)
             }
         }
         var scheduledTask: TaskEntry? = null
@@ -70,7 +64,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
 
     fun initScope() = object : BasicInitScope {
         override fun <T: Any> allocate(cell: Cell<T>) = cells.allocate(cell)
-        override fun <T> spawn(name: Name, step: () -> PureStepResult<T>) = addTask(name, step)
+        override fun <T> spawn(name: Name, step: PureTaskStep<T>) = addTask(name, step)
         override fun <T> read(cell: CellHandle<T>): T = cells[cell].value
     }
 
@@ -189,25 +183,24 @@ class SimulationState(private val reportHandler: ReportHandler) {
         // tasks which run many steps without yielding.
         var nextTask = task
 
-        fun <V> runTaskRead(stepResult: Read<V, T>) {
-            nextTask = stepResult.continuation(cellSet[stepResult.cell].value)
-        }
-
-        fun <V> runTaskEmit(step: Emit<V, T>) {
-            // We mark the cell as modified, instead of directly adding listeners, to keep the simulation deterministic.
-            // This is because a task T may await this cell in parallel with this.
-            // If T is ahead of this in the batch, adding listeners would add it;
-            // but if T were behind this in the batch, adding listeners would miss it.
-            // By deferring the resolution from cell to listener to the end of the batch,
-            // T will always be added, which is conservative and deterministic.
-            cellSet.emit(step.cell, step.effect)
-            modifiedCells += step.cell
-            nextTask = step.continuation
+        val actions = object : Task.BasicTaskActions {
+            override fun <V> read(cell: CellHandle<V>): V = cellSet[cell].value
+            override fun <V> emit(cell: CellHandle<V>, effect: Effect<V>) {
+                cellSet.emit(cell, effect)
+                // We mark the cell as modified, instead of directly adding listeners, to keep the simulation deterministic.
+                // This is because a task T may await this cell in parallel with this.
+                // If T is ahead of this in the batch, adding listeners would add it;
+                // but if T were behind this in the batch, adding listeners would miss it.
+                // By deferring the resolution from cell to listener to the end of the batch,
+                // T will always be added, which is conservative and deterministic.
+                modifiedCells += cell
+            }
+            override fun <V> report(value: V, type: KType) = reportHandler(value, type)
         }
 
         while (true) {
             val stepResult = try {
-                nextTask.runStep()
+                nextTask.runStep(actions)
             } catch (e: Throwable) {
                 System.err.println("Error while running ${nextTask.id}: $e")
                 throw e
@@ -222,14 +215,10 @@ class SimulationState(private val reportHandler: ReportHandler) {
                     awaitingTasks += AwaitingTask(stepResult, nextTask, this)
                     break
                 }
-                is Emit<*, T> -> runTaskEmit(stepResult)
-                is Read<*, T> -> runTaskRead(stepResult)
-                is Report<*, T> -> {
-                    reportHandler(stepResult.value, stepResult.type)
-                    nextTask = stepResult.continuation
-                }
                 is Spawn<*, T> -> {
                     addTask(stepResult.child, time)
+                    // TODO: add continuation to the task queue, instead of running it immediately.
+                    //   This gives the more natural semantics of running the child in parallel with the rest of parent
                     nextTask = stepResult.continuation
                 }
                 is NoOp -> {

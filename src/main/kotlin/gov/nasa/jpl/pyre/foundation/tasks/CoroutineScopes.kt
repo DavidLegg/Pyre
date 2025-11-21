@@ -1,5 +1,7 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
+import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
@@ -10,10 +12,12 @@ import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.kernel.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.Task
+import gov.nasa.jpl.pyre.kernel.Task.BasicTaskActions
 import gov.nasa.jpl.pyre.kernel.Task.PureStepResult.*
 import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
 import kotlin.reflect.KType
+import kotlin.time.Instant
 
 
 /*
@@ -106,7 +110,7 @@ sealed interface TaskScopeResult<T> {
 context (scope: SimulationScope)
 fun <T> coroutineTask(block: suspend context (TaskScope) () -> TaskScopeResult<T>): PureTaskStep<T> =
     // Running the task step creates a new TaskBuilder, allowing for repeating tasks
-    { TaskBuilder(scope, block).runTask() }
+    { TaskBuilder(scope, block).runTask(it) }
 
 /**
  * Write a coroutine Pyre task which never repeats.
@@ -128,34 +132,23 @@ context (scope: SimulationScope)
 fun repeatingTask(block: suspend context (TaskScope) () -> Unit): suspend context (TaskScope) () -> TaskScopeResult<Unit> =
     { block(); TaskScopeResult.Restart() }
 
+
 private class TaskBuilder<T>(
     simulationScope: SimulationScope,
     block: suspend context (TaskScope) () -> TaskScopeResult<T>
 ) : TaskScope, Continuation<TaskScopeResult<T>>, SimulationScope by simulationScope {
     private val start: Continuation<Unit> = block.createCoroutineUnintercepted(this, this)
+    private var basicTaskActions: BasicTaskActions? = null
     private var nextResult: Task.PureStepResult<T>? = null
 
     override suspend fun <V> read(cell: CellHandle<V>): V =
-        suspendCoroutineUninterceptedOrReturn { c ->
-            nextResult = Read(cell) { value ->
-                nextResult = null
-                c.resume(value)
-                nextResult!!
-            }
-            COROUTINE_SUSPENDED
-        }
+        basicTaskActions!!.read(cell)
 
     override suspend fun <V> emit(cell: CellHandle<V>, effect: Effect<V>) =
-        suspendCoroutineUninterceptedOrReturn { c ->
-            nextResult = Emit(cell, effect, continueWith(c))
-            COROUTINE_SUSPENDED
-        }
+        basicTaskActions!!.emit(cell, effect)
 
     override suspend fun <T> report(value: T, type: KType) =
-        suspendCoroutineUninterceptedOrReturn { c ->
-            nextResult = Report(value, type, continueWith(c))
-            COROUTINE_SUSPENDED
-        }
+        basicTaskActions!!.report(value, type)
 
     override suspend fun delay(time: Duration) =
         suspendCoroutineUninterceptedOrReturn { c ->
@@ -192,13 +185,15 @@ private class TaskBuilder<T>(
         }
     }
 
-    private fun continueWith(continuation: Continuation<Unit>): PureTaskStep<T> = {
+    private fun continueWith(continuation: Continuation<Unit>): PureTaskStep<T> = { actions ->
+        basicTaskActions = actions
         nextResult = null
         continuation.resume(Unit)
+        basicTaskActions = null
         nextResult!!
     }
 
-    fun runTask(): Task.PureStepResult<T> = continueWith(start)()
+    fun runTask(actions: BasicTaskActions): Task.PureStepResult<T> = continueWith(start)(actions)
 
     override fun toString(): String = contextName.toString()
 }

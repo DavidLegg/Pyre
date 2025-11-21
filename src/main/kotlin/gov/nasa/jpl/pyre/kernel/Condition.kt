@@ -2,6 +2,8 @@ package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 
+// TODO: Rewrite condition to just call read instead of returning a read continuation
+
 sealed interface Condition {
     sealed interface ConditionResult : Condition
     data class SatisfiedAt(val time: Duration) : ConditionResult {

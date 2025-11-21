@@ -21,6 +21,7 @@ import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.time.Instant
 
+// TODO: Remove suspend requirement from non-yielding actions
 
 /**
  * A context for all the "global" conveniences offered by foundation during simulation.
