@@ -240,7 +240,6 @@ class FoundationSimulationTest {
             val warmupPower = discreteResource("warmupPower", 3.0)
             val onPower = discreteResource("onPower", 10.0)
             val miscPower = discreteResource("miscPower", 2.0)
-            // TODO: Consider a "derived resource builder", akin to TaskBuilder, to use coroutines to define the derivation...
             val devicePower = with (DiscreteResourceMonad) {
                 bind (state) {
                     when (it) {

@@ -176,8 +176,6 @@ class SimulationState(private val reportHandler: ReportHandler) {
     private fun <T> resetListeners(awaitingTask: AwaitingTask<T>) {
         // Reset the cells we're listening to
         listeningTasks.remove(awaitingTask)?.forEach { cellListeners[it]?.remove(awaitingTask) }
-        // TODO: for long-term performance, we may want to use a proper multi-map instead of map-to-sets
-        //   That way we won't accrue empty sets in the values over time
     }
 
     private fun <T> runTask(task: Task<T>, cellSet: CellSet) {

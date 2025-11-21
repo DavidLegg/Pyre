@@ -47,7 +47,6 @@ class SchedulingSystem<M, C> private constructor(
     private val jsonFormat: Json,
     incon: InconProvider?,
 ) {
-    // TODO: Further, try making it a PQ of lists of activities, so taking that batch is trivial
     /** Activities not yet part of the simulation */
     private val futureActivities: PriorityQueue<GroundedActivity<M>> = PriorityQueue(compareBy { it.time })
     /** Activities which have been incorporated into the simulation. */

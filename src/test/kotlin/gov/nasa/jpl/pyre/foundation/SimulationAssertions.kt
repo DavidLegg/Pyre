@@ -101,5 +101,3 @@ fun ChannelAssertContext.value(v: Double) {
 fun ChannelAssertContext.value(v: Boolean) {
     element { assertEquals(v, boolean()) }
 }
-
-// TODO: write assertions to inspect channelized outputs

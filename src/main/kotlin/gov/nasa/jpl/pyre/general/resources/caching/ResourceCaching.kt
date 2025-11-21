@@ -40,14 +40,12 @@ object ResourceCaching {
      * Cache a resource, either for performance or to stabilize references.
      * Optionally accepts an [equals] parameter to indicate when the value is "close enough" to not update the cache.
      */
-    // TODO: Work resource reads into the init scope to avoid a defaultDynamics here?
     context (scope: InitScope)
     inline fun <V, reified D : Dynamics<V, D>> Resource<D>.cached(
         name: String,
-        defaultDynamics: D,
         noinline equals: (D, D) -> Boolean = Any::equals,
     ): Resource<D> {
-        val cache: MutableResource<D> = resource(name, defaultDynamics)
+        val cache: MutableResource<D> = resource(name, getDynamics().data)
         val cacheIsOutOfDate = ResourceMonad.map(this, cache) { t, c -> Discrete(!equals(t, c)) }
             .named { "$cache is out of date" }
         spawn("Update $name", whenever(cacheIsOutOfDate) {
