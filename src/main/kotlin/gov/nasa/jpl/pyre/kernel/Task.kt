@@ -203,51 +203,48 @@ private class PureTask<T>(
     }
 
     private fun restoreSingle(inconProvider: InconProvidingContext): Task<*> {
-        // If there's no incon data left, we've reached the active step
-        if (!inconProvider.inconExists()) return this
-        return with (this.runStep()) {
-            when (this) {
-                is TaskStepResult.Complete -> throw IllegalArgumentException("Extra restore data for completed task")
-                is TaskStepResult.Read<*, T> -> restoreRead(this, inconProvider)
-                is TaskStepResult.Emit<*, T> -> restoreWith<EmitMarker>(inconProvider) {
-                    (continuation as PureTask<T>).restoreSingle(inconProvider)
-                }
-                is TaskStepResult.Report<*, T> -> restoreWith<ReportMarker>(inconProvider) {
-                    (continuation as PureTask<T>).restoreSingle(inconProvider)
-                }
-                is TaskStepResult.Delay -> restoreWith<DelayMarker>(inconProvider) {
-                    (continuation as PureTask<T>).restoreSingle(inconProvider)
-                }
-                is TaskStepResult.Await -> restoreWith<AwaitMarker>(inconProvider) {
-                    (continuation as PureTask<T>).restoreSingle(inconProvider)
-                }
-                is TaskStepResult.Spawn<*, T> -> restoreWith<SpawnMarker>(inconProvider) {
+        var thisTask: Task<*> = this
+
+        fun <V, T> restoreRead(step: TaskStepResult.Read<V, T>): Task<*>? =
+            // Get the read value from the task history and feed that into the continuation to replay the read
+            inconProvider.provide<ReadMarker<V>>(ReadMarker.concreteType(step.cell.valueType))?.let {
+                step.continuation(it.value)
+            }
+
+        // Only run the next step of the task if we have history for it
+        while (inconProvider.inconExists()) {
+            val nextTask = when (val stepResult = thisTask.runStep()) {
+                // When clauses are
+                is TaskStepResult.Read<*, *> -> restoreRead(stepResult)
+                // For linear non-Read steps, just check the history marker type and move on to the next step
+                is TaskStepResult.Emit<*, *> -> inconProvider.provideStep<EmitMarker> { stepResult.continuation }
+                is TaskStepResult.Report<*, *> -> inconProvider.provideStep<ReportMarker> { stepResult.continuation }
+                is TaskStepResult.Delay -> inconProvider.provideStep<DelayMarker> { stepResult.continuation }
+                is TaskStepResult.Await -> inconProvider.provideStep<AwaitMarker> { stepResult.continuation }
+                // For spawns, check the task history and take the branch corresponding with this history
+                is TaskStepResult.Spawn<*, *> -> inconProvider.provideStep<SpawnMarker> {
                     when (it.branch) {
-                        SpawnMarkerBranch.Parent -> requireNotNull((continuation as PureTask<T>).restoreSingle(inconProvider))
-                        SpawnMarkerBranch.Child -> requireNotNull((child as PureTask<*>).restoreSingle(inconProvider))
+                        SpawnMarkerBranch.Parent -> stepResult.continuation
+                        SpawnMarkerBranch.Child -> stepResult.child
                     }
                 }
-                is TaskStepResult.NoOp<T> ->
-                    // NoOp's don't contribute to task history themselves, just keep restoring with the next step
-                    (continuation as PureTask<T>).restoreSingle(inconProvider)
+                // NoOp's don't contribute to task history themselves, just keep restoring with the next step
+                is TaskStepResult.NoOp -> stepResult.continuation
+                is TaskStepResult.Complete -> throw IllegalArgumentException("Extra restore data for completed task")
+            }
+            // Since we asserted before running the task that some incon element exists, this null check should never fail.
+            thisTask = checkNotNull(nextTask) {
+                "Internal error! inconProvider reported inconExists, but no incon was read!"
             }
         }
+        // If there's no history data left, we've reached the active step
+        return thisTask
     }
 
-    private fun <V> restoreRead(
-        step: TaskStepResult.Read<V, T>,
-        inconProvider: InconProvidingContext,
-    ): Task<*> = inconProvider.provide<ReadMarker<V>>(ReadMarker.concreteType(step.cell.valueType))?.let {
-        (step.continuation(it.value) as PureTask<T>).restoreSingle(inconProvider)
-    } ?: this
-
-    private inline fun <reified T> restoreWith(inconProvider: InconProvidingContext, restoreBlock: (T) -> Task<*>): Task<*> {
+    private inline fun <reified S : TaskHistoryStep> InconProvidingContext.provideStep(block: (S) -> Task<*>): Task<*>? =
         // Provide a general TaskHistoryStep, so deserializer interprets the class discriminator field "type"
-        return inconProvider.provide<TaskHistoryStep>()?.let {
-            // Then verify it was the exact type we expected
-            restoreBlock(it as T)
-        } ?: this
-    }
+        // Then verify it was the exact type we expected
+        provide<TaskHistoryStep>()?.let { block(it as S) }
 
     override fun toString(): String = id.toString()
 

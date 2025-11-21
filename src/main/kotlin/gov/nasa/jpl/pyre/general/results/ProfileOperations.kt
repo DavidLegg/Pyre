@@ -15,6 +15,8 @@ import gov.nasa.jpl.pyre.foundation.resources.ThinResourceMonad
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
+import gov.nasa.jpl.pyre.general.results.Profile.Companion.start
+import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import java.util.TreeMap
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
@@ -30,8 +32,12 @@ object ProfileOperations {
     fun <D : Dynamics<*, D>> List<ChannelizedReport<*>>.asProfile(name: String, end: Instant): Profile<D> {
         @Suppress("UNCHECKED_CAST")
         val segments = this as List<ChannelizedReport<D>>
-        require(segments.isNotEmpty())
-        return Profile(name, end, TreeMap(segments.associate { it.time to it.data }))
+        return Profile(
+            name,
+            end,
+            // TODO: Use "takeWhile" instead of "filter", assuming a time-ordered channel
+            segments.filter { it.time < end }.associateTo(TreeMap()) { it.time to it.data }
+        )
     }
 
     /**
@@ -47,9 +53,11 @@ object ProfileOperations {
      *
      * @param name The channel name to read, also becomes the profile name.
      */
-    fun <V, D : Dynamics<V, D>> SimulationResults.lastValue(name: String): V =
-        // TODO: This is not the most efficient way to do this - consider extracting only the last segment instead
-        getProfile<D>(name).let { it[it.end] }
+    @Suppress("UNCHECKED_CAST")
+    fun <V, D : Dynamics<V, D>> SimulationResults.lastValue(name: String): V {
+        val report = resources.getValue(name).last() as ChannelizedReport<D>
+        return report.data.step((endTime - report.time).toPyreDuration()).value()
+    }
 
     /**
      * Create a resource which exactly replays this [Profile].
@@ -139,8 +147,8 @@ object ProfileOperations {
      * Compute a profile, based on this [Profile], by running a simulation.
      */
     fun <U, E : Dynamics<U, E>, V, D : Dynamics<V, D>> Profile<E>.compute(
-        start: Instant = window.start,
-        end: Instant = window.endExclusive,
+        start: Instant = this.start,
+        end: Instant = this.end,
         derivation: suspend context (InitScope) Resource<E>.() -> Resource<D>,
         dynamicsType: KType,
     ): Profile<D> = computeProfile(start, end, { asResource().derivation() }, dynamicsType)
@@ -149,23 +157,28 @@ object ProfileOperations {
      * Compute a profile, based on this [Profile], by running a simulation.
      */
     inline fun <U, E : Dynamics<U, E>, V, reified D : Dynamics<V, D>> Profile<E>.compute(
-        start: Instant = window.start,
-        end: Instant = window.endExclusive,
+        start: Instant = this.start,
+        end: Instant = this.end,
         noinline derivation: suspend context (InitScope) Resource<E>.() -> Resource<D>,
     ) = compute(start, end, derivation, typeOf<D>())
 
-    operator fun <T : Comparable<T>> OpenEndRange<T>.contains(other: OpenEndRange<T>): Boolean =
-        other.start >= this.start && other.endExclusive <= this.endExclusive
+    operator fun <T : Comparable<T>> ClosedRange<T>.contains(other: ClosedRange<T>): Boolean =
+        other.start >= this.start && other.endInclusive <= this.endInclusive
 
-    fun <D : Dynamics<*, D>> Profile<D>.restrictTo(interval: OpenEndRange<Instant>): Profile<D> {
+    fun <D : Dynamics<*, D>> Profile<D>.restrictTo(interval: ClosedRange<Instant>): Profile<D> {
         require(interval in window) {
-            "Restriction interval ${interval.start} - ${interval.endExclusive} must be contained in" +
-                    " profile window ${window.start} - ${window.endExclusive}"
+            "Restriction interval ${interval.start} - ${interval.endInclusive} must be contained in" +
+                    " profile window ${window.start} - ${window.endInclusive}"
         }
         return Profile(
             name,
-            interval.endExclusive,
-            segments.filterKeys { it in interval } + (interval.start to getSegment(interval.start).data)
+            interval.endInclusive,
+            segments.entries
+                // TODO: Since segments is a navigable map, lookup the start segment and walk to the end of the interval,
+                //   rather than iterating over all the keys, for better performance.
+                .filter { it.key in interval }
+                .associateTo(TreeMap<Instant, D>()) { it.key to it.value }
+                .apply { put(interval.start, getSegment(interval.start).data) }
         )
     }
 }

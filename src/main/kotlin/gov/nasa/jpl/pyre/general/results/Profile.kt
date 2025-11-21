@@ -14,16 +14,14 @@ import kotlin.time.Instant
 class Profile<D : Dynamics<*, D>>(
     val name: String,
     end: Instant,
-    segments: Map<Instant, D>
-) {
-    val window: OpenEndRange<Instant>
     val segments: NavigableMap<Instant, D>
+) {
+    val window: ClosedRange<Instant>
     init {
         require(segments.isNotEmpty()) {
             "Profile segments cannot be empty"
         }
-        this.segments = TreeMap(segments.filterKeys { it < end })
-        window = this.segments.firstKey()..<end
+        window = this.segments.firstKey()..end
         require(!window.isEmpty()) {
             "Profile end $end must be later than start $start"
         }
@@ -39,7 +37,7 @@ class Profile<D : Dynamics<*, D>>(
     )
 
     private fun getSegmentData(time: Instant): D {
-        require(time >= start && time <= end) {
+        require(time in window) {
             "Time $time is outside of profile range $start - $end"
         }
         return segments.floorEntry(time).let {
@@ -50,6 +48,6 @@ class Profile<D : Dynamics<*, D>>(
     companion object {
         operator fun <V, D : Dynamics<V, D>> Profile<D>.get(time: Instant) = getSegmentData(time).value()
         val Profile<*>.start get() = window.start
-        val Profile<*>.end get() = window.endExclusive
+        val Profile<*>.end get() = window.endInclusive
     }
 }
