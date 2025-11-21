@@ -21,8 +21,6 @@ import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.time.Instant
 
-// TODO: Remove suspend from non-yielding actions
-
 /**
  * A context for all the "global" conveniences offered by foundation during simulation.
  */
@@ -73,21 +71,21 @@ interface ResourceScope : SimulationScope {
 interface ConditionScope : ResourceScope
 
 interface TaskScope : ResourceScope {
-    suspend fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>)
-    suspend fun <T> report(value: T, type: KType)
+    fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>)
+    fun <T> report(value: T, type: KType)
     suspend fun delay(time: Duration)
     suspend fun await(condition: Condition)
     suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>)
 
     companion object {
         context (scope: TaskScope)
-        suspend inline fun <reified T> report(value: T) = report(value, typeOf<T>())
+        inline fun <reified T> report(value: T) = report(value, typeOf<T>())
 
         context (scope: TaskScope)
-        suspend fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>) = scope.emit(cell, effect)
+        fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>) = scope.emit(cell, effect)
 
         context (scope: TaskScope)
-        suspend fun <T> report(value: T, type: KType) = scope.report(value, type)
+        fun <T> report(value: T, type: KType) = scope.report(value, type)
 
         context (scope: TaskScope)
         suspend fun delay(time: Duration) = scope.delay(time)

@@ -93,10 +93,10 @@ private class TaskBuilder<T>(
     override fun <V> read(cell: CellHandle<V>): V =
         basicTaskActions!!.read(cell)
 
-    override suspend fun <V> emit(cell: CellHandle<V>, effect: Effect<V>) =
+    override fun <V> emit(cell: CellHandle<V>, effect: Effect<V>) =
         basicTaskActions!!.emit(cell, effect)
 
-    override suspend fun <T> report(value: T, type: KType) =
+    override fun <T> report(value: T, type: KType) =
         basicTaskActions!!.report(value, type)
 
     override suspend fun delay(time: Duration) =
