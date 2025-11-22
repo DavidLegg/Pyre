@@ -26,7 +26,7 @@ class VerletIntegrator(
     private val position: DiscreteResource<DoubleArray>
 
     context (scope: ResourceScope)
-    override suspend fun getDynamics(): FullDynamics<Discrete<DoubleArray>> = position.getDynamics()
+    override fun getDynamics(): FullDynamics<Discrete<DoubleArray>> = position.getDynamics()
 
     init {
         with (context) {

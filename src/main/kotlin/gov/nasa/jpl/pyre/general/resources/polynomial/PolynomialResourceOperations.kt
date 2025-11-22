@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.general.resources.polynomial
 
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial.Companion.polynomial
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
@@ -22,6 +21,8 @@ import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenTrue
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.await
+import gov.nasa.jpl.pyre.kernel.Condition
+import gov.nasa.jpl.pyre.kernel.TRUE
 import kotlin.let
 import kotlin.math.max
 import kotlin.math.min
@@ -154,7 +155,7 @@ object PolynomialResourceOperations {
         }
 
         // Run once immediately to get the loop started.
-        var condition = { Condition.TRUE }
+        var condition = TRUE
         spawn("Compute $name", repeatingTask {
             // Perform the await at the start of the task, to minimize saved task history
             await(condition)
@@ -253,7 +254,7 @@ object PolynomialResourceOperations {
         val integral: Polynomial,
         val overflow: Polynomial,
         val underflow: Polynomial,
-        val retryCondition: () -> Condition
+        val retryCondition: Condition
     )
 
     data class ClampedIntegralResult(

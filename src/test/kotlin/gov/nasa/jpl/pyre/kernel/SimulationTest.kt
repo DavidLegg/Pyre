@@ -87,6 +87,15 @@ class SimulationTest {
         { l, r -> l andThen r }
     )
 
+    /**
+     * "Patch" test-ism - I removed the Delay task step type in favor of using Await.
+     * Rather than rewrite a bunch of tests, I'm re-building Delay in terms of Await.
+     */
+    private fun <T> Task.BasicTaskActions.Delay(time: Duration, clock: CellSet.CellHandle<Duration>, block: PureTaskStep<T>): Await<T> {
+        val endTime = read(clock) + time
+        return Await({ SatisfiedAt(endTime - it.read(clock)) }, block)
+    }
+
     @Test
     fun empty_simulation_is_valid() {
         runSimulation(HOUR) {}
@@ -96,9 +105,8 @@ class SimulationTest {
     fun task_can_report_result() {
         val results = runSimulation(HOUR) {
             spawn(Name("report result")) {
-                Report("result", typeOf<String>()) {
-                    Complete(Unit)
-                }
+                it.report("result", typeOf<String>())
+                Complete(Unit)
             }
         }
         assertEquals(mutableListOf(JsonPrimitive("result")), results.reports)
@@ -116,11 +124,9 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 42))
             spawn(Name("read cell")) {
-                Read(x) {
-                    Report("x = $it", typeOf<String>()) {
-                        Complete(Unit)
-                    }
-                }
+                val xVal = it.read(x)
+                it.report("x = $xVal", typeOf<String>())
+                Complete(Unit)
             }
         }
         assertEquals(mutableListOf(JsonPrimitive("x = 42")), results.reports)
@@ -139,23 +145,25 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 42))
             spawn(Name("emit effect")) {
-                Emit(x, { it + 13 }) {
-                    Read(x) {
-                        Report("x = $it", typeOf<String>()) {
-                            Complete(Unit)
-                        }
-                    }
-                }
+                it.emit(x) { it + 13 }
+                val xVal = it.read(x)
+                it.report("x = $xVal", typeOf<String>())
+                Complete(Unit)
             }
         }
         assertEquals(mutableListOf(JsonPrimitive("x = 55")), results.reports)
     }
 
+    // Note: There used to be an explicit "delay" StepResult, separate from Await.
+    // Await has since subsumed Delay, but we're keeping this test around because later tests use "delay-style awaits"
+    // to test cell stepping. I want to know that this very simple style of await works, then test that cells work,
+    // then come back and test that more complicated styles of awaiting also work.
     @Test
     fun task_can_delay() {
         runSimulation(HOUR) {
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("delay")) {
-                Delay(30 * MINUTE) {
+                it.Delay(30 * MINUTE, clock) {
                     Complete(Unit)
                 }
             }
@@ -169,17 +177,14 @@ class SimulationTest {
             // will not change the value, but a single >1 minute step would.
             // It's fine for this test, though.
             val x = allocate(Cell(Name("x"), 0, typeOf<Int>(), { x, t -> x + (t / MINUTE).toInt() }, { l, r -> l andThen r }))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("step cell")) {
-                Read(x) {
-                    Report("now x = $it", typeOf<String>()) {
-                        Delay(30 * MINUTE) {
-                            Read(x) {
-                                Report("later x = $it", typeOf<String>()) {
-                                    Complete(Unit)
-                                }
-                            }
-                        }
-                    }
+                val xVal = it.read(x)
+                it.report("now x = $xVal", typeOf<String>())
+                it.Delay(30 * MINUTE, clock) {
+                    val xVal = it.read(x)
+                    it.report("later x = $xVal", typeOf<String>())
+                    Complete(Unit)
                 }
             }
         }
@@ -197,33 +202,23 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
             spawn(Name("Task A")) {
-                Emit(x, { it + 5 }) {
-                    Read(x) {
-                        Report("A says: x = $it", typeOf<String>()) {
-                            Complete(Unit)
-                        }
-                    }
-                }
+                it.emit(x) { it + 5 }
+                val xVal = it.read(x)
+                it.report("A says: x = $xVal", typeOf<String>())
+                Complete(Unit)
             }
             spawn(Name("Task B")) {
-                Emit(x, { it + 3 }) {
-                    Read(x) {
-                        Report("B says: x = $it", typeOf<String>()) {
-                            Complete(Unit)
-                        }
-                    }
-                }
+                it.emit(x) { it + 3 }
+                val xVal = it.read(x)
+                it.report("B says: x = $xVal", typeOf<String>())
+                Complete(Unit)
             }
             spawn(Name("Task C")) {
-                Read(x) {
-                    Report("C says: x = $it", typeOf<String>()) {
-                        Read(x) {
-                            Report("C still says: x = $it", typeOf<String>()) {
-                                Complete(Unit)
-                            }
-                        }
-                    }
-                }
+                val xVal = it.read(x)
+                it.report("C says: x = $xVal", typeOf<String>())
+                val xVal2 = it.read(x)
+                it.report("C still says: x = $xVal2", typeOf<String>())
+                Complete(Unit)
             }
         }
         with (results) {
@@ -240,26 +235,20 @@ class SimulationTest {
     fun parallel_tasks_join_effects_at_each_delay() {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Task A")) {
-                Emit(x, { it + 5 }) {
-                    Read(x) {
-                        Report("A says: x = $it", typeOf<String>()) {
-                            Complete(Unit)
-                        }
-                    }
-                }
+                it.emit(x) { it + 5 }
+                val xVal = it.read(x)
+                it.report("A says: x = $xVal", typeOf<String>())
+                Complete(Unit)
             }
             spawn(Name("Task B")) {
-                Read(x) {
-                    Report("B first says: x = $it", typeOf<String>()) {
-                        Delay(ZERO) {
-                            Read(x) {
-                                Report("B next says: x = $it", typeOf<String>()) {
-                                    Complete(Unit)
-                                }
-                            }
-                        }
-                    }
+                val xVal = it.read(x)
+                it.report("B first says: x = $xVal", typeOf<String>())
+                it.Delay(ZERO, clock) {
+                    val xVal = it.read(x)
+                    it.report("B next says: x = $xVal", typeOf<String>())
+                    Complete(Unit)
                 }
             }
         }
@@ -277,31 +266,24 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             // Note: This is *not* a correct effect trait, but it's simple and lets us observe what's happening better.
             val x = allocate(Cell(Name("x"), 10, typeOf<Int>(), { x, _ -> x }, { l, r -> { 100 + r(l(it)) } }))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Task A")) {
-                Emit(x, { it + 5 }) {
-                    Read(x) {
-                        Report("A says: x = $it", typeOf<String>()) {
-                            Complete(Unit)
-                        }
-                    }
-                }
+                it.emit(x) { it + 5 }
+                val xVal = it.read(x)
+                it.report("A says: x = $xVal", typeOf<String>())
+                Complete(Unit)
             }
             spawn(Name("Task B")) {
-                Emit(x, { it + 3 }) {
-                    Read(x) {
-                        Report("B says: x = $it", typeOf<String>()) {
-                            Complete(Unit)
-                        }
-                    }
-                }
+                it.emit(x) { it + 3 }
+                val xVal = it.read(x)
+                it.report("B says: x = $xVal", typeOf<String>())
+                Complete(Unit)
             }
             spawn(Name("Task C")) {
-                Delay(ZERO) {
-                    Read(x) {
-                        Report("C says: x = $it", typeOf<String>()) {
-                            Complete(Unit)
-                        }
-                    }
+                it.Delay(ZERO, clock) {
+                    val xVal = it.read(x)
+                    it.report("C says: x = $xVal", typeOf<String>())
+                    Complete(Unit)
                 }
             }
         }
@@ -318,7 +300,7 @@ class SimulationTest {
     fun task_can_await_condition() {
         runSimulation(HOUR) {
             spawn(Name("Await condition")) {
-                Await({ Condition.SatisfiedAt(ZERO) }) {
+                Await({ SatisfiedAt(ZERO) }) {
                     Complete(Unit)
                 }
             }
@@ -329,25 +311,21 @@ class SimulationTest {
     fun await_trivial_condition_runs_task_in_next_batch() {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Awaiter")) {
-                Await({ Condition.SatisfiedAt(ZERO) }) {
-                    Read(x) {
-                        Report("Awaiter says: x = $it", typeOf<String>()) {
-                            Complete(Unit)
-                        }
-                    }
+                Await({ SatisfiedAt(ZERO) }) {
+                    val xVal = it.read(x)
+                    it.report("Awaiter says: x = $xVal", typeOf<String>())
+                    Complete(Unit)
                 }
             }
             spawn(Name("Counter")) {
-                Emit(x, { it + 1 }) {
-                    Delay(ZERO) {
-                        Emit(x, { it + 1 }) {
-                            Delay(ZERO) {
-                                Emit(x, { it + 1 }) {
-                                    Complete(Unit)
-                                }
-                            }
-                        }
+                it.emit(x) { it + 1 }
+                it.Delay(ZERO, clock) {
+                    it.emit(x) { it + 1 }
+                    it.Delay(ZERO, clock) {
+                        it.emit(x) { it + 1 }
+                        Complete(Unit)
                     }
                 }
             }
@@ -359,10 +337,9 @@ class SimulationTest {
     fun await_never_condition_does_not_run_task() {
         val results = runSimulation(HOUR) {
             spawn(Name("Awaiter")) {
-                Await({ Condition.UnsatisfiedUntil(null) }) {
-                    Report("Awaiter ran!", typeOf<String>()) {
-                        Complete(Unit)
-                    }
+                Await({ UnsatisfiedUntil(null) }) {
+                    it.report("Awaiter ran!", typeOf<String>())
+                    Complete(Unit)
                 }
             }
         }
@@ -374,34 +351,27 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
             val y = allocate(intCounterCell("y", 12))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Awaiter")) {
-                val condition = Condition.Read(x) { xValue ->
-                    Condition.Read(y) { yValue ->
-                        if (xValue >= yValue) Condition.SatisfiedAt(ZERO) else Condition.UnsatisfiedUntil(null)
-                    }
-                }
-                Await({ condition }) {
-                    Read(x) {
-                        Report("Awaiter says: x = $it", typeOf<String>()) {
-                            Read(y) {
-                                Report("Awaiter says: y = $it", typeOf<String>()) {
-                                    Complete(Unit)
-                                }
-                            }
-                        }
-                    }
+                Await({
+                    val xValue = it.read(x)
+                    val yValue = it.read(y)
+                    if (xValue >= yValue) SatisfiedAt(ZERO) else UnsatisfiedUntil(null)
+                }) {
+                    val xVal = it.read(x)
+                    it.report("Awaiter says: x = $xVal", typeOf<String>())
+                    val yVal = it.read(y)
+                    it.report("Awaiter says: y = $yVal", typeOf<String>())
+                    Complete(Unit)
                 }
             }
             spawn(Name("Counter")) {
-                Emit(x, { it + 1 }) {
-                    Delay(ZERO) {
-                        Emit(y, { it - 1 }) {
-                            Delay(ZERO) {
-                                Emit(x, { it + 1 }) {
-                                    Complete(Unit)
-                                }
-                            }
-                        }
+                it.emit(x) { it + 1 }
+                it.Delay(ZERO, clock) {
+                    it.emit(y) { it - 1 }
+                    it.Delay(ZERO, clock) {
+                        it.emit(x) { it + 1 }
+                        Complete(Unit)
                     }
                 }
             }
@@ -424,24 +394,19 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(linearCell("x", 10.0, 1.0))
             spawn(Name("Awaiter")) {
-                val cond = Condition.Read(x) {
-                    with (it) {
-                        // Example implementation of a "greater than 20" condition for a linear dynamics type.
-                        if (value >= 20) {
-                            Condition.SatisfiedAt(ZERO)
-                        } else if (rate <= 0) {
-                            Condition.UnsatisfiedUntil(null)
-                        } else {
-                            Condition.SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
+                Await({
+                    // Example implementation of a "greater than 20" condition for a linear dynamics type.
+                    with (it.read(x)) {
+                        when {
+                            value >= 20 -> SatisfiedAt(ZERO)
+                            rate <= 0 -> UnsatisfiedUntil(null)
+                            else -> SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
                         }
                     }
-                }
-                Await({ cond }) {
-                    Read(x) {
-                        Report(it, typeOf<LinearDynamics>()) {
-                            Complete(Unit)
-                        }
-                    }
+                }) {
+                    val xVal = it.read(x)
+                    it.report(xVal, typeOf<LinearDynamics>())
+                    Complete(Unit)
                 }
             }
         }
@@ -461,45 +426,34 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(intCounterCell("y", 0))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Awaiter")) {
-                val cond = Condition.Read(x) {
-                    with (it) {
-                        // Example implementation of a "greater than 20" condition for a linear dynamics type.
-                        if (value >= 20) {
-                            Condition.SatisfiedAt(ZERO)
-                        } else if (rate <= 0) {
-                            Condition.UnsatisfiedUntil(null)
-                        } else {
-                            Condition.SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
+                Await({
+                    // Example implementation of a "greater than 20" condition for a linear dynamics type.
+                    with (it.read(x)) {
+                        when {
+                            value >= 20 -> SatisfiedAt(ZERO)
+                            rate <= 0 -> UnsatisfiedUntil(null)
+                            else -> SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
                         }
                     }
-                }
-                Await({ cond }) {
-                    Read(x) {
-                        Report(it, typeOf<LinearDynamics>()) {
-                            Read(y) {
-                                Report("Awaiter says: y = $it", typeOf<String>()) {
-                                    Complete(Unit)
-                                }
-                            }
-                        }
-                    }
+                }) {
+                    val xVal = it.read(x)
+                    it.report(xVal, typeOf<LinearDynamics>())
+                    val yVal = it.read(y)
+                    it.report("Awaiter says: y = $yVal", typeOf<String>())
+                    Complete(Unit)
                 }
             }
             spawn(Name("Interrupter")) {
-                Emit(y, { it + 1 }) {
-                    Delay(6 * SECOND) {
-                        Emit(y, { it + 1 }) {
-                            Emit(x, { LinearDynamics(19.0, -0.5) }) {
-                                Delay(20 * MINUTE) {
-                                    Emit(y, { it + 1 }) {
-                                        Emit(x, { LinearDynamics(35.0, 0.0) }) {
-                                            Complete(Unit)
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                it.emit(y) { it + 1 }
+                it.Delay(6 * SECOND, clock) {
+                    it.emit(y) { it + 1 }
+                    it.emit(x) { LinearDynamics(19.0, -0.5) }
+                    it.Delay(20 * MINUTE, clock) {
+                        it.emit(y) { it + 1 }
+                        it.emit(x) { LinearDynamics(35.0, 0.0) }
+                        Complete(Unit)
                     }
                 }
             }
@@ -522,45 +476,34 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(intCounterCell("y", 0))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Awaiter")) {
-                val cond = Condition.Read(x) {
-                    with (it) {
-                        // Example implementation of a "greater than 20" condition for a linear dynamics type.
-                        if (value >= 20) {
-                            Condition.SatisfiedAt(ZERO)
-                        } else if (rate <= 0) {
-                            Condition.UnsatisfiedUntil(null)
-                        } else {
-                            Condition.SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
+                Await({
+                    // Example implementation of a "greater than 20" condition for a linear dynamics type.
+                    with (it.read(x)) {
+                        when {
+                            value >= 20 -> SatisfiedAt(ZERO)
+                            rate <= 0 -> UnsatisfiedUntil(null)
+                            else -> SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
                         }
                     }
-                }
-                Await({ cond }) {
-                    Read(x) {
-                        Report(it, typeOf<LinearDynamics>()) {
-                            Read(y) {
-                                Report("Awaiter says: y = $it", typeOf<String>()) {
-                                    Complete(Unit)
-                                }
-                            }
-                        }
-                    }
+                }) {
+                    val xVal = it.read(x)
+                    it.report(xVal, typeOf<LinearDynamics>())
+                    val yVal = it.read(y)
+                    it.report("Awaiter says: y = $yVal", typeOf<String>())
+                    Complete(Unit)
                 }
             }
             spawn(Name("Interrupter")) {
-                Emit(y, { it + 1 }) {
-                    Delay(6 * SECOND) {
-                        Emit(y, { it + 1 }) {
-                            Emit(x, { LinearDynamics(19.0, -0.5) }) {
-                                Delay(20 * MINUTE) {
-                                    Emit(y, { it + 1 }) {
-                                        Emit(x, { LinearDynamics(19.0, 0.1) }) {
-                                            Complete(Unit)
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                it.emit(y) { it + 1 }
+                it.Delay(6 * SECOND, clock) {
+                    it.emit(y) { it + 1 }
+                    it.emit(x) { LinearDynamics(19.0, -0.5) }
+                    it.Delay(20 * MINUTE, clock) {
+                        it.emit(y) { it + 1 }
+                        it.emit(x) { LinearDynamics(19.0, 0.1) }
+                        Complete(Unit)
                     }
                 }
             }
@@ -584,19 +527,12 @@ class SimulationTest {
             val x = allocate(linearCell("x", 10.0, 1.0))
             spawn(Name("Awaiter")) {
                 Await({
-                    Condition.Read(x) {
-                        if (it.value >= 15) {
-                            Condition.SatisfiedAt(ZERO)
-                        } else {
-                            Condition.UnsatisfiedUntil(2 * SECOND)
-                        }
-                    }
+                    if (it.read(x).value >= 15) SatisfiedAt(ZERO)
+                    else UnsatisfiedUntil(2 * SECOND)
                 }) {
-                    Read(x) {
-                        Report(it, typeOf<LinearDynamics>()) {
-                            Complete(Unit)
-                        }
-                    }
+                    val xVal = it.read(x)
+                    it.report(xVal, typeOf<LinearDynamics>())
+                    Complete(Unit)
                 }
             }
         }
@@ -616,29 +552,22 @@ class SimulationTest {
     fun unsatisfied_condition_reevaluation_can_be_interrupted() {
         val results = runSimulation(HOUR) {
             val x = allocate(linearCell("x", 10.0, 1.0))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Awaiter")) {
                 Await({
-                    Condition.Read(x) {
-                        if (it.value >= 15) {
-                            Condition.SatisfiedAt(ZERO)
-                        } else {
-                            Condition.UnsatisfiedUntil(MINUTE)
-                        }
-                    }
+                    if (it.read(x).value >= 15) SatisfiedAt(ZERO)
+                    else UnsatisfiedUntil(MINUTE)
                 }) {
-                    Read(x) {
-                        Report(it, typeOf<LinearDynamics>()) {
-                            Complete(Unit)
-                        }
-                    }
+                    val xVal = it.read(x)
+                    it.report(xVal, typeOf<LinearDynamics>())
+                    Complete(Unit)
                 }
             }
 
             spawn(Name("Interrupter")) {
-                Delay(5 * SECOND) {
-                    Emit(x, { LinearDynamics(20.0, 0.0) }) {
-                        Complete(Unit)
-                    }
+                it.Delay(5 * SECOND, clock) {
+                    it.emit(x) { LinearDynamics(20.0, 0.0) }
+                    Complete(Unit)
                 }
             }
         }
@@ -708,46 +637,38 @@ class SimulationTest {
         fun initialize() {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(linearCell("y", 10.0, -0.1))
+            val clock = allocate(clockCell("clock", ZERO))
 
             spawn(Name("Complete Immediately")) {
                 Complete(Unit)
             }
             spawn(Name("Single Batch Task")) {
-                Read(x) { xDynamics ->
-                    Read(y) { yDynamics ->
-                        Report(JsonObject(mapOf(
-                            "tag" to JsonPrimitive("Single Batch Task"),
-                            "x" to Json.encodeToJsonElement(xDynamics),
-                            "y" to Json.encodeToJsonElement(yDynamics),
-                        )), typeOf<JsonObject>()) {
-                            Complete(Unit)
-                        }
-                    }
-                }
+                val xDynamics = it.read(x)
+                val yDynamics = it.read(y)
+                it.report(JsonObject(mapOf(
+                    "tag" to JsonPrimitive("Single Batch Task"),
+                    "x" to Json.encodeToJsonElement(xDynamics),
+                    "y" to Json.encodeToJsonElement(yDynamics),
+                )), typeOf<JsonObject>())
+                Complete(Unit)
             }
             spawn(Name("Multi Batch Task")) {
-                Read(x) { xDynamics ->
-                    Read(y) { yDynamics ->
-                        Report(JsonObject(mapOf(
-                            "tag" to JsonPrimitive("Multi Batch Task - 1"),
-                            "x" to Json.encodeToJsonElement(xDynamics),
-                            "y" to Json.encodeToJsonElement(yDynamics),
-                        )), typeOf<JsonObject>()) {
-                            Delay(90 * SECOND) {
-                                Read(x) { xDynamics ->
-                                    Read(y) { yDynamics ->
-                                        Report(JsonObject(mapOf(
-                                            "tag" to JsonPrimitive("Multi Batch Task - 2"),
-                                            "x" to Json.encodeToJsonElement(xDynamics),
-                                            "y" to Json.encodeToJsonElement(yDynamics),
-                                        )), typeOf<JsonObject>()) {
-                                            Complete(Unit)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                val xDynamics = it.read(x)
+                val yDynamics = it.read(y)
+                it.report(JsonObject(mapOf(
+                    "tag" to JsonPrimitive("Multi Batch Task - 1"),
+                    "x" to Json.encodeToJsonElement(xDynamics),
+                    "y" to Json.encodeToJsonElement(yDynamics),
+                )), typeOf<JsonObject>())
+                it.Delay(90 * SECOND, clock) {
+                    val xDynamics = it.read(x)
+                    val yDynamics = it.read(y)
+                    it.report(JsonObject(mapOf(
+                        "tag" to JsonPrimitive("Multi Batch Task - 2"),
+                        "x" to Json.encodeToJsonElement(xDynamics),
+                        "y" to Json.encodeToJsonElement(yDynamics),
+                    )), typeOf<JsonObject>())
+                    Complete(Unit)
                 }
             }
         }
@@ -785,12 +706,6 @@ class SimulationTest {
                                 assertNearlyEquals(-0.1, double("rate")!!)
                             }
                         }
-                        element {
-                            assertEquals("report", string("type"))
-                        }
-                        element {
-                            assertEquals("delay", string("type"))
-                        }
                     }
                 }
             }
@@ -803,54 +718,43 @@ class SimulationTest {
         fun initialize() {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(linearCell("y", 10.0, -0.1))
+            val clock = allocate(clockCell("clock", ZERO))
 
             spawn(Name("Complete Immediately")) {
                 Complete(Unit)
             }
             spawn(Name("Single Batch Task")) {
-                Read(x) { xDynamics ->
-                    Read(y) { yDynamics ->
-                        // Add a delay 0 to make the report order deterministic, for easier verification
-                        Delay(ZERO) {
-                            Report(JsonObject(mapOf(
-                                "tag" to JsonPrimitive("Single Batch Task"),
-                                "x" to Json.encodeToJsonElement(xDynamics),
-                                "y" to Json.encodeToJsonElement(yDynamics),
-                            )), typeOf<JsonObject>()) {
-                                Complete(Unit)
-                            }
-                        }
-                    }
+                val xDynamics = it.read(x)
+                val yDynamics = it.read(y)
+                // Add a delay 0 to make the report order deterministic, for easier verification
+                it.Delay(ZERO, clock) {
+                    it.report(JsonObject(mapOf(
+                        "tag" to JsonPrimitive("Single Batch Task"),
+                        "x" to Json.encodeToJsonElement(xDynamics),
+                        "y" to Json.encodeToJsonElement(yDynamics),
+                    )), typeOf<JsonObject>())
+                    Complete(Unit)
                 }
             }
             spawn(Name("Multi Batch Task")) {
-                Read(x) { xDynamics ->
-                    Read(y) { yDynamics ->
-                        Report(JsonObject(mapOf(
-                            "tag" to JsonPrimitive("Multi Batch Task - 1"),
-                            "x" to Json.encodeToJsonElement(xDynamics),
-                            "y" to Json.encodeToJsonElement(yDynamics),
-                        )), typeOf<JsonObject>()) {
-                            Delay(90 * SECOND) {
-                                Read(x) { xDynamics ->
-                                    Read(y) { yDynamics ->
-                                        Report(
-                                            JsonObject(
-                                                mapOf(
-                                                    "tag" to JsonPrimitive("Multi Batch Task - 2"),
-                                                    "x" to Json.encodeToJsonElement(xDynamics),
-                                                    "y" to Json.encodeToJsonElement(yDynamics),
-                                                )
-                                            ),
-                                            typeOf<JsonObject>()
-                                        ) {
-                                            Complete(Unit)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                val xDynamics = it.read(x)
+                val yDynamics = it.read(y)
+                it.report(JsonObject(mapOf(
+                    "tag" to JsonPrimitive("Multi Batch Task - 1"),
+                    "x" to Json.encodeToJsonElement(xDynamics),
+                    "y" to Json.encodeToJsonElement(yDynamics),
+                )), typeOf<JsonObject>())
+                // Since this delay spans a fincon boundary, do the delay correctly by reading a clock.
+                // Abusing Await like I've done elsewhere, directly returning the time, causes buggy behavior with fincons.
+                it.Delay(90 * SECOND, clock) {
+                    val xDynamics = it.read(x)
+                    val yDynamics = it.read(y)
+                    it.report(JsonObject(mapOf(
+                        "tag" to JsonPrimitive("Multi Batch Task - 2"),
+                        "x" to Json.encodeToJsonElement(xDynamics),
+                        "y" to Json.encodeToJsonElement(yDynamics),
+                    )), typeOf<JsonObject>())
+                    Complete(Unit)
                 }
             }
         }
@@ -886,7 +790,7 @@ class SimulationTest {
             }
         }
 
-        val nextResults = runSimulation(2.1 roundTimes  MINUTE, incon = results.fincon) { initialize() }
+        val nextResults = runSimulation(2 * MINUTE, incon = results.fincon) { initialize() }
 
         with (JsonArray(nextResults.reports)) {
             array {
@@ -916,16 +820,12 @@ class SimulationTest {
             val x = allocate(intCounterCell("x", 0))
             val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Repeater")) {
-                Delay(10 * MINUTE) {
-                    Emit(x, { it + 1 }) {
-                        Read(clock) { time ->
-                            Read(x) {
-                                Report("x = $it at $time", typeOf<String>()) {
-                                    Restart<Unit>()
-                                }
-                            }
-                        }
-                    }
+                it.Delay(10 * MINUTE, clock) {
+                    it.emit(x) { it + 1 }
+                    val time = it.read(clock)
+                    val xVal = it.read(x)
+                    it.report("x = $xVal at $time", typeOf<String>())
+                    Restart<Unit>()
                 }
             }
         }
@@ -947,16 +847,12 @@ class SimulationTest {
             val x = allocate(intCounterCell("x", 0))
             val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Repeater")) {
-                Delay(10 * MINUTE) {
-                    Emit(x, { it + 1 }) {
-                        Read(clock) { time ->
-                            Read(x) {
-                                Report("x = $it at $time", typeOf<String>()) {
-                                    Restart<Unit>()
-                                }
-                            }
-                        }
-                    }
+                it.Delay(10 * MINUTE, clock) {
+                    it.emit(x) { it + 1 }
+                    val time = it.read(clock)
+                    val xVal = it.read(x)
+                    it.report("x = $xVal at $time", typeOf<String>())
+                    Restart<Unit>()
                 }
             }
         }
@@ -971,11 +867,14 @@ class SimulationTest {
             within("tasks", "Repeater") {
                 within("$") {
                     array {
-                        element { assertEquals("delay", string("type")) }
+                        element {
+                            assertEquals("read", string("type"))
+                            assertEquals("00:50:00.000000", string("value"))
+                        }
                         assert(atEnd())
                     }
                 }
-                assertEquals("01:00:00.000000", string("time", "$"))
+                assertEquals("00:59:00.000000", string("time", "$"))
             }
         }
     }
@@ -992,16 +891,12 @@ class SimulationTest {
             val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Repeater")) {
                 plays++
-                Delay(10 * MINUTE) {
-                    Emit(x, { it + 1 }) {
-                        Read(clock) { time ->
-                            Read(x) {
-                                Report("x = $it at $time", typeOf<String>()) {
-                                    Restart<Unit>()
-                                }
-                            }
-                        }
-                    }
+                it.Delay(10 * MINUTE, clock) {
+                    it.emit(x) { it + 1 }
+                    val time = it.read(clock)
+                    val xVal = it.read(x)
+                    it.report("x = $xVal at $time", typeOf<String>())
+                    Restart<Unit>()
                 }
             }
         }
@@ -1020,14 +915,12 @@ class SimulationTest {
     fun tasks_can_spawn_children() {
         val results = runSimulation(HOUR) {
             spawn(Name("Parent")) {
-                Report("Parent's report", typeOf<String>()) {
-                    Spawn(Name("Child"), {
-                        Report("Child's report", typeOf<String>()) {
-                            Complete(Unit)
-                        }
-                    }) {
-                        Complete(Unit)
-                    }
+                it.report("Parent's report", typeOf<String>())
+                Spawn(Name("Child"), {
+                    it.report("Child's report", typeOf<String>())
+                    Complete(Unit)
+                }) {
+                    Complete(Unit)
                 }
             }
         }
@@ -1044,67 +937,50 @@ class SimulationTest {
     fun child_tasks_run_in_parallel_with_parent_and_each_other() {
         val results = runSimulation(HOUR) {
             var x = allocate(intCounterCell("x", 0))
+            val clock = allocate(clockCell("clock", ZERO))
 
             spawn(Name("Counter")) {
-                Emit(x, { it + 1 }) {
-                    Delay(ZERO) {
-                        Emit(x, { it + 1 }) {
-                            Delay(ZERO) {
-                                Emit(x, { it + 1 }) {
-                                    Delay(ZERO) {
-                                        Emit(x, { it + 1 }) {
-                                            Complete(Unit)
-                                        }
-                                    }
-                                }
-                            }
+                it.emit(x) { it + 1 }
+                it.Delay(ZERO, clock) {
+                    it.emit(x) { it + 1 }
+                    it.Delay(ZERO, clock) {
+                        it.emit(x) { it + 1 }
+                        it.Delay(ZERO, clock) {
+                            it.emit(x) { it + 1 }
+                            Complete(Unit)
                         }
                     }
                 }
             }
 
             spawn(Name("P")) {
-                Read(x) {
-                    Report("Tick 0: P says: x = $it", typeOf<String>()) {
-                        Spawn(Name("C1"), {
-                            Read(x) {
-                                Report("Tick 1: C1 says: x = $it", typeOf<String>()) {
-                                    Delay(ZERO) {
-                                        Read(x) {
-                                            Report("Tick 2: C1 says: x = $it", typeOf<String>()) {
-                                                Complete(Unit)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }) {
-                            Spawn(Name("C2"), {
-                                Read(x) {
-                                    Report("Tick 1: C2 says: x = $it", typeOf<String>()) {
-                                        Delay(ZERO) {
-                                            Read(x) {
-                                                Report("Tick 2: C2 says: x = $it", typeOf<String>()) {
-                                                    Complete(Unit)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }) {
-                                Delay(ZERO) {
-                                    Read(x) {
-                                        Report("Tick 1: P says: x = $it", typeOf<String>()) {
-                                            Delay(ZERO) {
-                                                Read(x) {
-                                                    Report("Tick 2: P says: x = $it", typeOf<String>()) {
-                                                        Complete(Unit)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                val xVal = it.read(x)
+                it.report("Tick 0: P says: x = $xVal", typeOf<String>())
+                Spawn(Name("C1"), {
+                    val xVal = it.read(x)
+                    it.report("Tick 1: C1 says: x = $xVal", typeOf<String>())
+                    it.Delay(ZERO, clock) {
+                        val xVal = it.read(x)
+                        it.report("Tick 2: C1 says: x = $xVal", typeOf<String>())
+                        Complete(Unit)
+                    }
+                }) {
+                    Spawn(Name("C2"), {
+                        val xVal = it.read(x)
+                        it.report("Tick 1: C2 says: x = $xVal", typeOf<String>())
+                        it.Delay(ZERO, clock) {
+                            val xVal = it.read(x)
+                            it.report("Tick 2: C2 says: x = $xVal", typeOf<String>())
+                            Complete(Unit)
+                        }
+                    }) {
+                        it.Delay(ZERO, clock) {
+                            val xVal = it.read(x)
+                            it.report("Tick 1: P says: x = $xVal", typeOf<String>())
+                            it.Delay(ZERO, clock) {
+                                val xVal = it.read(x)
+                                it.report("Tick 2: P says: x = $xVal", typeOf<String>())
+                                Complete(Unit)
                             }
                         }
                     }
@@ -1136,38 +1012,32 @@ class SimulationTest {
     @Test
     fun child_tasks_can_be_saved() {
         val results = runSimulation(HOUR, takeFincon = true) {
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("P")) {
-                Report("P -- 1", typeOf<String>()) {
-                    Spawn(Name("C"), {
-                        Report("C -- 1", typeOf<String>()) {
-                            Delay(45 * MINUTE) {
-                                // 00:45:00
-                                Report("C -- 2", typeOf<String>()) {
-                                    Complete(Unit)
-                                }
+                it.report("P -- 1", typeOf<String>())
+                Spawn(Name("C"), {
+                    it.report("C -- 1", typeOf<String>())
+                    it.Delay(45 * MINUTE, clock) {
+                        // 00:45:00
+                        it.report("C -- 2", typeOf<String>())
+                        Complete(Unit)
+                    }
+                }) {
+                    it.Delay(30 * MINUTE, clock) {
+                        // 00:30:00
+                        it.report("P -- 2", typeOf<String>())
+                        Spawn(Name("D"), {
+                            it.report("D -- 1", typeOf<String>())
+                            it.Delay(45 * MINUTE, clock) {
+                                // 01:15:00
+                                it.report("D -- 2", typeOf<String>())
+                                Complete(Unit)
                             }
-                        }
-                    }) {
-                        Delay(30 * MINUTE) {
-                            // 00:30:00
-                            Report("P -- 2", typeOf<String>()) {
-                                Spawn(Name("D"), {
-                                    Report("D -- 1", typeOf<String>()) {
-                                        Delay(45 * MINUTE) {
-                                            // 01:15:00
-                                            Report("D -- 2", typeOf<String>()) {
-                                                Complete(Unit)
-                                            }
-                                        }
-                                    }
-                                }) {
-                                    Delay(HOUR) {
-                                        // 01:30:00
-                                        Report("P -- 3", typeOf<String>()) {
-                                            Complete(Unit)
-                                        }
-                                    }
-                                }
+                        }) {
+                            it.Delay(HOUR, clock) {
+                                // 01:30:00
+                                it.report("P -- 3", typeOf<String>())
+                                Complete(Unit)
                             }
                         }
                     }
@@ -1189,43 +1059,53 @@ class SimulationTest {
 
                     within("$") {
                         array {
-                            element { assertEquals("report", string("type")) }
                             element {
                                 assertEquals("spawn", string("type"))
                                 assertEquals("parent", string("branch"))
                             }
-                            element { assertEquals("delay", string("type")) }
-                            element { assertEquals("report", string("type")) }
+                            element {
+                                assertEquals("read", string("type"))
+                                assertEquals("00:00:00.000000", string("value"))
+                            }
+                            element { assertEquals("await", string("type")) }
                             element {
                                 assertEquals("spawn", string("type"))
                                 assertEquals("parent", string("branch"))
                             }
-                            element { assertEquals("delay", string("type")) }
+                            element {
+                                assertEquals("read", string("type"))
+                                assertEquals("00:30:00.000000", string("value"))
+                            }
                             assert(atEnd())
                         }
                     }
-                    assertEquals("01:30:00.000000", string("time", "$"))
+                    assertEquals("01:00:00.000000", string("time", "$"))
                 }
 
                 within("D") {
                     within("$") {
                         array {
-                            element { assertEquals("report", string("type")) }
                             element {
                                 assertEquals("spawn", string("type"))
                                 assertEquals("parent", string("branch"))
                             }
-                            element { assertEquals("delay", string("type")) }
-                            element { assertEquals("report", string("type")) }
+                            element {
+                                assertEquals("read", string("type"))
+                                assertEquals("00:00:00.000000", string("value"))
+                            }
+                            element { assertEquals("await", string("type")) }
                             element {
                                 assertEquals("spawn", string("type"))
                                 assertEquals("child", string("branch"))
                             }
-                            element { assertEquals("report", string("type")) }
-                            element { assertEquals("delay", string("type")) }
+                            element {
+                                assertEquals("read", string("type"))
+                                assertEquals("00:30:00.000000", string("value"))
+                            }
+                            assert(atEnd())
                         }
                     }
-                    assertEquals("01:15:00.000000", string("time", "$"))
+                    assertEquals("01:00:00.000000", string("time", "$"))
                 }
             }
         }
@@ -1235,38 +1115,32 @@ class SimulationTest {
     fun child_tasks_can_be_restored() {
         context (scope: BasicInitScope)
         fun initialize() {
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("P")) {
-                Report("P -- 1", typeOf<String>()) {
-                    Spawn(Name("C"), {
-                        Report("C -- 1", typeOf<String>()) {
-                            Delay(45 * MINUTE) {
-                                // 00:45:00
-                                Report("C -- 2", typeOf<String>()) {
-                                    Complete(Unit)
-                                }
+                it.report("P -- 1", typeOf<String>())
+                Spawn(Name("C"), {
+                    it.report("C -- 1", typeOf<String>())
+                    it.Delay(45 * MINUTE, clock) {
+                        // 00:45:00
+                        it.report("C -- 2", typeOf<String>())
+                        Complete(Unit)
+                    }
+                }) {
+                    it.Delay(30 * MINUTE, clock) {
+                        // 00:30:00
+                        it.report("P -- 2", typeOf<String>())
+                        Spawn(Name("D"), {
+                            it.report("D -- 1", typeOf<String>())
+                            it.Delay(45 * MINUTE, clock) {
+                                // 01:15:00
+                                it.report("D -- 2", typeOf<String>())
+                                Complete(Unit)
                             }
-                        }
-                    }) {
-                        Delay(30 * MINUTE) {
-                            // 00:30:00
-                            Report("P -- 2", typeOf<String>()) {
-                                Spawn(Name("D"), {
-                                    Report("D -- 1", typeOf<String>()) {
-                                        Delay(45 * MINUTE) {
-                                            // 01:15:00
-                                            Report("D -- 2", typeOf<String>()) {
-                                                Complete(Unit)
-                                            }
-                                        }
-                                    }
-                                }) {
-                                    Delay(HOUR) {
-                                        // 01:30:00
-                                        Report("P -- 3", typeOf<String>()) {
-                                            Complete(Unit)
-                                        }
-                                    }
-                                }
+                        }) {
+                            it.Delay(HOUR, clock) {
+                                // 01:30:00
+                                it.report("P -- 3", typeOf<String>())
+                                Complete(Unit)
                             }
                         }
                     }
@@ -1305,25 +1179,19 @@ class SimulationTest {
             val clock = allocate(clockCell("clock", ZERO))
 
             spawn(Name("Repeater")) {
-                Delay(10 * MINUTE) {
-                    Read(n) { nValue ->
-                        Spawn(Name("Child $nValue"), {
-                            Read(clock) { time ->
-                                Report("Child $nValue start at $time", typeOf<String>()) {
-                                    Delay(45 * MINUTE) {
-                                        Read(clock) { time ->
-                                            Report("Child $nValue end at $time", typeOf<String>()) {
-                                                Complete(Unit)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }) {
-                            Emit(n, { it + 1 }) {
-                                Restart<Unit>()
-                            }
+                it.Delay(10 * MINUTE, clock) {
+                    val nValue = it.read(n)
+                    Spawn(Name("Child $nValue"), {
+                        val time = it.read(clock)
+                        it.report("Child $nValue start at $time", typeOf<String>())
+                        it.Delay(45 * MINUTE, clock) {
+                            val time = it.read(clock)
+                            it.report("Child $nValue end at $time", typeOf<String>())
+                            Complete(Unit)
                         }
+                    }) {
+                        it.emit(n) { it + 1 }
+                        Restart<Unit>()
                     }
                 }
             }
@@ -1371,18 +1239,14 @@ class SimulationTest {
             val clock = allocate(clockCell("clock", ZERO))
 
             spawn(Name("Parent")) {
-                Delay(5 * MINUTE) {
+                it.Delay(5 * MINUTE, clock) {
                     Spawn(Name("Repeater"), {
-                        Delay(10 * MINUTE) {
-                            Read(clock) { time ->
-                                Read(n) {
-                                    Report("Iteration $it at $time", typeOf<String>()) {
-                                        Emit(n, { it + 1 }) {
-                                            Restart<Unit>()
-                                        }
-                                    }
-                                }
-                            }
+                        it.Delay(10 * MINUTE, clock) {
+                            val time = it.read(clock)
+                            val nVal = it.read(n)
+                            it.report("Iteration $nVal at $time", typeOf<String>())
+                            it.emit(n) { it + 1 }
+                            Restart<Unit>()
                         }
                     }) {
                         Complete(Unit)
@@ -1423,29 +1287,24 @@ class SimulationTest {
     fun grandchild_tasks_can_be_restored() {
         context (scope: BasicInitScope)
         fun initialize() {
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("P")) {
-                Report("P -- 1", typeOf<String>()) {
-                    Spawn(Name("C"), {
-                        Report("C -- 1", typeOf<String>()) {
-                            Spawn(Name("GC"), {
-                                Report("GC -- 1", typeOf<String>()) {
-                                    Delay(90 * MINUTE) {
-                                        Report("GC -- 2", typeOf<String>()) {
-                                            Complete(Unit)
-                                        }
-                                    }
-                                }
-                            }) {
-                                Report("C -- 2", typeOf<String>()) {
-                                    Complete(Unit)
-                                }
-                            }
-                        }
-                    }) {
-                        Report("P -- 2", typeOf<String>()) {
+                it.report("P -- 1", typeOf<String>())
+                Spawn(Name("C"), {
+                    it.report("C -- 1", typeOf<String>())
+                    Spawn(Name("GC"), {
+                        it.report("GC -- 1", typeOf<String>())
+                        it.Delay(90 * MINUTE, clock) {
+                            it.report("GC -- 2", typeOf<String>())
                             Complete(Unit)
                         }
+                    }) {
+                        it.report("C -- 2", typeOf<String>())
+                        Complete(Unit)
                     }
+                }) {
+                    it.report("P -- 2", typeOf<String>())
+                    Complete(Unit)
                 }
             }
         }
@@ -1479,18 +1338,16 @@ class SimulationTest {
         // Stress test this by spawning a bunch of tasks, from init and from the sim itself, that'll run exactly at fincon time.
         context (scope: BasicInitScope)
         fun initialize() {
+            val clock = allocate(clockCell("clock", ZERO))
             for (i in 1..100) {
                 // Case A - Task delays directly to fincon time
                 spawn(Name("A$i")) {
-                    Report("A$i -- 1", typeOf<String>()) {
-                        Delay(MINUTE) {
-                            Report("A$i -- 2", typeOf<String>()) {
-                                Delay(10 * SECOND) {
-                                    Report("A$i -- 3", typeOf<String>()) {
-                                        Complete(Unit)
-                                    }
-                                }
-                            }
+                    it.report("A$i -- 1", typeOf<String>())
+                    it.Delay(MINUTE, clock) {
+                        it.report("A$i -- 2", typeOf<String>())
+                        it.Delay(10 * SECOND, clock) {
+                            it.report("A$i -- 3", typeOf<String>())
+                            Complete(Unit)
                         }
                     }
                 }
@@ -1499,16 +1356,13 @@ class SimulationTest {
                 //   Fincon task delays to fincon time directly, so if there are effects due to the order that tasks
                 //   are added to the queue, this hopes to provoke those effects.
                 spawn(Name("B$i")) {
-                    Report("B$i -- 1", typeOf<String>()) {
-                        Delay(30 * SECOND) {
-                            Delay(30 * SECOND) {
-                                Report("B$i -- 2", typeOf<String>()) {
-                                    Delay(10 * SECOND) {
-                                        Report("B$i -- 3", typeOf<String>()) {
-                                            Complete(Unit)
-                                        }
-                                    }
-                                }
+                    it.report("B$i -- 1", typeOf<String>())
+                    it.Delay(30 * SECOND, clock) {
+                        it.Delay(30 * SECOND, clock) {
+                            it.report("B$i -- 2", typeOf<String>())
+                            it.Delay(10 * SECOND, clock) {
+                                it.report("B$i -- 3", typeOf<String>())
+                                Complete(Unit)
                             }
                         }
                     }
@@ -1516,20 +1370,17 @@ class SimulationTest {
 
                 // Case C - Children spawned at fincon time
                 spawn(Name("C$i")) {
-                    Report("C$i -- 1", typeOf<String>()) {
-                        Delay(MINUTE) {
-                            Spawn(Name("C${i}_child"), {
-                                Report("C$i -- 2", typeOf<String>()) {
-                                    Delay(10 * SECOND) {
-                                        Report("C$i -- 3", typeOf<String>()) {
-                                            Complete(Unit)
-                                        }
-                                    }
-                                }
-                            }) {
-                                Delay(10 * SECOND) {
-                                    Complete(Unit)
-                                }
+                    it.report("C$i -- 1", typeOf<String>())
+                    it.Delay(MINUTE, clock) {
+                        Spawn(Name("C${i}_child"), {
+                            it.report("C$i -- 2", typeOf<String>())
+                            it.Delay(10 * SECOND, clock) {
+                                it.report("C$i -- 3", typeOf<String>())
+                                Complete(Unit)
+                            }
+                        }) {
+                            it.Delay(10 * SECOND, clock) {
+                                Complete(Unit)
                             }
                         }
                     }

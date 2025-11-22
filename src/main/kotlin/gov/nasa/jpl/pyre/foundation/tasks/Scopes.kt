@@ -2,7 +2,6 @@ package gov.nasa.jpl.pyre.foundation.tasks
 
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.CellSet
-import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.Effect
@@ -14,13 +13,13 @@ import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
+import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.contracts.ExperimentalContracts
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.time.Instant
-
 
 /**
  * A context for all the "global" conveniences offered by foundation during simulation.
@@ -58,59 +57,43 @@ interface SimulationScope {
 }
 
 interface ResourceScope : SimulationScope {
-    suspend fun <V> read(cell: CellSet.CellHandle<V>): V
+    fun <V> read(cell: CellSet.CellHandle<V>): V
 
     companion object {
         context (scope: ResourceScope)
-        suspend fun <V> read(cell: CellSet.CellHandle<V>): V = scope.read(cell)
+        fun <V> read(cell: CellSet.CellHandle<V>): V = scope.read(cell)
 
         context (scope: ResourceScope)
-        suspend fun now() = simulationEpoch + simulationClock.getValue().toKotlinDuration()
+        fun now() = simulationEpoch + simulationClock.getValue().toKotlinDuration()
     }
 }
 
 interface ConditionScope : ResourceScope
 
 interface TaskScope : ResourceScope {
-    suspend fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>)
-    suspend fun <T> report(value: T, type: KType)
-    suspend fun delay(time: Duration)
-    suspend fun await(condition: () -> Condition)
+    fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>)
+    fun <T> report(value: T, type: KType)
+    suspend fun await(condition: Condition)
     suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>)
 
     companion object {
         context (scope: TaskScope)
-        suspend inline fun <reified T> report(value: T) = report(value, typeOf<T>())
+        inline fun <reified T> report(value: T) = report(value, typeOf<T>())
 
         context (scope: TaskScope)
-        suspend fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>) = scope.emit(cell, effect)
+        fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>) = scope.emit(cell, effect)
 
         context (scope: TaskScope)
-        suspend fun <T> report(value: T, type: KType) = scope.report(value, type)
+        fun <T> report(value: T, type: KType) = scope.report(value, type)
 
         context (scope: TaskScope)
-        suspend fun delay(time: Duration) = scope.delay(time)
-
-        context (scope: TaskScope)
-        suspend fun await(condition: () -> Condition) = scope.await(condition)
+        suspend fun await(condition: Condition) = scope.await(condition)
 
         context (scope: TaskScope)
         suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>) = scope.spawn(childName, child)
 
         context (scope: TaskScope)
         suspend fun <S> spawn(childName: String, child: suspend context (TaskScope) () -> TaskScopeResult<S>) = spawn(Name(childName), child)
-
-        /**
-         * Delay until the given absolute simulation time, measured against [SimulationScope.simulationClock]
-         */
-        context (scope: TaskScope)
-        suspend fun delayUntil(time: Duration) = delay(maxOf(time - simulationClock.getValue(), ZERO))
-
-        /**
-         * Delay until the given absolute simulation time, measured against [SimulationScope.simulationClock]
-         */
-        context (scope: TaskScope)
-        suspend fun delayUntil(time: Instant) = delayUntil((time - simulationEpoch).toPyreDuration())
     }
 }
 

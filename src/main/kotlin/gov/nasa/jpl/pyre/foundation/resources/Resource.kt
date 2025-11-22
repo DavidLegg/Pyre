@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
 
 fun interface ThinResource<D> {
     context (scope: ResourceScope)
-    suspend fun getDynamics() : D
+    fun getDynamics() : D
 }
 // TODO: Consider wrapping this in Result (equiv. to ErrorCatching), building ResultMonad, and updating DynamicsMonad
 typealias FullDynamics<D> = Expiring<D>
@@ -16,7 +16,7 @@ typealias Resource<D> = ThinResource<FullDynamics<D>>
  */
 
 context (scope: ResourceScope)
-suspend fun <V, D : Dynamics<V, D>> Resource<D>.getValue(): V = this.getDynamics().data.value()
+fun <V, D : Dynamics<V, D>> Resource<D>.getValue(): V = this.getDynamics().data.value()
 
 infix fun <D> Resource<D>.named(nameFn: () -> String) = object : Resource<D> by this {
     override fun toString() = nameFn()

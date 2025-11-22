@@ -24,8 +24,8 @@ import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.onceWhenever
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
+import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
@@ -67,7 +67,7 @@ class FoundationSimulationTest {
                     override fun toString() = ""
                     override fun onStartup(name: Name, block: suspend context(TaskScope) () -> Unit) =
                         throw NotImplementedError()
-                    override suspend fun <V> read(cell: CellSet.CellHandle<V>): V = scope.read(cell)
+                    override fun <V> read(cell: CellSet.CellHandle<V>): V = scope.read(cell)
                     override fun <T : Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> = scope.allocate(cell)
                     override fun <T> spawn(name: Name, block: suspend context(TaskScope) () -> TaskScopeResult<T>) =
                         scope.spawn(name, coroutineTask(block))
@@ -240,7 +240,6 @@ class FoundationSimulationTest {
             val warmupPower = discreteResource("warmupPower", 3.0)
             val onPower = discreteResource("onPower", 10.0)
             val miscPower = discreteResource("miscPower", 2.0)
-            // TODO: Consider a "derived resource builder", akin to TaskBuilder, to use coroutines to define the derivation...
             val devicePower = with (DiscreteResourceMonad) {
                 bind (state) {
                     when (it) {

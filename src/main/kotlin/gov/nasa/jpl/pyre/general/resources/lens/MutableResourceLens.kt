@@ -20,7 +20,7 @@ object MutableResourceLens {
             override suspend fun emit(effect: ResourceEffect<V>) = selector(key.getValue()).emit(effect)
 
             context(scope: ResourceScope)
-            override suspend fun getDynamics(): FullDynamics<V> = selector(key.getValue()).getDynamics()
+            override fun getDynamics(): FullDynamics<V> = selector(key.getValue()).getDynamics()
         }
 
     /**

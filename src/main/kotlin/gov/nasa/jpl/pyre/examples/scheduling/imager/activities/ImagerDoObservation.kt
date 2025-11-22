@@ -9,6 +9,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperation
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
+import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -28,7 +29,7 @@ class ImagerDoObservation(
         await(model.mode equals ImagerMode.STANDBY)
 
         model.mode.set(ImagerMode.IMAGING)
-        scope.delay(duration)
+        delay(duration)
         model.mode.set(ImagerMode.STANDBY)
     }
 }

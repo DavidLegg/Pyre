@@ -1,21 +1,27 @@
 package gov.nasa.jpl.pyre.kernel
 
+import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 
-sealed interface Condition {
-    sealed interface ConditionResult : Condition
-    data class SatisfiedAt(val time: Duration) : ConditionResult {
-        override fun toString(): String = "SatisfiedAt($time)"
-    }
-    data class UnsatisfiedUntil(val time: Duration?) : ConditionResult {
-        override fun toString(): String = "UnsatisfiedUntil(${time ?: "FOREVER"})"
-    }
-    data class Read<V>(val cell: CellSet.CellHandle<V>, val continuation: (V) -> Condition) : Condition {
-        override fun toString() = "Read(${cell.name}, ...)"
-    }
+sealed interface ConditionResult
 
-    companion object {
-        val TRUE: Condition = SatisfiedAt(ZERO)
-        val FALSE: Condition = UnsatisfiedUntil(null)
-    }
+/**
+ * @param time Relative time from now when this condition will be satisfied.
+ */
+data class SatisfiedAt(val time: Duration) : ConditionResult {
+    override fun toString(): String = "SatisfiedAt($time)"
 }
+/**
+ * @param time Relative time from now when this condition may be satisfied, or null if it will never be satisfied.
+ */
+data class UnsatisfiedUntil(val time: Duration?) : ConditionResult {
+    override fun toString(): String = "UnsatisfiedUntil(${time ?: "FOREVER"})"
+}
+
+interface ReadActions {
+    fun <V> read(cell: CellHandle<V>): V
+}
+typealias Condition = (ReadActions) -> ConditionResult
+
+val TRUE: Condition = { SatisfiedAt(ZERO) }
+val FALSE: Condition = { UnsatisfiedUntil(null) }

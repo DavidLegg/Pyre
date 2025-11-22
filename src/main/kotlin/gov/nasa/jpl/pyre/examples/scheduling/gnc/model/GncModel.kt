@@ -29,7 +29,6 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.choose
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
-import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.bind
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
@@ -223,7 +222,7 @@ class GncModel(
                 ::Rotation
             ).named { "target_attitude" }
                 // Register the cached version because Rotation has a poorly-behaved equality
-                .also { register(it.cached("target_attitude(c)", Discrete(Rotation.IDENTITY), {
+                .also { register(it.cached("target_attitude(c)", {
                     r, s -> r.value.applyInverseTo(s.value).angle < targetAttitudeCacheUpdateTolerance
             })) }
 

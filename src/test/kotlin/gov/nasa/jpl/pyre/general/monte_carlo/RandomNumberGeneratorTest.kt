@@ -2,8 +2,8 @@ package gov.nasa.jpl.pyre.general.monte_carlo
 
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.every
+import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.spawn
 import gov.nasa.jpl.pyre.general.testing.UnitTesting.runUnitTest
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND

@@ -26,7 +26,7 @@ object UnitTesting {
      */
     inline fun <reified M> runUnitTest(
         simulationStart: Instant,
-        noinline constructModel: suspend InitScope.() -> M,
+        noinline constructModel: InitScope.() -> M,
         noinline testTask: suspend context (TaskScope) (M) -> Unit
     ): SimulationResults {
         val resources: MutableMap<String, MutableList<ChannelizedReport<*>>> = mutableMapOf()

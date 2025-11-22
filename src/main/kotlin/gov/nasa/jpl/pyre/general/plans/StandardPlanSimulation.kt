@@ -60,7 +60,7 @@ data class StandardPlanSimulationSetup<M>(
 @OptIn(ExperimentalSerializationApi::class)
 inline fun <reified M> runStandardPlanSimulation(
     setupFile: String,
-    noinline constructModel: suspend InitScope.() -> M,
+    noinline constructModel: InitScope.() -> M,
     jsonFormat: Json = Json,
     buildReportHandler: (OutputStream) -> Closeable<ReportHandler> =
         { CsvReportHandler(it, jsonFormat).asCloseable() },

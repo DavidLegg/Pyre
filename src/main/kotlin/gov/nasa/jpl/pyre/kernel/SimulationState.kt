@@ -2,13 +2,11 @@ package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.kernel.Task.TaskStepResult.*
 import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
-import gov.nasa.jpl.pyre.kernel.Condition.ConditionResult
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvidingContext.Companion.provide
 import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
-import gov.nasa.jpl.pyre.kernel.Task.PureStepResult
 import kotlinx.serialization.SerializationException
 import java.util.Comparator.comparing
 import java.util.PriorityQueue
@@ -22,55 +20,39 @@ class SimulationState(private val reportHandler: ReportHandler) {
     private var time: Duration = Duration(0)
     private var cells: TrunkCellSet = TrunkCellSet()
     private val rootTasks: MutableList<TaskEntry> = mutableListOf()
-    // TODO: For performance, it may be simpler to maintain a priority multimap keyed on task time,
-    //  rather than collecting a batch of tasks when running them...
-    //  Consider replacing tasks with a more efficient data structure
     private val tasks: PriorityQueue<TaskEntry> = PriorityQueue(comparing(TaskEntry::time))
-    // TODO: For the sake of restoring awaiting tasks, we may need to save pseudo-tasks,
-    //  which defer back to the original task on everything except runStep, instead of the Await step itself.
     private val cellListeners: MutableMap<CellHandle<*>, MutableSet<AwaitingTask<*>>> = mutableMapOf()
     private val listeningTasks: MutableMap<AwaitingTask<*>, Set<CellHandle<*>>> = mutableMapOf()
     private val modifiedCells: MutableSet<CellHandle<*>> = mutableSetOf()
 
     private class AwaitingTask<T>(
         val await: Await<T>,
-        originalTask: Task<T>,
         state: SimulationState,
     ) {
-        val rewaitTask: Task<T> = object: Task<T> by originalTask {
-            override fun runStep(): Await<T> = await
+        val rewaitTask: Task<T> = object : Task<T> by await.rewait {
+            override fun runStep(actions: Task.BasicTaskActions): Task.TaskStepResult<T> {
+                // Remove all listeners before continuing so we don't re-trigger the condition
+                // Because the AwaitingTask is rebuilt when rewaiting, this is non-redundant with the resetListeners in evaluateAwaitingTask.
+                state.resetListeners(this@AwaitingTask)
+                return await.rewait.runStep(actions)
+            }
         }
         val continuationTask: Task<T> = object : Task<T> by await.continuation {
-            override fun runStep(): Task.TaskStepResult<T> {
+            override fun runStep(actions: Task.BasicTaskActions): Task.TaskStepResult<T> {
                 // Remove all listeners before continuing so we don't re-trigger the condition
                 state.resetListeners(this@AwaitingTask)
-                return await.continuation.runStep()
+                return await.continuation.runStep(actions)
             }
         }
         var scheduledTask: TaskEntry? = null
 
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (javaClass != other?.javaClass) return false
-
-            other as AwaitingTask<*>
-
-            // Check the await steps for reference equality
-            // We rebuild the AwaitingTask each time we re-evaluate, but the await step inside remains the same.
-            return await === other.await
-        }
-
-        override fun hashCode(): Int {
-            // Since we're using reference equality with the await field for equals, to be consistent,
-            // we must return the identity hash code (not the overridden hash code!) of that field.
-            return System.identityHashCode(await)
-        }
+        override fun toString(): String = "${await.rewait} -- $await"
     }
     private val awaitingTasks: MutableSet<AwaitingTask<*>> = mutableSetOf()
 
     fun initScope() = object : BasicInitScope {
         override fun <T: Any> allocate(cell: Cell<T>) = cells.allocate(cell)
-        override fun <T> spawn(name: Name, step: () -> PureStepResult<T>) = addTask(name, step)
+        override fun <T> spawn(name: Name, step: PureTaskStep<T>) = addTask(name, step)
         override fun <T> read(cell: CellHandle<T>): T = cells[cell].value
     }
 
@@ -140,14 +122,17 @@ class SimulationState(private val reportHandler: ReportHandler) {
     }
 
     private fun <T> evaluateAwaitingTask(awaitingTask: AwaitingTask<T>) {
-        // Reset any listeners from prior evaluations
+        // Reset any listeners from any prior evaluation of this task
         resetListeners(awaitingTask)
 
-        // Remove the scheduled rewait or continuation, if it's there.
-        awaitingTask.scheduledTask?.let(tasks::remove)
-
-        // Evaluate the condition
-        val (cellsRead, result) = evaluateCondition(awaitingTask.await.condition(), cells)
+        // Evaluate the condition, recording the cells we read along the way
+        val cellsRead: MutableSet<CellHandle<*>> = mutableSetOf()
+        val result = awaitingTask.await.condition(object : ReadActions {
+            override fun <V> read(cell: CellHandle<V>): V {
+                cellsRead += cell
+                return cells[cell].value
+            }
+        })
 
         // Schedule listeners to re-evaluate condition if cells change
         for (cell in cellsRead) {
@@ -156,13 +141,13 @@ class SimulationState(private val reportHandler: ReportHandler) {
         listeningTasks[awaitingTask] = cellsRead
 
         when (result) {
-            is Condition.SatisfiedAt -> {
+            is SatisfiedAt -> {
                 // Add conditional task to resume the awaiting task when the condition is satisfied
                 val continuationEntry = TaskEntry(time + result.time, awaitingTask.continuationTask)
                 tasks += continuationEntry
                 awaitingTask.scheduledTask = continuationEntry
             }
-            is Condition.UnsatisfiedUntil -> {
+            is UnsatisfiedUntil -> {
                 if (result.time != null) {
                     // Schedule the rewait task to re-evaluate the condition once this unsatisfied result expires
                     val rewaitEntry = TaskEntry(time + result.time, awaitingTask.rewaitTask)
@@ -177,8 +162,8 @@ class SimulationState(private val reportHandler: ReportHandler) {
     private fun <T> resetListeners(awaitingTask: AwaitingTask<T>) {
         // Reset the cells we're listening to
         listeningTasks.remove(awaitingTask)?.forEach { cellListeners[it]?.remove(awaitingTask) }
-        // TODO: for long-term performance, we may want to use a proper multi-map instead of map-to-sets
-        //   That way we won't accrue empty sets in the values over time
+        // Remove the scheduled rewait or continuation, if it's there.
+        awaitingTask.scheduledTask?.let(tasks::remove)
     }
 
     private fun <T> runTask(task: Task<T>, cellSet: CellSet) {
@@ -189,44 +174,33 @@ class SimulationState(private val reportHandler: ReportHandler) {
         // tasks which run many steps without yielding.
         var nextTask = task
 
-        fun <V> runTaskRead(stepResult: Read<V, T>) {
-            nextTask = stepResult.continuation(cellSet[stepResult.cell].value)
-        }
-
-        fun <V> runTaskEmit(step: Emit<V, T>) {
-            // We mark the cell as modified, instead of directly adding listeners, to keep the simulation deterministic.
-            // This is because a task T may await this cell in parallel with this.
-            // If T is ahead of this in the batch, adding listeners would add it;
-            // but if T were behind this in the batch, adding listeners would miss it.
-            // By deferring the resolution from cell to listener to the end of the batch,
-            // T will always be added, which is conservative and deterministic.
-            cellSet.emit(step.cell, step.effect)
-            modifiedCells += step.cell
-            nextTask = step.continuation
+        val actions = object : Task.BasicTaskActions {
+            override fun <V> read(cell: CellHandle<V>): V = cellSet[cell].value
+            override fun <V> emit(cell: CellHandle<V>, effect: Effect<V>) {
+                cellSet.emit(cell, effect)
+                // We mark the cell as modified, instead of directly adding listeners, to keep the simulation deterministic.
+                // This is because a task T may await this cell in parallel with this.
+                // If T is ahead of this in the batch, adding listeners would add it;
+                // but if T were behind this in the batch, adding listeners would miss it.
+                // By deferring the resolution from cell to listener to the end of the batch,
+                // T will always be added, which is conservative and deterministic.
+                modifiedCells += cell
+            }
+            override fun <V> report(value: V, type: KType) = reportHandler(value, type)
         }
 
         while (true) {
             val stepResult = try {
-                nextTask.runStep()
+                nextTask.runStep(actions)
             } catch (e: Throwable) {
                 System.err.println("Error while running ${nextTask.id}: $e")
                 throw e
             }
             when (stepResult) {
                 is Complete -> break // Nothing to do
-                is Delay -> {
-                    addTask(stepResult.continuation, time + stepResult.time)
-                    break
-                }
                 is Await -> {
-                    awaitingTasks += AwaitingTask(stepResult, nextTask, this)
+                    awaitingTasks += AwaitingTask(stepResult, this)
                     break
-                }
-                is Emit<*, T> -> runTaskEmit(stepResult)
-                is Read<*, T> -> runTaskRead(stepResult)
-                is Report<*, T> -> {
-                    reportHandler(stepResult.value, stepResult.type)
-                    nextTask = stepResult.continuation
                 }
                 is Spawn<*, T> -> {
                     addTask(stepResult.child, time)
@@ -237,24 +211,6 @@ class SimulationState(private val reportHandler: ReportHandler) {
                 }
             }
         }
-    }
-
-    private fun evaluateCondition(condition: Condition, cellSet: CellSet): Pair<Set<CellHandle<*>>, ConditionResult> {
-        var nextCondition = condition
-        val readCells = mutableSetOf<CellHandle<*>>()
-
-        fun <V> evaluateRead(read: Condition.Read<V>): Condition {
-            readCells += read.cell
-            return read.continuation(cellSet[read.cell].value)
-        }
-
-        // Conditions are a stack of Reads around a ConditionResult
-        // Trampoline down that stack of reads to fully evaluate the condition.
-        while (nextCondition is Condition.Read<*>) {
-            nextCondition = evaluateRead(nextCondition)
-        }
-        // The only non-Read Conditions are ConditionResults, so this cast is safe.
-        return Pair(readCells.toSet(), nextCondition as ConditionResult)
     }
 
     fun save(finconCollector: FinconCollector) {
