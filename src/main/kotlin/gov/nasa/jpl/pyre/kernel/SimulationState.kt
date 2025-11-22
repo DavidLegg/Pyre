@@ -15,7 +15,14 @@ import kotlin.reflect.KType
 typealias ReportHandler = (Any?, KType) -> Unit
 
 class SimulationState(private val reportHandler: ReportHandler) {
-    private data class TaskEntry(val time: Duration, val task: Task<*>)
+    // Use a class, not a data class, for performance.
+    // Adding and removing entries from the task queue is faster when the entry uses object identity
+    // rather than deep equality.
+    private class TaskEntry(val time: Duration, val task: Task<*>) {
+        operator fun component1() = time
+        operator fun component2() = task
+        override fun toString(): String = "$task @ $time"
+    }
 
     private var time: Duration = Duration(0)
     private var cells: TrunkCellSet = TrunkCellSet()
