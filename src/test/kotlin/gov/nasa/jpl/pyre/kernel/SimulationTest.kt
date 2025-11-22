@@ -87,6 +87,15 @@ class SimulationTest {
         { l, r -> l andThen r }
     )
 
+    /**
+     * "Patch" test-ism - I removed the Delay task step type in favor of using Await.
+     * Rather than rewrite a bunch of tests, I'm re-building Delay in terms of Await.
+     */
+    private fun <T> Task.BasicTaskActions.Delay(time: Duration, clock: CellSet.CellHandle<Duration>, block: PureTaskStep<T>): Await<T> {
+        val endTime = read(clock) + time
+        return Await({ SatisfiedAt(endTime - it.read(clock)) }, block)
+    }
+
     @Test
     fun empty_simulation_is_valid() {
         runSimulation(HOUR) {}
@@ -145,11 +154,16 @@ class SimulationTest {
         assertEquals(mutableListOf(JsonPrimitive("x = 55")), results.reports)
     }
 
+    // Note: There used to be an explicit "delay" StepResult, separate from Await.
+    // Await has since subsumed Delay, but we're keeping this test around because later tests use "delay-style awaits"
+    // to test cell stepping. I want to know that this very simple style of await works, then test that cells work,
+    // then come back and test that more complicated styles of awaiting also work.
     @Test
     fun task_can_delay() {
         runSimulation(HOUR) {
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("delay")) {
-                Delay(30 * MINUTE) {
+                it.Delay(30 * MINUTE, clock) {
                     Complete(Unit)
                 }
             }
@@ -163,10 +177,11 @@ class SimulationTest {
             // will not change the value, but a single >1 minute step would.
             // It's fine for this test, though.
             val x = allocate(Cell(Name("x"), 0, typeOf<Int>(), { x, t -> x + (t / MINUTE).toInt() }, { l, r -> l andThen r }))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("step cell")) {
                 val xVal = it.read(x)
                 it.report("now x = $xVal", typeOf<String>())
-                Delay(30 * MINUTE) {
+                it.Delay(30 * MINUTE, clock) {
                     val xVal = it.read(x)
                     it.report("later x = $xVal", typeOf<String>())
                     Complete(Unit)
@@ -220,6 +235,7 @@ class SimulationTest {
     fun parallel_tasks_join_effects_at_each_delay() {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Task A")) {
                 it.emit(x) { it + 5 }
                 val xVal = it.read(x)
@@ -229,7 +245,7 @@ class SimulationTest {
             spawn(Name("Task B")) {
                 val xVal = it.read(x)
                 it.report("B first says: x = $xVal", typeOf<String>())
-                Delay(ZERO) {
+                it.Delay(ZERO, clock) {
                     val xVal = it.read(x)
                     it.report("B next says: x = $xVal", typeOf<String>())
                     Complete(Unit)
@@ -250,6 +266,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             // Note: This is *not* a correct effect trait, but it's simple and lets us observe what's happening better.
             val x = allocate(Cell(Name("x"), 10, typeOf<Int>(), { x, _ -> x }, { l, r -> { 100 + r(l(it)) } }))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Task A")) {
                 it.emit(x) { it + 5 }
                 val xVal = it.read(x)
@@ -263,7 +280,7 @@ class SimulationTest {
                 Complete(Unit)
             }
             spawn(Name("Task C")) {
-                Delay(ZERO) {
+                it.Delay(ZERO, clock) {
                     val xVal = it.read(x)
                     it.report("C says: x = $xVal", typeOf<String>())
                     Complete(Unit)
@@ -294,6 +311,7 @@ class SimulationTest {
     fun await_trivial_condition_runs_task_in_next_batch() {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Awaiter")) {
                 Await({ SatisfiedAt(ZERO) }) {
                     val xVal = it.read(x)
@@ -303,9 +321,9 @@ class SimulationTest {
             }
             spawn(Name("Counter")) {
                 it.emit(x) { it + 1 }
-                Delay(ZERO) {
+                it.Delay(ZERO, clock) {
                     it.emit(x) { it + 1 }
-                    Delay(ZERO) {
+                    it.Delay(ZERO, clock) {
                         it.emit(x) { it + 1 }
                         Complete(Unit)
                     }
@@ -333,6 +351,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(intCounterCell("x", 10))
             val y = allocate(intCounterCell("y", 12))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Awaiter")) {
                 Await({
                     val xValue = it.read(x)
@@ -348,9 +367,9 @@ class SimulationTest {
             }
             spawn(Name("Counter")) {
                 it.emit(x) { it + 1 }
-                Delay(ZERO) {
+                it.Delay(ZERO, clock) {
                     it.emit(y) { it - 1 }
-                    Delay(ZERO) {
+                    it.Delay(ZERO, clock) {
                         it.emit(x) { it + 1 }
                         Complete(Unit)
                     }
@@ -407,6 +426,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(intCounterCell("y", 0))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Awaiter")) {
                 Await({
                     // Example implementation of a "greater than 20" condition for a linear dynamics type.
@@ -427,10 +447,10 @@ class SimulationTest {
             }
             spawn(Name("Interrupter")) {
                 it.emit(y) { it + 1 }
-                Delay(6 * SECOND) {
+                it.Delay(6 * SECOND, clock) {
                     it.emit(y) { it + 1 }
                     it.emit(x) { LinearDynamics(19.0, -0.5) }
-                    Delay(20 * MINUTE) {
+                    it.Delay(20 * MINUTE, clock) {
                         it.emit(y) { it + 1 }
                         it.emit(x) { LinearDynamics(35.0, 0.0) }
                         Complete(Unit)
@@ -456,6 +476,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(intCounterCell("y", 0))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Awaiter")) {
                 Await({
                     // Example implementation of a "greater than 20" condition for a linear dynamics type.
@@ -476,10 +497,10 @@ class SimulationTest {
             }
             spawn(Name("Interrupter")) {
                 it.emit(y) { it + 1 }
-                Delay(6 * SECOND) {
+                it.Delay(6 * SECOND, clock) {
                     it.emit(y) { it + 1 }
                     it.emit(x) { LinearDynamics(19.0, -0.5) }
-                    Delay(20 * MINUTE) {
+                    it.Delay(20 * MINUTE, clock) {
                         it.emit(y) { it + 1 }
                         it.emit(x) { LinearDynamics(19.0, 0.1) }
                         Complete(Unit)
@@ -531,6 +552,7 @@ class SimulationTest {
     fun unsatisfied_condition_reevaluation_can_be_interrupted() {
         val results = runSimulation(HOUR) {
             val x = allocate(linearCell("x", 10.0, 1.0))
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Awaiter")) {
                 Await({
                     if (it.read(x).value >= 15) SatisfiedAt(ZERO)
@@ -543,7 +565,7 @@ class SimulationTest {
             }
 
             spawn(Name("Interrupter")) {
-                Delay(5 * SECOND) {
+                it.Delay(5 * SECOND, clock) {
                     it.emit(x) { LinearDynamics(20.0, 0.0) }
                     Complete(Unit)
                 }
@@ -615,6 +637,7 @@ class SimulationTest {
         fun initialize() {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(linearCell("y", 10.0, -0.1))
+            val clock = allocate(clockCell("clock", ZERO))
 
             spawn(Name("Complete Immediately")) {
                 Complete(Unit)
@@ -637,7 +660,7 @@ class SimulationTest {
                     "x" to Json.encodeToJsonElement(xDynamics),
                     "y" to Json.encodeToJsonElement(yDynamics),
                 )), typeOf<JsonObject>())
-                Delay(90 * SECOND) {
+                it.Delay(90 * SECOND, clock) {
                     val xDynamics = it.read(x)
                     val yDynamics = it.read(y)
                     it.report(JsonObject(mapOf(
@@ -683,9 +706,6 @@ class SimulationTest {
                                 assertNearlyEquals(-0.1, double("rate")!!)
                             }
                         }
-                        element {
-                            assertEquals("delay", string("type"))
-                        }
                     }
                 }
             }
@@ -698,6 +718,7 @@ class SimulationTest {
         fun initialize() {
             val x = allocate(linearCell("x", 10.0, 1.0))
             val y = allocate(linearCell("y", 10.0, -0.1))
+            val clock = allocate(clockCell("clock", ZERO))
 
             spawn(Name("Complete Immediately")) {
                 Complete(Unit)
@@ -706,7 +727,7 @@ class SimulationTest {
                 val xDynamics = it.read(x)
                 val yDynamics = it.read(y)
                 // Add a delay 0 to make the report order deterministic, for easier verification
-                Delay(ZERO) {
+                it.Delay(ZERO, clock) {
                     it.report(JsonObject(mapOf(
                         "tag" to JsonPrimitive("Single Batch Task"),
                         "x" to Json.encodeToJsonElement(xDynamics),
@@ -723,7 +744,9 @@ class SimulationTest {
                     "x" to Json.encodeToJsonElement(xDynamics),
                     "y" to Json.encodeToJsonElement(yDynamics),
                 )), typeOf<JsonObject>())
-                Delay(90 * SECOND) {
+                // Since this delay spans a fincon boundary, do the delay correctly by reading a clock.
+                // Abusing Await like I've done elsewhere, directly returning the time, causes buggy behavior with fincons.
+                it.Delay(90 * SECOND, clock) {
                     val xDynamics = it.read(x)
                     val yDynamics = it.read(y)
                     it.report(JsonObject(mapOf(
@@ -767,7 +790,7 @@ class SimulationTest {
             }
         }
 
-        val nextResults = runSimulation(2.1 roundTimes  MINUTE, incon = results.fincon) { initialize() }
+        val nextResults = runSimulation(2 * MINUTE, incon = results.fincon) { initialize() }
 
         with (JsonArray(nextResults.reports)) {
             array {
@@ -797,7 +820,7 @@ class SimulationTest {
             val x = allocate(intCounterCell("x", 0))
             val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Repeater")) {
-                Delay(10 * MINUTE) {
+                it.Delay(10 * MINUTE, clock) {
                     it.emit(x) { it + 1 }
                     val time = it.read(clock)
                     val xVal = it.read(x)
@@ -824,7 +847,7 @@ class SimulationTest {
             val x = allocate(intCounterCell("x", 0))
             val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Repeater")) {
-                Delay(10 * MINUTE) {
+                it.Delay(10 * MINUTE, clock) {
                     it.emit(x) { it + 1 }
                     val time = it.read(clock)
                     val xVal = it.read(x)
@@ -844,11 +867,14 @@ class SimulationTest {
             within("tasks", "Repeater") {
                 within("$") {
                     array {
-                        element { assertEquals("delay", string("type")) }
+                        element {
+                            assertEquals("read", string("type"))
+                            assertEquals("00:50:00.000000", string("value"))
+                        }
                         assert(atEnd())
                     }
                 }
-                assertEquals("01:00:00.000000", string("time", "$"))
+                assertEquals("00:59:00.000000", string("time", "$"))
             }
         }
     }
@@ -865,7 +891,7 @@ class SimulationTest {
             val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("Repeater")) {
                 plays++
-                Delay(10 * MINUTE) {
+                it.Delay(10 * MINUTE, clock) {
                     it.emit(x) { it + 1 }
                     val time = it.read(clock)
                     val xVal = it.read(x)
@@ -911,14 +937,15 @@ class SimulationTest {
     fun child_tasks_run_in_parallel_with_parent_and_each_other() {
         val results = runSimulation(HOUR) {
             var x = allocate(intCounterCell("x", 0))
+            val clock = allocate(clockCell("clock", ZERO))
 
             spawn(Name("Counter")) {
                 it.emit(x) { it + 1 }
-                Delay(ZERO) {
+                it.Delay(ZERO, clock) {
                     it.emit(x) { it + 1 }
-                    Delay(ZERO) {
+                    it.Delay(ZERO, clock) {
                         it.emit(x) { it + 1 }
-                        Delay(ZERO) {
+                        it.Delay(ZERO, clock) {
                             it.emit(x) { it + 1 }
                             Complete(Unit)
                         }
@@ -932,7 +959,7 @@ class SimulationTest {
                 Spawn(Name("C1"), {
                     val xVal = it.read(x)
                     it.report("Tick 1: C1 says: x = $xVal", typeOf<String>())
-                    Delay(ZERO) {
+                    it.Delay(ZERO, clock) {
                         val xVal = it.read(x)
                         it.report("Tick 2: C1 says: x = $xVal", typeOf<String>())
                         Complete(Unit)
@@ -941,16 +968,16 @@ class SimulationTest {
                     Spawn(Name("C2"), {
                         val xVal = it.read(x)
                         it.report("Tick 1: C2 says: x = $xVal", typeOf<String>())
-                        Delay(ZERO) {
+                        it.Delay(ZERO, clock) {
                             val xVal = it.read(x)
                             it.report("Tick 2: C2 says: x = $xVal", typeOf<String>())
                             Complete(Unit)
                         }
                     }) {
-                        Delay(ZERO) {
+                        it.Delay(ZERO, clock) {
                             val xVal = it.read(x)
                             it.report("Tick 1: P says: x = $xVal", typeOf<String>())
-                            Delay(ZERO) {
+                            it.Delay(ZERO, clock) {
                                 val xVal = it.read(x)
                                 it.report("Tick 2: P says: x = $xVal", typeOf<String>())
                                 Complete(Unit)
@@ -985,28 +1012,29 @@ class SimulationTest {
     @Test
     fun child_tasks_can_be_saved() {
         val results = runSimulation(HOUR, takeFincon = true) {
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("P")) {
                 it.report("P -- 1", typeOf<String>())
                 Spawn(Name("C"), {
                     it.report("C -- 1", typeOf<String>())
-                    Delay(45 * MINUTE) {
+                    it.Delay(45 * MINUTE, clock) {
                         // 00:45:00
                         it.report("C -- 2", typeOf<String>())
                         Complete(Unit)
                     }
                 }) {
-                    Delay(30 * MINUTE) {
+                    it.Delay(30 * MINUTE, clock) {
                         // 00:30:00
                         it.report("P -- 2", typeOf<String>())
                         Spawn(Name("D"), {
                             it.report("D -- 1", typeOf<String>())
-                            Delay(45 * MINUTE) {
+                            it.Delay(45 * MINUTE, clock) {
                                 // 01:15:00
                                 it.report("D -- 2", typeOf<String>())
                                 Complete(Unit)
                             }
                         }) {
-                            Delay(HOUR) {
+                            it.Delay(HOUR, clock) {
                                 // 01:30:00
                                 it.report("P -- 3", typeOf<String>())
                                 Complete(Unit)
@@ -1035,16 +1063,23 @@ class SimulationTest {
                                 assertEquals("spawn", string("type"))
                                 assertEquals("parent", string("branch"))
                             }
-                            element { assertEquals("delay", string("type")) }
+                            element {
+                                assertEquals("read", string("type"))
+                                assertEquals("00:00:00.000000", string("value"))
+                            }
+                            element { assertEquals("await", string("type")) }
                             element {
                                 assertEquals("spawn", string("type"))
                                 assertEquals("parent", string("branch"))
                             }
-                            element { assertEquals("delay", string("type")) }
+                            element {
+                                assertEquals("read", string("type"))
+                                assertEquals("00:30:00.000000", string("value"))
+                            }
                             assert(atEnd())
                         }
                     }
-                    assertEquals("01:30:00.000000", string("time", "$"))
+                    assertEquals("01:00:00.000000", string("time", "$"))
                 }
 
                 within("D") {
@@ -1054,15 +1089,23 @@ class SimulationTest {
                                 assertEquals("spawn", string("type"))
                                 assertEquals("parent", string("branch"))
                             }
-                            element { assertEquals("delay", string("type")) }
+                            element {
+                                assertEquals("read", string("type"))
+                                assertEquals("00:00:00.000000", string("value"))
+                            }
+                            element { assertEquals("await", string("type")) }
                             element {
                                 assertEquals("spawn", string("type"))
                                 assertEquals("child", string("branch"))
                             }
-                            element { assertEquals("delay", string("type")) }
+                            element {
+                                assertEquals("read", string("type"))
+                                assertEquals("00:30:00.000000", string("value"))
+                            }
+                            assert(atEnd())
                         }
                     }
-                    assertEquals("01:15:00.000000", string("time", "$"))
+                    assertEquals("01:00:00.000000", string("time", "$"))
                 }
             }
         }
@@ -1072,28 +1115,29 @@ class SimulationTest {
     fun child_tasks_can_be_restored() {
         context (scope: BasicInitScope)
         fun initialize() {
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("P")) {
                 it.report("P -- 1", typeOf<String>())
                 Spawn(Name("C"), {
                     it.report("C -- 1", typeOf<String>())
-                    Delay(45 * MINUTE) {
+                    it.Delay(45 * MINUTE, clock) {
                         // 00:45:00
                         it.report("C -- 2", typeOf<String>())
                         Complete(Unit)
                     }
                 }) {
-                    Delay(30 * MINUTE) {
+                    it.Delay(30 * MINUTE, clock) {
                         // 00:30:00
                         it.report("P -- 2", typeOf<String>())
                         Spawn(Name("D"), {
                             it.report("D -- 1", typeOf<String>())
-                            Delay(45 * MINUTE) {
+                            it.Delay(45 * MINUTE, clock) {
                                 // 01:15:00
                                 it.report("D -- 2", typeOf<String>())
                                 Complete(Unit)
                             }
                         }) {
-                            Delay(HOUR) {
+                            it.Delay(HOUR, clock) {
                                 // 01:30:00
                                 it.report("P -- 3", typeOf<String>())
                                 Complete(Unit)
@@ -1135,12 +1179,12 @@ class SimulationTest {
             val clock = allocate(clockCell("clock", ZERO))
 
             spawn(Name("Repeater")) {
-                Delay(10 * MINUTE) {
+                it.Delay(10 * MINUTE, clock) {
                     val nValue = it.read(n)
                     Spawn(Name("Child $nValue"), {
                         val time = it.read(clock)
                         it.report("Child $nValue start at $time", typeOf<String>())
-                        Delay(45 * MINUTE) {
+                        it.Delay(45 * MINUTE, clock) {
                             val time = it.read(clock)
                             it.report("Child $nValue end at $time", typeOf<String>())
                             Complete(Unit)
@@ -1195,9 +1239,9 @@ class SimulationTest {
             val clock = allocate(clockCell("clock", ZERO))
 
             spawn(Name("Parent")) {
-                Delay(5 * MINUTE) {
+                it.Delay(5 * MINUTE, clock) {
                     Spawn(Name("Repeater"), {
-                        Delay(10 * MINUTE) {
+                        it.Delay(10 * MINUTE, clock) {
                             val time = it.read(clock)
                             val nVal = it.read(n)
                             it.report("Iteration $nVal at $time", typeOf<String>())
@@ -1243,13 +1287,14 @@ class SimulationTest {
     fun grandchild_tasks_can_be_restored() {
         context (scope: BasicInitScope)
         fun initialize() {
+            val clock = allocate(clockCell("clock", ZERO))
             spawn(Name("P")) {
                 it.report("P -- 1", typeOf<String>())
                 Spawn(Name("C"), {
                     it.report("C -- 1", typeOf<String>())
                     Spawn(Name("GC"), {
                         it.report("GC -- 1", typeOf<String>())
-                        Delay(90 * MINUTE) {
+                        it.Delay(90 * MINUTE, clock) {
                             it.report("GC -- 2", typeOf<String>())
                             Complete(Unit)
                         }
@@ -1293,13 +1338,14 @@ class SimulationTest {
         // Stress test this by spawning a bunch of tasks, from init and from the sim itself, that'll run exactly at fincon time.
         context (scope: BasicInitScope)
         fun initialize() {
+            val clock = allocate(clockCell("clock", ZERO))
             for (i in 1..100) {
                 // Case A - Task delays directly to fincon time
                 spawn(Name("A$i")) {
                     it.report("A$i -- 1", typeOf<String>())
-                    Delay(MINUTE) {
+                    it.Delay(MINUTE, clock) {
                         it.report("A$i -- 2", typeOf<String>())
-                        Delay(10 * SECOND) {
+                        it.Delay(10 * SECOND, clock) {
                             it.report("A$i -- 3", typeOf<String>())
                             Complete(Unit)
                         }
@@ -1311,10 +1357,10 @@ class SimulationTest {
                 //   are added to the queue, this hopes to provoke those effects.
                 spawn(Name("B$i")) {
                     it.report("B$i -- 1", typeOf<String>())
-                    Delay(30 * SECOND) {
-                        Delay(30 * SECOND) {
+                    it.Delay(30 * SECOND, clock) {
+                        it.Delay(30 * SECOND, clock) {
                             it.report("B$i -- 2", typeOf<String>())
-                            Delay(10 * SECOND) {
+                            it.Delay(10 * SECOND, clock) {
                                 it.report("B$i -- 3", typeOf<String>())
                                 Complete(Unit)
                             }
@@ -1325,15 +1371,15 @@ class SimulationTest {
                 // Case C - Children spawned at fincon time
                 spawn(Name("C$i")) {
                     it.report("C$i -- 1", typeOf<String>())
-                    Delay(MINUTE) {
+                    it.Delay(MINUTE, clock) {
                         Spawn(Name("C${i}_child"), {
                             it.report("C$i -- 2", typeOf<String>())
-                            Delay(10 * SECOND) {
+                            it.Delay(10 * SECOND, clock) {
                                 it.report("C$i -- 3", typeOf<String>())
                                 Complete(Unit)
                             }
                         }) {
-                            Delay(10 * SECOND) {
+                            it.Delay(10 * SECOND, clock) {
                                 Complete(Unit)
                             }
                         }

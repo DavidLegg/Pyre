@@ -17,7 +17,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.inc
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delayUntil
+import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
 import gov.nasa.jpl.pyre.foundation.tasks.task
 
 typealias IntProfile = DiscreteProfile<Int>

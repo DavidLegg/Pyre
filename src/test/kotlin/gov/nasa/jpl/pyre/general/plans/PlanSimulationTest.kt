@@ -39,8 +39,8 @@ import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
+import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
 import gov.nasa.jpl.pyre.foundation.value
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer

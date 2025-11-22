@@ -10,8 +10,8 @@ import gov.nasa.jpl.pyre.general.plans.Activity
 import gov.nasa.jpl.pyre.general.plans.ActivityActions.call
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
+import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delayUntil
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

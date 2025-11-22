@@ -90,10 +90,6 @@ interface Task<T> {
         data class Complete<T>(val value: T) : PureStepResult<T> {
             override fun toString() = "Complete($value)"
         }
-        // TODO: Given how simple conditions are now, eliminate "delay" altogether and use "await" instead
-        data class Delay<T>(val time: Duration, val continuation: PureTaskStep<T>) : PureStepResult<T> {
-            override fun toString() = "Delay($time)"
-        }
         data class Await<T>(val condition: Condition, val continuation: PureTaskStep<T>) : PureStepResult<T> {
             override fun toString() = "Await($condition)"
         }
@@ -112,10 +108,7 @@ interface Task<T> {
         data class Complete<T>(val value: T) : TaskStepResult<T> {
             override fun toString() = "Complete($value)"
         }
-        data class Delay<T>(val time: Duration, val continuation: Task<T>) : TaskStepResult<T> {
-            override fun toString() = "Delay($time)"
-        }
-        data class Await<T>(val condition: Condition, val continuation: Task<T>) : TaskStepResult<T> {
+        data class Await<T>(val condition: Condition, val rewait: Task<T>, val continuation: Task<T>) : TaskStepResult<T> {
             override fun toString() = "Await($condition)"
         }
         data class Spawn<S, T>(val child: Task<S>, val continuation: Task<T>) : TaskStepResult<T> {
@@ -173,17 +166,14 @@ private class PureTask<T>(
         }
         return when (val stepResult = step(historyCapturingActions)) {
             is PureStepResult.Complete -> TaskStepResult.Complete(stepResult.value)
-            is PureStepResult.Delay -> TaskStepResult.Delay(
-                stepResult.time,
-                PureTask(
-                    id.nextStep(),
-                    stepResult.continuation,
-                    { reportHistory(); report<TaskHistoryStep>(DelayMarker) },
-                    rootTask
-                )
-            )
             is PureStepResult.Await -> TaskStepResult.Await(
                 stepResult.condition,
+                PureTask(
+                    id,
+                    { stepResult },
+                    { reportHistory() },
+                    rootTask
+                ),
                 PureTask(
                     id.nextStep(),
                     stepResult.continuation,
@@ -234,23 +224,26 @@ private class PureTask<T>(
 
         // Only run the next step of the task if we have history for it
         while (inconProvider.inconExists()) {
-            val nextTask = when (val stepResult = thisTask.runStep(restorationActions)) {
-                is TaskStepResult.Delay -> inconProvider.provideStep<DelayMarker> { stepResult.continuation }
-                is TaskStepResult.Await -> inconProvider.provideStep<AwaitMarker> { stepResult.continuation }
+            thisTask = when (val stepResult = thisTask.runStep(restorationActions)) {
+                is TaskStepResult.Await -> {
+                    // If an await step has incon data, it completed, so continue the task
+                    inconProvider.provideStep<AwaitMarker> { stepResult.continuation }
+                        // Otherwise, we're awaiting right now, so return the rewait task
+                        ?: stepResult.rewait
+                }
                 // For spawns, check the task history and take the branch corresponding with this history
-                is TaskStepResult.Spawn<*, *> -> inconProvider.provideStep<SpawnMarker> {
+                is TaskStepResult.Spawn<*, *> -> checkNotNull(inconProvider.provideStep<SpawnMarker> {
                     when (it.branch) {
                         SpawnMarkerBranch.Parent -> stepResult.continuation
                         SpawnMarkerBranch.Child -> stepResult.child
                     }
+                }) {
+                    // It should not be possible not to have incon data for a spawn - they always run to completion
+                    "'spawn' step missing from incon. Incon data for ${thisTask.id.name} is malformed."
                 }
                 // NoOp's don't contribute to task history themselves, just keep restoring with the next step
                 is TaskStepResult.NoOp -> stepResult.continuation
                 is TaskStepResult.Complete -> throw IllegalArgumentException("Extra restore data for completed task")
-            }
-            // Since we asserted before running the task that some incon element exists, this null check should never fail.
-            thisTask = checkNotNull(nextTask) {
-                "Internal error! inconProvider reported inconExists, but no incon was read!"
             }
         }
         // If there's no history data left, we've reached the active step
@@ -266,18 +259,6 @@ private class PureTask<T>(
 
     @Serializable
     sealed interface TaskHistoryStep {
-        @Serializable
-        @SerialName("emit")
-        object EmitMarker : TaskHistoryStep
-
-        @Serializable
-        @SerialName("report")
-        object ReportMarker : TaskHistoryStep
-
-        @Serializable
-        @SerialName("delay")
-        object DelayMarker : TaskHistoryStep
-
         @Serializable
         @SerialName("await")
         object AwaitMarker : TaskHistoryStep

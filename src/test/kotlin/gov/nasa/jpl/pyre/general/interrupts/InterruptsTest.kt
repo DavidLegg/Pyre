@@ -10,8 +10,8 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperation
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import org.junit.jupiter.api.Test

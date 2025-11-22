@@ -8,8 +8,8 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.foundation.resources.*
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
+import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.await
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.ConditionResult
 import gov.nasa.jpl.pyre.kernel.ReadActions

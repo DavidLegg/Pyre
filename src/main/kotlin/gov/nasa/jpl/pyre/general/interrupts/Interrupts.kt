@@ -1,15 +1,11 @@
 package gov.nasa.jpl.pyre.general.interrupts
 
 import gov.nasa.jpl.pyre.kernel.CellSet
-import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.or
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.greaterThanOrEquals
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.or
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenTrue
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
@@ -41,11 +37,6 @@ object Interrupts {
                 scope.emit(cell, effect)
                 // It's possible that the effect we just emitted caused our own abort condition to fire!
                 if (hasAborted.getValue()) throw AbortTaskException()
-            }
-
-            override suspend fun delay(time: Duration) {
-                // Convert simple delay to a condition await, so we can combine it with abort condition
-                await(simulationClock greaterThanOrEquals (simulationClock.getValue() + time))
             }
 
             override suspend fun await(condition: Condition) {

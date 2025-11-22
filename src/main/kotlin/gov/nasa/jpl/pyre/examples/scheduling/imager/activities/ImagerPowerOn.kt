@@ -7,6 +7,7 @@ import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel.ImagerMode
 import gov.nasa.jpl.pyre.general.plans.Activity
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -18,7 +19,7 @@ class ImagerPowerOn : Activity<ImagerModel> {
     override suspend fun effectModel(model: ImagerModel) {
         if (model.mode.getValue() == ImagerMode.OFF) {
             model.mode.set(ImagerMode.WARMUP)
-            scope.delay(15 * MINUTE)
+            delay(15 * MINUTE)
             model.mode.set(ImagerMode.STANDBY)
         }
         // Otherwise, the instrument is already on / warming up, so reject this command

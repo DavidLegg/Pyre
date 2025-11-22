@@ -73,7 +73,6 @@ interface ConditionScope : ResourceScope
 interface TaskScope : ResourceScope {
     fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>)
     fun <T> report(value: T, type: KType)
-    suspend fun delay(time: Duration)
     suspend fun await(condition: Condition)
     suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>)
 
@@ -88,9 +87,6 @@ interface TaskScope : ResourceScope {
         fun <T> report(value: T, type: KType) = scope.report(value, type)
 
         context (scope: TaskScope)
-        suspend fun delay(time: Duration) = scope.delay(time)
-
-        context (scope: TaskScope)
         suspend fun await(condition: Condition) = scope.await(condition)
 
         context (scope: TaskScope)
@@ -98,18 +94,6 @@ interface TaskScope : ResourceScope {
 
         context (scope: TaskScope)
         suspend fun <S> spawn(childName: String, child: suspend context (TaskScope) () -> TaskScopeResult<S>) = spawn(Name(childName), child)
-
-        /**
-         * Delay until the given absolute simulation time, measured against [SimulationScope.simulationClock]
-         */
-        context (scope: TaskScope)
-        suspend fun delayUntil(time: Duration) = delay(maxOf(time - simulationClock.getValue(), ZERO))
-
-        /**
-         * Delay until the given absolute simulation time, measured against [SimulationScope.simulationClock]
-         */
-        context (scope: TaskScope)
-        suspend fun delayUntil(time: Instant) = delayUntil((time - simulationEpoch).toPyreDuration())
     }
 }
 

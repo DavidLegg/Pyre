@@ -27,11 +27,15 @@ class SimulationState(private val reportHandler: ReportHandler) {
 
     private class AwaitingTask<T>(
         val await: Await<T>,
-        originalTask: Task<T>,
         state: SimulationState,
     ) {
-        val rewaitTask: Task<T> = object: Task<T> by originalTask {
-            override fun runStep(actions: Task.BasicTaskActions): Await<T> = await
+        val rewaitTask: Task<T> = object : Task<T> by await.rewait {
+            override fun runStep(actions: Task.BasicTaskActions): Task.TaskStepResult<T> {
+                // Remove all listeners before continuing so we don't re-trigger the condition
+                // Because the AwaitingTask is rebuilt when rewaiting, this is non-redundant with the resetListeners in evaluateAwaitingTask.
+                state.resetListeners(this@AwaitingTask)
+                return await.rewait.runStep(actions)
+            }
         }
         val continuationTask: Task<T> = object : Task<T> by await.continuation {
             override fun runStep(actions: Task.BasicTaskActions): Task.TaskStepResult<T> {
@@ -42,22 +46,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
         }
         var scheduledTask: TaskEntry? = null
 
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (javaClass != other?.javaClass) return false
-
-            other as AwaitingTask<*>
-
-            // Check the await steps for reference equality
-            // We rebuild the AwaitingTask each time we re-evaluate, but the await step inside remains the same.
-            return await === other.await
-        }
-
-        override fun hashCode(): Int {
-            // Since we're using reference equality with the await field for equals, to be consistent,
-            // we must return the identity hash code (not the overridden hash code!) of that field.
-            return System.identityHashCode(await)
-        }
+        override fun toString(): String = "${await.rewait} -- $await"
     }
     private val awaitingTasks: MutableSet<AwaitingTask<*>> = mutableSetOf()
 
@@ -133,11 +122,8 @@ class SimulationState(private val reportHandler: ReportHandler) {
     }
 
     private fun <T> evaluateAwaitingTask(awaitingTask: AwaitingTask<T>) {
-        // Reset any listeners from prior evaluations
+        // Reset any listeners from any prior evaluation of this task
         resetListeners(awaitingTask)
-
-        // Remove the scheduled rewait or continuation, if it's there.
-        awaitingTask.scheduledTask?.let(tasks::remove)
 
         // Evaluate the condition, recording the cells we read along the way
         val cellsRead: MutableSet<CellHandle<*>> = mutableSetOf()
@@ -176,6 +162,8 @@ class SimulationState(private val reportHandler: ReportHandler) {
     private fun <T> resetListeners(awaitingTask: AwaitingTask<T>) {
         // Reset the cells we're listening to
         listeningTasks.remove(awaitingTask)?.forEach { cellListeners[it]?.remove(awaitingTask) }
+        // Remove the scheduled rewait or continuation, if it's there.
+        awaitingTask.scheduledTask?.let(tasks::remove)
     }
 
     private fun <T> runTask(task: Task<T>, cellSet: CellSet) {
@@ -210,12 +198,8 @@ class SimulationState(private val reportHandler: ReportHandler) {
             }
             when (stepResult) {
                 is Complete -> break // Nothing to do
-                is Delay -> {
-                    addTask(stepResult.continuation, time + stepResult.time)
-                    break
-                }
                 is Await -> {
-                    awaitingTasks += AwaitingTask(stepResult, nextTask, this)
+                    awaitingTasks += AwaitingTask(stepResult, this)
                     break
                 }
                 is Spawn<*, T> -> {

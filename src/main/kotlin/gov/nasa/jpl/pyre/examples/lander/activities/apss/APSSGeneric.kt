@@ -10,8 +10,8 @@ import gov.nasa.jpl.pyre.examples.lander.models.data.DataConfig.APID.*
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel
 import gov.nasa.jpl.pyre.general.plans.Activity
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.delay
 import kotlinx.serialization.Serializable
 
 @Serializable

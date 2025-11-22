@@ -99,12 +99,6 @@ private class TaskBuilder<T>(
     override fun <T> report(value: T, type: KType) =
         basicTaskActions!!.report(value, type)
 
-    override suspend fun delay(time: Duration) =
-        suspendCoroutineUninterceptedOrReturn { c ->
-            nextResult = Delay(time, continueWith(c))
-            COROUTINE_SUSPENDED
-        }
-
     override suspend fun await(condition: Condition) =
         suspendCoroutineUninterceptedOrReturn { c ->
             nextResult = Await(condition, continueWith(c))
