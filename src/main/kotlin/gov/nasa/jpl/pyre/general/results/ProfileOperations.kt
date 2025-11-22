@@ -1,10 +1,9 @@
 package gov.nasa.jpl.pyre.general.results
 
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
-import gov.nasa.jpl.pyre.general.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.channels
 import gov.nasa.jpl.pyre.general.results.Profile.Companion.end
-import gov.nasa.jpl.pyre.general.results.Profile.Companion.get
 import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register

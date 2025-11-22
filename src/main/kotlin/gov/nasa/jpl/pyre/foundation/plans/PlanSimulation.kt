@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.general.plans
+package gov.nasa.jpl.pyre.foundation.plans
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.kernel.Cell
@@ -12,7 +12,6 @@ import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvidingContext.Companion.provide
 import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.kernel.SimulationState
-import gov.nasa.jpl.pyre.kernel.Task
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
@@ -35,7 +34,6 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import kotlinx.coroutines.runBlocking
 import kotlin.reflect.KType
 import kotlin.reflect.full.withNullability
 import kotlin.reflect.typeOf

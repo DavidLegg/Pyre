@@ -2,7 +2,7 @@ package gov.nasa.jpl.pyre.examples.sequencing.activities
 
 import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.Sequence
-import gov.nasa.jpl.pyre.general.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName

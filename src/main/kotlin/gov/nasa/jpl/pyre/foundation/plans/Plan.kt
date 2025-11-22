@@ -1,6 +1,6 @@
 @file:UseSerializers(InstantSerializer::class)
 
-package gov.nasa.jpl.pyre.general.plans
+package gov.nasa.jpl.pyre.foundation.plans
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

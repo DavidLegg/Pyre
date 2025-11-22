@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.general.plans
+package gov.nasa.jpl.pyre.foundation.plans
 
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.int
@@ -19,10 +19,10 @@ import gov.nasa.jpl.pyre.foundation.activityEnd
 import gov.nasa.jpl.pyre.foundation.activityStart
 import gov.nasa.jpl.pyre.foundation.end
 import gov.nasa.jpl.pyre.foundation.log
-import gov.nasa.jpl.pyre.general.plans.PlanSimulationTest.ModelWithResources.DummyActivity
-import gov.nasa.jpl.pyre.general.plans.PlanSimulationTest.PowerState.*
-import gov.nasa.jpl.pyre.general.plans.PlanSimulationTest.TestModel.*
-import gov.nasa.jpl.pyre.general.plans.ActivityActions.spawn
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.ModelWithResources.DummyActivity
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.PowerState.*
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.TestModel.*
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.discardReports
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.report

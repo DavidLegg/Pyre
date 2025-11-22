@@ -2,9 +2,9 @@ package gov.nasa.jpl.pyre.general.testing
 
 import gov.nasa.jpl.pyre.utilities.andThen
 import gov.nasa.jpl.pyre.kernel.ReportHandler
-import gov.nasa.jpl.pyre.general.plans.Activity
-import gov.nasa.jpl.pyre.general.plans.ActivityActions.ActivityEvent
-import gov.nasa.jpl.pyre.general.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.assumeType
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.channels
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport

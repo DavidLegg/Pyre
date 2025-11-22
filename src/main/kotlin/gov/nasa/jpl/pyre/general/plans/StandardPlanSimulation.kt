@@ -1,16 +1,17 @@
 package gov.nasa.jpl.pyre.general.plans
 
+import gov.nasa.jpl.pyre.foundation.plans.Plan
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
+import gov.nasa.jpl.pyre.general.reporting.ParallelReportHandler.Companion.inParallel
+import gov.nasa.jpl.pyre.kernel.JsonConditions
+import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.toFile
+import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.utilities.Closeable
 import gov.nasa.jpl.pyre.utilities.Closeable.Companion.asCloseable
 import gov.nasa.jpl.pyre.utilities.Closeable.Companion.use
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromFile
-import gov.nasa.jpl.pyre.kernel.JsonConditions
-import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.toFile
-import gov.nasa.jpl.pyre.kernel.ReportHandler
-import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
-import gov.nasa.jpl.pyre.general.reporting.ParallelReportHandler.Companion.inParallel
-import gov.nasa.jpl.pyre.general.reporting.ReportHandling.jsonlReportHandler
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -34,7 +35,7 @@ data class StandardPlanSimulationSetup<M>(
 )
 
 /**
- * Baseline way to set up and run a [PlanSimulation].
+ * Baseline way to set up and run a [gov.nasa.jpl.pyre.foundation.plans.PlanSimulation].
  *
  * A JSON setup file is read from disk.
  * The setup file indicates a plan and (optionally) an incon, as paths relative to the location of the setup file.
@@ -50,18 +51,18 @@ data class StandardPlanSimulationSetup<M>(
  * Model constructor, usually the constructor method of a top-level model class.
  *
  * @param jsonFormat
- * The [Json] format to use everywhere, including plan deserialization, reports, and incon/fincon handling.
+ * The [kotlinx.serialization.json.Json] format to use everywhere, including plan deserialization, reports, and incon/fincon handling.
  *
  * @param buildReportHandler
- * Given the output stream to write to, constructs a [ReportHandler] and gives it to the callback.
- * Defaults to using [jsonlReportHandler], writing the output in JSON Lines format.
+ * Given the output stream to write to, constructs a [gov.nasa.jpl.pyre.kernel.ReportHandler] and gives it to the callback.
+ * Defaults to using [gov.nasa.jpl.pyre.general.reporting.ReportHandling.jsonlReportHandler], writing the output in JSON Lines format.
  * The callback pattern permits [AutoCloseable] report handlers, which may call the callback inside [AutoCloseable.use].
  */
 @OptIn(ExperimentalSerializationApi::class)
 inline fun <reified M> runStandardPlanSimulation(
     setupFile: String,
     noinline constructModel: InitScope.() -> M,
-    jsonFormat: Json = Json,
+    jsonFormat: Json = Json.Default,
     buildReportHandler: (OutputStream) -> Closeable<ReportHandler> =
         { CsvReportHandler(it, jsonFormat).asCloseable() },
 ) {
@@ -93,7 +94,7 @@ inline fun <reified M> runStandardPlanSimulation(
                     // Initialize the simulation from an incon, if available.
                     val simulation = if (setup.inconFile == null) {
                         println("No initial conditions given")
-                        PlanSimulation.withoutIncon<M>(
+                        PlanSimulation.Companion.withoutIncon<M>(
                             reportHandler,
                             plan.startTime,
                             plan.startTime,
@@ -102,9 +103,9 @@ inline fun <reified M> runStandardPlanSimulation(
                     } else {
                         val inconPath = setupPath.resolveSibling(setup.inconFile)
                         println("Reading initial conditions $inconPath")
-                        PlanSimulation.withIncon<M>(
+                        PlanSimulation.Companion.withIncon<M>(
                             reportHandler,
-                            JsonConditions.fromFile(inconPath, jsonFormat),
+                            JsonConditions.Companion.fromFile(inconPath, jsonFormat),
                             constructModel
                         )
                     }
