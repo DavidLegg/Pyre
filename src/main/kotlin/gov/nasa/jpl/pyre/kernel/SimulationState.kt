@@ -204,8 +204,6 @@ class SimulationState(private val reportHandler: ReportHandler) {
                 }
                 is Spawn<*, T> -> {
                     addTask(stepResult.child, time)
-                    // TODO: add continuation to the task queue, instead of running it immediately.
-                    //   This gives the more natural semantics of running the child in parallel with the rest of parent
                     nextTask = stepResult.continuation
                 }
                 is NoOp -> {

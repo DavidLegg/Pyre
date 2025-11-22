@@ -69,9 +69,6 @@ interface Task<T> {
         // Note that "spawn" is not listed here. Arguably, it's a non-yielding action and should be here.
         // It winds up being easier to restore tasks if we can choose which branch (parent or child) to take.
         // For this reason, it's better to treat spawn as a yielding action.
-        // This also means we can make a child run in parallel with the parent task post-spawn,
-        // which may be the more "natural" semantics for a task.
-        // It makes it "feel" like the child is spawned "immediately".
     }
 
 
