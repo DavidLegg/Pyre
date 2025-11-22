@@ -60,7 +60,7 @@ object Reactions {
      * inconsistent with the normal continuous evolution of the dynamics.
      */
     context (scope: TaskScope)
-    suspend fun <V, D : Dynamics<V, D>> dynamicsChange(resource: Resource<D>): Condition {
+    fun <V, D : Dynamics<V, D>> dynamicsChange(resource: Resource<D>): Condition {
         val dynamics1 = resource.getDynamics()
         val time1 = simulationClock.getValue()
         return condition {
