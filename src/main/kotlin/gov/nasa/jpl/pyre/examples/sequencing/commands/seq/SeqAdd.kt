@@ -3,7 +3,7 @@ package gov.nasa.jpl.pyre.examples.sequencing.commands.seq
 import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
 import gov.nasa.jpl.pyre.examples.sequencing.fsw.FswModel.GlobalIntVarName
 import gov.nasa.jpl.pyre.examples.sequencing.primeness.SideIndicator.PRIME
-import gov.nasa.jpl.pyre.general.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope

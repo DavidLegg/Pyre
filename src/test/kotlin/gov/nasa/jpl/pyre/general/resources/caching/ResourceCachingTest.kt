@@ -7,11 +7,11 @@ import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.kernel.times
-import gov.nasa.jpl.pyre.general.plans.Activity
-import gov.nasa.jpl.pyre.general.plans.GroundedActivity
-import gov.nasa.jpl.pyre.general.plans.Plan
-import gov.nasa.jpl.pyre.general.plans.PlanSimulation
-import gov.nasa.jpl.pyre.general.plans.activities
+import gov.nasa.jpl.pyre.foundation.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
+import gov.nasa.jpl.pyre.foundation.plans.Plan
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.general.resources.caching.ResourceCaching.fileBackedResource
 import gov.nasa.jpl.pyre.general.resources.caching.ResourceCachingTest.OriginalResourceModel.*

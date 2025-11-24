@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.BITS_PER_SECOND
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
-import gov.nasa.jpl.pyre.general.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResourceOperations.set
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope

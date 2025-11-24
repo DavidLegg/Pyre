@@ -5,8 +5,8 @@ import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.kernel.ratioOver
 import gov.nasa.jpl.pyre.kernel.roundTimes
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
-import gov.nasa.jpl.pyre.general.plans.Activity
-import gov.nasa.jpl.pyre.general.plans.GroundedActivity
+import gov.nasa.jpl.pyre.foundation.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import org.apache.commons.math3.analysis.UnivariateFunction
 import org.apache.commons.math3.analysis.solvers.AllowedSolution
 import org.apache.commons.math3.analysis.solvers.BracketingNthOrderBrentSolver

@@ -2,9 +2,9 @@ package gov.nasa.jpl.pyre.examples.orbiter.power
 
 import gov.nasa.jpl.pyre.kernel.JsonConditions
 import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.encodeToStream
-import gov.nasa.jpl.pyre.general.plans.Plan
-import gov.nasa.jpl.pyre.general.plans.PlanSimulation
-import gov.nasa.jpl.pyre.general.plans.activities
+import gov.nasa.jpl.pyre.foundation.plans.Plan
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource

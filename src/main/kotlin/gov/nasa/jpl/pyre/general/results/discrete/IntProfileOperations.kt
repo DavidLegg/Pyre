@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.general.results.discrete
 
-import gov.nasa.jpl.pyre.general.plans.ActivityActions.ActivityEvent
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.general.results.ProfileOperations.compute
 import gov.nasa.jpl.pyre.general.results.SimulationResults

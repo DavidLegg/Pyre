@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.general.results
 
-import gov.nasa.jpl.pyre.general.plans.Activity
-import gov.nasa.jpl.pyre.general.plans.ActivityActions
+import gov.nasa.jpl.pyre.foundation.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
 import kotlin.collections.iterator
 import kotlin.time.Instant

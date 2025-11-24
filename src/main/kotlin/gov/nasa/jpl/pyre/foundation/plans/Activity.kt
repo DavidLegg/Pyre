@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.general.plans
+package gov.nasa.jpl.pyre.foundation.plans
 
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.Contextual

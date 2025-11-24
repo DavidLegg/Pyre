@@ -36,8 +36,8 @@ import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingAlgorithms.scheduleActivityToEndNear
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem
 import gov.nasa.jpl.pyre.examples.units.KILOWATT_HOUR
-import gov.nasa.jpl.pyre.general.plans.GroundedActivity
-import gov.nasa.jpl.pyre.general.plans.activities
+import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
+import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.general.results.Profile

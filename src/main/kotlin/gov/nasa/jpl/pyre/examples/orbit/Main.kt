@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.utilities.andThen
 import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
-import gov.nasa.jpl.pyre.general.plans.activities
+import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
 import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.assumeType

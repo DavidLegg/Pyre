@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.examples.sequencing.activities
 
 import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
-import gov.nasa.jpl.pyre.general.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.notEquals
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await

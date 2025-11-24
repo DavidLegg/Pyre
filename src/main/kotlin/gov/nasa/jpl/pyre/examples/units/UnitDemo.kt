@@ -8,10 +8,10 @@ import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.examples.units.DeviceIndicator.*
 import gov.nasa.jpl.pyre.examples.units.DeviceState.*
-import gov.nasa.jpl.pyre.general.plans.Activity
-import gov.nasa.jpl.pyre.general.plans.GroundedActivity
-import gov.nasa.jpl.pyre.general.plans.PlanSimulation
-import gov.nasa.jpl.pyre.general.plans.activities
+import gov.nasa.jpl.pyre.foundation.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResource
 import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResourceOperations.plus

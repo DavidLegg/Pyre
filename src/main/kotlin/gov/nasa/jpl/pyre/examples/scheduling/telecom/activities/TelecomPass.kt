@@ -6,8 +6,8 @@ import gov.nasa.jpl.pyre.kernel.minus
 import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
-import gov.nasa.jpl.pyre.general.plans.Activity
-import gov.nasa.jpl.pyre.general.plans.ActivityActions.call
+import gov.nasa.jpl.pyre.foundation.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil

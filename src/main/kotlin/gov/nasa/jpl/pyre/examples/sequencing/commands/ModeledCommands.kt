@@ -5,9 +5,9 @@ import gov.nasa.jpl.pyre.examples.sequencing.commands.seq.SEQ_MODELED_COMMANDS
 import gov.nasa.jpl.pyre.examples.sequencing.commands.telecom.TELECOM_MODELED_COMMANDS
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.Command
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.CommandBehavior
-import gov.nasa.jpl.pyre.general.plans.Activity
-import gov.nasa.jpl.pyre.general.plans.ActivityActions.call
-import gov.nasa.jpl.pyre.general.plans.ActivityModuleBuilder
+import gov.nasa.jpl.pyre.foundation.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
+import gov.nasa.jpl.pyre.foundation.plans.ActivityModuleBuilder
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.descriptors.PrimitiveKind

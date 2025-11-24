@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.general.plans
+package gov.nasa.jpl.pyre.foundation.plans
 
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration

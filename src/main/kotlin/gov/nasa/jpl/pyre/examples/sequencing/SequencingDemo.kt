@@ -9,7 +9,7 @@ import gov.nasa.jpl.pyre.examples.sequencing.commands.ALL_MODELED_COMMANDS
 import gov.nasa.jpl.pyre.examples.sequencing.fsw.FswModel
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequencingModel
 import gov.nasa.jpl.pyre.examples.sequencing.telecom.TelecomModel
-import gov.nasa.jpl.pyre.general.plans.activities
+import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import kotlinx.serialization.builtins.serializer
