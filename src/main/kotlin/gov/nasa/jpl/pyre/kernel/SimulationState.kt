@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.kernel.Task.TaskStepResult.*
 import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
@@ -36,21 +37,6 @@ class SimulationState(private val reportHandler: ReportHandler) {
         val await: Await<T>,
         state: SimulationState,
     ) {
-        val rewaitTask: Task<T> = object : Task<T> by await.rewait {
-            override fun runStep(actions: Task.BasicTaskActions): Task.TaskStepResult<T> {
-                // Remove all listeners before continuing so we don't re-trigger the condition
-                // Because the AwaitingTask is rebuilt when rewaiting, this is non-redundant with the resetListeners in evaluateAwaitingTask.
-                state.resetListeners(this@AwaitingTask)
-                return await.rewait.runStep(actions)
-            }
-        }
-        val continuationTask: Task<T> = object : Task<T> by await.continuation {
-            override fun runStep(actions: Task.BasicTaskActions): Task.TaskStepResult<T> {
-                // Remove all listeners before continuing so we don't re-trigger the condition
-                state.resetListeners(this@AwaitingTask)
-                return await.continuation.runStep(actions)
-            }
-        }
         var scheduledTask: TaskEntry? = null
 
         override fun toString(): String = "${await.rewait} -- $await"
@@ -141,29 +127,47 @@ class SimulationState(private val reportHandler: ReportHandler) {
             }
         })
 
+        when (result) {
+            is SatisfiedAt -> if (result.time == ZERO) {
+                // If a condition is satisfied immediately, don't bother adding listeners or listener cleanup
+                tasks += TaskEntry(time, awaitingTask.await.continuation)
+                // Since we're discarding the awaiting task immediately, no need to set scheduledTask either.
+            } else {
+                // Otherwise, schedule the task with listeners to cancel and re-eval as needed
+                val entry = TaskEntry(time + result.time, conditionalTask(awaitingTask, awaitingTask.await.continuation))
+                tasks += entry
+                // Also register this scheduled run to be canceled, if an effect re-evaluates the condition sooner
+                awaitingTask.scheduledTask = entry
+                setListeners(awaitingTask, cellsRead)
+            }
+            is UnsatisfiedUntil -> {
+                // Set listeners to re-evaluate the condition if any read cell changes
+                setListeners(awaitingTask, cellsRead)
+                if (result.time != null) {
+                    // Schedule the rewait task to re-evaluate the condition once this unsatisfied result expires
+                    val entry = TaskEntry(time + result.time, conditionalTask(awaitingTask, awaitingTask.await.rewait))
+                    tasks += entry
+                    // Also register this scheduled run to be canceled, if an effect re-evaluates the condition sooner
+                    awaitingTask.scheduledTask = entry
+                }
+            }
+        }
+    }
+
+    private fun <T> conditionalTask(awaitingTask: AwaitingTask<T>, task: Task<T>) = object : Task<T> by task {
+        override fun runStep(actions: Task.BasicTaskActions): Task.TaskStepResult<T> {
+            // Remove all listeners before continuing so we don't re-trigger the condition
+            resetListeners(awaitingTask)
+            return task.runStep(actions)
+        }
+    }
+
+    private fun <T> setListeners(awaitingTask: AwaitingTask<T>, cellsRead: Set<CellHandle<*>>) {
         // Schedule listeners to re-evaluate condition if cells change
         for (cell in cellsRead) {
             cellListeners.getOrPut(cell) { mutableSetOf() } += awaitingTask
         }
         listeningTasks[awaitingTask] = cellsRead
-
-        when (result) {
-            is SatisfiedAt -> {
-                // Add conditional task to resume the awaiting task when the condition is satisfied
-                val continuationEntry = TaskEntry(time + result.time, awaitingTask.continuationTask)
-                tasks += continuationEntry
-                awaitingTask.scheduledTask = continuationEntry
-            }
-            is UnsatisfiedUntil -> {
-                if (result.time != null) {
-                    // Schedule the rewait task to re-evaluate the condition once this unsatisfied result expires
-                    val rewaitEntry = TaskEntry(time + result.time, awaitingTask.rewaitTask)
-                    tasks += rewaitEntry
-                    // Also register this scheduled run to be canceled, if an effect re-evaluates the condition sooner
-                    awaitingTask.scheduledTask = rewaitEntry
-                }
-            }
-        }
     }
 
     private fun <T> resetListeners(awaitingTask: AwaitingTask<T>) {
@@ -231,7 +235,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
         val excludedTasks: Set<TaskEntry> = listeningTasks.keys.mapNotNullTo(mutableSetOf()) { it.scheduledTask }
 
         val tasksToSave: List<TaskEntry> =
-            tasks.filter { it !in excludedTasks } + listeningTasks.keys.map { TaskEntry(time, it.rewaitTask) }
+            tasks.filter { it !in excludedTasks } + listeningTasks.keys.map { TaskEntry(time, it.await.rewait) }
 
         tasksToSave.forEach { (time, task) ->
             taskCollector.within(task.id.name.asSequence())
@@ -296,6 +300,6 @@ class SimulationState(private val reportHandler: ReportHandler) {
         println("  Waiting tasks:")
         val waitingTasks = awaitingTasks.toMutableSet()
         waitingTasks += listeningTasks.keys
-        waitingTasks.forEach { println("    ${it.rewaitTask.id}") }
+        waitingTasks.forEach { println("    ${it.await.rewait.id}") }
     }
 }
