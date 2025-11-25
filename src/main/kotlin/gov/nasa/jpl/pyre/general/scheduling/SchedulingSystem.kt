@@ -46,13 +46,13 @@ class SchedulingSystem<M, C> private constructor(
     private val modelClass: KType,
     private val jsonFormat: Json,
     incon: InconProvider?,
-) {
     /** Activities not yet part of the simulation */
-    private val futureActivities: PriorityQueue<GroundedActivity<M>> = PriorityQueue(compareBy { it.time })
+    private val futureActivities: PriorityQueue<GroundedActivity<M>> = PriorityQueue(compareBy { it.time }),
     /** Activities which have been incorporated into the simulation. */
-    private val pastActivities: MutableList<GroundedActivity<M>> = mutableListOf()
-    private val resources: MutableMap<String, MutableList<ChannelizedReport<*>>> = mutableMapOf()
-    private val activitySpans: MutableMap<Activity<*>, ActivityEvent> = mutableMapOf()
+    private val pastActivities: MutableList<GroundedActivity<M>> = mutableListOf(),
+    private val resources: MutableMap<String, MutableList<ChannelizedReport<*>>> = mutableMapOf(),
+    private val activitySpans: MutableMap<Activity<*>, ActivityEvent> = mutableMapOf(),
+) {
     private val reportHandler: ReportHandler = channels(
         "activities" to (assumeType<ActivityEvent>() andThen { (value, type) ->
             // The event coming straight out of the simulator will have a non-null activity.
@@ -155,23 +155,20 @@ class SchedulingSystem<M, C> private constructor(
 
     fun fincon() = JsonConditions(jsonFormat).also(simulation::save)
 
-    fun copy(newConfig: C = config): SchedulingSystem<M, C> {
-        // Initialize a new simulation, configured with newConfig and this sim's fincon
-        val result = SchedulingSystem(
-            startTime,
-            newConfig,
-            constructModel,
-            modelClass,
-            jsonFormat,
-            fincon(),
-        )
+    // Initialize a new simulation, configured with newConfig and this sim's fincon
+    fun copy(newConfig: C = config): SchedulingSystem<M, C> = SchedulingSystem(
+        startTime,
+        newConfig,
+        constructModel,
+        modelClass,
+        jsonFormat,
+        fincon(),
         // Copy over all the other bookkeeping data
-        result.futureActivities.addAll(this.futureActivities)
-        result.pastActivities.addAll(this.pastActivities)
-        result.resources.putAll(this.resources)
-        result.activitySpans.putAll(this.activitySpans)
-        return result
-    }
+        futureActivities = PriorityQueue(futureActivities),
+        pastActivities = pastActivities.toMutableList(),
+        resources = resources.toMutableMap(),
+        activitySpans = activitySpans.toMutableMap(),
+    )
 
     companion object {
         fun <M, C> withoutIncon(
