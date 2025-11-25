@@ -14,7 +14,6 @@ import kotlin.math.sqrt
 
 class OrbitalSimulation(
     context: InitScope,
-    name: String,
     bodies: List<Body>,
     stepSize: Duration,
 ) {
@@ -52,13 +51,12 @@ class OrbitalSimulation(
 
             integrator = VerletIntegrator(
                 context,
-                name,
                 initialPosition = bodies.flatMap { it.initialPosition.asList() }.toDoubleArray(),
                 initialVelocity = bodies.flatMap { it.initialVelocity.asList() }.toDoubleArray(),
                 acceleration = { position ->
                     val acceleration = DoubleArray(position.size) { 0.0 }
                     for (i in bodies.indices) {
-                        for (j in 0..(i - 1)) {
+                        for (j in 0..<i) {
                             val r_x = position[3 * j + 0] - position[3 * i + 0]
                             val r_y = position[3 * j + 1] - position[3 * i + 1]
                             val r_z = position[3 * j + 2] - position[3 * i + 2]

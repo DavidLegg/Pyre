@@ -58,7 +58,6 @@ fun csvMain(args: Array<String>) {
         jsonFormat,
         buildReportHandler = { outputStream ->
             // val output = jsonlReportHandler(outputStream, jsonFormat)
-            // val output = CSVReportHandler(outputStream, jsonFormat)
             val output = CsvReportHandler(outputStream, jsonFormat)
             val vectorHandler = assumeType<Discrete<Vector>>() andThen split(
                     map(Vector::x) to { "$it.x" },
@@ -66,11 +65,11 @@ fun csvMain(args: Array<String>) {
                     map(Vector::z) to { "$it.z" },
                 ) andThen reportAllTo(output)
             channels(
-                "/earth_position" to vectorHandler,
-                "/moon_position" to vectorHandler,
+                "earth_position" to vectorHandler,
+                "moon_position" to vectorHandler,
             )
-                // .closesWith(output::close)
-                .closesWith {}
+                 .closesWith(output::close)
+//                .closesWith {}
         }
     )
 }

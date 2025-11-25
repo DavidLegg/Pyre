@@ -6,6 +6,7 @@ import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 
 class EarthOrbit(
     context: InitScope,
@@ -29,8 +30,7 @@ class EarthOrbit(
                 7.346e22
             )
             orbitalSimulation = OrbitalSimulation(
-                context,
-                "Earth Orbit",
+                subContext("Earth Orbit"),
                 listOf(earth, moon),
                 HOUR,
             )

@@ -16,7 +16,6 @@ import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
 
 class VerletIntegrator(
     context: InitScope,
-    private val name: String,
     initialPosition: DoubleArray,
     initialVelocity: DoubleArray,
     acceleration: (DoubleArray) -> DoubleArray,
@@ -30,7 +29,7 @@ class VerletIntegrator(
 
     init {
         with (context) {
-            position = discreteResource("$name.position", initialPosition)
+            position = discreteResource("position", initialPosition)
             // This calculation of prior position ignores acceleration, introducing a small error.
             // That's good enough for now.
             val delta_t = stepSize.ratioOver(SECOND)
@@ -38,9 +37,9 @@ class VerletIntegrator(
             for (i in initialPosition.indices) {
                 initialPriorPosition[i] = initialPosition[i] - initialVelocity[i] * delta_t
             }
-            priorPosition = discreteResource("$name.priorPosition", initialPriorPosition)
+            priorPosition = discreteResource("priorPosition", initialPriorPosition)
 
-            spawn("Run $name", every(stepSize) {
+            spawn("Run ${contextName?.simpleName}", every(stepSize) {
                 val x_1 = position.getValue()
                 val x_0 = priorPosition.getValue()
                 val a = acceleration(x_1)
