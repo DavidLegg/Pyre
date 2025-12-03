@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.kernel.Task.TaskStepResult.*
-import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
+import gov.nasa.jpl.pyre.kernel.CellSet.Cell
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
@@ -29,24 +29,26 @@ class SimulationState(private val reportHandler: ReportHandler) {
     private var cells: TrunkCellSet = TrunkCellSet()
     private val rootTasks: MutableList<TaskEntry> = mutableListOf()
     private val tasks: PriorityQueue<TaskEntry> = PriorityQueue(comparing(TaskEntry::time))
-    private val cellListeners: MutableMap<CellHandle<*>, MutableSet<AwaitingTask<*>>> = mutableMapOf()
-    private val listeningTasks: MutableMap<AwaitingTask<*>, Set<CellHandle<*>>> = mutableMapOf()
-    private val modifiedCells: MutableSet<CellHandle<*>> = mutableSetOf()
+    private val cellListeners: MutableMap<Cell<*>, MutableSet<AwaitingTask<*>>> = mutableMapOf()
+    private val listeningTasks: MutableMap<AwaitingTask<*>, Set<Cell<*>>> = mutableMapOf()
+    private val modifiedCells: MutableSet<Cell<*>> = mutableSetOf()
 
-    private class AwaitingTask<T>(
-        val await: Await<T>,
-        state: SimulationState,
-    ) {
+    private class AwaitingTask<T>(val await: Await<T>) {
         var scheduledTask: TaskEntry? = null
-
         override fun toString(): String = "${await.rewait} -- $await"
     }
     private val awaitingTasks: MutableSet<AwaitingTask<*>> = mutableSetOf()
 
     fun initScope() = object : BasicInitScope {
-        override fun <T: Any> allocate(cell: Cell<T>) = cells.allocate(cell)
+        override fun <T : Any> allocate(
+            name: Name,
+            value: T,
+            valueType: KType,
+            stepBy: (T, Duration) -> T,
+            mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
+        ): Cell<T> = cells.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
         override fun <T> spawn(name: Name, step: PureTaskStep<T>) = addTask(name, step)
-        override fun <T> read(cell: CellHandle<T>): T = cells[cell].value
+        override fun <T> read(cell: Cell<T>): T = cells[cell]
     }
 
     fun time() = time
@@ -119,11 +121,11 @@ class SimulationState(private val reportHandler: ReportHandler) {
         resetListeners(awaitingTask)
 
         // Evaluate the condition, recording the cells we read along the way
-        val cellsRead: MutableSet<CellHandle<*>> = mutableSetOf()
+        val cellsRead: MutableSet<Cell<*>> = mutableSetOf()
         val result = awaitingTask.await.condition(object : ReadActions {
-            override fun <V> read(cell: CellHandle<V>): V {
+            override fun <V> read(cell: Cell<V>): V {
                 cellsRead += cell
-                return cells[cell].value
+                return cells[cell]
             }
         })
 
@@ -162,7 +164,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
         }
     }
 
-    private fun <T> setListeners(awaitingTask: AwaitingTask<T>, cellsRead: Set<CellHandle<*>>) {
+    private fun <T> setListeners(awaitingTask: AwaitingTask<T>, cellsRead: Set<Cell<*>>) {
         // Schedule listeners to re-evaluate condition if cells change
         for (cell in cellsRead) {
             cellListeners.getOrPut(cell) { mutableSetOf() } += awaitingTask
@@ -186,8 +188,8 @@ class SimulationState(private val reportHandler: ReportHandler) {
         var nextTask = task
 
         val actions = object : Task.BasicTaskActions {
-            override fun <V> read(cell: CellHandle<V>): V = cellSet[cell].value
-            override fun <V> emit(cell: CellHandle<V>, effect: Effect<V>) {
+            override fun <V> read(cell: Cell<V>): V = cellSet[cell]
+            override fun <V> emit(cell: Cell<V>, effect: Effect<V>) {
                 cellSet.emit(cell, effect)
                 // We mark the cell as modified, instead of directly adding listeners, to keep the simulation deterministic.
                 // This is because a task T may await this cell in parallel with this.
@@ -210,7 +212,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
             when (stepResult) {
                 is Complete -> break // Nothing to do
                 is Await -> {
-                    awaitingTasks += AwaitingTask(stepResult, this)
+                    awaitingTasks += AwaitingTask(stepResult)
                     break
                 }
                 is Spawn<*, T> -> {

@@ -33,7 +33,7 @@ object Interrupts {
         // Construct a new TaskScope, which will throw AbortTaskException if we abort.
         // That will stop the rest of nominal behavior from executing.
         val abortScope = object : TaskScope by scope {
-            override fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>) {
+            override fun <V> emit(cell: CellSet.Cell<V>, effect: Effect<V>) {
                 scope.emit(cell, effect)
                 // It's possible that the effect we just emitted caused our own abort condition to fire!
                 if (hasAborted.getValue()) throw AbortTaskException()

@@ -39,6 +39,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.serializer
 import org.junit.jupiter.api.assertDoesNotThrow
+import kotlin.reflect.KType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
@@ -67,8 +68,14 @@ class FoundationSimulationTest {
                     override fun toString() = ""
                     override fun onStartup(name: Name, block: suspend context(TaskScope) () -> Unit) =
                         throw NotImplementedError()
-                    override fun <V> read(cell: CellSet.CellHandle<V>): V = scope.read(cell)
-                    override fun <T : Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> = scope.allocate(cell)
+                    override fun <V> read(cell: CellSet.Cell<V>): V = scope.read(cell)
+                    override fun <T : Any> allocate(
+                        name: Name,
+                        value: T,
+                        valueType: KType,
+                        stepBy: (T, Duration) -> T,
+                        mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
+                    ): CellSet.Cell<T> = scope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
                     override fun <T> spawn(name: Name, block: suspend context(TaskScope) () -> TaskScopeResult<T>) =
                         scope.spawn(name, coroutineTask(block))
                 })

@@ -1,19 +1,15 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
-import gov.nasa.jpl.pyre.kernel.Cell
-import gov.nasa.jpl.pyre.kernel.CellSet
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.minus
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
-import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
+import gov.nasa.jpl.pyre.kernel.CellSet.Cell
 import gov.nasa.jpl.pyre.kernel.Condition
+import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.contracts.ExperimentalContracts
@@ -57,11 +53,11 @@ interface SimulationScope {
 }
 
 interface ResourceScope : SimulationScope {
-    fun <V> read(cell: CellSet.CellHandle<V>): V
+    fun <V> read(cell: Cell<V>): V
 
     companion object {
         context (scope: ResourceScope)
-        fun <V> read(cell: CellSet.CellHandle<V>): V = scope.read(cell)
+        fun <V> read(cell: Cell<V>): V = scope.read(cell)
 
         context (scope: ResourceScope)
         fun now() = simulationEpoch + simulationClock.getValue().toKotlinDuration()
@@ -71,7 +67,7 @@ interface ResourceScope : SimulationScope {
 interface ConditionScope : ResourceScope
 
 interface TaskScope : ResourceScope {
-    fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>)
+    fun <V> emit(cell: Cell<V>, effect: Effect<V>)
     fun <T> report(value: T, type: KType)
     suspend fun await(condition: Condition)
     suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>)
@@ -81,7 +77,7 @@ interface TaskScope : ResourceScope {
         inline fun <reified T> report(value: T) = report(value, typeOf<T>())
 
         context (scope: TaskScope)
-        fun <V> emit(cell: CellSet.CellHandle<V>, effect: Effect<V>) = scope.emit(cell, effect)
+        fun <V> emit(cell: Cell<V>, effect: Effect<V>) = scope.emit(cell, effect)
 
         context (scope: TaskScope)
         fun <T> report(value: T, type: KType) = scope.report(value, type)
@@ -119,7 +115,13 @@ interface InitScope : SimulationScope, ResourceScope {
      */
     fun onStartup(name: Name, block: suspend context (TaskScope) () -> Unit)
 
-    fun <T: Any> allocate(cell: Cell<T>): CellSet.CellHandle<T>
+    fun <T: Any> allocate(
+        name: Name,
+        value: T,
+        valueType: KType,
+        stepBy: (T, Duration) -> T,
+        mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>,
+    ): Cell<T>
 
     /**
      * Spawn a regular task, which will run when the simulation starts
@@ -134,7 +136,13 @@ interface InitScope : SimulationScope, ResourceScope {
         fun onStartup(name: String, block: suspend context (TaskScope) () -> Unit) = onStartup(Name(name), block)
 
         context (scope: InitScope)
-        fun <T: Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> = scope.allocate(cell)
+        fun <T: Any> allocate(
+            name: Name,
+            value: T,
+            valueType: KType,
+            stepBy: (T, Duration) -> T,
+            mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>,
+        ): Cell<T> = scope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
 
         context (scope: InitScope)
         fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) = scope.spawn(name, block)
@@ -153,8 +161,13 @@ interface InitScope : SimulationScope, ResourceScope {
             override fun onStartup(name: Name, block: suspend context(TaskScope) () -> Unit) =
                 scope.onStartup(Name(contextName) / name, block)
 
-            override fun <T : Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> =
-                scope.allocate(cell.copy(name = Name(contextName) / cell.name))
+            override fun <T : Any> allocate(
+                name: Name,
+                value: T,
+                valueType: KType,
+                stepBy: (T, Duration) -> T,
+                mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
+            ): Cell<T> = scope.allocate(Name(contextName) / name, value, valueType, stepBy, mergeConcurrentEffects)
 
             override fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) =
                 scope.spawn(Name(contextName) / name, block)

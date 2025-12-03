@@ -49,13 +49,13 @@ fun <V, D : Dynamics<V, D>> resource(
     fullDynamicsType: KType,
     mergeConcurrentEffects: MergeResourceEffect<D> = autoEffects(),
 ): MutableResource<D> {
-    val cell = allocate(Cell(
+    val cell = allocate(
         Name(name),
         initialDynamics,
         fullDynamicsType,
         { d, t -> d.step(t) },
         mergeConcurrentEffects,
-    ))
+    )
 
     return object : MutableResource<D> {
         context(scope: TaskScope)

@@ -1,8 +1,7 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
+import gov.nasa.jpl.pyre.kernel.CellSet.Cell
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.ConditionResult
 import gov.nasa.jpl.pyre.kernel.Effect
@@ -20,7 +19,7 @@ import kotlin.reflect.KType
 context (scope: SimulationScope)
 fun condition(block: context (ConditionScope) () -> ConditionResult): Condition = { actions ->
     block(object : ConditionScope, SimulationScope by scope {
-        override fun <V> read(cell: CellHandle<V>): V = actions.read(cell)
+        override fun <V> read(cell: Cell<V>): V = actions.read(cell)
     })
 }
 
@@ -90,10 +89,10 @@ private class TaskBuilder<T>(
     private var basicTaskActions: BasicTaskActions? = null
     private var nextResult: Task.PureStepResult<T>? = null
 
-    override fun <V> read(cell: CellHandle<V>): V =
+    override fun <V> read(cell: Cell<V>): V =
         basicTaskActions!!.read(cell)
 
-    override fun <V> emit(cell: CellHandle<V>, effect: Effect<V>) =
+    override fun <V> emit(cell: Cell<V>, effect: Effect<V>) =
         basicTaskActions!!.emit(cell, effect)
 
     override fun <T> report(value: T, type: KType) =

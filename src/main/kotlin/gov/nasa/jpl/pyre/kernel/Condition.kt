@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.kernel
 
-import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
+import gov.nasa.jpl.pyre.kernel.CellSet.Cell
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 
 sealed interface ConditionResult
@@ -19,7 +19,7 @@ data class UnsatisfiedUntil(val time: Duration?) : ConditionResult {
 }
 
 interface ReadActions {
-    fun <V> read(cell: CellHandle<V>): V
+    fun <V> read(cell: Cell<V>): V
 }
 typealias Condition = (ReadActions) -> ConditionResult
 
