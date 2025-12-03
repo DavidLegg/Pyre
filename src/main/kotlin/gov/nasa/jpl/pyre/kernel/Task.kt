@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.kernel.CellSet.CellHandle
+import gov.nasa.jpl.pyre.kernel.CellSet.Cell
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
@@ -63,8 +63,8 @@ interface Task<T> {
      * Non-yielding actions don't interrupt the flow of control, aka "yield".
      */
     interface BasicTaskActions {
-        fun <V> read(cell: CellHandle<V>): V
-        fun <V> emit(cell: CellHandle<V>, effect: Effect<V>)
+        fun <V> read(cell: Cell<V>): V
+        fun <V> emit(cell: Cell<V>, effect: Effect<V>)
         fun <V> report(value: V, type: KType)
         // Note that "spawn" is not listed here. Arguably, it's a non-yielding action and should be here.
         // It winds up being easier to restore tasks if we can choose which branch (parent or child) to take.
@@ -150,7 +150,7 @@ private class PureTask<T>(
             partialHistory.forEach { it() }
         }
         val historyCapturingActions = object : BasicTaskActions {
-            override fun <V> read(cell: CellHandle<V>): V =
+            override fun <V> read(cell: Cell<V>): V =
                 actions.read(cell).also { value ->
                     partialHistory += {
                         report(ReadMarker(value), ReadMarker.concreteType(cell.valueType))
@@ -158,7 +158,7 @@ private class PureTask<T>(
                 }
 
             // Emit and Report don't need to write any history; they'll just run again when restoring.
-            override fun <V> emit(cell: CellHandle<V>, effect: Effect<V>) = actions.emit(cell, effect)
+            override fun <V> emit(cell: Cell<V>, effect: Effect<V>) = actions.emit(cell, effect)
             override fun <V> report(value: V, type: KType) = actions.report(value, type)
         }
         return when (val stepResult = step(historyCapturingActions)) {
@@ -211,11 +211,11 @@ private class PureTask<T>(
         var thisTask: Task<*> = this
 
         val restorationActions = object : BasicTaskActions {
-            override fun <V> read(cell: CellHandle<V>): V =
+            override fun <V> read(cell: Cell<V>): V =
                 requireNotNull(inconProvider.provide<ReadMarker<V>>(ReadMarker.concreteType(cell.valueType))) {
                     "No restore data available to read $cell! Incon data is malformed."
                 }.value
-            override fun <V> emit(cell: CellHandle<V>, effect: Effect<V>) { /* ignore and continue */ }
+            override fun <V> emit(cell: Cell<V>, effect: Effect<V>) { /* ignore and continue */ }
             override fun <V> report(value: V, type: KType) { /* ignore and continue */ }
         }
 

@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.foundation.plans
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.CellSet
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
@@ -32,6 +31,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.task
+import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.reflect.KType
@@ -73,14 +73,19 @@ class PlanSimulation<M> {
         val initContext = state.initScope()
         val startupTasks: MutableList<Pair<Name, suspend context (TaskScope) () -> Unit>> = mutableListOf()
         simulationScope = object : InitScope {
-            override fun <T : Any> allocate(cell: Cell<T>): CellSet.CellHandle<T> =
-                initContext.allocate(cell)
+            override fun <T : Any> allocate(
+                name: Name,
+                value: T,
+                valueType: KType,
+                stepBy: (T, Duration) -> T,
+                mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
+            ): CellSet.Cell<T> = initContext.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
 
             override fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) =
                 // When spawning a task, build a simulation scope which incorporates the task's Name
                 initContext.spawn(name, context (subSimulationScope(contextName / name)) { coroutineTask(block) })
 
-            override fun <T> read(cell: CellSet.CellHandle<T>): T =
+            override fun <T> read(cell: CellSet.Cell<T>): T =
                 initContext.read(cell)
 
             override fun onStartup(name: Name, block: suspend TaskScope.() -> Unit) {

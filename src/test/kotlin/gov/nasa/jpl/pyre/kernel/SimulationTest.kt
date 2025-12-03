@@ -60,7 +60,8 @@ class SimulationTest {
         }
     }
 
-    private fun intCounterCell(name: String, value: Int) = Cell(
+    context (scope: BasicInitScope)
+    private fun allocateIntCounterCell(name: String, value: Int) = allocate(
         Name(name),
         value,
         typeOf<Int>(),
@@ -71,7 +72,8 @@ class SimulationTest {
     @Serializable
     private data class LinearDynamics(val value: Double, val rate: Double)
     private fun linearDynamicsStep(d: LinearDynamics, t: Duration) = LinearDynamics(d.value + d.rate * (t ratioOver SECOND), d.rate)
-    private fun linearCell(name: String, value: Double, rate: Double) = Cell(
+    context (scope: BasicInitScope)
+    private fun allocateLinearCell(name: String, value: Double, rate: Double) = allocate(
         Name(name),
         LinearDynamics(value, rate),
         typeOf<LinearDynamics>(),
@@ -79,7 +81,8 @@ class SimulationTest {
         { l, r -> l andThen r }
     )
 
-    private fun clockCell(name: String, t: Duration) = Cell(
+    context (scope: BasicInitScope)
+    private fun allocateClockCell(name: String, t: Duration) = allocate(
         Name(name),
         t,
         typeOf<Duration>(),
@@ -91,7 +94,7 @@ class SimulationTest {
      * "Patch" test-ism - I removed the Delay task step type in favor of using Await.
      * Rather than rewrite a bunch of tests, I'm re-building Delay in terms of Await.
      */
-    private fun <T> Task.BasicTaskActions.Delay(time: Duration, clock: CellSet.CellHandle<Duration>, block: PureTaskStep<T>): Await<T> {
+    private fun <T> Task.BasicTaskActions.Delay(time: Duration, clock: CellSet.Cell<Duration>, block: PureTaskStep<T>): Await<T> {
         val endTime = read(clock) + time
         return Await({ SatisfiedAt(endTime - it.read(clock)) }, block)
     }
@@ -115,14 +118,14 @@ class SimulationTest {
     @Test
     fun task_can_allocate_cell() {
         runSimulation(HOUR) {
-            allocate(intCounterCell("x", 42))
+            allocateIntCounterCell("x", 42)
         }
     }
 
     @Test
     fun task_can_read_cell() {
         val results = runSimulation(HOUR) {
-            val x = allocate(intCounterCell("x", 42))
+            val x = allocateIntCounterCell("x", 42)
             spawn(Name("read cell")) {
                 val xVal = it.read(x)
                 it.report("x = $xVal", typeOf<String>())
@@ -135,7 +138,7 @@ class SimulationTest {
     @Test
     fun task_can_read_cell_during_init() {
         runSimulation(HOUR) {
-            val x = allocate(intCounterCell("x", 42))
+            val x = allocateIntCounterCell("x", 42)
             assertEquals(42, read(x))
         }
     }
@@ -143,7 +146,7 @@ class SimulationTest {
     @Test
     fun task_can_emit_effect() {
         val results = runSimulation(HOUR) {
-            val x = allocate(intCounterCell("x", 42))
+            val x = allocateIntCounterCell("x", 42)
             spawn(Name("emit effect")) {
                 it.emit(x) { it + 13 }
                 val xVal = it.read(x)
@@ -161,7 +164,7 @@ class SimulationTest {
     @Test
     fun task_can_delay() {
         runSimulation(HOUR) {
-            val clock = allocate(clockCell("clock", ZERO))
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("delay")) {
                 it.Delay(30 * MINUTE, clock) {
                     Complete(Unit)
@@ -176,8 +179,8 @@ class SimulationTest {
             // This is *not* a good way to implement stepping, since multiple steps, each < 1 minute,
             // will not change the value, but a single >1 minute step would.
             // It's fine for this test, though.
-            val x = allocate(Cell(Name("x"), 0, typeOf<Int>(), { x, t -> x + (t / MINUTE).toInt() }, { l, r -> l andThen r }))
-            val clock = allocate(clockCell("clock", ZERO))
+            val x = allocate(Name("x"), 0, typeOf<Int>(), { x, t -> x + (t / MINUTE).toInt() }, { l, r -> l andThen r })
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("step cell")) {
                 val xVal = it.read(x)
                 it.report("now x = $xVal", typeOf<String>())
@@ -200,7 +203,7 @@ class SimulationTest {
     @Test
     fun parallel_tasks_do_not_observe_each_other() {
         val results = runSimulation(HOUR) {
-            val x = allocate(intCounterCell("x", 10))
+            val x = allocateIntCounterCell("x", 10)
             spawn(Name("Task A")) {
                 it.emit(x) { it + 5 }
                 val xVal = it.read(x)
@@ -234,8 +237,8 @@ class SimulationTest {
     @Test
     fun parallel_tasks_join_effects_at_each_delay() {
         val results = runSimulation(HOUR) {
-            val x = allocate(intCounterCell("x", 10))
-            val clock = allocate(clockCell("clock", ZERO))
+            val x = allocateIntCounterCell("x", 10)
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Task A")) {
                 it.emit(x) { it + 5 }
                 val xVal = it.read(x)
@@ -265,8 +268,8 @@ class SimulationTest {
     fun concurrent_effects_are_joined_using_effect_trait() {
         val results = runSimulation(HOUR) {
             // Note: This is *not* a correct effect trait, but it's simple and lets us observe what's happening better.
-            val x = allocate(Cell(Name("x"), 10, typeOf<Int>(), { x, _ -> x }, { l, r -> { 100 + r(l(it)) } }))
-            val clock = allocate(clockCell("clock", ZERO))
+            val x = allocate(Name("x"), 10, typeOf<Int>(), { x, _ -> x }, { l, r -> { 100 + r(l(it)) } })
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Task A")) {
                 it.emit(x) { it + 5 }
                 val xVal = it.read(x)
@@ -310,8 +313,8 @@ class SimulationTest {
     @Test
     fun await_trivial_condition_runs_task_in_next_batch() {
         val results = runSimulation(HOUR) {
-            val x = allocate(intCounterCell("x", 10))
-            val clock = allocate(clockCell("clock", ZERO))
+            val x = allocateIntCounterCell("x", 10)
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Awaiter")) {
                 Await({ SatisfiedAt(ZERO) }) {
                     val xVal = it.read(x)
@@ -349,9 +352,9 @@ class SimulationTest {
     @Test
     fun await_nontrivial_condition_runs_task_in_first_batch_after_condition_is_satisfied() {
         val results = runSimulation(HOUR) {
-            val x = allocate(intCounterCell("x", 10))
-            val y = allocate(intCounterCell("y", 12))
-            val clock = allocate(clockCell("clock", ZERO))
+            val x = allocateIntCounterCell("x", 10)
+            val y = allocateIntCounterCell("y", 12)
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Awaiter")) {
                 Await({
                     val xValue = it.read(x)
@@ -392,7 +395,7 @@ class SimulationTest {
     @Test
     fun await_nonzero_condition_waits_specified_time() {
         val results = runSimulation(HOUR) {
-            val x = allocate(linearCell("x", 10.0, 1.0))
+            val x = allocateLinearCell("x", 10.0, 1.0)
             spawn(Name("Awaiter")) {
                 Await({
                     // Example implementation of a "greater than 20" condition for a linear dynamics type.
@@ -424,9 +427,9 @@ class SimulationTest {
     @Test
     fun await_nonzero_condition_can_be_interrupted() {
         val results = runSimulation(HOUR) {
-            val x = allocate(linearCell("x", 10.0, 1.0))
-            val y = allocate(intCounterCell("y", 0))
-            val clock = allocate(clockCell("clock", ZERO))
+            val x = allocateLinearCell("x", 10.0, 1.0)
+            val y = allocateIntCounterCell("y", 0)
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Awaiter")) {
                 Await({
                     // Example implementation of a "greater than 20" condition for a linear dynamics type.
@@ -474,9 +477,9 @@ class SimulationTest {
     @Test
     fun await_nonzero_condition_can_wait_after_interruption() {
         val results = runSimulation(HOUR) {
-            val x = allocate(linearCell("x", 10.0, 1.0))
-            val y = allocate(intCounterCell("y", 0))
-            val clock = allocate(clockCell("clock", ZERO))
+            val x = allocateLinearCell("x", 10.0, 1.0)
+            val y = allocateIntCounterCell("y", 0)
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Awaiter")) {
                 Await({
                     // Example implementation of a "greater than 20" condition for a linear dynamics type.
@@ -524,7 +527,7 @@ class SimulationTest {
     @Test
     fun unsatisfied_condition_will_be_reevaluated() {
         val results = runSimulation(HOUR) {
-            val x = allocate(linearCell("x", 10.0, 1.0))
+            val x = allocateLinearCell("x", 10.0, 1.0)
             spawn(Name("Awaiter")) {
                 Await({
                     if (it.read(x).value >= 15) SatisfiedAt(ZERO)
@@ -551,8 +554,8 @@ class SimulationTest {
     @Test
     fun unsatisfied_condition_reevaluation_can_be_interrupted() {
         val results = runSimulation(HOUR) {
-            val x = allocate(linearCell("x", 10.0, 1.0))
-            val clock = allocate(clockCell("clock", ZERO))
+            val x = allocateLinearCell("x", 10.0, 1.0)
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Awaiter")) {
                 Await({
                     if (it.read(x).value >= 15) SatisfiedAt(ZERO)
@@ -599,8 +602,8 @@ class SimulationTest {
     fun cells_can_be_saved() {
         context (scope: BasicInitScope)
         fun initialize() {
-            val x = allocate(linearCell("x", 10.0, 1.0))
-            val y = allocate(linearCell("y", 10.0, -0.1))
+            val x = allocateLinearCell("x", 10.0, 1.0)
+            val y = allocateLinearCell("y", 10.0, -0.1)
         }
         val results = runSimulation(MINUTE, takeFincon = true) { initialize() }
         with (results.fincon!!) {
@@ -624,8 +627,8 @@ class SimulationTest {
     fun cells_can_be_restored() {
         context (scope: BasicInitScope)
         fun initialize() {
-            val x = allocate(linearCell("x", 10.0, 1.0))
-            val y = allocate(linearCell("y", 10.0, -0.1))
+            val x = allocateLinearCell("x", 10.0, 1.0)
+            val y = allocateLinearCell("y", 10.0, -0.1)
         }
         val results = runSimulation(MINUTE, takeFincon = true) { initialize() }
         runSimulation(2 * MINUTE, incon=results.fincon) { initialize() }
@@ -635,9 +638,9 @@ class SimulationTest {
     fun tasks_can_be_saved() {
         context (scope: BasicInitScope)
         fun initialize() {
-            val x = allocate(linearCell("x", 10.0, 1.0))
-            val y = allocate(linearCell("y", 10.0, -0.1))
-            val clock = allocate(clockCell("clock", ZERO))
+            val x = allocateLinearCell("x", 10.0, 1.0)
+            val y = allocateLinearCell("y", 10.0, -0.1)
+            val clock = allocateClockCell("clock", ZERO)
 
             spawn(Name("Complete Immediately")) {
                 Complete(Unit)
@@ -716,9 +719,9 @@ class SimulationTest {
     fun tasks_can_be_restored() {
         context (scope: BasicInitScope)
         fun initialize() {
-            val x = allocate(linearCell("x", 10.0, 1.0))
-            val y = allocate(linearCell("y", 10.0, -0.1))
-            val clock = allocate(clockCell("clock", ZERO))
+            val x = allocateLinearCell("x", 10.0, 1.0)
+            val y = allocateLinearCell("y", 10.0, -0.1)
+            val clock = allocateClockCell("clock", ZERO)
 
             spawn(Name("Complete Immediately")) {
                 Complete(Unit)
@@ -817,8 +820,8 @@ class SimulationTest {
     @Test
     fun restart_tasks_can_run_indefinitely() {
         val results = runSimulation(HOUR) {
-            val x = allocate(intCounterCell("x", 0))
-            val clock = allocate(clockCell("clock", ZERO))
+            val x = allocateIntCounterCell("x", 0)
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Repeater")) {
                 it.Delay(10 * MINUTE, clock) {
                     it.emit(x) { it + 1 }
@@ -844,8 +847,8 @@ class SimulationTest {
     @Test
     fun restart_tasks_save_fincon_data_since_last_restart_only() {
         val results = runSimulation(59 * MINUTE, takeFincon = true) {
-            val x = allocate(intCounterCell("x", 0))
-            val clock = allocate(clockCell("clock", ZERO))
+            val x = allocateIntCounterCell("x", 0)
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Repeater")) {
                 it.Delay(10 * MINUTE, clock) {
                     it.emit(x) { it + 1 }
@@ -887,8 +890,8 @@ class SimulationTest {
         var plays = 0
         context (scope: BasicInitScope)
         fun initialize() {
-            val x = allocate(intCounterCell("x", 0))
-            val clock = allocate(clockCell("clock", ZERO))
+            val x = allocateIntCounterCell("x", 0)
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Repeater")) {
                 plays++
                 it.Delay(10 * MINUTE, clock) {
@@ -936,8 +939,8 @@ class SimulationTest {
     @Test
     fun child_tasks_run_in_parallel_with_parent_and_each_other() {
         val results = runSimulation(HOUR) {
-            var x = allocate(intCounterCell("x", 0))
-            val clock = allocate(clockCell("clock", ZERO))
+            var x = allocateIntCounterCell("x", 0)
+            val clock = allocateClockCell("clock", ZERO)
 
             spawn(Name("Counter")) {
                 it.emit(x) { it + 1 }
@@ -1012,7 +1015,7 @@ class SimulationTest {
     @Test
     fun child_tasks_can_be_saved() {
         val results = runSimulation(HOUR, takeFincon = true) {
-            val clock = allocate(clockCell("clock", ZERO))
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("P")) {
                 it.report("P -- 1", typeOf<String>())
                 Spawn(Name("C"), {
@@ -1115,7 +1118,7 @@ class SimulationTest {
     fun child_tasks_can_be_restored() {
         context (scope: BasicInitScope)
         fun initialize() {
-            val clock = allocate(clockCell("clock", ZERO))
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("P")) {
                 it.report("P -- 1", typeOf<String>())
                 Spawn(Name("C"), {
@@ -1175,8 +1178,8 @@ class SimulationTest {
     fun children_of_repeating_tasks_can_be_restored() {
         context (scope: BasicInitScope)
         fun initialize() {
-            val n = allocate(intCounterCell("n", 1))
-            val clock = allocate(clockCell("clock", ZERO))
+            val n = allocateIntCounterCell("n", 1)
+            val clock = allocateClockCell("clock", ZERO)
 
             spawn(Name("Repeater")) {
                 it.Delay(10 * MINUTE, clock) {
@@ -1235,8 +1238,8 @@ class SimulationTest {
     fun repeating_children_can_be_restored() {
         context (scope: BasicInitScope)
         fun initialize() {
-            val n = allocate(intCounterCell("n", 1))
-            val clock = allocate(clockCell("clock", ZERO))
+            val n = allocateIntCounterCell("n", 1)
+            val clock = allocateClockCell("clock", ZERO)
 
             spawn(Name("Parent")) {
                 it.Delay(5 * MINUTE, clock) {
@@ -1287,7 +1290,7 @@ class SimulationTest {
     fun grandchild_tasks_can_be_restored() {
         context (scope: BasicInitScope)
         fun initialize() {
-            val clock = allocate(clockCell("clock", ZERO))
+            val clock = allocateClockCell("clock", ZERO)
             spawn(Name("P")) {
                 it.report("P -- 1", typeOf<String>())
                 Spawn(Name("C"), {
@@ -1338,7 +1341,7 @@ class SimulationTest {
         // Stress test this by spawning a bunch of tasks, from init and from the sim itself, that'll run exactly at fincon time.
         context (scope: BasicInitScope)
         fun initialize() {
-            val clock = allocate(clockCell("clock", ZERO))
+            val clock = allocateClockCell("clock", ZERO)
             for (i in 1..100) {
                 // Case A - Task delays directly to fincon time
                 spawn(Name("A$i")) {
