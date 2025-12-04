@@ -44,6 +44,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
 
+// TODO: Merge this into PlanSimulationTest instead of wrapping SimpleSimulation in a way that's similar to PlanSimulation
 class FoundationSimulationTest {
     private data class SimulationResult(
         val reports: List<JsonElement>,
@@ -54,20 +55,18 @@ class FoundationSimulationTest {
         endTime: Duration,
         incon: JsonElement? = null,
         takeFincon: Boolean = false,
-        initialize: suspend context (InitScope) () -> Unit,
+        initialize: context (InitScope) () -> Unit,
     ): SimulationResult {
         assertDoesNotThrow {
             // Build a simulation that'll write reports to memory
             val reports = mutableListOf<JsonElement>()
             context (scope: BasicInitScope)
-            suspend fun fullInit() {
+            fun fullInit() {
                 initialize(object : InitScope {
                     override val contextName: Name? = null
                     override val simulationClock = resource<Duration, Timer>("simulation_clock", Timer(ZERO, 1))
                     override val simulationEpoch = Instant.parse("2000-01-01T00:00:00Z")
                     override fun toString() = ""
-                    override fun onStartup(name: Name, block: suspend context(TaskScope) () -> Unit) =
-                        throw NotImplementedError()
                     override fun <V> read(cell: CellSet.Cell<V>): V = scope.read(cell)
                     override fun <T : Any> allocate(
                         name: Name,
@@ -78,6 +77,8 @@ class FoundationSimulationTest {
                     ): CellSet.Cell<T> = scope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
                     override fun <T> spawn(name: Name, block: suspend context(TaskScope) () -> TaskScopeResult<T>) =
                         scope.spawn(name, coroutineTask(block))
+                    override fun <T> report(value: T, type: KType) =
+                        scope.report(value, type)
                 })
             }
 

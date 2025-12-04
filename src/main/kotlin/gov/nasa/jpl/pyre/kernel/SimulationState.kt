@@ -5,9 +5,10 @@ import gov.nasa.jpl.pyre.kernel.CellSet.Cell
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
+import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.provide
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
-import gov.nasa.jpl.pyre.kernel.InconProvidingContext.Companion.provide
 import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlinx.serialization.SerializationException
 import java.util.Comparator.comparing
 import java.util.PriorityQueue
@@ -15,7 +16,7 @@ import kotlin.reflect.KType
 
 typealias ReportHandler = (Any?, KType) -> Unit
 
-class SimulationState(private val reportHandler: ReportHandler) {
+class SimulationState(private val reportHandler: ReportHandler, incon: InconProvider? = null) {
     // Use a class, not a data class, for performance.
     // Adding and removing entries from the task queue is faster when the entry uses object identity
     // rather than deep equality.
@@ -25,9 +26,15 @@ class SimulationState(private val reportHandler: ReportHandler) {
         override fun toString(): String = "$task @ $time"
     }
 
-    private var time: Duration = Duration(0)
+    private var time: Duration = if (incon != null) {
+        requireNotNull(incon.provide("simulation", "time")) {
+            "Incon must specify a ${Duration::class.simpleName} at simulation.time"
+        }
+    } else {
+        ZERO
+    }
     private var cells: TrunkCellSet = TrunkCellSet()
-    private val rootTasks: MutableList<TaskEntry> = mutableListOf()
+    private val rootTaskNames: MutableList<Name> = mutableListOf()
     private val tasks: PriorityQueue<TaskEntry> = PriorityQueue(comparing(TaskEntry::time))
     private val cellListeners: MutableMap<Cell<*>, MutableSet<AwaitingTask<*>>> = mutableMapOf()
     private val listeningTasks: MutableMap<AwaitingTask<*>, Set<Cell<*>>> = mutableMapOf()
@@ -39,25 +46,61 @@ class SimulationState(private val reportHandler: ReportHandler) {
     }
     private val awaitingTasks: MutableSet<AwaitingTask<*>> = mutableSetOf()
 
-    fun initScope() = object : BasicInitScope {
+    val initScope = object : BasicInitScope {
+        private val cellIncon = incon?.within("cells")
+        private val taskIncon = incon?.within("tasks")
+
         override fun <T : Any> allocate(
             name: Name,
             value: T,
             valueType: KType,
             stepBy: (T, Duration) -> T,
             mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
-        ): Cell<T> = cells.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
-        override fun <T> spawn(name: Name, step: PureTaskStep<T>) = addTask(name, step)
+        ): Cell<T> = cells.allocate(name, cellIncon?.within(name.asSequence())?.provide(valueType) ?: value, valueType, stepBy, mergeConcurrentEffects)
+
+        override fun <T> spawn(name: Name, step: PureTaskStep<T>) {
+            // "name" is a root task name. Remember it for saving a fincon later.
+            rootTaskNames += name
+            val rootTask = Task.of(name, step)
+
+            // Look up which, if any, children of this task to restore from incon.
+            val idsToRestore = taskIncon?.within(name.asSequence() + "children")?.provide<List<List<String>>>()
+            if (idsToRestore == null) {
+                tasks += TaskEntry(time, rootTask)
+            } else {
+                // To restore tasks, we replay their history provided by the incon.
+                // In so doing, they may access any part of the model.
+                // Since the model may not be fully constructed when this task is spawned, we need to defer
+                // restoring this group of tasks until after the model is constructed.
+                // We can do this by injecting a dummy task, run during the next sim step, to actually restore the tasks.
+                // Since the simulation won't advance until initialization is complete, this guarantees the model is fully constructed.
+                tasks += TaskEntry(time, Task.of(name / "restore") {
+                    try {
+                        // For any child reported in the incon, call restore using that child's id (encoded as the condition keys)
+                        // to get the state history which spawned and later ran that child.
+                        tasks += idsToRestore.map {
+                            // Since that child is reported as needing to be restored, throw an error if there's no incon data for it
+                            requireNotNull(restoreTask(rootTask, taskIncon.within(it.asSequence())))
+                        }
+                    } catch (_: SerializationException) {
+                        tasks += TaskEntry(time, rootTask)
+                    }
+                    Task.PureStepResult.Complete(Unit)
+                })
+            }
+        }
+
         override fun <T> read(cell: Cell<T>): T = cells[cell]
+        override fun <T> report(value: T, type: KType) = reportHandler(value, type)
     }
+
+    private fun restoreTask(rootTask: Task<*>, inconProvider: InconProvider): TaskEntry? =
+        rootTask.restore(inconProvider)?.let { restoredTask ->
+            val restoredTime = requireNotNull(inconProvider.within("time").provide<Duration>())
+            TaskEntry(restoredTime, restoredTask)
+        }
 
     fun time() = time
-
-    fun <T> addTask(name: Name, step: PureTaskStep<T>, time: Duration = time()) {
-        val task = Task.of(name, step)
-        rootTasks += TaskEntry(time, task)
-        addTask(task, time)
-    }
 
     /**
      * Add a task which won't be saved if a fincon is taken.
@@ -67,11 +110,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
      * 2) This task will run to completion before a fincon is taken.
      */
     fun <T> addEphemeralTask(name: Name, step: PureTaskStep<T>, time: Duration = time()) {
-        addTask(Task.of(name, step), time)
-    }
-
-    private fun addTask(task: Task<*>, time: Duration) {
-        tasks += TaskEntry(time, task)
+        tasks += TaskEntry(time, Task.of(name, step))
     }
 
     fun stepTo(endTime: Duration) {
@@ -216,7 +255,7 @@ class SimulationState(private val reportHandler: ReportHandler) {
                     break
                 }
                 is Spawn<*, T> -> {
-                    addTask(stepResult.child, time)
+                    tasks += TaskEntry(time, stepResult.child)
                     nextTask = stepResult.continuation
                 }
                 is NoOp -> {
@@ -249,45 +288,12 @@ class SimulationState(private val reportHandler: ReportHandler) {
         // Report the running children for every root task.
         // If a root task and all its children are complete, report an empty list of running children.
         // This distinguishes completed root tasks from new root tasks, where a root task is added because the model changes.
-        for (rootTask in rootTasks) {
-            val rootTaskName = rootTask.task.id.rootTaskName
+        for (rootTaskName in rootTaskNames) {
             val tasks = tasksByRootTaskName.getOrDefault(rootTaskName, listOf())
             taskCollector.within(rootTaskName.asSequence() + "children")
                 .report(tasks.map { it.task.id.name.asSequence().toList() })
         }
     }
-
-    fun restore(inconProvider: InconProvider) {
-        with (inconProvider.within("simulation")) {
-            time = requireNotNull(within("time").provide())
-        }
-        cells.restore(inconProvider.within("cells"))
-        val taskProvider = inconProvider.within("tasks")
-        tasks.clear()
-        for (rootTask in rootTasks) {
-            val idsToRestore = taskProvider.within(rootTask.task.id.name.asSequence() + "children").provide<List<List<String>>>()
-            if (idsToRestore == null) {
-                tasks += TaskEntry(time, rootTask.task)
-            } else {
-                try {
-                    // For any child reported in the fincon, call restore using that child's id (encoded as the condition keys)
-                    // to get the state history which spawned and later ran that child.
-                    tasks += idsToRestore.map {
-                        // Since that child is reported as needing to be restored, throw an error if there's no incon data for it
-                        requireNotNull(restoreTask(rootTask.task, taskProvider.within(it.asSequence())))
-                    }
-                } catch (_: SerializationException) {
-                    tasks += TaskEntry(time, rootTask.task)
-                }
-            }
-        }
-    }
-
-    private fun restoreTask(rootTask: Task<*>, inconProvider: InconProvider): TaskEntry? =
-        rootTask.restore(inconProvider)?.let { restoredTask ->
-            val restoredTime = requireNotNull(inconProvider.within("time").provide<Duration>())
-            TaskEntry(restoredTime, restoredTask)
-        }
 
     /**
      * Dump the state of the simulation to standard out.

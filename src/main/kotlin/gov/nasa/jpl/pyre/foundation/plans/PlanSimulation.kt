@@ -30,7 +30,6 @@ import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
@@ -69,9 +68,7 @@ class PlanSimulation<M> {
     ) {
         val simulationEpoch = requireNotNull(simulationEpoch ?: inconProvider?.within("simulation", "epoch")?.provide<Instant>())
         var start: Duration = requireNotNull(simulationStart ?: inconProvider?.within("simulation", "time")?.provide<Duration>())
-        state = SimulationState(reportHandler)
-        val initContext = state.initScope()
-        val startupTasks: MutableList<Pair<Name, suspend context (TaskScope) () -> Unit>> = mutableListOf()
+        state = SimulationState(reportHandler, inconProvider)
         simulationScope = object : InitScope {
             override fun <T : Any> allocate(
                 name: Name,
@@ -79,18 +76,17 @@ class PlanSimulation<M> {
                 valueType: KType,
                 stepBy: (T, Duration) -> T,
                 mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
-            ): CellSet.Cell<T> = initContext.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
+            ): CellSet.Cell<T> = state.initScope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
 
             override fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) =
                 // When spawning a task, build a simulation scope which incorporates the task's Name
-                initContext.spawn(name, context (subSimulationScope(contextName / name)) { coroutineTask(block) })
+                state.initScope.spawn(name, context(subSimulationScope(contextName / name)) { coroutineTask(block) })
 
             override fun <T> read(cell: CellSet.Cell<T>): T =
-                initContext.read(cell)
+                state.initScope.read(cell)
 
-            override fun onStartup(name: Name, block: suspend TaskScope.() -> Unit) {
-                startupTasks += name to block
-            }
+            override fun <T> report(value: T, type: KType) =
+                state.initScope.report(value, type)
 
             override val contextName: Name? = null
 
@@ -115,14 +111,6 @@ class PlanSimulation<M> {
                 activityResource.set(null)
                 ActivityActions.spawn(groundedActivity, model)
             })
-
-            // Now that the root tasks are in place, we can restore the simulation
-            inconProvider?.let(state::restore)
-
-            // Having restored the simulation, load in the startup tasks
-            for ((name, block) in startupTasks) {
-                spawn(name, task { block() })
-            }
         }
     }
 

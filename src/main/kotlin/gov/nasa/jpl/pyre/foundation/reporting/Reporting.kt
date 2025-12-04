@@ -1,13 +1,11 @@
 package gov.nasa.jpl.pyre.foundation.reporting
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.wheneverChanges
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.onStartup
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.report
@@ -38,7 +36,7 @@ object Reporting {
      * offers opportunities to improve performance by computing the reified type at init or even compile time.
      */
     context (scope: TaskScope)
-    suspend fun <T> report(channel: Channel, data: T, reportType: KType) {
+    fun <T> report(channel: Channel, data: T, reportType: KType) {
         report(ChannelizedReport(
             channel,
             now(),
@@ -51,7 +49,7 @@ object Reporting {
      * categorizing the report on a channel and adding the time of report.
      */
     context (scope: TaskScope)
-    suspend inline fun <reified T> report(channel: Channel, data: T) = report(channel, data, typeOf<ChannelizedReport<T>>())
+    inline fun <reified T> report(channel: Channel, data: T) = report(channel, data, typeOf<ChannelizedReport<T>>())
 
     /**
      * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
@@ -64,9 +62,7 @@ object Reporting {
     ) {
         val reportType = ChannelizedReport::class.withArg(dynamicsType)
         val reportedResourceName = scope.contextName / name
-        onStartup("Report initial value for resource $name") {
-            report(reportedResourceName.toString(), resource.getDynamics().data, reportType)
-        }
+        scope.report(ChannelizedReport(reportedResourceName.toString(), now(), resource.getDynamics().data), reportType)
         spawn("Report resource $name", wheneverChanges(resource) {
             report(reportedResourceName.toString(), resource.getDynamics().data, reportType)
         })

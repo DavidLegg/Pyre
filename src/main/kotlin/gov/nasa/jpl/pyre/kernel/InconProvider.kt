@@ -23,5 +23,6 @@ interface InconProvider : InconProvidingContext {
             return result
         }
         fun InconProvider.within(vararg keys: String): InconProvider = within(keys.asSequence())
+        inline fun <reified T> InconProvider.provide(vararg keys: String): T? = within(*keys).provide(typeOf<T>())
     }
 }
