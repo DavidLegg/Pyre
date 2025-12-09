@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
-import gov.nasa.jpl.pyre.kernel.CellSet.Cell
+import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.ConditionResult
 import gov.nasa.jpl.pyre.kernel.Effect
