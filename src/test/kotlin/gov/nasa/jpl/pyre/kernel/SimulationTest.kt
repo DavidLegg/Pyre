@@ -94,7 +94,7 @@ class SimulationTest {
      * "Patch" test-ism - I removed the Delay task step type in favor of using Await.
      * Rather than rewrite a bunch of tests, I'm re-building Delay in terms of Await.
      */
-    private fun <T> Task.BasicTaskActions.Delay(time: Duration, clock: CellSet.Cell<Duration>, block: PureTaskStep<T>): Await<T> {
+    private fun <T> Task.BasicTaskActions.Delay(time: Duration, clock: Cell<Duration>, block: PureTaskStep<T>): Await<T> {
         val endTime = read(clock) + time
         return Await({ SatisfiedAt(endTime - it.read(clock)) }, block)
     }

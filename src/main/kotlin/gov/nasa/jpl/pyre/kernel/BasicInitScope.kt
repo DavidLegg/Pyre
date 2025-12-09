@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.kernel
 
-import gov.nasa.jpl.pyre.kernel.CellSet.Cell
 import kotlin.reflect.KType
 
 /**
@@ -16,7 +15,7 @@ interface BasicInitScope {
         mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>,
     ): Cell<T>
     fun <T> spawn(name: Name, step: PureTaskStep<T>)
-    fun <T> read(cell: Cell<T>): T
+    fun <T> read(cell: Cell<T>): T = cell.value
     fun <T> report(value: T, type: KType)
 
     companion object {

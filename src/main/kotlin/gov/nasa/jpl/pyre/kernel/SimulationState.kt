@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.kernel.Task.TaskStepResult.*
-import gov.nasa.jpl.pyre.kernel.CellSet.Cell
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
@@ -9,6 +8,7 @@ import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.provide
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
 import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.utilities.andThen
 import kotlinx.serialization.SerializationException
 import java.util.Comparator.comparing
 import java.util.PriorityQueue
@@ -33,7 +33,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: InconProv
     } else {
         ZERO
     }
-    private var cells: TrunkCellSet = TrunkCellSet()
+    private var cells: MutableList<Cell<*>> = mutableListOf()
     private val rootTaskNames: MutableList<Name> = mutableListOf()
     private val tasks: PriorityQueue<TaskEntry> = PriorityQueue(comparing(TaskEntry::time))
     private val cellListeners: MutableMap<Cell<*>, MutableSet<AwaitingTask<*>>> = mutableMapOf()
@@ -56,7 +56,13 @@ class SimulationState(private val reportHandler: ReportHandler, incon: InconProv
             valueType: KType,
             stepBy: (T, Duration) -> T,
             mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
-        ): Cell<T> = cells.allocate(name, cellIncon?.within(name.asSequence())?.provide(valueType) ?: value, valueType, stepBy, mergeConcurrentEffects)
+        ): Cell<T> = Cell(
+            name,
+            cellIncon?.within(name.asSequence())?.provide(valueType) ?: value,
+            valueType,
+            stepBy,
+            mergeConcurrentEffects,
+        ).also { cells += it }
 
         override fun <T> spawn(name: Name, step: PureTaskStep<T>) {
             // "name" is a root task name. Remember it for saving a fincon later.
@@ -90,7 +96,6 @@ class SimulationState(private val reportHandler: ReportHandler, incon: InconProv
             }
         }
 
-        override fun <T> read(cell: Cell<T>): T = cells[cell]
         override fun <T> report(value: T, type: KType) = reportHandler(value, type)
     }
 
@@ -127,23 +132,35 @@ class SimulationState(private val reportHandler: ReportHandler, incon: InconProv
                 require(stepTime >= time) {
                     "Requested step time $stepTime is earlier than current time $time"
                 }
-                cells.stepBy(stepTime - time)
+                for (cell in cells) {
+                    cell.stepBy(stepTime - time)
+                }
                 time = stepTime
             }
         }
     }
 
-    private fun runTaskBatch(tasks: MutableSet<Task<*>>) {
-        // For each task, split the cells so that task operates on an isolated state.
-        val cellSetBranches = tasks.map { task ->
-            cells.split().also { runTask(task, it) }
-        }
-        // Finally join those branched states back into the trunk state.
-        cells.join(cellSetBranches)
+    private fun <T> Cell<T>.stepBy(time: Duration) {
+        value = stepBy(value, time)
+    }
 
-        // Now, collect all the reactions to effects made by this batch.
+    private fun runTaskBatch(tasks: MutableSet<Task<*>>) {
+        for (task in tasks) {
+            runTask(task)
+        }
+
+        fun <T> Cell<T>.applyTrunkNetEffect() {
+            value = trunkNetEffect!!.value ?: trunkNetEffect!!.effect(value)
+            trunkNetEffect = null
+        }
+
+        // Join the tasks' effects by applying the net effect on every modified cell.
+        // Also collect all the reactions to effects made by this batch.
         // Since awaitingTasks is a set, it de-duplicates reactions automatically.
-        modifiedCells.flatMapTo(awaitingTasks) { cellListeners[it] ?: emptySet() }
+        modifiedCells.flatMapTo(awaitingTasks) {
+            it.applyTrunkNetEffect()
+            cellListeners[it] ?: emptySet()
+        }
         modifiedCells.clear()
 
         // Now, evaluate all the awaiting tasks.
@@ -155,6 +172,85 @@ class SimulationState(private val reportHandler: ReportHandler, incon: InconProv
         awaitingTasks.clear()
     }
 
+    private fun <T> runTask(task: Task<T>) {
+        val cellsModifiedByThisTask: MutableSet<Cell<*>> = mutableSetOf()
+
+        val actions = object : Task.BasicTaskActions {
+            override fun <V> read(cell: Cell<V>): V = cell.value
+
+            override fun <V> emit(cell: Cell<V>, effect: Effect<V>) {
+                // Store the trunk value if this is the first write to this cell
+                cell.trunkValue = cell.trunkValue ?: cell.value
+                // Update the value by directly applying the effect
+                cell.value = effect(cell.value)
+                // Record the new net effect of this branch, composing with prior effects if present
+                cell.branchNetEffect = cell.branchNetEffect?.andThen(effect) ?: effect
+                // Record that we modified this cell, so we can revert it back to trunk state later
+                cellsModifiedByThisTask += cell
+                // We mark the cell as modified, instead of directly adding listeners, to keep the simulation deterministic.
+                // This is because a task T may await this cell in parallel with this.
+                // If T is ahead of this in the batch, adding listeners would add it;
+                // but if T were behind this in the batch, adding listeners would miss it.
+                // By deferring the resolution from cell to listener to the end of the batch,
+                // T will always be added, which is conservative and deterministic.
+                modifiedCells += cell
+            }
+
+            override fun <V> report(value: V, type: KType) = reportHandler(value, type)
+        }
+
+        // "trampoline" through the continuations of task
+        // That is, iterate on nextTask - each iteration runs one step of task, then updates nextTask with the next step.
+        // When there are no more steps to run now, break out of the loop and quit.
+        // While a little less natural than just recurring on runTask, this avoids stack overflow on "intensive tasks",
+        // tasks which run many steps without yielding.
+        var nextTask = task
+
+        while (true) {
+            val stepResult = try {
+                nextTask.runStep(actions)
+            } catch (e: Throwable) {
+                System.err.println("Error while running ${nextTask.id}: $e")
+                throw e
+            }
+            when (stepResult) {
+                is Complete -> break // Nothing to do
+                is Await -> {
+                    awaitingTasks += AwaitingTask(stepResult)
+                    break
+                }
+                is Spawn<*, T> -> {
+                    tasks += TaskEntry(time, stepResult.child)
+                    nextTask = stepResult.continuation
+                }
+                is NoOp -> {
+                    nextTask = stepResult.continuation
+                }
+            }
+        }
+
+        fun <T> Cell<T>.revertBranch() {
+            // Merge the branch net effect into the trunk net effect:
+            trunkNetEffect = if (trunkNetEffect == null) {
+                // This is the only branch to modify this cell; adopt the branch net effect and record our net value
+                NetEffect(value, branchNetEffect!!)
+            } else {
+                // Otherwise, concurrent-merge the effects from trunk and branch, and throw away the net value.
+                NetEffect(null, mergeConcurrentEffects(trunkNetEffect?.effect!!, branchNetEffect!!))
+            }
+            // Revert the cell value to the trunk value
+            value = trunkValue!!
+            // Finally, reset the branch bookkeeping variables to mark this cell in "trunk" state
+            trunkValue = null
+            branchNetEffect = null
+        }
+
+        // Collect the net effects of this task, and reset all cells to "trunk" state.
+        for (cell in cellsModifiedByThisTask) {
+            cell.revertBranch()
+        }
+    }
+
     private fun <T> evaluateAwaitingTask(awaitingTask: AwaitingTask<T>) {
         // Reset any listeners from any prior evaluation of this task
         resetListeners(awaitingTask)
@@ -164,7 +260,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: InconProv
         val result = awaitingTask.await.condition(object : ReadActions {
             override fun <V> read(cell: Cell<V>): V {
                 cellsRead += cell
-                return cells[cell]
+                return cell.value
             }
         })
 
@@ -218,58 +314,14 @@ class SimulationState(private val reportHandler: ReportHandler, incon: InconProv
         awaitingTask.scheduledTask?.let(tasks::remove)
     }
 
-    private fun <T> runTask(task: Task<T>, cellSet: CellSet) {
-        // "trampoline" through the continuations of task
-        // That is, iterate on nextTask - each iteration runs one step of task, then updates nextTask with the next step.
-        // When there are no more steps to run now, break out of the loop and quit.
-        // While a little less natural than just recurring on runTask, this avoids stack overflow on "intensive tasks",
-        // tasks which run many steps without yielding.
-        var nextTask = task
-
-        val actions = object : Task.BasicTaskActions {
-            override fun <V> read(cell: Cell<V>): V = cellSet[cell]
-            override fun <V> emit(cell: Cell<V>, effect: Effect<V>) {
-                cellSet.emit(cell, effect)
-                // We mark the cell as modified, instead of directly adding listeners, to keep the simulation deterministic.
-                // This is because a task T may await this cell in parallel with this.
-                // If T is ahead of this in the batch, adding listeners would add it;
-                // but if T were behind this in the batch, adding listeners would miss it.
-                // By deferring the resolution from cell to listener to the end of the batch,
-                // T will always be added, which is conservative and deterministic.
-                modifiedCells += cell
-            }
-            override fun <V> report(value: V, type: KType) = reportHandler(value, type)
-        }
-
-        while (true) {
-            val stepResult = try {
-                nextTask.runStep(actions)
-            } catch (e: Throwable) {
-                System.err.println("Error while running ${nextTask.id}: $e")
-                throw e
-            }
-            when (stepResult) {
-                is Complete -> break // Nothing to do
-                is Await -> {
-                    awaitingTasks += AwaitingTask(stepResult)
-                    break
-                }
-                is Spawn<*, T> -> {
-                    tasks += TaskEntry(time, stepResult.child)
-                    nextTask = stepResult.continuation
-                }
-                is NoOp -> {
-                    nextTask = stepResult.continuation
-                }
-            }
-        }
-    }
-
     fun save(finconCollector: FinconCollector) {
         with (finconCollector.within("simulation")) {
             within("time").report(time)
         }
-        cells.save(finconCollector.within("cells"))
+        val cellCollector = finconCollector.within("cells")
+        for (cell in cells) {
+            cellCollector.within(cell.name.asSequence()).report(cell.value, cell.valueType)
+        }
         val taskCollector = finconCollector.within("tasks")
         // Tasks which are the scheduled re-evaluation or continuation of a condition should not be directly restored.
         // Instead, we should restore the listening task, and it will generate the appropriate task when it first runs.

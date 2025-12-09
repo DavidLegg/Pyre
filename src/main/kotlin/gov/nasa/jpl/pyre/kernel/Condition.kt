@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.kernel
 
-import gov.nasa.jpl.pyre.kernel.CellSet.Cell
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 
 sealed interface ConditionResult

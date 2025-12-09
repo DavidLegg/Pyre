@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.general.interrupts
 
-import gov.nasa.jpl.pyre.kernel.CellSet
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.or
@@ -9,6 +8,7 @@ import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.or
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenTrue
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Condition
 
 /**
@@ -33,7 +33,7 @@ object Interrupts {
         // Construct a new TaskScope, which will throw AbortTaskException if we abort.
         // That will stop the rest of nominal behavior from executing.
         val abortScope = object : TaskScope by scope {
-            override fun <V> emit(cell: CellSet.Cell<V>, effect: Effect<V>) {
+            override fun <V> emit(cell: Cell<V>, effect: Effect<V>) {
                 scope.emit(cell, effect)
                 // It's possible that the effect we just emitted caused our own abort condition to fire!
                 if (hasAborted.getValue()) throw AbortTaskException()

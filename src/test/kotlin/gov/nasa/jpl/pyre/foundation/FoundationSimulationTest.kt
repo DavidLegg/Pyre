@@ -67,14 +67,14 @@ class FoundationSimulationTest {
                     override val simulationClock = resource<Duration, Timer>("simulation_clock", Timer(ZERO, 1))
                     override val simulationEpoch = Instant.parse("2000-01-01T00:00:00Z")
                     override fun toString() = ""
-                    override fun <V> read(cell: CellSet.Cell<V>): V = scope.read(cell)
+                    override fun <V> read(cell: Cell<V>): V = scope.read(cell)
                     override fun <T : Any> allocate(
                         name: Name,
                         value: T,
                         valueType: KType,
                         stepBy: (T, Duration) -> T,
                         mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
-                    ): CellSet.Cell<T> = scope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
+                    ): Cell<T> = scope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
                     override fun <T> spawn(name: Name, block: suspend context(TaskScope) () -> TaskScopeResult<T>) =
                         scope.spawn(name, coroutineTask(block))
                     override fun <T> report(value: T, type: KType) =

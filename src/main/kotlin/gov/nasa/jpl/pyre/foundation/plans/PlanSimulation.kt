@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.foundation.plans
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.kernel.CellSet
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector
@@ -30,6 +29,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
@@ -76,13 +76,13 @@ class PlanSimulation<M> {
                 valueType: KType,
                 stepBy: (T, Duration) -> T,
                 mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
-            ): CellSet.Cell<T> = state.initScope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
+            ): Cell<T> = state.initScope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
 
             override fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) =
                 // When spawning a task, build a simulation scope which incorporates the task's Name
                 state.initScope.spawn(name, context(subSimulationScope(contextName / name)) { coroutineTask(block) })
 
-            override fun <T> read(cell: CellSet.Cell<T>): T =
+            override fun <T> read(cell: Cell<T>): T =
                 state.initScope.read(cell)
 
             override fun <T> report(value: T, type: KType) =
