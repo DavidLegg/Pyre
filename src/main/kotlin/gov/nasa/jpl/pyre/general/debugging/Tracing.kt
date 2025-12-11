@@ -29,7 +29,7 @@ object Tracing {
     fun <D> MutableResource<D>.trace(formatter: (FullDynamics<D>) -> String = FullDynamics<D>::toString): MutableResource<D> =
         object : MutableResource<D>, Resource<D> by (this as Resource<D>).trace(formatter) {
             context(scope: TaskScope)
-            override suspend fun emit(effect: ResourceEffect<D>) {
+            override fun emit(effect: ResourceEffect<D>) {
                 println("${now()} TRACE(${this@trace}): Emit $effect")
                 this@trace.emit(effect)
             }

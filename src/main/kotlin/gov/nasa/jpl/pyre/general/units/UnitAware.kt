@@ -1,19 +1,14 @@
 package gov.nasa.jpl.pyre.general.units
 
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting
-import gov.nasa.jpl.pyre.foundation.resources.Dynamics
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import kotlin.reflect.KType
+import gov.nasa.jpl.pyre.general.units.quantity.Quantity
 
-class UnitAware<out T>(
+class UnitAware<T>(
     private val value: T,
     val unit: Unit,
-    private val nameFn: (() -> String)? = null,
 ) {
     // To get a value, you *must* specify a unit.
     // This should reduce the incidence of people blindly getting the value without considering the units.
-    context (scope: ScalableScope<T>)
+    context (scope: Scaling<T>)
     fun valueIn(newUnit: Unit): T {
         // Short-circuit for efficiency
         if (unit === newUnit) return value
@@ -26,7 +21,7 @@ class UnitAware<out T>(
         }
     }
 
-    override fun toString(): String = if (nameFn != null) nameFn() else "$value $unit"
+    override fun toString(): String = "$value $unit"
 
     companion object {
         // Natural-feeling constructor for unit-aware things: multiply the thing by a unit, a la "5 * METER"
@@ -36,7 +31,14 @@ class UnitAware<out T>(
         operator fun <T> UnitAware<T>.times(unit: Unit): UnitAware<T> = UnitAware(value, this.unit * unit)
         operator fun <T> UnitAware<T>.div(unit: Unit): UnitAware<T> = UnitAware(value, this.unit / unit)
 
-        context (scope: VectorScope<T>)
+        // Pass-through unit-independent mapping operation
+        fun <T, S> UnitAware<T>.map(f: (T) -> S): UnitAware<S> = UnitAware(f(value), unit)
+
+        // TODO: See if we can re-work UnitAware's type parameter to be "out" (covariant) and get rid of upcast.
+        /** Up-cast this to a [UnitAware] around a more generic type */
+        fun <T, S : T> UnitAware<S>.upcast(): UnitAware<T> = map { it }
+
+        context (scope: VectorSpace<T>)
         operator fun <T> UnitAware<T>.plus(other: UnitAware<T>): UnitAware<T> {
             val otherValue = other.valueIn(unit)
             return with (scope) {
@@ -44,7 +46,7 @@ class UnitAware<out T>(
             }
         }
 
-        context (scope: VectorScope<T>)
+        context (scope: VectorSpace<T>)
         operator fun <T> UnitAware<T>.minus(other: UnitAware<T>): UnitAware<T> {
             val otherValue = other.valueIn(unit)
             return with (scope) {
@@ -52,73 +54,47 @@ class UnitAware<out T>(
             }
         }
 
-        context (scope: VectorScope<T>)
+        context (scope: VectorSpace<T>)
         operator fun <T> UnitAware<T>.times(scale: Double): UnitAware<T> {
             return with (scope) {
                 UnitAware(scale * value, unit)
             }
         }
 
-        context (scope: VectorScope<T>)
+        context (scope: VectorSpace<T>)
         operator fun <T> Double.times(other: UnitAware<T>): UnitAware<T> = other * this
 
-        context (scope: VectorScope<T>)
+        context (scope: VectorSpace<T>)
         operator fun <T> UnitAware<T>.div(scale: Double): UnitAware<T> {
             return with (scope) {
                 UnitAware((1.0 / scale) * value, unit)
             }
         }
 
-        context (scope: RingScope<T>)
+        context (scope: Ring<T>)
         operator fun <T> UnitAware<T>.times(other: UnitAware<T>): UnitAware<T> {
             return with (scope) {
                 UnitAware(value * other.value, unit * other.unit)
             }
         }
 
-        context (scope: FieldScope<T>)
+        context (scope: Field<T>)
         operator fun <T> UnitAware<T>.div(other: UnitAware<T>): UnitAware<T> {
             return with (scope) {
                 UnitAware(value / other.value, unit / other.unit)
             }
         }
 
-        context (scope: FieldScope<T>)
+        context (scope: Field<T>)
         operator fun <T> Double.div(other: UnitAware<T>): UnitAware<T> {
             return with (scope) {
                 UnitAware(this@div * one / other.value, Unit.SCALAR / other.unit)
             }
         }
 
-        context (scope: ScalableScope<T>)
+        context (scope: Scaling<T>)
         fun <T : Comparable<T>> UnitAware<T>.compareTo(other: UnitAware<T>): Int =
             value.compareTo(other.valueIn(unit))
-
-        /**
-         * Register a resource in a particular unit.
-         * Note: The unit will be appended to the name of the resource automatically.
-         */
-        context (_: InitScope, scope: ScalableScope<Resource<D>>)
-        fun <V, D : Dynamics<V, D>> register(name: String, resource: UnitAware<Resource<D>>, unit: Unit, dynamicsType: KType) =
-            Reporting.register("$name ($unit)", resource.valueIn(unit), dynamicsType)
-
-        /**
-         * Register a resource in a particular unit.
-         * Note: The unit will be appended to the name of the resource automatically.
-         */
-        context (_: InitScope, scope: ScalableScope<Resource<D>>)
-        inline fun <V, reified D : Dynamics<V, D>> register(name: String, resource: UnitAware<Resource<D>>, unit: Unit) =
-            Reporting.register("$name ($unit)", resource.valueIn(unit))
-
-        /**
-         * Register a resource in a particular unit.
-         * Note: The unit will be appended to the name of the resource automatically.
-         */
-        context (_: InitScope, scope: ScalableScope<Resource<D>>)
-        inline fun <V, reified D : Dynamics<V, D>> register(resource: UnitAware<Resource<D>>, unit: Unit) =
-            Reporting.register(resource.valueIn(unit))
-
-        infix fun <T> UnitAware<T>.named(nameFn: () -> String): UnitAware<T> = UnitAware(value, unit, nameFn)
 
         /**
          * Operations involving a general UnitAware and a Quantity (in that order).
@@ -126,18 +102,45 @@ class UnitAware<out T>(
          * These operations are split into a separate object to avoid JVM declaration conflicts.
          */
         object VsQuantity {
-            context (scope: VectorScope<T>)
-            operator fun <T> UnitAware<T>.times(other: Quantity): UnitAware<T> {
-                return with (scope) {
-                    UnitAware(other.value * value, unit * other.unit)
-                }
+            // Adding a Quantity to a general UnitAware<T> may look strange, but requiring a Ring<T> makes it reasonable.
+            // In short, if 1_T is the multiplicative unit of T, then "multiplication by 1_T" is a field isomorphism from
+            // Double to (Double * 1_T) which realizes Double as a field within T.
+
+            // Put another way, you can only define Ring<T> with scaling over Double if Double has a natural
+            // embedding within T, hence adding a Double and a T makes sense under normal ring addition.
+
+            // For example, it makes sense to add a Double and a Polynomial because Doubles can be seen
+            // naturally as degree-0 polynomials.
+
+            context (scope: Ring<T>)
+            operator fun <T> UnitAware<T>.plus(other: Quantity): UnitAware<T> = with (scope) {
+                this@plus + UnitAware(other.value * one, other.unit)
             }
 
-            context (scope: VectorScope<T>)
-            operator fun <T> UnitAware<T>.div(other: Quantity): UnitAware<T> {
-                return with (scope) {
-                    UnitAware((1.0 / other.value) * value, unit / other.unit)
-                }
+            context (scope: Ring<T>)
+            operator fun <T> UnitAware<T>.minus(other: Quantity): UnitAware<T> = with (scope) {
+                this@minus - UnitAware(other.value * one, other.unit)
+            }
+
+            // Contrasted with adding and subtracting a Quantity and general UnitAware,
+            // that additional subfield structure is not required for multiplying and dividing by an arbitrary Quantity.
+            // Hence T is required to be a VectorSpace only, not a Ring.
+
+            context (scope: VectorSpace<T>)
+            operator fun <T> UnitAware<T>.times(other: Quantity): UnitAware<T> = with(scope) {
+                UnitAware(other.value * value, unit * other.unit)
+            }
+
+            context (scope: VectorSpace<T>)
+            operator fun <T> UnitAware<T>.div(other: Quantity): UnitAware<T> = with(scope) {
+                UnitAware((1.0 / other.value) * value, unit / other.unit)
+            }
+
+            // By the same reasoning as for plus and minus, if and only if T is a Ring can we compare directly to Quantity.
+
+            context (scope: Ring<T>)
+            fun <T: Comparable<T>> UnitAware<T>.compareTo(other: Quantity): Int = with (scope) {
+                this@compareTo.compareTo(UnitAware(other.value * one, other.unit))
             }
         }
 
@@ -147,38 +150,31 @@ class UnitAware<out T>(
          * These operations are split into a separate object to avoid JVM declaration conflicts.
          */
         object QuantityVs {
-            context (scope: VectorScope<T>)
-            operator fun <T> Quantity.times(other: UnitAware<T>): UnitAware<T> {
-                return with (scope) {
-                    UnitAware(value * other.value, unit * other.unit)
-                }
+            context (scope: Ring<T>)
+            operator fun <T> Quantity.plus(other: UnitAware<T>): UnitAware<T> = with (scope) {
+                UnitAware(value * one, unit) + other
             }
 
-            context (scope: FieldScope<T>)
-            operator fun <T> Quantity.div(other: UnitAware<T>): UnitAware<T> {
-                return with (scope) {
-                    UnitAware(value * one / other.value, unit / other.unit)
-                }
+            context (scope: Ring<T>)
+            operator fun <T> Quantity.minus(other: UnitAware<T>): UnitAware<T> = with (scope) {
+                UnitAware(value * one, unit) - other
+            }
+
+            context (scope: VectorSpace<T>)
+            operator fun <T> Quantity.times(other: UnitAware<T>): UnitAware<T> = with(scope) {
+                UnitAware(value * other.value, unit * other.unit)
+            }
+
+            context (scope: Field<T>)
+            operator fun <T> Quantity.div(other: UnitAware<T>): UnitAware<T> = with(scope) {
+                UnitAware(value * one / other.value, unit / other.unit)
+            }
+
+            context (scope: Ring<T>)
+            fun <T : Comparable<T>> Quantity.compareTo(other: UnitAware<T>): Int = with (scope) {
+                UnitAware(value * one, unit).compareTo(other)
             }
         }
     }
 }
 
-interface ScalableScope<T> {
-    operator fun Double.times(other: T): T
-}
-
-interface VectorScope<T> : ScalableScope<T> {
-    val zero: T
-    operator fun T.plus(other: T): T
-    operator fun T.minus(other: T): T
-}
-
-interface RingScope<T> : VectorScope<T> {
-    val one: T
-    operator fun T.times(other: T): T
-}
-
-interface FieldScope<T> : RingScope<T> {
-    operator fun T.div(other: T): T
-}

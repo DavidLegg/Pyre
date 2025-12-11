@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.general.units
 
+import gov.nasa.jpl.pyre.general.units.quantity.DoubleField
 import kotlin.math.pow
 
 /**
@@ -44,7 +45,7 @@ class Unit private constructor(
         /**
          * Define a named unit derived from a quantity, i.e. a (potentially anonymous) unit and a scale.
          */
-        fun derived(name: String, definition: UnitAware<Double>): Unit = with (DoubleFieldScope) {
+        fun derived(name: String, definition: UnitAware<Double>): Unit = with (DoubleField) {
             Unit(name, definition.valueIn(definition.unit) * definition.unit.scale, definition.unit.dimension)
         }
 

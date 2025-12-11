@@ -1,11 +1,11 @@
-package gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware
+package gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource
 
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.constant
-import gov.nasa.jpl.pyre.general.units.RingScope
+import gov.nasa.jpl.pyre.general.units.Ring
 
-object PolynomialResourceRingScope : RingScope<PolynomialResource> {
+object PolynomialResourceRing : Ring<PolynomialResource> {
     override val zero: PolynomialResource = constant(0.0)
     override val one: PolynomialResource = constant(1.0)
 

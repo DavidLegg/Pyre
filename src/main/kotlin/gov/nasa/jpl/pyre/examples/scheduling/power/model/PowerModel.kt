@@ -4,31 +4,31 @@ import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.GncControlMode
 import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel.ImagerMode
 import gov.nasa.jpl.pyre.examples.scheduling.power.model.Device.Companion.Device
 import gov.nasa.jpl.pyre.examples.units.MILLIWATT
-import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResource
-import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResourceOperations.plus
-import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResourceOperations.register
+import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.VsQuantity.div
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.asPolynomial
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.clampedIntegral
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.constant
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.minus
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.register
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.registeredIntegral
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.valueIn
-import gov.nasa.jpl.pyre.general.units.Quantity
+import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResource
+import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.asPolynomial
+import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.clampedIntegral
+import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.constant
+import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.registeredIntegral
+import gov.nasa.jpl.pyre.general.units.quantity.Quantity
 import gov.nasa.jpl.pyre.general.units.StandardUnits.HOUR
 import gov.nasa.jpl.pyre.general.units.StandardUnits.JOULE
 import gov.nasa.jpl.pyre.general.units.StandardUnits.WATT
 import gov.nasa.jpl.pyre.general.units.Unit
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.named
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.VsQuantity.div
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.plus
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.upcast
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.register
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
 import kotlinx.serialization.Serializable
 
 val WATT_HOUR = Unit.derived("Wh", WATT * HOUR)
@@ -111,38 +111,40 @@ class PowerModel(
 
     init {
         with (context) {
-            // Devices
-            gncSubsystem = Device(subContext("gnc_subsystem"), inputs.gncControlMode, gncPowerTable)
-            dataSubsystem = Device(subContext("data_subsystem"), inputs.dataSystemMode, dataPowerTable)
-            radio = Device(subContext("radio"), inputs.radioPowerMode, radioPowerTable)
-            imager = Device(subContext("imager"), inputs.imagerMode, imagerPowerTable)
-            heater1 = Device(subContext("heater_1"), inputs.heater1Mode, heaterPowerTable)
-            heater2 = Device(subContext("heater_2"), inputs.heater1Mode, heaterPowerTable)
+            unitAware {
+                // Devices
+                gncSubsystem = Device(subContext("gnc_subsystem"), inputs.gncControlMode, gncPowerTable)
+                dataSubsystem = Device(subContext("data_subsystem"), inputs.dataSystemMode, dataPowerTable)
+                radio = Device(subContext("radio"), inputs.radioPowerMode, radioPowerTable)
+                imager = Device(subContext("imager"), inputs.imagerMode, imagerPowerTable)
+                heater1 = Device(subContext("heater_1"), inputs.heater1Mode, heaterPowerTable)
+                heater2 = Device(subContext("heater_2"), inputs.heater1Mode, heaterPowerTable)
 
-            // Totals and battery level
-            totalPowerDraw = (
-                    gncSubsystem.powerDraw
-                    + dataSubsystem.powerDraw
-                    + radio.powerDraw
-                    + imager.powerDraw
-                    + heater1.powerDraw
-                    + heater2.powerDraw
-            ).named { "total_power_draw" }.also { register(it, WATT) }
-            netPowerProduction = (constant(config.rtgPowerProduction) - totalPowerDraw.asPolynomial())
-                .named { "net_power_production" }
-                .also { register(it, WATT) }
-            val batteryIntegral = netPowerProduction.clampedIntegral(
-                "battery_energy",
-                constant(0.0 * JOULE),
-                constant(config.batteryCapacity),
-                config.batteryCapacity
-            )
-            batteryEnergy = batteryIntegral.integral.also { register(it, WATT_HOUR) }
-            batterySOC = (batteryEnergy / config.batteryCapacity).valueIn(Unit.SCALAR)
-                .named { "battery_soc" }.also { register(it) }
-            powerOverdrawn = batteryIntegral.underflow
-                .named { "power_overdrawn" }.also { register(it, WATT) }
-            energyOverdrawn = powerOverdrawn.registeredIntegral("energy_overdrawn", 0.0 * WATT_HOUR)
+                // Totals and battery level
+                totalPowerDraw = (
+                        gncSubsystem.powerDraw
+                        + dataSubsystem.powerDraw
+                        + radio.powerDraw
+                        + imager.powerDraw
+                        + heater1.powerDraw
+                        + heater2.powerDraw
+                ).named { "total_power_draw" }.also { register(it, WATT) }
+                netPowerProduction = (constant(config.rtgPowerProduction) - totalPowerDraw.asPolynomial())
+                    .named { "net_power_production" }
+                    .also { register(it, WATT) }
+                val batteryIntegral = netPowerProduction.clampedIntegral(
+                    "battery_energy",
+                    constant(0.0 * JOULE),
+                    constant(config.batteryCapacity),
+                    config.batteryCapacity
+                )
+                batteryEnergy = batteryIntegral.integral.also { register(it, WATT_HOUR) }
+                batterySOC = (batteryEnergy / config.batteryCapacity).valueIn(Unit.SCALAR)
+                    .named { "battery_soc" }.also { register(it) }
+                powerOverdrawn = batteryIntegral.underflow
+                    .named { "power_overdrawn" }.also { register(it, WATT) }
+                energyOverdrawn = powerOverdrawn.registeredIntegral("energy_overdrawn", 0.0 * WATT_HOUR).upcast()
+            }
         }
     }
 }
