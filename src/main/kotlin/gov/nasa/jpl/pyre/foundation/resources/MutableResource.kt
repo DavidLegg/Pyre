@@ -14,18 +14,18 @@ import kotlin.reflect.typeOf
 
 interface MutableResource<D> : Resource<D> {
     context (scope: TaskScope)
-    suspend fun emit(effect: ResourceEffect<D>)
+    fun emit(effect: ResourceEffect<D>)
 }
 typealias ResourceEffect<D> = Effect<FullDynamics<D>>
 typealias MergeResourceEffect<D> = (ResourceEffect<D>, ResourceEffect<D>) -> ResourceEffect<D>
 
 context (scope: TaskScope)
-suspend fun <D> MutableResource<D>.emit(effect: (D) -> D) = this.emit({ it: FullDynamics<D> ->
+fun <D> MutableResource<D>.emit(effect: (D) -> D) = this.emit({ it: FullDynamics<D> ->
     Expiring(effect(it.data), NEVER)
 } named effect::toString)
 
 context (scope: TaskScope)
-suspend fun <D> MutableResource<D>.set(newDynamics: D) = emit({ d: D -> newDynamics } named { "Set $this to $newDynamics" })
+fun <D> MutableResource<D>.set(newDynamics: D) = emit({ d: D -> newDynamics } named { "Set $this to $newDynamics" })
 
 context (scope: InitScope)
 inline fun <V, reified D : Dynamics<V, D>> resource(
@@ -59,7 +59,7 @@ fun <V, D : Dynamics<V, D>> resource(
 
     return object : MutableResource<D> {
         context(scope: TaskScope)
-        override suspend fun emit(effect: (FullDynamics<D>) -> FullDynamics<D>) = scope.emit(cell, effect)
+        override fun emit(effect: (FullDynamics<D>) -> FullDynamics<D>) = scope.emit(cell, effect)
 
         context(scope: ResourceScope)
         override fun getDynamics(): FullDynamics<D> = scope.read(cell)

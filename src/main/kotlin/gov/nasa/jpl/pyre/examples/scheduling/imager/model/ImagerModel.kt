@@ -1,18 +1,18 @@
 package gov.nasa.jpl.pyre.examples.scheduling.imager.model
 
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.BITS_PER_SECOND
-import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResource
-import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResourceOperations.register
-import gov.nasa.jpl.pyre.general.units.Quantity
-import gov.nasa.jpl.pyre.general.units.QuantityOperations.times
-import gov.nasa.jpl.pyre.general.units.QuantityOperations.valueIn
+import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource
+import gov.nasa.jpl.pyre.general.units.quantity.Quantity
 import gov.nasa.jpl.pyre.general.units.Unit
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.named
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.register
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
+import gov.nasa.jpl.pyre.general.units.quantity.QuantityOperations.times
 
 // We can define a brand new dimension, like "image", to use the unit system to check calculations around images.
 // Note that this will be a different "image" unit and dimension than any other, even if somewhere else we define
@@ -50,18 +50,20 @@ class ImagerModel(
 
     init {
         with (context) {
-            mode = registeredDiscreteResource("mode", ImagerMode.OFF)
-            val imagingDataRate_bps = (config.imageRate * config.imageSize).valueIn(BITS_PER_SECOND)
-            dataRate = (map(mode) {
-                when (it) {
-                    ImagerMode.OFF -> 0.0
-                    ImagerMode.WARMUP -> 8.0
-                    ImagerMode.STANDBY -> 8.0
-                    ImagerMode.IMAGING -> imagingDataRate_bps
-                }
-            } * BITS_PER_SECOND)
-                .named { "data_rate" }
-                .also { register(it, BITS_PER_SECOND) }
+            unitAware {
+                mode = registeredDiscreteResource("mode", ImagerMode.OFF)
+                val imagingDataRate_bps = (config.imageRate * config.imageSize).valueIn(BITS_PER_SECOND)
+                dataRate = (map(mode) {
+                    when (it) {
+                        ImagerMode.OFF -> 0.0
+                        ImagerMode.WARMUP -> 8.0
+                        ImagerMode.STANDBY -> 8.0
+                        ImagerMode.IMAGING -> imagingDataRate_bps
+                    }
+                } * BITS_PER_SECOND)
+                    .named { "data_rate" }
+                    .also { register(it, BITS_PER_SECOND) }
+            }
         }
     }
 }

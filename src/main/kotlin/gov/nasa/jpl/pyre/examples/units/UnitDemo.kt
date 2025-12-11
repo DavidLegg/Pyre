@@ -13,26 +13,18 @@ import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
 import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
-import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResource
-import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResourceOperations.plus
-import gov.nasa.jpl.pyre.general.resources.discrete.unit_aware.QuantityResourceOperations.register
+import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.asPolynomial
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.clampedIntegral
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.constant
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.VsQuantity.div
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.minus
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.register
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.registeredIntegral
-import gov.nasa.jpl.pyre.general.resources.polynomial.unit_aware.PolynomialQuantityResourceOperations.valueIn
-import gov.nasa.jpl.pyre.general.units.Quantity
-import gov.nasa.jpl.pyre.general.units.QuantityOperations.valueIn
+import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResource
+import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.asPolynomial
+import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.clampedIntegral
+import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.constant
+import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.registeredIntegral
+import gov.nasa.jpl.pyre.general.units.quantity.Quantity
 import gov.nasa.jpl.pyre.general.units.StandardUnits.HOUR
 import gov.nasa.jpl.pyre.general.units.StandardUnits.JOULE
 import gov.nasa.jpl.pyre.general.units.StandardUnits.WATT
 import gov.nasa.jpl.pyre.general.units.Unit
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.named
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
@@ -43,6 +35,13 @@ import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.VsQuantity.div
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.plus
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.upcast
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.register
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
@@ -133,56 +132,58 @@ class UnitDemo(
 
     init {
         with (context) {
-            // Note that we're free to mix units here, so long as we don't mix dimensions:
-            heaterA = Device(subContext("heater_a"),
-                OFF to 0.0 * WATT,
-                STANDBY to 10.0 * MILLIWATT,
-                ON to 1.2 * WATT,
-            )
-            heaterB = Device(subContext("heater_b"),
-                OFF to 0.0 * WATT,
-                STANDBY to 10.0 * MILLIWATT,
-                ON to 1.2 * WATT,
-            )
-            camera = Device(subContext("camera"),
-                OFF to 0.0 * WATT,
-                STANDBY to 120.0 * MILLIWATT,
-                ON to 3.4 * WATT
-            )
+            unitAware {
+                // Note that we're free to mix units here, so long as we don't mix dimensions:
+                heaterA = Device(subContext("heater_a"),
+                    OFF to 0.0 * WATT,
+                    STANDBY to 10.0 * MILLIWATT,
+                    ON to 1.2 * WATT,
+                )
+                heaterB = Device(subContext("heater_b"),
+                    OFF to 0.0 * WATT,
+                    STANDBY to 10.0 * MILLIWATT,
+                    ON to 1.2 * WATT,
+                )
+                camera = Device(subContext("camera"),
+                    OFF to 0.0 * WATT,
+                    STANDBY to 120.0 * MILLIWATT,
+                    ON to 3.4 * WATT
+                )
 
-            // When we define this sum, the framework will do dimension-checks to ensure this sum is sensible.
-            // Then, it'll decide on any scaling factors needed to make the units agree, and build those into the derivation.
-            // During simulation, it doesn't need to repeat these steps. It just applies the scaling factor and adds the double values.
-            totalPowerDraw = (heaterA.powerDraw + heaterB.powerDraw + camera.powerDraw) named { "total_power_draw" }
-            // Note that we *must* choose a unit to register the resource in.
-            // While we could technically choose totalPowerDraw.unit, it's clearer and easier to choose a specific unit.
-            // If totalPowerDraw isn't already in this unit, it'll be converted automatically for registration.
-            // This also serves to double-check our derivation by indicating an expected dimension.
-            // Just like with derivation, dimension-checking is done once when building the model, and a fixed scale factor
-            // is baked in and used during simulation.
-            register(totalPowerDraw, KILOWATT)
+                // When we define this sum, the framework will do dimension-checks to ensure this sum is sensible.
+                // Then, it'll decide on any scaling factors needed to make the units agree, and build those into the derivation.
+                // During simulation, it doesn't need to repeat these steps. It just applies the scaling factor and adds the double values.
+                totalPowerDraw = (heaterA.powerDraw + heaterB.powerDraw + camera.powerDraw).named { "total_power_draw" }
+                // Note that we *must* choose a unit to register the resource in.
+                // While we could technically choose totalPowerDraw.unit, it's clearer and easier to choose a specific unit.
+                // If totalPowerDraw isn't already in this unit, it'll be converted automatically for registration.
+                // This also serves to double-check our derivation by indicating an expected dimension.
+                // Just like with derivation, dimension-checking is done once when building the model, and a fixed scale factor
+                // is baked in and used during simulation.
+                register(totalPowerDraw, KILOWATT)
 
-            // Unit-awareness also "plays nicely" with continuous resources. This lets us do unit-aware integration:
-            // Note that specifying the starting value in kWh means we'll register the results in that unit too.
-            totalEnergyUsed = totalPowerDraw.asPolynomial().registeredIntegral("total_energy_used", 0.0 * KILOWATT_HOUR)
+                // Unit-awareness also "plays nicely" with continuous resources. This lets us do unit-aware integration:
+                // Note that specifying the starting value in kWh means we'll register the results in that unit too.
+                totalEnergyUsed = totalPowerDraw.asPolynomial().registeredIntegral("total_energy_used", 0.0 * KILOWATT_HOUR).upcast()
 
-            // We can even do complex things like clamped integration, all in a unit-aware way:
-            powerProduction = constant(1.0 * WATT)
-            // Note that powerProduction is in W; totalPowerDraw, in kW.
-            // totalPowerDraw will implicitly be converted to W to make the derivation below sensible.
-            val netPower = powerProduction - totalPowerDraw.asPolynomial()
-            val maxBatteryEnergy = 1000.0 * JOULE
-            batteryEnergy = netPower.clampedIntegral(
-                "battery_energy",
-                constant(0.0 * JOULE),
-                constant(maxBatteryEnergy),
-                500.0 * JOULE,
-                ).integral.also { register(it, JOULE) }
-            // Finally, when we expect a pure scalar (a dimensionless quantity), we can say so.
-            // The framework will ensure we've cancelled all dimensions correctly, and apply any remaining scaling
-            // left over from doing unit conversions (e.g., "hr / s" requires multiplying by 3600).
-            batterySOC = ((batteryEnergy / maxBatteryEnergy).valueIn(Unit.SCALAR) named { "battery_soc" })
-                .also { register(it) }
+                // We can even do complex things like clamped integration, all in a unit-aware way:
+                powerProduction = constant(1.0 * WATT)
+                // Note that powerProduction is in W; totalPowerDraw, in kW.
+                // totalPowerDraw will implicitly be converted to W to make the derivation below sensible.
+                val netPower = powerProduction - totalPowerDraw.asPolynomial()
+                val maxBatteryEnergy = 1000.0 * JOULE
+                batteryEnergy = netPower.clampedIntegral(
+                    "battery_energy",
+                    constant(0.0 * JOULE),
+                    constant(maxBatteryEnergy),
+                    500.0 * JOULE,
+                    ).integral.also { register(it, JOULE) }
+                // Finally, when we expect a pure scalar (a dimensionless quantity), we can say so.
+                // The framework will ensure we've cancelled all dimensions correctly, and apply any remaining scaling
+                // left over from doing unit conversions (e.g., "hr / s" requires multiplying by 3600).
+                batterySOC = ((batteryEnergy / maxBatteryEnergy).valueIn(Unit.SCALAR) named { "battery_soc" })
+                    .also { register(it) }
+            }
         }
     }
 }
@@ -195,12 +196,14 @@ class Device(
     val powerDraw: QuantityResource
 
     init {
-        // For efficiency, pre-convert all the power usages to one unit, and apply that unit at the resource level
-        val powerUsageMap = powerUsage.toMap().mapValues { (_, q) -> q.valueIn(MILLIWATT) }
-        with (context) {
-            state = registeredDiscreteResource("state", OFF)
-            powerDraw = map(state, powerUsageMap::getValue) * MILLIWATT named { "power_draw" }
-            register(powerDraw, MILLIWATT)
+        unitAware {
+            // For efficiency, pre-convert all the power usages to one unit, and apply that unit at the resource level
+            val powerUsageMap = powerUsage.toMap().mapValues { (_, q) -> q.valueIn(MILLIWATT) }
+            with (context) {
+                state = registeredDiscreteResource("state", OFF)
+                powerDraw = (map(state, powerUsageMap::getValue) * MILLIWATT).named { "power_draw" }
+                register(powerDraw, MILLIWATT)
+            }
         }
     }
 }

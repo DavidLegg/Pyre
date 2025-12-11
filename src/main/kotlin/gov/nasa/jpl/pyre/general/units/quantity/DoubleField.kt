@@ -1,6 +1,8 @@
-package gov.nasa.jpl.pyre.general.units
+package gov.nasa.jpl.pyre.general.units.quantity
 
-object DoubleFieldScope : FieldScope<Double> {
+import gov.nasa.jpl.pyre.general.units.Field
+
+object DoubleField : Field<Double> {
     override val zero = 0.0
     override val one = 1.0
     @Suppress("EXTENSION_SHADOWED_BY_MEMBER")

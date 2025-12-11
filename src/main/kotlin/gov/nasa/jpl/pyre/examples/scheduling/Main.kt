@@ -348,8 +348,8 @@ fun schedulingMain(args: Array<String>) {
         // Compute how much data we've used, as a fraction of the total data capacity
         // Note that this is using the latest values as of the start of the window,
         // and just doing the computation in primitives, rather than using `compute` to do more sophisticated analysis.
-        val dataCapacity = layer3Results.lastValue<Double, Discrete<Double>>("data.data_capacity (GB)")
-        val dataStored = layer3Results.lastValue<Double, Discrete<Double>>("data.stored_data (GB)")
+        val dataCapacity = layer3Results.lastValue<Double, Discrete<Double>>("data/data_capacity (GB)")
+        val dataStored = layer3Results.lastValue<Double, Discrete<Double>>("data/stored_data (GB)")
         val fractionDataCapacityUsed = dataStored / dataCapacity
         val minimumDataFractionForDownlink = 0.2
         val maximumDataFractionForScience = 0.8
@@ -439,7 +439,7 @@ data class GncInputProfiles(
 ) {
     // Given some sim results, build the profiles
     constructor (results: SimulationResults) : this(PointingTarget.entries.associateWith {
-        results.getProfile("geometry.pointing_direction.$it")
+        results.getProfile("geometry/pointing_direction/$it")
     })
 
     // Given an init scope in a particular simulation, build the resources to feed a GncModel

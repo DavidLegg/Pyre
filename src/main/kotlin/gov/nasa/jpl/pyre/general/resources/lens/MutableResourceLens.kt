@@ -17,7 +17,7 @@ object MutableResourceLens {
     fun <K, V> select(key: DiscreteResource<K>, selector: (K) -> MutableResource<V>): MutableResource<V> =
         object : MutableResource<V> {
             context(scope: TaskScope)
-            override suspend fun emit(effect: ResourceEffect<V>) = selector(key.getValue()).emit(effect)
+            override fun emit(effect: ResourceEffect<V>) = selector(key.getValue()).emit(effect)
 
             context(scope: ResourceScope)
             override fun getDynamics(): FullDynamics<V> = selector(key.getValue()).getDynamics()
@@ -30,7 +30,7 @@ object MutableResourceLens {
     fun <D, E> MutableResource<D>.view(lens: InvertibleFunction<D, E>): MutableResource<E> =
         object : MutableResource<E>, Resource<E> by ResourceMonad.map(this, lens) {
             context(scope: TaskScope)
-            override suspend fun emit(effect: ResourceEffect<E>) {
+            override fun emit(effect: ResourceEffect<E>) {
                 this@view.emit({ d: FullDynamics<D> ->
                     DynamicsMonad.map(effect(DynamicsMonad.map(d, lens)), lens.inverse)
                 } named { effect.toString() })

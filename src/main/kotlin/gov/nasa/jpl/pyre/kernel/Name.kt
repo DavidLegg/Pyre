@@ -5,12 +5,16 @@ data class Name(val namespace: Name?, val simpleName: String) {
 
     init {
         // All layers above simpleName are checked when constructing those names, and don't need to be re-checked here
-        require('.' !in simpleName) {
-            "'.' is not an allowed character in simpleName $simpleName"
+        require(SEPARATOR !in simpleName) {
+            "Name separator '$SEPARATOR' is not allowed in simpleName $simpleName"
         }
     }
 
-    override fun toString(): String = (namespace?.let { "$it." } ?: "") + simpleName
+    override fun toString(): String = (namespace?.let { it.toString() + SEPARATOR } ?: "") + simpleName
+
+    companion object {
+        private const val SEPARATOR: Char = '/'
+    }
 }
 
 object NameOperations {
