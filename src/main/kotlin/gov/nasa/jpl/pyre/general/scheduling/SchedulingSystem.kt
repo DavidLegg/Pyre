@@ -13,7 +13,25 @@ import gov.nasa.jpl.pyre.general.reporting.ReportHandling.assumeType
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.channels
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.resources.Dynamics
+import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.decrement
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
+import gov.nasa.jpl.pyre.foundation.tasks.task
+import gov.nasa.jpl.pyre.general.results.Profile
+import gov.nasa.jpl.pyre.general.results.ProfileOperations.asProfile
+import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
+import gov.nasa.jpl.pyre.general.results.ProfileOperations.computeProfile
+import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplayScope.Companion.replay
+import gov.nasa.jpl.pyre.general.units.UnitAware
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
+import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import kotlinx.serialization.json.Json
 import java.util.PriorityQueue
 import kotlin.reflect.KType
@@ -53,6 +71,7 @@ class SchedulingSystem<M, C> private constructor(
     private val resources: MutableMap<String, MutableList<ChannelizedReport<*>>> = mutableMapOf(),
     private val activitySpans: MutableMap<Activity<*>, ActivityEvent> = mutableMapOf(),
 ) {
+    private var model: M? = null
     private val reportHandler: ReportHandler = channels(
         "activities" to (assumeType<ActivityEvent>() andThen { (value, type) ->
             // The event coming straight out of the simulator will have a non-null activity.
@@ -71,19 +90,19 @@ class SchedulingSystem<M, C> private constructor(
             reportHandler,
             requireNotNull(startTime),
             startTime,
-            { constructModel(config) },
+            { constructModel(config).also { model = it } },
             modelClass,
         )
     } else {
         PlanSimulation.withIncon(
             reportHandler,
             incon,
-            { constructModel(config) },
+            { constructModel(config).also { model = it } },
             modelClass,
         )
     }
     // Get the start time from the simulation, regardless of how the simulation was initialized, to keep the two in sync.
-    private val startTime: Instant = simulation.time()
+    val startTime: Instant = simulation.time()
 
     fun time() = simulation.time()
 
@@ -153,6 +172,95 @@ class SchedulingSystem<M, C> private constructor(
         activitySpans.toMap(),
     )
 
+    /** Get a single profile, selected by the resource object itself. */
+    fun <D : Dynamics<*, D>> profile(selector: M.() -> Resource<D>): Profile<D> {
+        val name = model!!.selector().name.toString()
+        return resources.getValue(name).asProfile(name, time())
+    }
+
+    /** Get the last value of a registered resource, selected by the resource object itself. */
+    fun <V, D : Dynamics<V, D>> lastValue(selector: M.() -> Resource<D>): V {
+        val name = model!!.selector().name.toString()
+        @Suppress("UNCHECKED_CAST")
+        val report = resources.getValue(name).last() as ChannelizedReport<D>
+        return report.data.step((time() - report.time).toPyreDuration()).value()
+    }
+
+    /** Get the last value of a registered resource, selected by the resource object itself. */
+    fun <V, D : Dynamics<V, D>> lastQuantity(selector: M.() -> UnitAware<Resource<D>>): UnitAware<V> {
+        val resource = model!!.selector()
+        val name = "${resource.name} (${resource.unit})"
+        @Suppress("UNCHECKED_CAST")
+        val report = resources.getValue(name).last() as ChannelizedReport<D>
+        return UnitAware(
+            report.data.step((time() - report.time).toPyreDuration()).value(),
+            resource.unit,
+        )
+    }
+
+    interface SchedulingReplayScope {
+        context (_: InitScope)
+        fun <D : Dynamics<*, D>> replay(name: String): Resource<D>
+
+        context (_: InitScope)
+        fun countActivities(predicate: (ActivityEvent) -> Boolean = { true }): IntResource
+
+        companion object {
+            context (_: InitScope, scope: SchedulingReplayScope)
+            fun <D : Dynamics<*, D>> replay(name: String): Resource<D> = scope.replay(name)
+
+            context (_: InitScope, scope: SchedulingReplayScope)
+            fun <D : Dynamics<*, D>> Resource<D>.replay(): Resource<D> = replay(name.toString())
+
+            context (_: InitScope, scope: SchedulingReplayScope)
+            fun countActivities(predicate: (ActivityEvent) -> Boolean = { true }): IntResource = scope.countActivities(predicate)
+        }
+    }
+
+    fun <V, D : Dynamics<V, D>> compute(
+        start: Instant = startTime,
+        end: Instant = time(),
+        derivation: context (InitScope, SchedulingReplayScope) M.() -> Resource<D>,
+        dynamicsType: KType
+    ): Profile<D> {
+        val scope = object : SchedulingReplayScope {
+            context (_: InitScope)
+            override fun <D : Dynamics<*, D>> replay(name: String): Resource<D> =
+                this@SchedulingSystem.resources.getValue(name)
+                    .asProfile<D>(name, this@SchedulingSystem.time())
+                    .asResource()
+
+            // TODO: Refactor this to reduce duplicated code
+            context(_: InitScope)
+            override fun countActivities(predicate: (ActivityEvent) -> Boolean): IntResource {
+                val counter = discreteResource("counted activities", 0)
+                activitySpans.values
+                    // Restrict to activities that haven't already ended and satisfy the predicate
+                    .filter { (it.end?.let { it >= now() } ?: true) && predicate(it) }
+                    .forEach {
+                        // If the activity satisfies predicate, spawn a task for it
+                        spawn(it.name, task {
+                            // Increment when the activity starts
+                            delayUntil(it.start)
+                            counter.increment()
+                            if (it.end != null) {
+                                // Decrement when it ends, if it ends
+                                delayUntil(it.end)
+                                counter.decrement()
+                            }
+                        })
+                    }
+                return counter
+            }
+        }
+        return computeProfile(
+            start,
+            end,
+            { context(scope) { model!!.derivation() } },
+            dynamicsType,
+        )
+    }
+
     fun fincon() = JsonConditions(jsonFormat).also(simulation::save)
 
     // Initialize a new simulation, configured with newConfig and this sim's fincon
@@ -200,5 +308,16 @@ class SchedulingSystem<M, C> private constructor(
             noinline constructModel: InitScope.(C) -> M,
             jsonFormat: Json = Json,
         ) = withIncon(incon, config, constructModel, typeOf<M>(), jsonFormat)
+
+        /**
+         * Compute a resource derived from the results collected by this [SchedulingSystem] so far.
+         *
+         * Access a registered resource through the model and call [replay] to use it in the derivation.
+         */
+        inline fun <V, reified D: Dynamics<V, D>, M> SchedulingSystem<M, *>.compute(
+            start: Instant = startTime,
+            end: Instant = time(),
+            noinline derivation: context (InitScope, SchedulingReplayScope) M.() -> Resource<D>,
+        ) = compute(start, end, derivation, typeOf<D>())
     }
 }

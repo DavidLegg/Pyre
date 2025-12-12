@@ -52,6 +52,13 @@ class DataModel(
     )
 
     /**
+     * Maximum amount of data that can be stored.
+     *
+     * Units: Information
+     */
+    val dataCapacity: PolynomialQuantityResource
+
+    /**
      * Net data rate, production minus downlink
      *
      * Units: Information / Time
@@ -91,7 +98,7 @@ class DataModel(
             unitAware {
                 netDataRate = (inputs.dataRate - inputs.downlinkDataRate)
                     .named { "net_data_rate" }.also { register(it, BITS_PER_SECOND) }
-                val dataCapacity = constant(config.dataCapacity)
+                dataCapacity = constant(config.dataCapacity)
                     .named { "data_capacity" }
                     .also { register(it, GIGABYTE) }
                 val storageIntegral = netDataRate.asPolynomial().clampedIntegral(
