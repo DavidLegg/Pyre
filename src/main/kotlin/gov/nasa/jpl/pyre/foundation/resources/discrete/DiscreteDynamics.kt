@@ -10,7 +10,9 @@ import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
 import gov.nasa.jpl.pyre.foundation.resources.MutableResource
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
+import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.kernel.Name
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 
@@ -179,7 +181,7 @@ object DiscreteDynamicsMonad {
 
 @Suppress("NOTHING_TO_INLINE")
 object DiscreteResourceMonad {
-    inline fun <A> pure(a: A): DiscreteResource<A> = ResourceMonad.pure(DiscreteMonad.pure(a)) named { a.toString() }
+    inline fun <A> pure(a: A): DiscreteResource<A> = ResourceMonad.pure(DiscreteMonad.pure(a)).fullyNamed { Name(a.toString()) }
     inline fun <A, B> apply(a: DiscreteResource<A>, fn: DiscreteResource<(A) -> B>): DiscreteResource<B> =
         ResourceMonad.apply(a, ResourceMonad.map(fn, DiscreteMonad::apply))
     inline fun <A> distribute(a: Discrete<Resource<A>>): DiscreteResource<A> =

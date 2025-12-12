@@ -6,10 +6,12 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.decrease
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.general.units.StandardUnits
 import gov.nasa.jpl.pyre.general.units.UnitAware
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.general.units.quantity.Quantity
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
@@ -43,8 +45,8 @@ object QuantityResourceOperations {
 
     // Do the unit-awareness conversions at the resource level, so dimension checking happens only once
     fun DiscreteResource<Duration>.asQuantity(): QuantityResource =
-        (map(this) { it ratioOver Duration.SECOND } named ::toString) * StandardUnits.SECOND
+        (map(this) { it ratioOver Duration.SECOND }.fullyNamed { name }) * StandardUnits.SECOND
     fun QuantityResource.asDuration(): DiscreteResource<Duration> = context (DoubleResourceField) {
-        map(this.valueIn(StandardUnits.SECOND)) { it roundTimes Duration.SECOND } named ::toString
+        map(this.valueIn(StandardUnits.SECOND)) { it roundTimes Duration.SECOND }.fullyNamed { name }
     }
 }

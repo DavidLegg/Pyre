@@ -4,27 +4,28 @@ import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.emit
-import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.kernel.Name
 
 typealias LongResource = DiscreteResource<Long>
 typealias MutableLongResource = MutableDiscreteResource<Long>
 
 object LongResourceOperations {
     operator fun LongResource.unaryPlus(): LongResource =
-        map(this) { +it } named { "(+$this)"}
+        map(this) { +it }.fullyNamed { Name("(+$this)") }
     operator fun LongResource.unaryMinus(): LongResource =
-        map(this) { -it } named { "(-$this)"}
+        map(this) { -it }.fullyNamed { Name("(-$this)") }
     operator fun LongResource.plus(other: LongResource): LongResource =
-        map(this, other) { x, y -> x + y } named { "($this) + ($other)" }
+        map(this, other) { x, y -> x + y }.fullyNamed { Name("($this) + ($other)") }
     operator fun LongResource.minus(other: LongResource): LongResource =
-        map(this, other) { x, y -> x - y } named { "($this) - ($other)" }
+        map(this, other) { x, y -> x - y }.fullyNamed { Name("($this) - ($other)") }
     operator fun LongResource.times(other: LongResource): LongResource =
-        map(this, other) { x, y -> x * y } named { "($this) * ($other)" }
+        map(this, other) { x, y -> x * y }.fullyNamed { Name("($this) * ($other)") }
     operator fun LongResource.div(other: LongResource): LongResource =
-        map(this, other) { x, y -> x / y } named { "($this) / ($other)" }
+        map(this, other) { x, y -> x / y }.fullyNamed { Name("($this) / ($other)") }
     operator fun LongResource.rem(other: LongResource): LongResource =
-        map(this, other) { x, y -> x % y } named { "($this) % ($other)" }
+        map(this, other) { x, y -> x % y }.fullyNamed { Name("($this) % ($other)") }
 
     operator fun LongResource.plus(other: Long): LongResource = this + pure(other)
     operator fun LongResource.minus(other: Long): LongResource = this - pure(other)
@@ -39,12 +40,12 @@ object LongResourceOperations {
     operator fun Long.rem(other: LongResource): LongResource = pure(this) % other
 
     context(scope: TaskScope)
-    suspend fun MutableLongResource.increment(amount: Long = 1) {
+    fun MutableLongResource.increment(amount: Long = 1) {
         emit({ n: Long -> n + amount } named { "Increase $this by $amount" })
     }
 
     context(scope: TaskScope)
-    suspend fun MutableLongResource.decrement(amount: Long = 1) {
+    fun MutableLongResource.decrement(amount: Long = 1) {
         emit({ n: Long -> n - amount } named { "Decrease $this by $amount" })
     }
 }

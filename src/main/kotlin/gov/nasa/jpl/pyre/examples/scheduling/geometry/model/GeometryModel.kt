@@ -152,7 +152,7 @@ class GeometryModel(
                         SUN to map((sunPosition - spacecraftPosition).valueIn(AU), Vector3D::normalize),
                         EARTH to map((earthPosition - spacecraftPosition).valueIn(AU), Vector3D::normalize),
                         MARS to map((marsPosition - spacecraftPosition).valueIn(AU), Vector3D::normalize),
-                    ).mapValues { (target, resource) -> (resource named target::toString).also { register(it) } }
+                    ).mapValues { (target, resource) -> (resource.named(target::toString)).also { register(it) } }
                 }
             }
         }

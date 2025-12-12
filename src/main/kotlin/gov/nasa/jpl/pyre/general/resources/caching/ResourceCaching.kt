@@ -16,6 +16,7 @@ import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
 import gov.nasa.jpl.pyre.foundation.resources.ThinResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
+import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.resources.resource
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
@@ -99,7 +100,7 @@ object ResourceCaching {
             val now = now()
             while (nextPoint != null && nextPoint!!.time <= now) advance()
             Expiring(currentPoint.data, Expiry(nextPoint?.time?.let { (it - now).toPyreDuration() }))
-        } named { name }
+        }.fullyNamed { Name(name) }
     }
 
     // TODO: Test this routine. If it works, consider these optimizations:

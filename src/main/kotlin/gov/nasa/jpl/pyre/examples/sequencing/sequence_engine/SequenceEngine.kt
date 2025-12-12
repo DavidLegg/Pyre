@@ -110,8 +110,8 @@ class SequenceEngine(
     init {
         with (context) {
             loadedSequence = discreteResource("loaded_sequence", null)
-            loadedSequenceName = (map(loadedSequence) { it?.name ?: "" } named { "loaded_sequence_name" }).also { register(it) }
-            isLoaded = (loadedSequence.isNotNull() named { "is_loaded" }).also { register(it) }
+            loadedSequenceName = (map(loadedSequence) { it?.name ?: "" }.named { "loaded_sequence_name" }).also { register(it) }
+            isLoaded = (loadedSequence.isNotNull().named { "is_loaded" }).also { register(it) }
 
             controlFlowPoints = discreteResource("control_flow_points", emptyMap())
             lastDispatchTime = registeredDiscreteResource("last_dispatch_time", Instant.DISTANT_PAST)

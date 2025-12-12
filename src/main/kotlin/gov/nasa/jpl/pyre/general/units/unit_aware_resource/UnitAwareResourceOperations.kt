@@ -7,10 +7,12 @@ import gov.nasa.jpl.pyre.foundation.resources.MutableResource
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
 import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.MutablePolynomialResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial
@@ -28,6 +30,7 @@ import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialRe
 import gov.nasa.jpl.pyre.general.units.quantity.DoubleField
 import gov.nasa.jpl.pyre.general.units.quantity_resource.DoubleResourceField
 import gov.nasa.jpl.pyre.general.units.quantity_resource.MutableDoubleResourceScaling
+import gov.nasa.jpl.pyre.kernel.Name
 import kotlin.contracts.ExperimentalContracts
 import kotlin.reflect.KType
 
@@ -77,9 +80,12 @@ object UnitAwareResourceOperations {
     context (_: ResourceScope)
     fun <V, D : Dynamics<V, D>> UnitAware<Resource<D>>.getValue(): UnitAware<V> = map { it.getValue() }
 
-    context (_: Scaling<Resource<D>>)
+    context (_: SimulationScope)
     fun <D> UnitAware<Resource<D>>.named(nameFn: () -> String): UnitAware<Resource<D>> =
-        UnitAware(valueIn(unit) named nameFn, unit)
+        map { it.named(nameFn) }
+
+    fun <D> UnitAware<Resource<D>>.fullyNamed(nameFn: () -> Name): UnitAware<Resource<D>> =
+        map { it.fullyNamed(nameFn) }
 
     /**
      * Convenience method for introducing all algebraic structures supporting "standard" unit-aware values and resources.

@@ -207,13 +207,13 @@ class GncModel(
                     .also { register(it, MRAD_PER_SECOND) }
 
                 val primaryPointingTargetVector = (bind(primaryPointingTarget, inputs.pointingTargets::getValue)
-                        named { "${primaryPointingTarget}_vector" }).also { register(it) }
+                    .named { "${primaryPointingTarget}_vector" }).also { register(it) }
                 val secondaryPointingTargetVector = (bind(secondaryPointingTarget, inputs.pointingTargets::getValue)
-                        named { "${secondaryPointingTarget}_vector" }).also { register(it) }
+                    .named { "${secondaryPointingTarget}_vector" }).also { register(it) }
                 val primaryBodyAxisVector = (map(primaryBodyAxis, BodyAxis::vector)
-                        named { "${primaryBodyAxis}_vector" }).also { register(it) }
+                    .named { "${primaryBodyAxis}_vector" }).also { register(it) }
                 val secondaryBodyAxisVector = (map(secondaryBodyAxis, BodyAxis::vector)
-                        named { "${secondaryBodyAxis}_vector" }).also { register(it) }
+                    .named { "${secondaryBodyAxis}_vector" }).also { register(it) }
 
                 val targetAttitudeCacheUpdateTolerance = config.pointingErrorTolerance.valueIn(RADIAN) * 1e-2
                 targetAttitude = map(
@@ -246,7 +246,7 @@ class GncModel(
                         GncSystemMode.IDLE -> pure(GncControlMode.IDLE)
                         GncSystemMode.ACTIVE -> turnRequired.choose(pure(GncControlMode.TURN), pure(GncControlMode.HOLD))
                     }
-                } named { "control_mode" }).also { register(it) }
+                }.named { "control_mode" }).also { register(it) }
 
                 val timeSinceLastControllerStep = timer("time_since_last_controller_step")
                 val controllerStepSize = map(controlMode) {
@@ -254,7 +254,7 @@ class GncModel(
                         GncControlMode.IDLE, GncControlMode.HOLD -> config.backgroundSamplePeriod
                         GncControlMode.TURN -> config.turningSamplePeriod
                     }
-                } named { "controller_step_size" }
+                }.named { "controller_step_size" }
 
                 val maxSingleStepTurnRadians = (agility.upcast<DoubleResource, MutableDoubleResource>() * controllerStepSize.asQuantity()).valueIn(RADIAN)
                 spawn("GNC Controller", whenever(

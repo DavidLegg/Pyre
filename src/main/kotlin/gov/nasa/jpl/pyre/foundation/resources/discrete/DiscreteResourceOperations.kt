@@ -8,9 +8,11 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.foundation.resources.emit
+import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.resources.resource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.kernel.Name
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
@@ -40,16 +42,16 @@ object DiscreteResourceOperations {
     fun <V> MutableDiscreteResource<V>.set(value: V) = this.emit({ _: V -> value } named { "Set $this to $value" })
 
     fun <T : Comparable<T>> DiscreteResource<T>.compareTo(other: DiscreteResource<T>): DiscreteResource<Int> =
-        map(this, other) { x, y -> x.compareTo(y) } named { "($this).compareTo($other)" }
+        map(this, other) { x, y -> x.compareTo(y) }.fullyNamed { Name("($this).compareTo($other)") }
 
     infix fun <T : Comparable<T>> DiscreteResource<T>.lessThan(other: DiscreteResource<T>): BooleanResource =
-        map(this.compareTo(other)) { it < 0 } named { "($this) < ($other)" }
+        map(this.compareTo(other)) { it < 0 }.fullyNamed { Name("($this) < ($other)") }
     infix fun <T : Comparable<T>> DiscreteResource<T>.lessThanOrEquals(other: DiscreteResource<T>): BooleanResource =
-        map(this.compareTo(other)) { it <= 0 } named { "($this) <= ($other)" }
+        map(this.compareTo(other)) { it <= 0 }.fullyNamed { Name("($this) <= ($other)") }
     infix fun <T : Comparable<T>> DiscreteResource<T>.greaterThan(other: DiscreteResource<T>): BooleanResource =
-        map(this.compareTo(other)) { it > 0 } named { "($this) > ($other)" }
+        map(this.compareTo(other)) { it > 0 }.fullyNamed { Name("($this) > ($other)") }
     infix fun <T : Comparable<T>> DiscreteResource<T>.greaterThanOrEquals(other: DiscreteResource<T>): BooleanResource =
-        map(this.compareTo(other)) { it >= 0 } named { "($this) >= ($other)" }
+        map(this.compareTo(other)) { it >= 0 }.fullyNamed { Name("($this) >= ($other)") }
 
     infix fun <T : Comparable<T>> DiscreteResource<T>.lessThan(other: T): BooleanResource = this lessThan pure(other)
     infix fun <T : Comparable<T>> DiscreteResource<T>.lessThanOrEquals(other: T): BooleanResource = this lessThanOrEquals pure(other)
@@ -62,16 +64,16 @@ object DiscreteResourceOperations {
     infix fun <T : Comparable<T>> T.greaterThanOrEquals(other: DiscreteResource<T>): BooleanResource = pure(this) greaterThanOrEquals other
 
     infix fun <T> DiscreteResource<T>.equals(other: DiscreteResource<T>): BooleanResource =
-        map(this, other) { x, y -> x == y } named { "($this) == ($other)" }
+        map(this, other) { x, y -> x == y }.fullyNamed { Name("($this) == ($other)") }
     infix fun <T> DiscreteResource<T>.notEquals(other: DiscreteResource<T>): BooleanResource =
-        map(this, other) { x, y -> x != y } named { "($this) != ($other)" }
+        map(this, other) { x, y -> x != y }.fullyNamed { Name("($this) != ($other)") }
     infix fun <T> DiscreteResource<T>.equals(other: T): BooleanResource = this equals pure(other)
     infix fun <T> DiscreteResource<T>.notEquals(other: T): BooleanResource = this notEquals pure(other)
 
     fun <T> DiscreteResource<T>.isNull(): BooleanResource =
-        map(this) { it == null } named { "($this) == null" }
+        map(this) { it == null }.fullyNamed { Name("($this) == null") }
     fun <T> DiscreteResource<T>.isNotNull(): BooleanResource =
-        map(this) { it != null } named { "($this) != null" }
+        map(this) { it != null }.fullyNamed { Name("($this) != null") }
 }
 
 

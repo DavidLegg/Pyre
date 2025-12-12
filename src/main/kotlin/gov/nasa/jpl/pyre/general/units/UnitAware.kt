@@ -1,6 +1,8 @@
 package gov.nasa.jpl.pyre.general.units
 
+import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.general.units.quantity.Quantity
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 
 class UnitAware<T>(
     private val value: T,
@@ -175,6 +177,9 @@ class UnitAware<T>(
                 UnitAware(value * one, unit).compareTo(other)
             }
         }
+
+        // Needs to be done in the Companion object to access value, rather than requiring additional scopes for conversion.
+        val <D> UnitAware<Resource<D>>.name get() = value.name
     }
 }
 

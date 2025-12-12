@@ -35,8 +35,8 @@ class EarthOrbit(
                 HOUR,
             )
 
-            earthPosition = orbitalSimulation.bodyPositions.getValue(earth) named { "earth_position" }
-            moonPosition = orbitalSimulation.bodyPositions.getValue(moon) named { "moon_position" }
+            earthPosition = orbitalSimulation.bodyPositions.getValue(earth).named { "earth_position" }
+            moonPosition = orbitalSimulation.bodyPositions.getValue(moon).named { "moon_position" }
 
             register(earthPosition)
             register(moonPosition)

@@ -78,7 +78,7 @@ class OrbitalSimulation(
             bodyPositions = bodies.withIndex().associate { (i, body) ->
                 Pair(body, map(integrator) {
                     Vector(it[3 * i + 0], it[3 * i + 1], it[3 * i + 2])
-                } named { "Position of ${body.name}" })
+                }.named { "Position of ${body.name}" })
             }
         }
     }

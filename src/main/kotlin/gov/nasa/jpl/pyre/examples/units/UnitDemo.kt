@@ -181,7 +181,7 @@ class UnitDemo(
                 // Finally, when we expect a pure scalar (a dimensionless quantity), we can say so.
                 // The framework will ensure we've cancelled all dimensions correctly, and apply any remaining scaling
                 // left over from doing unit conversions (e.g., "hr / s" requires multiplying by 3600).
-                batterySOC = ((batteryEnergy / maxBatteryEnergy).valueIn(Unit.SCALAR) named { "battery_soc" })
+                batterySOC = ((batteryEnergy / maxBatteryEnergy).valueIn(Unit.SCALAR).named { "battery_soc" })
                     .also { register(it) }
             }
         }
