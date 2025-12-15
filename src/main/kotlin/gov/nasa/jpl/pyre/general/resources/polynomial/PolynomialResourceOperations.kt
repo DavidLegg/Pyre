@@ -23,6 +23,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationCl
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.await
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.kernel.TRUE
 import kotlin.let
 import kotlin.math.max
@@ -341,6 +342,10 @@ interface IntegralResource : PolynomialResource {
     suspend fun set(amount: Double)
 }
 
-infix fun IntegralResource.named(nameFn: () -> String) = object : IntegralResource by this {
-    override fun toString() = nameFn()
+context (scope: SimulationScope)
+infix fun IntegralResource.named(nameFn: () -> String) = fullyNamed { scope.contextName / nameFn() }
+
+infix fun IntegralResource.fullyNamed(nameFn: () -> Name) = object : IntegralResource by this {
+    override val name: Name get() = nameFn()
+    override fun toString() = name.simpleName
 }

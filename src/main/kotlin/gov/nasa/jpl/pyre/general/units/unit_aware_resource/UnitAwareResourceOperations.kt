@@ -23,6 +23,7 @@ import gov.nasa.jpl.pyre.general.units.Scaling
 import gov.nasa.jpl.pyre.general.units.Unit
 import gov.nasa.jpl.pyre.general.units.UnitAware
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.map
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
 import gov.nasa.jpl.pyre.general.units.polynomial_quantity.PolynomialRing
 import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.IntegralPolynomialResourceScaling
 import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.MutablePolynomialResourceScaling
@@ -66,7 +67,7 @@ object UnitAwareResourceOperations {
     inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> register(resource: UnitAware<R>, unit: Unit) =
         // TODO: See if there's a way to clean up this naming rule.
         // It would be nice if this renaming rule were done in the "valueIn" method instead, somehow, so it applied to all conversions.
-        Reporting.register(resource.valueIn(unit).named { "${resource.valueIn(resource.unit)} ($unit)" })
+        Reporting.register(resource.valueIn(unit).named { "${resource.name.simpleName} ($unit)" })
 
     /**
      * Get unit-aware full dynamics from a unit-aware resource.
@@ -120,7 +121,11 @@ object UnitAwareResourceOperations {
 }
 
 object MutableUnitAwareResourceOperations {
-    context (_: Scaling<MutableResource<D>>)
+    context (_: SimulationScope, _: Scaling<MutableResource<D>>)
     fun <D> UnitAware<MutableResource<D>>.named(nameFn: () -> String): UnitAware<MutableResource<D>> =
-        UnitAware(valueIn(unit) named nameFn, unit)
+        UnitAware(valueIn(unit).named(nameFn), unit)
+
+    context (_: Scaling<MutableResource<D>>)
+    fun <D> UnitAware<MutableResource<D>>.fullyNamed(nameFn: () -> Name): UnitAware<MutableResource<D>> =
+        UnitAware(valueIn(unit).fullyNamed(nameFn), unit)
 }

@@ -179,7 +179,7 @@ class UnitAware<T>(
         }
 
         // Needs to be done in the Companion object to access value, rather than requiring additional scopes for conversion.
-        val <D> UnitAware<Resource<D>>.name get() = value.name
+        val <D> UnitAware<out Resource<D>>.name get() = value.name
     }
 }
 
