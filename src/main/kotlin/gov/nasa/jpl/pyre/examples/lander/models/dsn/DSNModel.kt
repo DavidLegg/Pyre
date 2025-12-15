@@ -1,11 +1,11 @@
 package gov.nasa.jpl.pyre.examples.lander.models.dsn
 
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.equals
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
@@ -66,8 +66,8 @@ class DSNModel(
 
         init {
             with (context) {
-                allocated = registeredDiscreteResource("allocated", AllocatedEnum.NotAllocated)
-                visible = registeredDiscreteResource("visible", VisibilityEnum.Hidden)
+                allocated = discreteResource("allocated", AllocatedEnum.NotAllocated).registered()
+                visible = discreteResource("visible", VisibilityEnum.Hidden).registered()
             }
         }
     }

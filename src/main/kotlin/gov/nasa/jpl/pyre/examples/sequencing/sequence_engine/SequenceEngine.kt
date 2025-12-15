@@ -6,16 +6,16 @@ import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.Absolute
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.CommandComplete
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.Relative
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.report
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.or
+import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.isNotNull
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
@@ -110,15 +110,15 @@ class SequenceEngine(
     init {
         with (context) {
             loadedSequence = discreteResource("loaded_sequence", null)
-            loadedSequenceName = (map(loadedSequence) { it?.name ?: "" }.named { "loaded_sequence_name" }).also { register(it) }
-            isLoaded = (loadedSequence.isNotNull().named { "is_loaded" }).also { register(it) }
+            loadedSequenceName = (map(loadedSequence) { it?.name ?: "" }.named { "loaded_sequence_name" }).registered()
+            isLoaded = (loadedSequence.isNotNull().named { "is_loaded" }).registered()
 
             controlFlowPoints = discreteResource("control_flow_points", emptyMap())
-            lastDispatchTime = registeredDiscreteResource("last_dispatch_time", Instant.DISTANT_PAST)
-            lastDispatchedCommandComplete = registeredDiscreteResource("last_dispatched_command_complete", false)
-            dispatchCounter = registeredDiscreteResource("dispatch_counter", 0)
-            isActive = registeredDiscreteResource("is_active", false)
-            commandIndex = registeredDiscreteResource("command_index", 0)
+            lastDispatchTime = discreteResource("last_dispatch_time", Instant.DISTANT_PAST).registered()
+            lastDispatchedCommandComplete = discreteResource("last_dispatched_command_complete", false).registered()
+            dispatchCounter = discreteResource("dispatch_counter", 0).registered()
+            isActive = discreteResource("is_active", false).registered()
+            commandIndex = discreteResource("command_index", 0).registered()
 
             spawn("run", whenever(isLoaded and isActive) {
                 val sequence = requireNotNull(loadedSequence.getValue())

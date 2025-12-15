@@ -24,18 +24,19 @@ import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.PowerState.*
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.TestModel.*
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.discardReports
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.report
 import gov.nasa.jpl.pyre.foundation.resources.discrete.*
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.equals
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.notEquals
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.plus
 import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
@@ -75,8 +76,8 @@ class PlanSimulationTest {
 
         constructor(context: InitScope) {
             with(context) {
-                x = registeredDiscreteResource("x", 0)
-                y = registeredDiscreteResource("y", "XYZ")
+                x = discreteResource("x", 0).registered()
+                y = discreteResource("y", "XYZ").registered()
             }
         }
 
@@ -182,7 +183,7 @@ class PlanSimulationTest {
 
         constructor(context: InitScope) {
             with(context) {
-                deviceState = registeredDiscreteResource("deviceState", OFF)
+                deviceState = discreteResource("deviceState", OFF).registered()
                 powerTable = mapOf(
                     OFF to 0.0,
                     WARMUP to 5.0,
@@ -190,10 +191,10 @@ class PlanSimulationTest {
                     ON to 10.0,
                     SHUTDOWN to 1.0,
                 )
-                miscPower = registeredDiscreteResource("miscPower", 0.0)
-                totalPower = DiscreteResourceMonad.map(deviceState) { s -> requireNotNull(powerTable[s]) } + miscPower
-
-                register("totalPower", totalPower)
+                miscPower = discreteResource("miscPower", 0.0).registered()
+                totalPower = (DiscreteResourceMonad.map(deviceState) { s -> requireNotNull(powerTable[s]) } + miscPower)
+                    .named { "totalPower" }
+                    .registered()
 
                 spawn("Overheat Protection", whenever(
                     (totalPower greaterThan 15.0) and (deviceState notEquals OFF)) {

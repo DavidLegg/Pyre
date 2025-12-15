@@ -2,7 +2,8 @@ package gov.nasa.jpl.pyre.examples.orbit
 
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
@@ -35,11 +36,12 @@ class EarthOrbit(
                 HOUR,
             )
 
-            earthPosition = orbitalSimulation.bodyPositions.getValue(earth).named { "earth_position" }
-            moonPosition = orbitalSimulation.bodyPositions.getValue(moon).named { "moon_position" }
-
-            register(earthPosition)
-            register(moonPosition)
+            earthPosition = orbitalSimulation.bodyPositions.getValue(earth)
+                .named { "earth_position" }
+                .registered()
+            moonPosition = orbitalSimulation.bodyPositions.getValue(moon)
+                .named { "moon_position" }
+                .registered()
         }
     }
 }

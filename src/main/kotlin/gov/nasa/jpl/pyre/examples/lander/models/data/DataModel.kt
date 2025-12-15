@@ -8,8 +8,7 @@ import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperatio
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.constant
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.integral
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.registeredIntegral
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
@@ -17,7 +16,6 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pur
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.lessThan
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.decrease
@@ -25,11 +23,13 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial
 import kotlin.math.min
 
 
@@ -69,9 +69,9 @@ class DataModel(context: InitScope) {
                 }
             }
 
-            activeFPT = registeredDiscreteResource("activeFPT", DataConfig.FPT.Companion.DEFAULT)
-            defaultFPT = registeredDiscreteResource("defaultFPT", DataConfig.FPT.Companion.DEFAULT)
-            defaultDART = registeredDiscreteResource("defaultDART", DataConfig.DART.Companion.DEFAULT)
+            activeFPT = discreteResource("activeFPT", DataConfig.FPT.DEFAULT).registered()
+            defaultFPT = discreteResource("defaultFPT", DataConfig.FPT.DEFAULT).registered()
+            defaultDART = discreteResource("defaultDART", DataConfig.DART.DEFAULT).registered()
         }
     }
 
@@ -109,8 +109,8 @@ class DataModel(context: InitScope) {
 
         init {
             with (context) {
-                rate = registeredDiscreteResource("rate", 0.0)
-                volume = rate.asPolynomial().registeredIntegral("volume", 0.0)
+                rate = discreteResource("rate", 0.0).registered()
+                volume = rate.asPolynomial().integral("volume", 0.0).registered()
 
                 overflowRate = discreteResource("overflowRate", 0.0)
                 overflow = overflowRate.asPolynomial().integral("volume", 0.0)
@@ -148,7 +148,7 @@ class DataModel(context: InitScope) {
                 val registeredDiscardRate: DoubleResource
                 val registeredDiscardVolume: PolynomialResource
                 if (overflowChannelId != ChannelName.DISCARD) {
-                    registeredOverflowRate = overflowRate
+                    registeredOverflowRate = overflowRate.named { "rate" }
                     registeredOverflowVolume = overflow
                     registeredDiscardRate = pure(0.0)
                     registeredDiscardVolume = constant(0.0)
@@ -159,12 +159,12 @@ class DataModel(context: InitScope) {
                     registeredDiscardVolume = overflow
                 }
                 subContext("overflow") {
-                    register("rate", registeredOverflowRate)
-                    register("volume", registeredOverflowVolume)
+                    registeredOverflowRate.named { "rate" }.registered()
+                    registeredOverflowVolume.named { "volume" }.registered()
                 }
                 subContext("discard") {
-                    register("rate", registeredDiscardRate)
-                    register("volume", registeredDiscardVolume)
+                    registeredDiscardRate.named { "rate" }.registered()
+                    registeredDiscardVolume.named { "volume" }.registered()
                 }
             }
         }
@@ -179,8 +179,8 @@ class DataModel(context: InitScope) {
 
         init {
             with (context) {
-                routedVC = registeredDiscreteResource("routedVC", ChannelName.VC00)
-                dataRate = registeredDiscreteResource("dataRate", 0.0)
+                routedVC = discreteResource("routedVC", ChannelName.VC00).registered()
+                dataRate = discreteResource("dataRate", 0.0).registered()
             }
         }
 

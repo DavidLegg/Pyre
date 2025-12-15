@@ -16,8 +16,9 @@ import gov.nasa.jpl.pyre.general.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.general.resources.caching.ResourceCaching.fileBackedResource
 import gov.nasa.jpl.pyre.general.resources.caching.ResourceCachingTest.OriginalResourceModel.*
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.decrement
@@ -61,8 +62,8 @@ class ResourceCachingTest {
 
         init {
             with (context) {
-                resourceA = registeredDiscreteResource("resourceA", 0)
-                resourceB = registeredDiscreteResource("resourceB", "Initial string")
+                resourceA = discreteResource("resourceA", 0).registered()
+                resourceB = discreteResource("resourceB", "Initial string").registered()
 
                 spawn("Decay $resourceA", every(30 * SECOND) {
                     val n = resourceA.getValue()
@@ -115,8 +116,8 @@ class ResourceCachingTest {
 
                 // Since file-backed resources are, by definition, being read from disk, we don't normally register them.
                 // For the sake of this test, though, registering them gives us an easy way to verify they're working.
-                register(resourceA)
-                register(resourceB)
+                resourceA.registered()
+                resourceB.registered()
             }
         }
     }

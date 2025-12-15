@@ -24,10 +24,7 @@ import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperatio
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.derivative
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.integral
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.map
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.plus
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
 import gov.nasa.jpl.pyre.general.units.polynomial_quantity.PolynomialQuantityOperations
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.register
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.resource
 
 typealias PolynomialQuantityResource = UnitAware<PolynomialResource>
@@ -63,12 +60,6 @@ object PolynomialQuantityResourceOperations {
                 valueIn(startingValue.unit / SECOND)
                     .integral(name, startingValue.valueIn(startingValue.unit)),
                 startingValue.unit)
-        }
-
-    context (scope: InitScope)
-    fun PolynomialQuantityResource.registeredIntegral(name: String, startingValue: Quantity): IntegralQuantityResource =
-        context (IntegralPolynomialResourceScaling) {
-            integral(name, startingValue).also { register(it, startingValue.unit) }
         }
 
     context (scope: InitScope)

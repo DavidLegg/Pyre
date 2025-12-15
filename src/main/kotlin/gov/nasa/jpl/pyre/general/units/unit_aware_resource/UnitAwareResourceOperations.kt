@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.general.units.unit_aware_resource
 
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
 import gov.nasa.jpl.pyre.foundation.resources.MutableResource
@@ -32,8 +32,8 @@ import gov.nasa.jpl.pyre.general.units.quantity.DoubleField
 import gov.nasa.jpl.pyre.general.units.quantity_resource.DoubleResourceField
 import gov.nasa.jpl.pyre.general.units.quantity_resource.MutableDoubleResourceScaling
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.contracts.ExperimentalContracts
-import kotlin.reflect.KType
 
 object UnitAwareResourceOperations {
     /**
@@ -43,31 +43,9 @@ object UnitAwareResourceOperations {
     inline fun <V, reified D : Dynamics<V, D>> resource(name: String, initialDynamics: UnitAware<D>): UnitAware<MutableResource<D>> =
         initialDynamics.map { gov.nasa.jpl.pyre.foundation.resources.resource(name, it) }
 
-    /**
-     * Register a resource in a particular unit.
-     * Note: The unit will be appended to the name of the resource automatically.
-     */
-    context (_: InitScope, _: Scaling<R>)
-    fun <V, D : Dynamics<V, D>, R : Resource<D>> register(name: String, resource: UnitAware<R>, unit: Unit, dynamicsType: KType) =
-        Reporting.register("$name ($unit)", resource.valueIn(unit), dynamicsType)
-
-    /**
-     * Register a resource in a particular unit.
-     * Note: The unit will be appended to the name of the resource automatically.
-     */
-    context (_: InitScope, _: Scaling<R>)
-    inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> register(name: String, resource: UnitAware<R>, unit: Unit) =
-        Reporting.register("$name ($unit)", resource.valueIn(unit))
-
-    /**
-     * Register a resource in a particular unit.
-     * Note: The unit will be appended to the name of the resource automatically.
-     */
-    context (_: InitScope, _: Scaling<R>)
-    inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> register(resource: UnitAware<R>, unit: Unit) =
-        // TODO: See if there's a way to clean up this naming rule.
-        // It would be nice if this renaming rule were done in the "valueIn" method instead, somehow, so it applied to all conversions.
-        Reporting.register(resource.valueIn(unit).named { "${resource.name.simpleName} ($unit)" })
+    context (_: InitScope)
+    inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> UnitAware<R>.registered(): UnitAware<R> =
+        apply { map { it.fullyNamed { name.namespace / "${name.simpleName} ($unit)" }.registered() } }
 
     /**
      * Get unit-aware full dynamics from a unit-aware resource.

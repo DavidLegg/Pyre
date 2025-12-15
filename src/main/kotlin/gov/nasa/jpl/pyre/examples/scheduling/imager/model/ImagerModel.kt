@@ -1,18 +1,18 @@
 package gov.nasa.jpl.pyre.examples.scheduling.imager.model
 
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.BITS_PER_SECOND
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource
 import gov.nasa.jpl.pyre.general.units.quantity.Quantity
 import gov.nasa.jpl.pyre.general.units.Unit
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.register
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
-import gov.nasa.jpl.pyre.general.units.quantity.QuantityOperations.times
 
 // We can define a brand new dimension, like "image", to use the unit system to check calculations around images.
 // Note that this will be a different "image" unit and dimension than any other, even if somewhere else we define
@@ -51,7 +51,7 @@ class ImagerModel(
     init {
         with (context) {
             unitAware {
-                mode = registeredDiscreteResource("mode", ImagerMode.OFF)
+                mode = discreteResource("mode", ImagerMode.OFF).registered()
                 val imagingDataRate_bps = (config.imageRate * config.imageSize).valueIn(BITS_PER_SECOND)
                 dataRate = (map(mode) {
                     when (it) {
@@ -62,7 +62,7 @@ class ImagerModel(
                     }
                 } * BITS_PER_SECOND)
                     .named { "data_rate" }
-                    .also { register(it, BITS_PER_SECOND) }
+                    .registered()
             }
         }
     }

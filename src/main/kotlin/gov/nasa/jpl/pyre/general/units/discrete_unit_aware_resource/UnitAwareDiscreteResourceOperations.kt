@@ -17,8 +17,6 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.general.units.Scaling
 import gov.nasa.jpl.pyre.general.units.UnitAware
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.map
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.upcast
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.register
 
 typealias UnitAwareDiscreteResource<T> = UnitAware<DiscreteResource<T>>
 typealias MutableUnitAwareDiscreteResource<T> = UnitAware<MutableDiscreteResource<T>>
@@ -32,10 +30,6 @@ object UnitAwareDiscreteResourceOperations {
     context (_: InitScope)
     inline fun <reified T> discreteResource(name: String, value: UnitAware<T>): MutableUnitAwareDiscreteResource<T> =
         value.map { discreteResource(name, it) }
-
-    context (_: InitScope, _: Scaling<DiscreteResource<T>>)
-    inline fun <reified T> registeredDiscreteResource(name: String, value: UnitAware<T>): MutableUnitAwareDiscreteResource<T> =
-        discreteResource(name, value).also { register(it.upcast(), value.unit) }
 
     // comparators
 

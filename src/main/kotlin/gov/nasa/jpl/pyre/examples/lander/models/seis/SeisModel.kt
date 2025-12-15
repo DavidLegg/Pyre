@@ -6,12 +6,11 @@ import gov.nasa.jpl.pyre.kernel.ratioOver
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel.PelItem
 import gov.nasa.jpl.pyre.examples.lander.models.seis.SeisConfig.*
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.registeredIntegral
 import gov.nasa.jpl.pyre.foundation.resources.discrete.*
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.decrease
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.increase
@@ -20,6 +19,9 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
+import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.integral
 
 
 class SeisModel(
@@ -50,22 +52,24 @@ class SeisModel(
 
     init {
         with (context) {
-            poweredOn = registeredDiscreteResource("power_on", false)
-            mdeShouldBeOn = registeredDiscreteResource("mde_should_be_on", false)
+            poweredOn = discreteResource("power_on", false).registered()
+            mdeShouldBeOn = discreteResource("mde_should_be_on", false).registered()
             subContext("internal_volume") {
-                internalRate = registeredDiscreteResource("rate", 0.0)
-                internalVolume = internalRate.asPolynomial().registeredIntegral("volume", 0.0)
+                internalRate = discreteResource("rate", 0.0)
+                internalVolume = internalRate.asPolynomial().integral("volume", 0.0)
+                    .registered()
             }
             subContext("volume_to_send_to_vc") {
-                rateToSendToVC = registeredDiscreteResource("rate", 0.0)
-                volumeToSendToVC = rateToSendToVC.asPolynomial().registeredIntegral("volume", 0.0)
+                rateToSendToVC = discreteResource("rate", 0.0).registered()
+                volumeToSendToVC = rateToSendToVC.asPolynomial().integral("volume", 0.0)
+                    .registered()
             }
-            continuousDataSentIn = registeredDiscreteResource("continuous_data_sent_in", 0.0)
-            transferRate = registeredDiscreteResource("transfer_rate", 1666.66/3600.0)
-            vbbMode = registeredDiscreteResource("vbb_mode", VBBMode.SCI)
+            continuousDataSentIn = discreteResource("continuous_data_sent_in", 0.0).registered()
+            transferRate = discreteResource("transfer_rate", 1666.66/3600.0).registered()
+            vbbMode = discreteResource("vbb_mode", VBBMode.SCI).registered()
             subContext("channel") {
                 channelRates = Channel.entries.associateWith {
-                    registeredDiscreteResource(it.toString(), ChannelRate(0.0, 0.0))
+                    discreteResource(it.toString(), ChannelRate(0.0, 0.0)).registered()
                 }
             }
             subContext("device_type") {

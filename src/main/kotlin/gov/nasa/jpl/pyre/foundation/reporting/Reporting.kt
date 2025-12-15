@@ -56,14 +56,13 @@ object Reporting {
      */
     context (scope: InitScope)
     fun <V, D : Dynamics<V, D>> register(
-        name: String,
         resource: Resource<D>,
         dynamicsType: KType,
     ) {
         val reportType = ChannelizedReport::class.withArg(dynamicsType)
-        val reportedResourceName = scope.contextName / name
+        val reportedResourceName = resource.name
         scope.report(ChannelizedReport(reportedResourceName.toString(), now(), resource.getDynamics().data), reportType)
-        spawn("Report resource $name", wheneverChanges(resource) {
+        spawn("Report resource ${reportedResourceName.simpleName}", wheneverChanges(resource) {
             report(reportedResourceName.toString(), resource.getDynamics().data, reportType)
         })
     }
@@ -72,14 +71,6 @@ object Reporting {
      * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
      */
     context (scope: InitScope)
-    inline fun <V, reified D : Dynamics<V, D>> register(name: String, resource: Resource<D>) =
-        register(name, resource, typeOf<D>())
-
-    /**
-     * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
-     * Use the resource's own toString method as its name, for use with [gov.nasa.jpl.pyre.foundation.resources.named].
-     */
-    context (scope: InitScope)
-    inline fun <V, reified D : Dynamics<V, D>> register(resource: Resource<D>) =
-        register(resource.toString(), resource, typeOf<D>())
+    inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> R.registered(): R =
+        also { register(it, typeOf<D>()) }
 }

@@ -9,9 +9,10 @@ import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
+import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.register
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
@@ -31,12 +32,13 @@ class Device<M>(
         with (context) {
             unitAware {
                 // Register the mode as such, even if it was declared / derived elsewhere too.
-                register("mode", mode, Discrete::class.withArg(modeType))
+                register( mode.named { "mode" }, Discrete::class.withArg(modeType))
                 // Pre-convert all power values to watts for performance
                 val powerTable_W = powerTable.mapValues { it.value.valueIn(WATT) }
                 // Then apply unit WATT to the resource as a whole, instead of each value.
-                powerDraw = ((map(mode, powerTable_W::getValue) * WATT).named { "power_draw" })
-                    .also { register(it, WATT) }
+                powerDraw = (map(mode, powerTable_W::getValue) * WATT)
+                    .named { "power_draw" }
+                    .registered()
             }
         }
     }

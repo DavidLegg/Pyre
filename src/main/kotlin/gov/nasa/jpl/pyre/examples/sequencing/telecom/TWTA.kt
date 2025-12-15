@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.examples.sequencing.telecom
 
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 
@@ -11,7 +12,7 @@ class TWTA(
 
     init {
         with (context) {
-            poweredOn = registeredDiscreteResource("powered_on", false)
+            poweredOn = discreteResource("powered_on", false).registered()
         }
     }
 }

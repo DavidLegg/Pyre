@@ -2,14 +2,12 @@ package gov.nasa.jpl.pyre.foundation.resources.discrete
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
-import gov.nasa.jpl.pyre.foundation.resources.MutableResource
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.foundation.resources.emit
 import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
-import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.resources.resource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.kernel.Name
@@ -24,14 +22,6 @@ object DiscreteResourceOperations {
     context (scope: InitScope)
     inline fun <reified V> discreteResource(name: String, value: V) =
         discreteResource(name, value, typeOf<V>())
-
-    context (scope: InitScope)
-    fun <V> registeredDiscreteResource(name: String, value: V, valueType: KType): MutableResource<Discrete<V>> =
-        discreteResource(name, value, valueType).also { register(name, it, Discrete::class.withArg(valueType)) }
-
-    context (scope: InitScope)
-    inline fun <reified V> registeredDiscreteResource(name: String, value: V) =
-        registeredDiscreteResource(name, value, typeOf<V>())
 
     // Generic read/write operations, specialized to discrete resources
 

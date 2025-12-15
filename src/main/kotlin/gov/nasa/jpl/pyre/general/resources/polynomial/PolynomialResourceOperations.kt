@@ -3,7 +3,6 @@ package gov.nasa.jpl.pyre.general.resources.polynomial
 import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial.Companion.polynomial
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
 import gov.nasa.jpl.pyre.foundation.resources.*
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.bind
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.map
@@ -36,10 +35,6 @@ object PolynomialResourceOperations {
 
     fun constant(value: Double): PolynomialResource =
         pure(polynomial(value)).fullyNamed { Name(value.toString()) }
-
-    context (scope: InitScope)
-    fun registeredPolynomialResource(name: String, vararg coefficients: Double) =
-        polynomialResource(name, *coefficients).also { register(it) }
 
     fun DoubleResource.asPolynomial(): PolynomialResource =
         map(this) { polynomial(it.value) }.fullyNamed { name }
@@ -93,10 +88,6 @@ object PolynomialResourceOperations {
             } named { "Set value of $this to $amount" })
         } named { name }
     }
-
-    context(context: InitScope)
-    fun PolynomialResource.registeredIntegral(name: String, startingValue: Double) =
-        integral(name, startingValue).also { register(it) }
 
     /**
      * Compute the integral of integrand, starting at startingValue.

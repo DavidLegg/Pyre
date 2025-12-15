@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.general.units.quantity_resource.MutableQuantityResource
 import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource
 import gov.nasa.jpl.pyre.general.units.Unit
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
@@ -13,11 +13,12 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperation
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.convertedTo
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.upcast
-import gov.nasa.jpl.pyre.general.units.discrete_unit_aware_resource.UnitAwareDiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.general.units.discrete_unit_aware_resource.UnitAwareDiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.register
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
 
 class TelecomModel(
     context: InitScope,
@@ -38,12 +39,16 @@ class TelecomModel(
     init {
         with (context) {
             unitAware {
-                commandedDataRate = registeredDiscreteResource("commanded_data_rate", 0.0 * BITS_PER_SECOND)
-                radioPoweredOn = DiscreteResourceOperations.registeredDiscreteResource("radio_powered_on", false)
+                commandedDataRate = discreteResource("commanded_data_rate", 0.0 * BITS_PER_SECOND)
+                    .registered()
+                radioPoweredOn = DiscreteResourceOperations.discreteResource("radio_powered_on", false)
+                    .registered()
                 transmittingToEarth = (inputs.isEarthPointed and radioPoweredOn)
-                    .named { "transmitting_to_earth" }.also { register(it) }
+                    .named { "transmitting_to_earth" }.registered()
                 realizedDataRate = ((map(transmittingToEarth) { if (it) 1.0 else 0.0 } * Unit.SCALAR) * commandedDataRate.upcast())
-                    .named { "realized_data_rate" }.also { register(it, BITS_PER_SECOND) }
+                    .named { "realized_data_rate" }
+                    .convertedTo(BITS_PER_SECOND)
+                    .registered()
             }
         }
     }

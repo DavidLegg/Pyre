@@ -11,6 +11,7 @@ import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
 import gov.nasa.jpl.pyre.foundation.resources.ThinResourceMonad
+import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
@@ -101,7 +102,7 @@ object ProfileOperations {
             {
                 val resultResource = derivation()
                 resultName = resultResource.toString()
-                register("__result", resultResource, dynamicsType)
+                register(resultResource.named { "__result" }, dynamicsType)
             },
             typeOf<Unit>(),
         ).runUntil(end)

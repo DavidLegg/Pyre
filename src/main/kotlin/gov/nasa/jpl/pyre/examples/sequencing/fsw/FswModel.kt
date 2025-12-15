@@ -2,7 +2,8 @@ package gov.nasa.jpl.pyre.examples.sequencing.fsw
 
 import gov.nasa.jpl.pyre.examples.sequencing.primeness.DualString
 import gov.nasa.jpl.pyre.examples.sequencing.primeness.Side
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
@@ -15,7 +16,7 @@ class FswModel(
 
     init {
         with (context) {
-            primeComputer = registeredDiscreteResource("prime_computer", Side.A)
+            primeComputer = discreteResource("prime_computer", Side.A).registered()
             globals = DualString(primeComputer, { Variables(NUMBER_OF_GLOBALS, it) }, subContext("globals"))
         }
     }
