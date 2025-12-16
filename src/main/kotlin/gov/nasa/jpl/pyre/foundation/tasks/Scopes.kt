@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
+import gov.nasa.jpl.pyre.foundation.reporting.Channel
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.foundation.resources.Resource
@@ -68,19 +69,16 @@ interface ConditionScope : ResourceScope
 
 interface TaskScope : ResourceScope {
     fun <V> emit(cell: Cell<V>, effect: Effect<V>)
-    fun <T> report(value: T, type: KType)
+    fun <T> report(channel: Channel<T>, value: T)
     suspend fun await(condition: Condition)
     suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>)
 
     companion object {
         context (scope: TaskScope)
-        inline fun <reified T> report(value: T) = report(value, typeOf<T>())
-
-        context (scope: TaskScope)
         fun <V> emit(cell: Cell<V>, effect: Effect<V>) = scope.emit(cell, effect)
 
         context (scope: TaskScope)
-        fun <T> report(value: T, type: KType) = scope.report(value, type)
+        fun <T> Channel<T>.report(value: T) = scope.report(this, value)
 
         context (scope: TaskScope)
         suspend fun await(condition: Condition) = scope.await(condition)
@@ -110,7 +108,7 @@ interface InitScope : SimulationScope, ResourceScope {
      */
     fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>)
 
-    fun <T> report(value: T, type: KType)
+    fun <T> channel(name: Name, metadata: Map<String, String>, valueType: KType): Channel<T>
 
     companion object {
         context (scope: InitScope)
@@ -161,6 +159,7 @@ interface InitScope : SimulationScope, ResourceScope {
         }
 
         context (scope: InitScope)
-        fun <T> report(value: T, type: KType) = scope.report(value, type)
+        inline fun <reified T> channel(name: Name, vararg metadata: Pair<String, String>) =
+            scope.channel<T>(name, metadata.toMap(), typeOf<T>())
     }
 }

@@ -16,6 +16,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
 import gov.nasa.jpl.pyre.general.results.Profile.Companion.start
+import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import java.util.TreeMap
 import kotlin.reflect.KType
@@ -29,7 +30,7 @@ object ProfileOperations {
      *
      * @param name Name of the resulting profile
      */
-    fun <D : Dynamics<*, D>> List<ChannelizedReport<*>>.asProfile(name: String, end: Instant): Profile<D> {
+    fun <D : Dynamics<*, D>> List<ChannelizedReport<*>>.asProfile(name: Name, end: Instant): Profile<D> {
         @Suppress("UNCHECKED_CAST")
         val segments = this as List<ChannelizedReport<D>>
         return Profile(
@@ -45,7 +46,7 @@ object ProfileOperations {
      *
      * @param name The channel name to read, also becomes the profile name.
      */
-    fun <D : Dynamics<*, D>> SimulationResults.getProfile(name: String): Profile<D> =
+    fun <D : Dynamics<*, D>> SimulationResults.getProfile(name: Name): Profile<D> =
         resources.getValue(name).asProfile(name, endTime)
 
     /**
@@ -54,7 +55,7 @@ object ProfileOperations {
      * @param name The channel name to read, also becomes the profile name.
      */
     @Suppress("UNCHECKED_CAST")
-    fun <V, D : Dynamics<V, D>> SimulationResults.lastValue(name: String): V {
+    fun <V, D : Dynamics<V, D>> SimulationResults.lastValue(name: Name): V {
         val report = resources.getValue(name).last() as ChannelizedReport<D>
         return report.data.step((endTime - report.time).toPyreDuration()).value()
     }
@@ -78,7 +79,7 @@ object ProfileOperations {
      * Combines [getProfile] with [asResource]
      */
     context (scope: InitScope)
-    fun <D : Dynamics<*, D>> SimulationResults.getResource(name: String): Resource<D> =
+    fun <D : Dynamics<*, D>> SimulationResults.getResource(name: Name): Resource<D> =
         getProfile<D>(name).asResource()
 
     /**
@@ -91,11 +92,11 @@ object ProfileOperations {
         dynamicsType: KType,
     ): Profile<D> {
         val results = mutableListOf<ChannelizedReport<*>>()
-        lateinit var resultName: String
+        lateinit var resultName: Name
         // Construct and run a simulation to compute the derived profile
         PlanSimulation.withoutIncon(
             channels(
-                "__result" to { value, _ -> results.add(value as ChannelizedReport<*>) }
+                Name("__result") to { value, _ -> results.add(value as ChannelizedReport<*>) }
             ),
             start,
             start,

@@ -1,5 +1,8 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
+import gov.nasa.jpl.pyre.foundation.reporting.Channel
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Condition
@@ -95,8 +98,9 @@ private class TaskBuilder<T>(
     override fun <V> emit(cell: Cell<V>, effect: Effect<V>) =
         basicTaskActions!!.emit(cell, effect)
 
-    override fun <T> report(value: T, type: KType) =
-        basicTaskActions!!.report(value, type)
+    override fun <T> report(channel: Channel<T>, value: T) {
+        basicTaskActions!!.report(ChannelizedReport(channel.name, now(), value), channel.reportType)
+    }
 
     override suspend fun await(condition: Condition) =
         suspendCoroutineUninterceptedOrReturn { c ->

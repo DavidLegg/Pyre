@@ -4,6 +4,8 @@ import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.utilities.andThen
 import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
@@ -36,10 +38,10 @@ object ReportHandling {
      * Reports on named channels go to their corresponding handlers.
      * All other reports go to miscHandler (discarded by default).
      */
-    fun channels(vararg channelHandlers: Pair<String, ReportHandler>, miscHandler: ReportHandler = discardReports): ReportHandler =
+    fun channels(vararg channelHandlers: Pair<Name, ReportHandler>, miscHandler: ReportHandler = discardReports): ReportHandler =
         channels(channelHandlers.toMap(), miscHandler)
 
-    fun channels(channelHandlers: Map<String, ReportHandler>, miscHandler: ReportHandler): ReportHandler = {
+    fun channels(channelHandlers: Map<Name, ReportHandler>, miscHandler: ReportHandler): ReportHandler = {
         value, type ->
         ((value as? ChannelizedReport<*>)
             ?.channel
@@ -74,15 +76,14 @@ object ReportHandling {
     /**
      * Split channels out according to a hierarchical structure.
      *
-     * By default, channel names are split by backslash (/), the default delimiter used by [gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext].
-     *
      * Use [HierarchicalReportingStructure.reportTo] and [HierarchicalReportingStructure.split] to construct the handler.
      */
-    fun hierarchicalChannels(handler: HierarchicalReportingStructure, miscHandler: ReportHandler = discardReports, delimiter: String = "/"): ReportHandler =
+    fun hierarchicalChannels(handler: HierarchicalReportingStructure, miscHandler: ReportHandler = discardReports): ReportHandler =
         { value, type ->
             ((value as? ChannelizedReport<*>)
                 ?.channel
-                ?.split(delimiter)
+                ?.asSequence()
+                ?.toList()
                 ?.let(handler::resolve)
                 ?: miscHandler)(value, type)
         }
@@ -124,7 +125,7 @@ object ReportHandling {
 
     inline fun <T, reified S> map(noinline f: (T) -> S) = map(typeOf<S>(), f)
 
-    fun <T> rename(nameFn: (String) -> String): TypedChannelReportProcessor<T, T> = { (report, type) ->
+    fun <T> rename(nameFn: (Name) -> Name): TypedChannelReportProcessor<T, T> = { (report, type) ->
         TypedChannelReport(report.copy(channel = nameFn(report.channel)), type)
     }
 
@@ -132,13 +133,13 @@ object ReportHandling {
         it.forEach({ (report, type) -> handler(report, type) })
     }
 
-    fun <T, S> split(sType: KType, splitters: List<Pair<(T) -> S, (String) -> String>>): (TypedChannelReport<T>) -> List<TypedChannelReport<S>> {
+    fun <T, S> split(sType: KType, splitters: List<Pair<(T) -> S, (Name) -> Name>>): (TypedChannelReport<T>) -> List<TypedChannelReport<S>> {
         // Build the pipelines in advance. This saves time by not recomputing the reified result type.
         val pipelines = splitters.map { (mapFn, nameFn) -> map(sType, mapFn) andThen rename(nameFn) }
         return { report -> pipelines.map { it(report) } }
     }
 
-    inline fun <T, reified S> split(splitters: List<Pair<(T) -> S, (String) -> String>>) = split(typeOf<S>(), splitters)
+    inline fun <T, reified S> split(splitters: List<Pair<(T) -> S, (Name) -> Name>>) = split(typeOf<S>(), splitters)
 
-    inline fun <T, reified S> split(vararg splitters: Pair<(T) -> S, (String) -> String>) = split(splitters.asList())
+    inline fun <T, reified S> split(vararg splitters: Pair<(T) -> S, (Name) -> Name>) = split(splitters.asList())
 }

@@ -3,13 +3,14 @@ package gov.nasa.jpl.pyre.general.results
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.kernel.Name
 import kotlin.collections.iterator
 import kotlin.time.Instant
 
 data class SimulationResults(
     val startTime: Instant,
     val endTime: Instant,
-    val resources: Map<String, List<ChannelizedReport<*>>>,
+    val resources: Map<Name, List<ChannelizedReport<*>>>,
     val activities: Map<Activity<*>, ActivityActions.ActivityEvent>,
 ) {
     fun restrict(newStartTime: Instant = startTime, newEndTime: Instant = endTime): SimulationResults {
@@ -34,10 +35,10 @@ data class SimulationResults(
     infix fun compose(other: SimulationResults): SimulationResults {
         val newStartTime = minOf(startTime, other.startTime)
         val newEndTime = maxOf(endTime, other.endTime)
-        val newResources: MutableMap<String, MutableList<ChannelizedReport<*>>> = mutableMapOf()
+        val newResources: MutableMap<Name, MutableList<ChannelizedReport<*>>> = mutableMapOf()
         val newActivities: MutableMap<Activity<*>, ActivityActions.ActivityEvent> = mutableMapOf()
 
-        fun collect(resources: Map<String, List<ChannelizedReport<*>>>) {
+        fun collect(resources: Map<Name, List<ChannelizedReport<*>>>) {
             for ((resourceName, events) in resources) {
                 newResources.getOrPut(resourceName, ::mutableListOf) += events
             }

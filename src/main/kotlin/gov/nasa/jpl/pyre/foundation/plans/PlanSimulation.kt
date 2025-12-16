@@ -1,5 +1,8 @@
 package gov.nasa.jpl.pyre.foundation.plans
 
+import gov.nasa.jpl.pyre.foundation.reporting.Channel
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelMetadata
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
@@ -85,8 +88,11 @@ class PlanSimulation<M> {
             override fun <T> read(cell: Cell<T>): T =
                 state.initScope.read(cell)
 
-            override fun <T> report(value: T, type: KType) =
-                state.initScope.report(value, type)
+            override fun <T> channel(name: Name, metadata: Map<String, String>, valueType: KType): Channel<T> {
+                val reportType = ChannelizedReport::class.withArg(valueType)
+                state.initScope.report(ChannelMetadata(name, metadata, reportType), typeOf<ChannelMetadata>())
+                return Channel(name, reportType)
+            }
 
             override val contextName: Name? = null
 

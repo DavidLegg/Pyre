@@ -57,7 +57,7 @@ object ResourceCaching {
     }
 
     /**
-     * Trimmed down version of [gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport] for use with [precomputedResource].
+     * Trimmed down version of [ChannelizedReport] for use with [precomputedResource].
      */
     @Serializable
     data class ResourcePoint<D>(

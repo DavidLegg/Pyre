@@ -32,6 +32,7 @@ import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplaySco
 import gov.nasa.jpl.pyre.general.units.UnitAware
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
+import gov.nasa.jpl.pyre.kernel.Name
 import kotlinx.serialization.json.Json
 import java.util.PriorityQueue
 import kotlin.reflect.KType
@@ -68,12 +69,12 @@ class SchedulingSystem<M, C> private constructor(
     private val futureActivities: PriorityQueue<GroundedActivity<M>> = PriorityQueue(compareBy { it.time }),
     /** Activities which have been incorporated into the simulation. */
     private val pastActivities: MutableList<GroundedActivity<M>> = mutableListOf(),
-    private val resources: MutableMap<String, MutableList<ChannelizedReport<*>>> = mutableMapOf(),
+    private val resources: MutableMap<Name, MutableList<ChannelizedReport<*>>> = mutableMapOf(),
     private val activitySpans: MutableMap<Activity<*>, ActivityEvent> = mutableMapOf(),
 ) {
     private var model: M? = null
     private val reportHandler: ReportHandler = channels(
-        "activities" to (assumeType<ActivityEvent>() andThen { (value, type) ->
+        Name("activities") to (assumeType<ActivityEvent>() andThen { (value, type) ->
             // The event coming straight out of the simulator will have a non-null activity.
             // It's only when deserializing ActivityEvents that we lose the activity object reference.
             // Additionally, ActivityEvents are cumulative - we only want to keep the last one for any given activity.

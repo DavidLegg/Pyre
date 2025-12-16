@@ -4,6 +4,7 @@ import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.Expiring
 import gov.nasa.jpl.pyre.foundation.resources.Expiry
+import gov.nasa.jpl.pyre.kernel.Name
 import java.util.NavigableMap
 import java.util.TreeMap
 import kotlin.time.Instant
@@ -12,7 +13,7 @@ import kotlin.time.Instant
  * The time-history of a resource over an interval from [start] to [end]
  */
 class Profile<D : Dynamics<*, D>>(
-    val name: String,
+    val name: Name,
     end: Instant,
     val segments: NavigableMap<Instant, D>
 ) {

@@ -10,21 +10,10 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.report
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import kotlinx.serialization.Contextual
-import kotlinx.serialization.Serializable
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
-import kotlin.time.Instant
 
 typealias Channel = String
-
-@Serializable
-data class ChannelizedReport<T>(
-    val channel: String,
-    @Contextual
-    val time: Instant,
-    val data: T,
-)
 
 object Reporting {
     /**
