@@ -6,13 +6,13 @@ import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.Absolute
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.CommandComplete
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.Relative
+import gov.nasa.jpl.pyre.foundation.reporting.Channel
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.channel
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.report
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.or
-import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.isNotNull
@@ -30,6 +30,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
+import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
@@ -107,6 +108,8 @@ class SequenceEngine(
     private val isActive: MutableBooleanResource
     private val commandIndex: MutableIntResource
 
+    private val commandsChannel: Channel<Command>
+
     init {
         with (context) {
             loadedSequence = discreteResource("loaded_sequence", null)
@@ -119,6 +122,8 @@ class SequenceEngine(
             dispatchCounter = discreteResource("dispatch_counter", 0).registered()
             isActive = discreteResource("is_active", false).registered()
             commandIndex = discreteResource("command_index", 0).registered()
+
+            commandsChannel = channel("commands")
 
             spawn("run", whenever(isLoaded and isActive) {
                 val sequence = requireNotNull(loadedSequence.getValue())
@@ -162,12 +167,12 @@ class SequenceEngine(
     }
 
     context (scope: TaskScope)
-    private suspend fun dispatchPeriodElapsed(): BooleanResource {
+    private fun dispatchPeriodElapsed(): BooleanResource {
         return after(lastDispatchTime.getValue() + dispatchPeriod)
     }
 
     context (scope: TaskScope)
-    private suspend fun afterIndicatedDispatchTime(timeTag: TimeTag): BooleanResource = when (timeTag) {
+    private fun afterIndicatedDispatchTime(timeTag: TimeTag): BooleanResource = when (timeTag) {
         is Absolute -> after(timeTag.time)
         CommandComplete -> lastDispatchedCommandComplete
         is Relative -> after(lastDispatchTime.getValue() + timeTag.duration)
@@ -183,7 +188,7 @@ class SequenceEngine(
         lastDispatchedCommandComplete.set(false)
         dispatchCounter.increment()
         val currentDispatchCounter = dispatchCounter.getValue()
-        report("commands", command)
+        commandsChannel.report(command)
         spawn("model ${command.stem}", task {
             commandHandlers[command.stem]?.effectModel(command)
             // If no other command was dispatched in the meantime, set the command complete flag

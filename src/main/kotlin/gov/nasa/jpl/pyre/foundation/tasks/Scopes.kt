@@ -1,5 +1,7 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
@@ -39,12 +41,36 @@ interface SimulationScope {
      */
     val simulationEpoch: Instant
 
+    /**
+     * Standard channel for reporting [ActivityEvent]s for all activities.
+     */
+    val activities: Channel<ActivityEvent>
+
+    /**
+     * Standard channel for general-purpose "logging" style output
+     */
+    val stdout: Channel<String>
+
+    /**
+     * Standard channel for general-purpose "logging" style output that signals some kind of warning or error.
+     */
+    val stderr: Channel<String>
+
     companion object {
         context (scope: SimulationScope)
         val simulationClock get() = scope.simulationClock
 
         context (scope: SimulationScope)
         val simulationEpoch get() = scope.simulationEpoch
+
+        context (scope: SimulationScope)
+        val activities get() = scope.activities
+
+        context (scope: SimulationScope)
+        val stdout get() = scope.stdout
+
+        context (scope: SimulationScope)
+        val stderr get() = scope.stderr
 
         context (scope: SimulationScope)
         fun subSimulationScope(contextName: Name) = object : SimulationScope by scope {

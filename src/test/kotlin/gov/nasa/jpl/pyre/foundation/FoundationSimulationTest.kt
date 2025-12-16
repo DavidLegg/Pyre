@@ -1,6 +1,11 @@
 package gov.nasa.jpl.pyre.foundation
 
 import gov.nasa.jpl.pyre.array
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
+import gov.nasa.jpl.pyre.foundation.reporting.Channel
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.channel
 import gov.nasa.jpl.pyre.kernel.*
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
@@ -24,14 +29,16 @@ import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.onceWhenever
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
+import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stdout
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
 import gov.nasa.jpl.pyre.foundation.tasks.repeatingTask
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.string
+import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -66,6 +73,10 @@ class FoundationSimulationTest {
                     override val contextName: Name? = null
                     override val simulationClock = resource<Duration, Timer>("simulation_clock", Timer(ZERO, 1))
                     override val simulationEpoch = Instant.parse("2000-01-01T00:00:00Z")
+                    override val activities: Channel<ActivityEvent> = channel("activities")
+                    override val stdout: Channel<String> = channel("stdout")
+                    override val stderr: Channel<String> = channel("stderr")
+
                     override fun toString() = ""
                     override fun <V> read(cell: Cell<V>): V = scope.read(cell)
                     override fun <T : Any> allocate(
@@ -77,8 +88,13 @@ class FoundationSimulationTest {
                     ): Cell<T> = scope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
                     override fun <T> spawn(name: Name, block: suspend context(TaskScope) () -> TaskScopeResult<T>) =
                         scope.spawn(name, coroutineTask(block))
-                    override fun <T> report(value: T, type: KType) =
-                        scope.report(value, type)
+                    override fun <T> channel(
+                        name: Name,
+                        metadata: Map<String, String>,
+                        valueType: KType
+                    ): Channel<T> = Channel(name, ChannelizedReport::class.withArg(valueType))
+                    override fun <T> report(channel: Channel<T>, value: T) =
+                        scope.report(value, channel.reportType)
                 })
             }
 
@@ -143,7 +159,7 @@ class FoundationSimulationTest {
                 assertEquals(3.0f, f)
                 assertEquals(PowerState.OFF, e)
 
-                report("Done")
+                stdout.report("Done")
             })
         }
 
@@ -225,7 +241,7 @@ class FoundationSimulationTest {
                 assertEquals(6.0f, f)
                 assertEquals(PowerState.WARMUP, e)
 
-                report("Done")
+                stdout.report("Done")
             })
         }
 
@@ -294,7 +310,7 @@ class FoundationSimulationTest {
         val results = runSimulation(endTime=10.5 roundTimes MINUTE) {
             spawn("Report periodically", repeatingTask {
                 delay(MINUTE)
-                report("Report")
+                stdout.report("Report")
             })
         }
 
@@ -310,7 +326,7 @@ class FoundationSimulationTest {
 
             spawn("Report x > y", task {
                 await(x greaterThan y)
-                report("Condition triggered: ${x.getValue()} > ${y.getValue()}")
+                stdout.report("Condition triggered: ${x.getValue()} > ${y.getValue()}")
             })
 
             spawn("Change values", task {
@@ -341,11 +357,11 @@ class FoundationSimulationTest {
             val setting = discreteResource("setting", 5)
 
             spawn("Minimum Monitor", onceWhenever(setting lessThan minimum) {
-                report("Minimum violated: ${setting.getValue()} < ${minimum.getValue()}")
+                stdout.report("Minimum violated: ${setting.getValue()} < ${minimum.getValue()}")
             })
 
             spawn("Maximum Monitor", onceWhenever(setting greaterThan maximum) {
-                report("Maximum violated: ${setting.getValue()} > ${maximum.getValue()}")
+                stdout.report("Maximum violated: ${setting.getValue()} > ${maximum.getValue()}")
             })
 
             spawn("Change Setting", task {
@@ -379,7 +395,7 @@ class FoundationSimulationTest {
             spawn("intensive task", task {
                 repeat(100_000) {
                     counter.increment()
-                    report("Counter is now ${counter.getValue()}")
+                    stdout.report("Counter is now ${counter.getValue()}")
                 }
             })
         }

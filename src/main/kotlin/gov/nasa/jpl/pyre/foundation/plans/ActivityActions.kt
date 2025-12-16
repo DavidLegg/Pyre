@@ -2,7 +2,7 @@ package gov.nasa.jpl.pyre.foundation.plans
 
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.report
+import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
@@ -31,7 +31,7 @@ object ActivityActions {
     context (scope: TaskScope)
     suspend fun <M> call(activity: FloatingActivity<M>, model: M) {
         val startTime = now()
-        report("activities", ActivityEvent(
+        scope.activities.report(ActivityEvent(
             activity.name,
             activity.typeName,
             startTime,
@@ -42,7 +42,7 @@ object ActivityActions {
         // This avoids needing to generate or persist unique IDs for activities.
         // Instead, any start event which matches all three serialized fields can be paired with this end event;
         // all such start events are exactly equivalent.
-        report("activities", ActivityEvent(
+        scope.activities.report(ActivityEvent(
             activity.name,
             activity.typeName,
             startTime,
@@ -74,7 +74,7 @@ object ActivityActions {
 
     context(scope: TaskScope)
     suspend fun <M> spawn(activity: FloatingActivity<M>, model: M) =
-        defer(Duration.Companion.ZERO, activity, model)
+        defer(Duration.ZERO, activity, model)
 
     context(scope: TaskScope)
     suspend fun <M> spawn(activity: Activity<M>, model: M) =

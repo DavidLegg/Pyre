@@ -31,6 +31,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.Reactions.every
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.kernel.Name
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
@@ -183,7 +184,7 @@ class ResourceCachingTest {
         assertEquals(
             outputFile1.readLines()
                 .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
-                .filter { it.channel != "activities" },
+                .filter { it.channel != Name("activities") },
             outputFile2.readLines()
                 .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
         )
@@ -246,8 +247,8 @@ class ResourceCachingTest {
         // Since the initial values can be reported in any order, compare those separately, as sets
         assertEquals<Set<ChannelizedReport<JsonElement>>>(
             setOf(
-                ChannelizedReport("resourceB", sim2start, JsonPrimitive("Second string")),
-                ChannelizedReport("resourceA", sim2start, JsonPrimitive(-10)),
+                ChannelizedReport(Name("resourceB"), sim2start, JsonPrimitive("Second string")),
+                ChannelizedReport(Name("resourceA"), sim2start, JsonPrimitive(-10)),
                 ),
             output2.take(2).toSet()
         )
@@ -255,7 +256,7 @@ class ResourceCachingTest {
         assertEquals(
             outputFile1.readLines()
                 .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
-                .filter { it.time > sim2start && it.channel != "activities" },
+                .filter { it.time > sim2start && it.channel != Name("activities") },
             output2.drop(2)
         )
     }

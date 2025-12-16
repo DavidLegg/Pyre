@@ -31,7 +31,7 @@ class ChannelizedReports(
     }
 
     private fun <T> handleChannelized(value: ChannelizedReport<T>, type: KType) {
-        channelizedReports.getOrPut(value.channel, ::mutableListOf)
+        channelizedReports.getOrPut(value.channel.toString(), ::mutableListOf)
             .add(Report(value.time, encode(value.data, requireNotNull(type.arguments[0].type))))
     }
 

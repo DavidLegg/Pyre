@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.foundation.plans
 
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelMetadata
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
@@ -26,6 +27,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.isNotNull
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.isNull
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.channel
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
@@ -97,10 +99,14 @@ class PlanSimulation<M> {
             override fun <T> report(channel: Channel<T>, value: T) = state.initScope.report(value, channel.reportType)
 
             override val contextName: Name? = null
+            override fun toString() = ""
 
             override val simulationClock = resource("simulation_clock", Timer(start, 1))
             override val simulationEpoch = simulationEpoch
-            override fun toString() = ""
+
+            override val activities = channel<ActivityEvent>(Name("activities"))
+            override val stdout = channel<String>(Name("stdout"))
+            override val stderr = channel<String>(Name("stderr"))
         }
         with (simulationScope) {
             // Construct the model itself

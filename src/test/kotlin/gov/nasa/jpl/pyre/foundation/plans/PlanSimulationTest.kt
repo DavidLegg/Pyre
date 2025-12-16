@@ -25,7 +25,6 @@ import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.TestModel.*
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.discardReports
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.report
 import gov.nasa.jpl.pyre.foundation.resources.discrete.*
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
@@ -40,13 +39,13 @@ import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
+import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.value
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.modules.SerializersModule
 import org.junit.jupiter.api.Assertions.*
@@ -198,7 +197,7 @@ class PlanSimulationTest {
 
                 spawn("Overheat Protection", whenever(
                     (totalPower greaterThan 15.0) and (deviceState notEquals OFF)) {
-                    report("warning", JsonPrimitive("Overheat Protection triggered!"))
+                    stderr.report("Overheat Protection triggered!")
                     spawn(DeviceShutdown(), this@TestModel)
                     await(deviceState equals OFF)
                 })
@@ -337,7 +336,7 @@ class PlanSimulationTest {
                 activityEnd("DeviceShutdown")
                 end()
             }
-            channel("warning") {
+            channel("stderr") {
                 at(Instant.parse("2020-01-01T01:55:00Z"))
                 log("Overheat Protection triggered!")
                 end()

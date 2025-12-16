@@ -14,6 +14,8 @@ import gov.nasa.jpl.pyre.general.reporting.ReportHandling.reportAllTo
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.split
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteMonad.map
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
@@ -60,13 +62,13 @@ fun csvMain(args: Array<String>) {
             // val output = jsonlReportHandler(outputStream, jsonFormat)
             val output = CsvReportHandler(outputStream, jsonFormat)
             val vectorHandler = assumeType<Discrete<Vector>>() andThen split(
-                    map(Vector::x) to { "$it.x" },
-                    map(Vector::y) to { "$it.y" },
-                    map(Vector::z) to { "$it.z" },
+                    map(Vector::x) to { it / "x" },
+                    map(Vector::y) to { it / "y" },
+                    map(Vector::z) to { it / "z" },
                 ) andThen reportAllTo(output)
             channels(
-                "earth_position" to vectorHandler,
-                "moon_position" to vectorHandler,
+                Name("earth_position") to vectorHandler,
+                Name("moon_position") to vectorHandler,
             )
                  .closesWith(output::close)
 //                .closesWith {}
