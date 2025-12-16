@@ -58,28 +58,27 @@ interface ResourceScope : SimulationScope {
 
     companion object {
         context (scope: ResourceScope)
-        fun <V> read(cell: Cell<V>): V = scope.read(cell)
-
-        context (scope: ResourceScope)
         fun now() = simulationEpoch + simulationClock.getValue().toKotlinDuration()
+    }
+}
+
+interface ReportScope : SimulationScope {
+    fun <T> report(channel: Channel<T>, value: T)
+
+    companion object {
+        context (scope: ReportScope)
+        fun <T> Channel<T>.report(value: T) = scope.report(this, value)
     }
 }
 
 interface ConditionScope : ResourceScope
 
-interface TaskScope : ResourceScope {
+interface TaskScope : ResourceScope, ReportScope {
     fun <V> emit(cell: Cell<V>, effect: Effect<V>)
-    fun <T> report(channel: Channel<T>, value: T)
     suspend fun await(condition: Condition)
     suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>)
 
     companion object {
-        context (scope: TaskScope)
-        fun <V> emit(cell: Cell<V>, effect: Effect<V>) = scope.emit(cell, effect)
-
-        context (scope: TaskScope)
-        fun <T> Channel<T>.report(value: T) = scope.report(this, value)
-
         context (scope: TaskScope)
         suspend fun await(condition: Condition) = scope.await(condition)
 
@@ -94,7 +93,7 @@ interface TaskScope : ResourceScope {
 // Note: We specifically don't implement BasicInitScope here.
 //   We want to supplant its methods with higher-level methods that change its signature somehow.
 // TODO: Allocate/read/emit on Resource, instead of Cell, to force all cell allocation to hide behind a resource.
-interface InitScope : SimulationScope, ResourceScope {
+interface InitScope : SimulationScope, ResourceScope, ReportScope {
     fun <T: Any> allocate(
         name: Name,
         value: T,

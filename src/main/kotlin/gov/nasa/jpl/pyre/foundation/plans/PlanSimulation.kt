@@ -94,6 +94,8 @@ class PlanSimulation<M> {
                 return Channel(name, reportType)
             }
 
+            override fun <T> report(channel: Channel<T>, value: T) = state.initScope.report(value, channel.reportType)
+
             override val contextName: Name? = null
 
             override val simulationClock = resource("simulation_clock", Timer(start, 1))

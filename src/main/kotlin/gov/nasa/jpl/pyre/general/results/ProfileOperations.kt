@@ -102,7 +102,7 @@ object ProfileOperations {
             start,
             {
                 val resultResource = derivation()
-                resultName = resultResource.toString()
+                resultName = resultResource.name
                 register(resultResource.named { "__result" }, dynamicsType)
             },
             typeOf<Unit>(),

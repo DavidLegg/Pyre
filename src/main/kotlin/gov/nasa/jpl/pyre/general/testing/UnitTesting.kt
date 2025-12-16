@@ -12,6 +12,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.task
+import gov.nasa.jpl.pyre.kernel.Name
 import kotlin.time.Instant
 
 object UnitTesting {
@@ -29,10 +30,10 @@ object UnitTesting {
         noinline constructModel: InitScope.() -> M,
         noinline testTask: suspend context (TaskScope) (M) -> Unit
     ): SimulationResults {
-        val resources: MutableMap<String, MutableList<ChannelizedReport<*>>> = mutableMapOf()
+        val resources: MutableMap<Name, MutableList<ChannelizedReport<*>>> = mutableMapOf()
         val activitySpans: MutableMap<Activity<*>, ActivityEvent> = mutableMapOf()
         val reportHandler: ReportHandler = channels(
-            "activities" to (assumeType<ActivityEvent>() andThen { (value, type) ->
+            Name("activities") to (assumeType<ActivityEvent>() andThen { (value, type) ->
                 // The event coming straight out of the simulator will have a non-null activity.
                 // It's only when deserializing ActivityEvents that we lose the activity object reference.
                 // Additionally, ActivityEvents are cumulative - we only want to keep the last one for any given activity.

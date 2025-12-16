@@ -175,13 +175,13 @@ class SchedulingSystem<M, C> private constructor(
 
     /** Get a single profile, selected by the resource object itself. */
     fun <D : Dynamics<*, D>> profile(selector: M.() -> Resource<D>): Profile<D> {
-        val name = model!!.selector().name.toString()
+        val name = model!!.selector().name
         return resources.getValue(name).asProfile(name, time())
     }
 
     /** Get the last value of a registered resource, selected by the resource object itself. */
     fun <V, D : Dynamics<V, D>> lastValue(selector: M.() -> Resource<D>): V {
-        val name = model!!.selector().name.toString()
+        val name = model!!.selector().name
         @Suppress("UNCHECKED_CAST")
         val report = resources.getValue(name).last() as ChannelizedReport<D>
         return report.data.step((time() - report.time).toPyreDuration()).value()
@@ -189,8 +189,9 @@ class SchedulingSystem<M, C> private constructor(
 
     /** Get the last value of a registered resource, selected by the resource object itself. */
     fun <V, D : Dynamics<V, D>> lastQuantity(selector: M.() -> UnitAware<Resource<D>>): UnitAware<V> {
+        // TODO: Use channel metadata to do unit conversion rather than resource.unit
         val resource = model!!.selector()
-        val name = "${resource.name} (${resource.unit})"
+        val name = resource.name
         @Suppress("UNCHECKED_CAST")
         val report = resources.getValue(name).last() as ChannelizedReport<D>
         return UnitAware(
@@ -201,17 +202,17 @@ class SchedulingSystem<M, C> private constructor(
 
     interface SchedulingReplayScope {
         context (_: InitScope)
-        fun <D : Dynamics<*, D>> replay(name: String): Resource<D>
+        fun <D : Dynamics<*, D>> replay(name: Name): Resource<D>
 
         context (_: InitScope)
         fun countActivities(predicate: (ActivityEvent) -> Boolean = { true }): IntResource
 
         companion object {
             context (_: InitScope, scope: SchedulingReplayScope)
-            fun <D : Dynamics<*, D>> replay(name: String): Resource<D> = scope.replay(name)
+            fun <D : Dynamics<*, D>> replay(name: Name): Resource<D> = scope.replay(name)
 
             context (_: InitScope, scope: SchedulingReplayScope)
-            fun <D : Dynamics<*, D>> Resource<D>.replay(): Resource<D> = replay(name.toString())
+            fun <D : Dynamics<*, D>> Resource<D>.replay(): Resource<D> = replay(name)
 
             context (_: InitScope, scope: SchedulingReplayScope)
             fun countActivities(predicate: (ActivityEvent) -> Boolean = { true }): IntResource = scope.countActivities(predicate)
@@ -226,7 +227,7 @@ class SchedulingSystem<M, C> private constructor(
     ): Profile<D> {
         val scope = object : SchedulingReplayScope {
             context (_: InitScope)
-            override fun <D : Dynamics<*, D>> replay(name: String): Resource<D> =
+            override fun <D : Dynamics<*, D>> replay(name: Name): Resource<D> =
                 this@SchedulingSystem.resources.getValue(name)
                     .asProfile<D>(name, this@SchedulingSystem.time())
                     .asResource()

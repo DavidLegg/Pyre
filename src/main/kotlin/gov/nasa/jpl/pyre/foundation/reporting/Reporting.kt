@@ -1,45 +1,15 @@
 package gov.nasa.jpl.pyre.foundation.reporting
 
-import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.wheneverChanges
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.report
-import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
-typealias Channel = String
-
 object Reporting {
-    /**
-     * Wraps the simple simulation report function with [ChannelizedReport],
-     * categorizing the report on a channel and adding the time of report.
-     *
-     * Note: reportType must be [ChannelizedReport] with an invariant argument for the type of data.
-     * Giving this type directly, instead of constructing it within this function,
-     * offers opportunities to improve performance by computing the reified type at init or even compile time.
-     */
-    context (scope: TaskScope)
-    fun <T> report(channel: Channel, data: T, reportType: KType) {
-        report(ChannelizedReport(
-            channel,
-            now(),
-            data,
-        ), reportType)
-    }
-
-    /**
-     * Wraps the simple simulation report function with [ChannelizedReport],
-     * categorizing the report on a channel and adding the time of report.
-     */
-    context (scope: TaskScope)
-    inline fun <reified T> report(channel: Channel, data: T) = report(channel, data, typeOf<ChannelizedReport<T>>())
-
     /**
      * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
      */
@@ -47,12 +17,12 @@ object Reporting {
     fun <V, D : Dynamics<V, D>> register(
         resource: Resource<D>,
         dynamicsType: KType,
+        metadata: Map<String, String> = mapOf(),
     ) {
-        val reportType = ChannelizedReport::class.withArg(dynamicsType)
-        val reportedResourceName = resource.name
-        scope.report(ChannelizedReport(reportedResourceName.toString(), now(), resource.getDynamics().data), reportType)
-        spawn("Report resource ${reportedResourceName.simpleName}", wheneverChanges(resource) {
-            report(reportedResourceName.toString(), resource.getDynamics().data, reportType)
+        val channel = scope.channel<D>(resource.name, metadata, dynamicsType)
+        channel.report(resource.getDynamics().data)
+        spawn("Report resource ${resource.name.simpleName}", wheneverChanges(resource) {
+            channel.report(resource.getDynamics().data)
         })
     }
 
@@ -60,6 +30,6 @@ object Reporting {
      * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
      */
     context (scope: InitScope)
-    inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> R.registered(): R =
-        also { register(it, typeOf<D>()) }
+    inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> R.registered(vararg metadata: Pair<String, String>): R =
+        also { register(it, typeOf<D>(), metadata.toMap()) }
 }

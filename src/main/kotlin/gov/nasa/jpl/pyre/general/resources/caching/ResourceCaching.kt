@@ -124,7 +124,7 @@ object ResourceCaching {
         dynamicsType: KType
     ): Resource<D> {
         val reader = file.bufferedReader()
-        val realChannel = (channel ?: (scope.contextName / name)).toString()
+        val realChannel = (channel ?: (scope.contextName / name))
         val points = reader.lineSequence()
             .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
             .filter { it.channel == realChannel }
