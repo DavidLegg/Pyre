@@ -5,6 +5,7 @@ import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlin.reflect.KType
+import kotlin.reflect.typeOf
 import kotlin.time.Instant
 
 /**
@@ -31,6 +32,10 @@ sealed interface ChannelReport<T> {
         val channel: Name,
         val metadata: Map<String, String>,
         @Transient
-        val reportType: KType? = null,
+        val dataType: KType = typeOf<Any?>(),
+        @Transient
+        val reportType: KType = typeOf<ChannelData<*>>(),
+        @Transient
+        val metadataType: KType = typeOf<ChannelMetadata<*>>(),
     ) : ChannelReport<T>
 }

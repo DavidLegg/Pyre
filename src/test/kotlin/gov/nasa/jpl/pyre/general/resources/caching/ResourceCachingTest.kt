@@ -12,10 +12,10 @@ import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
 import gov.nasa.jpl.pyre.foundation.plans.activities
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.general.resources.caching.ResourceCaching.fileBackedResource
 import gov.nasa.jpl.pyre.general.resources.caching.ResourceCachingTest.OriginalResourceModel.*
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelData
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
@@ -31,6 +31,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.utilities.invoke
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -95,6 +96,20 @@ class ResourceCachingTest {
                 model.resourceB.set(newValue)
             }
         }
+
+        companion object {
+            val JSON_FORMAT = Json {
+                serializersModule = SerializersModule {
+                    contextual(Instant::class, String.serializer().alias(InvertibleFunction.of(
+                        Instant::parse, Instant::toString
+                    )))
+                    activities {
+                        activity(ChangeA::class)
+                        activity(ChangeB::class)
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -125,25 +140,13 @@ class ResourceCachingTest {
 
     @Test
     fun cached_resources_can_be_read_from_simulation_output() {
-        val jsonFormat = Json {
-            serializersModule = SerializersModule {
-                contextual(Instant::class, String.serializer().alias(InvertibleFunction.of(
-                    Instant::parse, Instant::toString
-                )))
-                activities {
-                    activity(ChangeA::class)
-                    activity(ChangeB::class)
-                }
-            }
-        }
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val outputFile1 = createTempFile(suffix="output1.jsonl")
         outputFile1.outputStream().use { out ->
-            val simulation = PlanSimulation.withoutIncon(
-                jsonlReportHandler(out, jsonFormat),
+            val simulation = PlanSimulation(
+                jsonlReportHandler(out, OriginalResourceModel.JSON_FORMAT),
                 epoch,
-                epoch,
-                ::OriginalResourceModel
+                constructModel = ::OriginalResourceModel
             )
 
             simulation.runPlan(Plan(
@@ -164,11 +167,10 @@ class ResourceCachingTest {
 
         val outputFile2 = createTempFile(suffix="output2.jsonl")
         outputFile2.outputStream().use { out ->
-            val simulation = PlanSimulation.withoutIncon(
-                jsonlReportHandler(out, jsonFormat),
+            val simulation = PlanSimulation(
+                jsonlReportHandler(out, OriginalResourceModel.JSON_FORMAT),
                 epoch,
-                epoch,
-                { CachedResourceModel(outputFile1, jsonFormat, this) },
+                constructModel = (::CachedResourceModel)(outputFile1, OriginalResourceModel.JSON_FORMAT)
             )
 
             // The full profile is read out of outputFile1 - there's no activities nor daemons in this version.
@@ -182,9 +184,9 @@ class ResourceCachingTest {
         // By the design of this test, every resource was cached and registered again.
         // Except for the "activities" channel, the outputs should be identical.
         assertEquals(
-            outputFile1.readReports(jsonFormat)
+            outputFile1.readReports(OriginalResourceModel.JSON_FORMAT)
                 .filter { it.channel != Name("activities") },
-            outputFile2.readReports(jsonFormat)
+            outputFile2.readReports(OriginalResourceModel.JSON_FORMAT)
         )
     }
 
@@ -204,11 +206,10 @@ class ResourceCachingTest {
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val outputFile1 = createTempFile(suffix="output1.jsonl")
         outputFile1.outputStream().use { out ->
-            val simulation = PlanSimulation.withoutIncon(
+            val simulation = PlanSimulation(
                 jsonlReportHandler(out, jsonFormat),
                 epoch,
-                epoch,
-                ::OriginalResourceModel
+                constructModel = ::OriginalResourceModel
             )
 
             simulation.runPlan(Plan(
@@ -226,11 +227,10 @@ class ResourceCachingTest {
         val outputFile2 = createTempFile(suffix="output2.jsonl")
         val sim2start = epoch + 20 * MINUTE + 10 * SECOND
         outputFile2.outputStream().use { out ->
-            val simulation = PlanSimulation.withoutIncon(
+            val simulation = PlanSimulation(
                 jsonlReportHandler(out, jsonFormat),
-                epoch,
                 sim2start,
-                { CachedResourceModel(outputFile1, jsonFormat, this) },
+                constructModel = (::CachedResourceModel)(outputFile1, jsonFormat)
             )
 
             // The full profile is read out of outputFile1 - there's no activities nor daemons in this version.

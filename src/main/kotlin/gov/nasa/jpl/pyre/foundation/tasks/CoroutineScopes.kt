@@ -1,7 +1,8 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelData
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.kernel.Cell
@@ -98,7 +99,7 @@ private class TaskBuilder<T>(
         basicTaskActions!!.emit(cell, effect)
 
     override fun <T> report(channel: Channel<T>, value: T) {
-        basicTaskActions!!.report(ChannelData(channel.name, now(), value), channel.reportType)
+        basicTaskActions!!.report(ChannelData(channel.name, now(), value))
     }
 
     override suspend fun await(condition: Condition) =

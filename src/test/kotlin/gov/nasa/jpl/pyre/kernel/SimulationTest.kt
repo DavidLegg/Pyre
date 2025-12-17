@@ -16,20 +16,18 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.serializer
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import kotlin.math.abs
 import kotlin.reflect.typeOf
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 
 class SimulationTest {
     private data class SimulationResult(
-        val reports: List<JsonElement>,
+        val reports: List<Any?>,
         val fincon: JsonElement?,
     )
 
@@ -41,11 +39,9 @@ class SimulationTest {
     ): SimulationResult {
         assertDoesNotThrow {
             // Build a simulation that'll write reports to memory
-            val reports = mutableListOf<JsonElement>()
+            val reports = mutableListOf<Any?>()
             val simulation = SimpleSimulation(SimulationSetup(
-                reportHandler = { value, type ->
-                    reports.add(Json.encodeToJsonElement(serializer(type), value))
-                },
+                reportHandler = reports::add,
                 inconProvider = incon?.let { Json.decodeJsonConditionsFromJsonElement(it) },
                 initialize = initialize,
             ))
@@ -108,11 +104,11 @@ class SimulationTest {
     fun task_can_report_result() {
         val results = runSimulation(HOUR) {
             spawn(Name("report result")) {
-                it.report("result", typeOf<String>())
+                it.report("result")
                 Complete(Unit)
             }
         }
-        assertEquals(mutableListOf(JsonPrimitive("result")), results.reports)
+        assertEquals(listOf("result"), results.reports)
     }
 
     @Test
@@ -128,11 +124,11 @@ class SimulationTest {
             val x = allocateIntCounterCell("x", 42)
             spawn(Name("read cell")) {
                 val xVal = it.read(x)
-                it.report("x = $xVal", typeOf<String>())
+                it.report("x = $xVal")
                 Complete(Unit)
             }
         }
-        assertEquals(mutableListOf(JsonPrimitive("x = 42")), results.reports)
+        assertEquals(listOf("x = 42"), results.reports)
     }
 
     @Test
@@ -150,11 +146,11 @@ class SimulationTest {
             spawn(Name("emit effect")) {
                 it.emit(x) { it + 13 }
                 val xVal = it.read(x)
-                it.report("x = $xVal", typeOf<String>())
+                it.report("x = $xVal")
                 Complete(Unit)
             }
         }
-        assertEquals(mutableListOf(JsonPrimitive("x = 55")), results.reports)
+        assertEquals(listOf("x = 55"), results.reports)
     }
 
     // Note: There used to be an explicit "delay" StepResult, separate from Await.
@@ -183,21 +179,15 @@ class SimulationTest {
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("step cell")) {
                 val xVal = it.read(x)
-                it.report("now x = $xVal", typeOf<String>())
+                it.report("now x = $xVal")
                 it.Delay(30 * MINUTE, clock) {
                     val xVal = it.read(x)
-                    it.report("later x = $xVal", typeOf<String>())
+                    it.report("later x = $xVal")
                     Complete(Unit)
                 }
             }
         }
-        with (JsonArray(results.reports)) {
-            array {
-                element { assertEquals("now x = 0", string()) }
-                element { assertEquals("later x = 30", string()) }
-                assert(atEnd())
-            }
-        }
+        assertEquals(listOf("now x = 0", "later x = 30"), results.reports)
     }
 
     @Test
@@ -207,30 +197,30 @@ class SimulationTest {
             spawn(Name("Task A")) {
                 it.emit(x) { it + 5 }
                 val xVal = it.read(x)
-                it.report("A says: x = $xVal", typeOf<String>())
+                it.report("A says: x = $xVal")
                 Complete(Unit)
             }
             spawn(Name("Task B")) {
                 it.emit(x) { it + 3 }
                 val xVal = it.read(x)
-                it.report("B says: x = $xVal", typeOf<String>())
+                it.report("B says: x = $xVal")
                 Complete(Unit)
             }
             spawn(Name("Task C")) {
                 val xVal = it.read(x)
-                it.report("C says: x = $xVal", typeOf<String>())
+                it.report("C says: x = $xVal")
                 val xVal2 = it.read(x)
-                it.report("C still says: x = $xVal2", typeOf<String>())
+                it.report("C still says: x = $xVal2")
                 Complete(Unit)
             }
         }
         with (results) {
             assert(reports.size == 4)
             // Order of reports is largely non-deterministic because these tasks are running in parallel
-            assertContains(reports, JsonPrimitive("A says: x = 15"))
-            assertContains(reports, JsonPrimitive("B says: x = 13"))
-            assertContains(reports, JsonPrimitive("C says: x = 10"))
-            assertContains(reports, JsonPrimitive("C still says: x = 10"))
+            assertContains(reports, "A says: x = 15")
+            assertContains(reports, "B says: x = 13")
+            assertContains(reports, "C says: x = 10")
+            assertContains(reports, "C still says: x = 10")
         }
     }
 
@@ -242,15 +232,15 @@ class SimulationTest {
             spawn(Name("Task A")) {
                 it.emit(x) { it + 5 }
                 val xVal = it.read(x)
-                it.report("A says: x = $xVal", typeOf<String>())
+                it.report("A says: x = $xVal")
                 Complete(Unit)
             }
             spawn(Name("Task B")) {
                 val xVal = it.read(x)
-                it.report("B first says: x = $xVal", typeOf<String>())
+                it.report("B first says: x = $xVal")
                 it.Delay(ZERO, clock) {
                     val xVal = it.read(x)
-                    it.report("B next says: x = $xVal", typeOf<String>())
+                    it.report("B next says: x = $xVal")
                     Complete(Unit)
                 }
             }
@@ -258,9 +248,9 @@ class SimulationTest {
         with (results) {
             assert(reports.size == 3)
             // Order of reports is largely non-deterministic because these tasks are running in parallel
-            assertContains(reports, JsonPrimitive("A says: x = 15"))
-            assertContains(reports, JsonPrimitive("B first says: x = 10"))
-            assertContains(reports, JsonPrimitive("B next says: x = 15"))
+            assertContains(reports, "A says: x = 15")
+            assertContains(reports, "B first says: x = 10")
+            assertContains(reports, "B next says: x = 15")
         }
     }
 
@@ -273,19 +263,19 @@ class SimulationTest {
             spawn(Name("Task A")) {
                 it.emit(x) { it + 5 }
                 val xVal = it.read(x)
-                it.report("A says: x = $xVal", typeOf<String>())
+                it.report("A says: x = $xVal")
                 Complete(Unit)
             }
             spawn(Name("Task B")) {
                 it.emit(x) { it + 3 }
                 val xVal = it.read(x)
-                it.report("B says: x = $xVal", typeOf<String>())
+                it.report("B says: x = $xVal")
                 Complete(Unit)
             }
             spawn(Name("Task C")) {
                 it.Delay(ZERO, clock) {
                     val xVal = it.read(x)
-                    it.report("C says: x = $xVal", typeOf<String>())
+                    it.report("C says: x = $xVal")
                     Complete(Unit)
                 }
             }
@@ -293,9 +283,9 @@ class SimulationTest {
         with (results) {
             assert(reports.size == 3)
             // Order of reports is largely non-deterministic because these tasks are running in parallel
-            assertContains(reports, JsonPrimitive("A says: x = 15"))
-            assertContains(reports, JsonPrimitive("B says: x = 13"))
-            assertContains(reports, JsonPrimitive("C says: x = 118"))
+            assertContains(reports, "A says: x = 15")
+            assertContains(reports, "B says: x = 13")
+            assertContains(reports, "C says: x = 118")
         }
     }
 
@@ -318,7 +308,7 @@ class SimulationTest {
             spawn(Name("Awaiter")) {
                 Await({ SatisfiedAt(ZERO) }) {
                     val xVal = it.read(x)
-                    it.report("Awaiter says: x = $xVal", typeOf<String>())
+                    it.report("Awaiter says: x = $xVal")
                     Complete(Unit)
                 }
             }
@@ -333,7 +323,7 @@ class SimulationTest {
                 }
             }
         }
-        assertEquals(mutableListOf(JsonPrimitive("Awaiter says: x = 11")), results.reports)
+        assertEquals(listOf("Awaiter says: x = 11"), results.reports)
     }
 
     @Test
@@ -341,7 +331,7 @@ class SimulationTest {
         val results = runSimulation(HOUR) {
             spawn(Name("Awaiter")) {
                 Await({ UnsatisfiedUntil(null) }) {
-                    it.report("Awaiter ran!", typeOf<String>())
+                    it.report("Awaiter ran!")
                     Complete(Unit)
                 }
             }
@@ -362,9 +352,9 @@ class SimulationTest {
                     if (xValue >= yValue) SatisfiedAt(ZERO) else UnsatisfiedUntil(null)
                 }) {
                     val xVal = it.read(x)
-                    it.report("Awaiter says: x = $xVal", typeOf<String>())
+                    it.report("Awaiter says: x = $xVal")
                     val yVal = it.read(y)
-                    it.report("Awaiter says: y = $yVal", typeOf<String>())
+                    it.report("Awaiter says: y = $yVal")
                     Complete(Unit)
                 }
             }
@@ -379,17 +369,7 @@ class SimulationTest {
                 }
             }
         }
-        with (JsonArray(results.reports)) {
-            array {
-                element {
-                    assertEquals("Awaiter says: x = 11", string())
-                }
-                element {
-                    assertEquals("Awaiter says: y = 11", string())
-                }
-                assert(atEnd())
-            }
-        }
+        assertEquals(listOf("Awaiter says: x = 11", "Awaiter says: y = 11"), results.reports)
     }
 
     @Test
@@ -408,20 +388,14 @@ class SimulationTest {
                     }
                 }) {
                     val xVal = it.read(x)
-                    it.report(xVal, typeOf<LinearDynamics>())
+                    it.report(xVal)
                     Complete(Unit)
                 }
             }
         }
-        with (JsonArray(results.reports)) {
-            array {
-                element {
-                    assertNearlyEquals(20.0, double("value")!!)
-                    assertNearlyEquals(1.0, double("rate")!!)
-                }
-                assert(atEnd())
-            }
-        }
+        assertEquals(1, results.reports.size)
+        assertNearlyEquals(20.0, (results.reports[0] as LinearDynamics).value)
+        assertNearlyEquals(1.0, (results.reports[0] as LinearDynamics).rate)
     }
 
     @Test
@@ -442,9 +416,9 @@ class SimulationTest {
                     }
                 }) {
                     val xVal = it.read(x)
-                    it.report(xVal, typeOf<LinearDynamics>())
+                    it.report(xVal)
                     val yVal = it.read(y)
-                    it.report("Awaiter says: y = $yVal", typeOf<String>())
+                    it.report("Awaiter says: y = $yVal")
                     Complete(Unit)
                 }
             }
@@ -461,17 +435,12 @@ class SimulationTest {
                 }
             }
         }
-        with (JsonArray(results.reports)) {
-            array {
-                element {
-                    assertNearlyEquals(35.0, double("value")!!)
-                    assertNearlyEquals(0.0, double("rate")!!)
-                }
-                // Condition is satisfied in reaction to last batch of the interrupter task, which is why y = 3
-                element { assertEquals("Awaiter says: y = 3", string())}
-                assert(atEnd())
-            }
-        }
+
+        assertEquals(2, results.reports.size)
+        assertNearlyEquals(35.0, (results.reports[0] as LinearDynamics).value)
+        assertNearlyEquals(0.0, (results.reports[0] as LinearDynamics).rate)
+        // Condition is satisfied in reaction to last batch of the interrupter task, which is why y = 3
+        assertEquals("Awaiter says: y = 3", results.reports[1])
     }
 
     @Test
@@ -492,9 +461,9 @@ class SimulationTest {
                     }
                 }) {
                     val xVal = it.read(x)
-                    it.report(xVal, typeOf<LinearDynamics>())
+                    it.report(xVal)
                     val yVal = it.read(y)
-                    it.report("Awaiter says: y = $yVal", typeOf<String>())
+                    it.report("Awaiter says: y = $yVal")
                     Complete(Unit)
                 }
             }
@@ -511,17 +480,12 @@ class SimulationTest {
                 }
             }
         }
-        with (JsonArray(results.reports)) {
-            array {
-                element {
-                    // Condition isn't satisfied until it waits long enough for x to grow to 20
-                    assertNearlyEquals(20.0, double("value")!!)
-                    assertNearlyEquals(0.1, double("rate")!!)
-                }
-                element { assertEquals("Awaiter says: y = 3", string())}
-                assert(atEnd())
-            }
-        }
+
+        assertEquals(2, results.reports.size)
+        // Condition isn't satisfied until it waits long enough for x to grow to 20
+        assertNearlyEquals(20.0, (results.reports[0] as LinearDynamics).value)
+        assertNearlyEquals(0.1, (results.reports[0] as LinearDynamics).rate)
+        assertEquals("Awaiter says: y = 3", results.reports[1])
     }
 
     @Test
@@ -534,21 +498,16 @@ class SimulationTest {
                     else UnsatisfiedUntil(2 * SECOND)
                 }) {
                     val xVal = it.read(x)
-                    it.report(xVal, typeOf<LinearDynamics>())
+                    it.report(xVal)
                     Complete(Unit)
                 }
             }
         }
-        with (JsonArray(results.reports)) {
-            array {
-                element {
-                    // Condition repeatedly delays re-evaluation for 2s, so value is 16 by the time it's satisfied
-                    assertNearlyEquals(16.0, double("value")!!)
-                    assertNearlyEquals(1.0, double("rate")!!)
-                }
-                assert(atEnd())
-            }
-        }
+
+        assertEquals(1, results.reports.size)
+        // Condition repeatedly delays re-evaluation for 2s, so value is 16 by the time it's satisfied
+        assertNearlyEquals(16.0, (results.reports[0] as LinearDynamics).value)
+        assertNearlyEquals(1.0, (results.reports[0] as LinearDynamics).rate)
     }
 
     @Test
@@ -562,7 +521,7 @@ class SimulationTest {
                     else UnsatisfiedUntil(MINUTE)
                 }) {
                     val xVal = it.read(x)
-                    it.report(xVal, typeOf<LinearDynamics>())
+                    it.report(xVal)
                     Complete(Unit)
                 }
             }
@@ -574,18 +533,13 @@ class SimulationTest {
                 }
             }
         }
-        with (JsonArray(results.reports)) {
-            array {
-                element {
-                    // Condition evaluates at first to Unsatisfied, with a 1-minute expiry.
-                    // That's interrupted by the interrupter task, which sets the value to 20.
-                    // Had it not been interrupted, it would have grown to 70.
-                    assertNearlyEquals(20.0, double("value")!!)
-                    assertNearlyEquals(0.0, double("rate")!!)
-                }
-                assert(atEnd())
-            }
-        }
+
+        assertEquals(1, results.reports.size)
+        // Condition evaluates at first to Unsatisfied, with a 1-minute expiry.
+        // That's interrupted by the interrupter task, which sets the value to 20.
+        // Had it not been interrupted, it would have grown to 70.
+        assertNearlyEquals(20.0, (results.reports[0] as LinearDynamics).value)
+        assertNearlyEquals(0.0, (results.reports[0] as LinearDynamics).rate)
     }
 
     @Test
@@ -648,29 +602,17 @@ class SimulationTest {
             spawn(Name("Single Batch Task")) {
                 val xDynamics = it.read(x)
                 val yDynamics = it.read(y)
-                it.report(JsonObject(mapOf(
-                    "tag" to JsonPrimitive("Single Batch Task"),
-                    "x" to Json.encodeToJsonElement(xDynamics),
-                    "y" to Json.encodeToJsonElement(yDynamics),
-                )), typeOf<JsonObject>())
+                it.report(mapOf("tag" to "Single Batch Task", "x" to xDynamics, "y" to yDynamics))
                 Complete(Unit)
             }
             spawn(Name("Multi Batch Task")) {
                 val xDynamics = it.read(x)
                 val yDynamics = it.read(y)
-                it.report(JsonObject(mapOf(
-                    "tag" to JsonPrimitive("Multi Batch Task - 1"),
-                    "x" to Json.encodeToJsonElement(xDynamics),
-                    "y" to Json.encodeToJsonElement(yDynamics),
-                )), typeOf<JsonObject>())
+                it.report(mapOf("tag" to "Multi Batch Task - 1", "x" to xDynamics, "y" to yDynamics))
                 it.Delay(90 * SECOND, clock) {
                     val xDynamics = it.read(x)
                     val yDynamics = it.read(y)
-                    it.report(JsonObject(mapOf(
-                        "tag" to JsonPrimitive("Multi Batch Task - 2"),
-                        "x" to Json.encodeToJsonElement(xDynamics),
-                        "y" to Json.encodeToJsonElement(yDynamics),
-                    )), typeOf<JsonObject>())
+                    it.report(mapOf("tag" to "Multi Batch Task - 2", "x" to xDynamics, "y" to yDynamics))
                     Complete(Unit)
                 }
             }
@@ -731,32 +673,20 @@ class SimulationTest {
                 val yDynamics = it.read(y)
                 // Add a delay 0 to make the report order deterministic, for easier verification
                 it.Delay(ZERO, clock) {
-                    it.report(JsonObject(mapOf(
-                        "tag" to JsonPrimitive("Single Batch Task"),
-                        "x" to Json.encodeToJsonElement(xDynamics),
-                        "y" to Json.encodeToJsonElement(yDynamics),
-                    )), typeOf<JsonObject>())
+                    it.report(mapOf("tag" to "Single Batch Task", "x" to xDynamics, "y" to yDynamics))
                     Complete(Unit)
                 }
             }
             spawn(Name("Multi Batch Task")) {
                 val xDynamics = it.read(x)
                 val yDynamics = it.read(y)
-                it.report(JsonObject(mapOf(
-                    "tag" to JsonPrimitive("Multi Batch Task - 1"),
-                    "x" to Json.encodeToJsonElement(xDynamics),
-                    "y" to Json.encodeToJsonElement(yDynamics),
-                )), typeOf<JsonObject>())
+                it.report(mapOf("tag" to "Multi Batch Task - 1", "x" to xDynamics, "y" to yDynamics))
                 // Since this delay spans a fincon boundary, do the delay correctly by reading a clock.
                 // Abusing Await like I've done elsewhere, directly returning the time, causes buggy behavior with fincons.
                 it.Delay(90 * SECOND, clock) {
                     val xDynamics = it.read(x)
                     val yDynamics = it.read(y)
-                    it.report(JsonObject(mapOf(
-                        "tag" to JsonPrimitive("Multi Batch Task - 2"),
-                        "x" to Json.encodeToJsonElement(xDynamics),
-                        "y" to Json.encodeToJsonElement(yDynamics),
-                    )), typeOf<JsonObject>())
+                    it.report(mapOf("tag" to "Multi Batch Task - 2", "x" to xDynamics, "y" to yDynamics))
                     Complete(Unit)
                 }
             }
@@ -764,57 +694,31 @@ class SimulationTest {
 
         val results = runSimulation(MINUTE, takeFincon = true) { initialize() }
 
-        with (JsonArray(results.reports)) {
-            array {
-                element {
-                    assertEquals("Multi Batch Task - 1", string("tag"))
-                    within("x") {
-                        assertNearlyEquals(10.0, double("value")!!)
-                        assertNearlyEquals(1.0, double("rate")!!)
-                    }
-                    within("y") {
-                        assertNearlyEquals(10.0, double("value")!!)
-                        assertNearlyEquals(-0.1, double("rate")!!)
-                    }
-                }
-                element {
-                    assertEquals("Single Batch Task", string("tag"))
-                    within("x") {
-                        assertNearlyEquals(10.0, double("value")!!)
-                        assertNearlyEquals(1.0, double("rate")!!)
-                    }
-                    within("y") {
-                        assertNearlyEquals(10.0, double("value")!!)
-                        assertNearlyEquals(-0.1, double("rate")!!)
-                    }
-                }
-                assert(atEnd())
-                // No report for Multi Batch Task - 2, because the simulation ended during its delay
-            }
-        }
+        assertEquals(2, results.reports.size)
+        assertEquals("Multi Batch Task - 1", (results.reports[0] as Map<*, *>)["tag"])
+        assertNearlyEquals(10.0, ((results.reports[0] as Map<*, *>)["x"] as LinearDynamics).value)
+        assertNearlyEquals(1.0, ((results.reports[0] as Map<*, *>)["x"] as LinearDynamics).rate)
+        assertNearlyEquals(10.0, ((results.reports[0] as Map<*, *>)["y"] as LinearDynamics).value)
+        assertNearlyEquals(-0.1, ((results.reports[0] as Map<*, *>)["y"] as LinearDynamics).rate)
+        assertEquals("Single Batch Task", (results.reports[1] as Map<*, *>)["tag"])
+        assertNearlyEquals(10.0, ((results.reports[1] as Map<*, *>)["x"] as LinearDynamics).value)
+        assertNearlyEquals(1.0, ((results.reports[1] as Map<*, *>)["x"] as LinearDynamics).rate)
+        assertNearlyEquals(10.0, ((results.reports[1] as Map<*, *>)["y"] as LinearDynamics).value)
+        assertNearlyEquals(-0.1, ((results.reports[1] as Map<*, *>)["y"] as LinearDynamics).rate)
+        // No report for Multi Batch Task - 2, because the simulation ended during its delay
 
         val nextResults = runSimulation(2 * MINUTE, incon = results.fincon) { initialize() }
 
-        with (JsonArray(nextResults.reports)) {
-            array {
-                // There should be no reports for Single Batch or the first part of Multi Batch,
-                // because those tasks have already run.
-                // Internally, we'll replay them to get to the part of the task we'd like to resume,
-                // but officially, they aren't part of the simulation execution & output.
-                element {
-                    assertEquals("Multi Batch Task - 2", string("tag"))
-                    within("x") {
-                        assertNearlyEquals(100.0, double("value")!!)
-                        assertNearlyEquals(1.0, double("rate")!!)
-                    }
-                    within("y") {
-                        assertNearlyEquals(1.0, double("value")!!)
-                        assertNearlyEquals(-0.1, double("rate")!!)
-                    }
-                }
-                assert(atEnd())
-            }
-        }
+        // There should be no reports for Single Batch or the first part of Multi Batch,
+        // because those tasks have already run.
+        // Internally, we'll replay them to get to the part of the task we'd like to resume,
+        // but officially, they aren't part of the simulation execution & output.
+        assertEquals(1, nextResults.reports.size)
+        assertEquals("Multi Batch Task - 2", (nextResults.reports[0] as Map<*, *>)["tag"])
+        assertNearlyEquals(100.0, ((nextResults.reports[0] as Map<*, *>)["x"] as LinearDynamics).value)
+        assertNearlyEquals(1.0, ((nextResults.reports[0] as Map<*, *>)["x"] as LinearDynamics).rate)
+        assertNearlyEquals(1.0, ((nextResults.reports[0] as Map<*, *>)["y"] as LinearDynamics).value)
+        assertNearlyEquals(-0.1, ((nextResults.reports[0] as Map<*, *>)["y"] as LinearDynamics).rate)
     }
 
     @Test
@@ -827,21 +731,19 @@ class SimulationTest {
                     it.emit(x) { it + 1 }
                     val time = it.read(clock)
                     val xVal = it.read(x)
-                    it.report("x = $xVal at $time", typeOf<String>())
+                    it.report("x = $xVal at $time")
                     Restart<Unit>()
                 }
             }
         }
-        with (JsonArray(results.reports)) {
-            array {
-                element { assertEquals("x = 1 at 00:10:00.000000", string()) }
-                element { assertEquals("x = 2 at 00:20:00.000000", string()) }
-                element { assertEquals("x = 3 at 00:30:00.000000", string()) }
-                element { assertEquals("x = 4 at 00:40:00.000000", string()) }
-                element { assertEquals("x = 5 at 00:50:00.000000", string()) }
-                assert(atEnd())
-            }
-        }
+
+        assertEquals(listOf(
+            "x = 1 at 00:10:00.000000",
+            "x = 2 at 00:20:00.000000",
+            "x = 3 at 00:30:00.000000",
+            "x = 4 at 00:40:00.000000",
+            "x = 5 at 00:50:00.000000",
+        ), results.reports)
     }
 
     @Test
@@ -854,7 +756,7 @@ class SimulationTest {
                     it.emit(x) { it + 1 }
                     val time = it.read(clock)
                     val xVal = it.read(x)
-                    it.report("x = $xVal at $time", typeOf<String>())
+                    it.report("x = $xVal at $time")
                     Restart<Unit>()
                 }
             }
@@ -898,7 +800,7 @@ class SimulationTest {
                     it.emit(x) { it + 1 }
                     val time = it.read(clock)
                     val xVal = it.read(x)
-                    it.report("x = $xVal at $time", typeOf<String>())
+                    it.report("x = $xVal at $time")
                     Restart<Unit>()
                 }
             }
@@ -918,22 +820,16 @@ class SimulationTest {
     fun tasks_can_spawn_children() {
         val results = runSimulation(HOUR) {
             spawn(Name("Parent")) {
-                it.report("Parent's report", typeOf<String>())
+                it.report("Parent's report")
                 Spawn(Name("Child"), {
-                    it.report("Child's report", typeOf<String>())
+                    it.report("Child's report")
                     Complete(Unit)
                 }) {
                     Complete(Unit)
                 }
             }
         }
-        with (JsonArray(results.reports)) {
-            array {
-                element { assertEquals("Parent's report", string()) }
-                element { assertEquals("Child's report", string()) }
-                assert(atEnd())
-            }
-        }
+        assertEquals(listOf("Parent's report", "Child's report"), results.reports)
     }
 
     @Test
@@ -958,31 +854,31 @@ class SimulationTest {
 
             spawn(Name("P")) {
                 val xVal = it.read(x)
-                it.report("Tick 0: P says: x = $xVal", typeOf<String>())
+                it.report("Tick 0: P says: x = $xVal")
                 Spawn(Name("C1"), {
                     val xVal = it.read(x)
-                    it.report("Tick 1: C1 says: x = $xVal", typeOf<String>())
+                    it.report("Tick 1: C1 says: x = $xVal")
                     it.Delay(ZERO, clock) {
                         val xVal = it.read(x)
-                        it.report("Tick 2: C1 says: x = $xVal", typeOf<String>())
+                        it.report("Tick 2: C1 says: x = $xVal")
                         Complete(Unit)
                     }
                 }) {
                     Spawn(Name("C2"), {
                         val xVal = it.read(x)
-                        it.report("Tick 1: C2 says: x = $xVal", typeOf<String>())
+                        it.report("Tick 1: C2 says: x = $xVal")
                         it.Delay(ZERO, clock) {
                             val xVal = it.read(x)
-                            it.report("Tick 2: C2 says: x = $xVal", typeOf<String>())
+                            it.report("Tick 2: C2 says: x = $xVal")
                             Complete(Unit)
                         }
                     }) {
                         it.Delay(ZERO, clock) {
                             val xVal = it.read(x)
-                            it.report("Tick 1: P says: x = $xVal", typeOf<String>())
+                            it.report("Tick 1: P says: x = $xVal")
                             it.Delay(ZERO, clock) {
                                 val xVal = it.read(x)
-                                it.report("Tick 2: P says: x = $xVal", typeOf<String>())
+                                it.report("Tick 2: P says: x = $xVal")
                                 Complete(Unit)
                             }
                         }
@@ -993,20 +889,20 @@ class SimulationTest {
 
         with (results) {
             assertEquals(7, reports.size)
-            assertEquals(JsonPrimitive("Tick 0: P says: x = 0"), reports[0])
+            assertEquals("Tick 0: P says: x = 0", reports[0])
             // Ordering of reports in the same tick is non-deterministic
             assertEquals(
                 setOf(
-                    JsonPrimitive("Tick 1: P says: x = 1"),
-                    JsonPrimitive("Tick 1: C1 says: x = 1"),
-                    JsonPrimitive("Tick 1: C2 says: x = 1"),
+                    "Tick 1: P says: x = 1",
+                    "Tick 1: C1 says: x = 1",
+                    "Tick 1: C2 says: x = 1",
                 ),
                 reports.subList(1, 4).toSet())
             assertEquals(
                 setOf(
-                    JsonPrimitive("Tick 2: P says: x = 2"),
-                    JsonPrimitive("Tick 2: C1 says: x = 2"),
-                    JsonPrimitive("Tick 2: C2 says: x = 2"),
+                    "Tick 2: P says: x = 2",
+                    "Tick 2: C1 says: x = 2",
+                    "Tick 2: C2 says: x = 2",
                 ),
                 reports.subList(4, 7).toSet())
         }
@@ -1017,29 +913,29 @@ class SimulationTest {
         val results = runSimulation(HOUR, takeFincon = true) {
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("P")) {
-                it.report("P -- 1", typeOf<String>())
+                it.report("P -- 1")
                 Spawn(Name("C"), {
-                    it.report("C -- 1", typeOf<String>())
+                    it.report("C -- 1")
                     it.Delay(45 * MINUTE, clock) {
                         // 00:45:00
-                        it.report("C -- 2", typeOf<String>())
+                        it.report("C -- 2")
                         Complete(Unit)
                     }
                 }) {
                     it.Delay(30 * MINUTE, clock) {
                         // 00:30:00
-                        it.report("P -- 2", typeOf<String>())
+                        it.report("P -- 2")
                         Spawn(Name("D"), {
-                            it.report("D -- 1", typeOf<String>())
+                            it.report("D -- 1")
                             it.Delay(45 * MINUTE, clock) {
                                 // 01:15:00
-                                it.report("D -- 2", typeOf<String>())
+                                it.report("D -- 2")
                                 Complete(Unit)
                             }
                         }) {
                             it.Delay(HOUR, clock) {
                                 // 01:30:00
-                                it.report("P -- 3", typeOf<String>())
+                                it.report("P -- 3")
                                 Complete(Unit)
                             }
                         }
@@ -1120,29 +1016,29 @@ class SimulationTest {
         fun initialize() {
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("P")) {
-                it.report("P -- 1", typeOf<String>())
+                it.report("P -- 1")
                 Spawn(Name("C"), {
-                    it.report("C -- 1", typeOf<String>())
+                    it.report("C -- 1")
                     it.Delay(45 * MINUTE, clock) {
                         // 00:45:00
-                        it.report("C -- 2", typeOf<String>())
+                        it.report("C -- 2")
                         Complete(Unit)
                     }
                 }) {
                     it.Delay(30 * MINUTE, clock) {
                         // 00:30:00
-                        it.report("P -- 2", typeOf<String>())
+                        it.report("P -- 2")
                         Spawn(Name("D"), {
-                            it.report("D -- 1", typeOf<String>())
+                            it.report("D -- 1")
                             it.Delay(45 * MINUTE, clock) {
                                 // 01:15:00
-                                it.report("D -- 2", typeOf<String>())
+                                it.report("D -- 2")
                                 Complete(Unit)
                             }
                         }) {
                             it.Delay(HOUR, clock) {
                                 // 01:30:00
-                                it.report("P -- 3", typeOf<String>())
+                                it.report("P -- 3")
                                 Complete(Unit)
                             }
                         }
@@ -1152,26 +1048,17 @@ class SimulationTest {
         }
         val results = runSimulation(HOUR, takeFincon = true) { initialize() }
 
-        with (JsonArray(results.reports)) {
-            array {
-                element { assertEquals("P -- 1", string()) }
-                element { assertEquals("C -- 1", string()) }
-                element { assertEquals("P -- 2", string()) }
-                element { assertEquals("D -- 1", string()) }
-                element { assertEquals("C -- 2", string()) }
-                assert(atEnd())
-            }
-        }
+        assertEquals(listOf(
+            "P -- 1",
+            "C -- 1",
+            "P -- 2",
+            "D -- 1",
+            "C -- 2",
+        ), results.reports)
 
         val nextResults = runSimulation(2 * HOUR, incon = results.fincon) { initialize() }
 
-        with (JsonArray(nextResults.reports)) {
-            array {
-                element { assertEquals("D -- 2", string()) }
-                element { assertEquals("P -- 3", string()) }
-                assert(atEnd())
-            }
-        }
+        assertEquals(listOf("D -- 2", "P -- 3"), nextResults.reports)
     }
 
     @Test
@@ -1186,10 +1073,10 @@ class SimulationTest {
                     val nValue = it.read(n)
                     Spawn(Name("Child $nValue"), {
                         val time = it.read(clock)
-                        it.report("Child $nValue start at $time", typeOf<String>())
+                        it.report("Child $nValue start at $time")
                         it.Delay(45 * MINUTE, clock) {
                             val time = it.read(clock)
-                            it.report("Child $nValue end at $time", typeOf<String>())
+                            it.report("Child $nValue end at $time")
                             Complete(Unit)
                         }
                     }) {
@@ -1201,37 +1088,31 @@ class SimulationTest {
         }
         val results = runSimulation(58 * MINUTE, takeFincon = true) { initialize() }
 
-        with (JsonArray(results.reports)) {
-            array {
-                element { assertEquals("Child 1 start at 00:10:00.000000", string()) }
-                element { assertEquals("Child 2 start at 00:20:00.000000", string()) }
-                element { assertEquals("Child 3 start at 00:30:00.000000", string()) }
-                element { assertEquals("Child 4 start at 00:40:00.000000", string()) }
-                element { assertEquals("Child 5 start at 00:50:00.000000", string()) }
-                element { assertEquals("Child 1 end at 00:55:00.000000", string()) }
-                assert(atEnd())
-            }
-        }
+        assertEquals(listOf(
+            "Child 1 start at 00:10:00.000000",
+            "Child 2 start at 00:20:00.000000",
+            "Child 3 start at 00:30:00.000000",
+            "Child 4 start at 00:40:00.000000",
+            "Child 5 start at 00:50:00.000000",
+            "Child 1 end at 00:55:00.000000",
+        ), results.reports)
 
         val nextResults = runSimulation(2 * HOUR, incon = results.fincon) { initialize() }
 
-        with (JsonArray(nextResults.reports)) {
-            array {
-                element { assertEquals("Child 6 start at 01:00:00.000000", string()) }
-                element { assertEquals("Child 2 end at 01:05:00.000000", string()) }
-                element { assertEquals("Child 7 start at 01:10:00.000000", string()) }
-                element { assertEquals("Child 3 end at 01:15:00.000000", string()) }
-                element { assertEquals("Child 8 start at 01:20:00.000000", string()) }
-                element { assertEquals("Child 4 end at 01:25:00.000000", string()) }
-                element { assertEquals("Child 9 start at 01:30:00.000000", string()) }
-                element { assertEquals("Child 5 end at 01:35:00.000000", string()) }
-                element { assertEquals("Child 10 start at 01:40:00.000000", string()) }
-                element { assertEquals("Child 6 end at 01:45:00.000000", string()) }
-                element { assertEquals("Child 11 start at 01:50:00.000000", string()) }
-                element { assertEquals("Child 7 end at 01:55:00.000000", string()) }
-                assert(atEnd())
-            }
-        }
+        assertEquals(listOf(
+            "Child 6 start at 01:00:00.000000",
+            "Child 2 end at 01:05:00.000000",
+            "Child 7 start at 01:10:00.000000",
+            "Child 3 end at 01:15:00.000000",
+            "Child 8 start at 01:20:00.000000",
+            "Child 4 end at 01:25:00.000000",
+            "Child 9 start at 01:30:00.000000",
+            "Child 5 end at 01:35:00.000000",
+            "Child 10 start at 01:40:00.000000",
+            "Child 6 end at 01:45:00.000000",
+            "Child 11 start at 01:50:00.000000",
+            "Child 7 end at 01:55:00.000000",
+        ), nextResults.reports)
     }
 
     @Test
@@ -1247,7 +1128,7 @@ class SimulationTest {
                         it.Delay(10 * MINUTE, clock) {
                             val time = it.read(clock)
                             val nVal = it.read(n)
-                            it.report("Iteration $nVal at $time", typeOf<String>())
+                            it.report("Iteration $nVal at $time")
                             it.emit(n) { it + 1 }
                             Restart<Unit>()
                         }
@@ -1260,30 +1141,24 @@ class SimulationTest {
 
         val results = runSimulation(HOUR, takeFincon = true) { initialize() }
 
-        with (JsonArray(results.reports)) {
-            array {
-                element { assertEquals("Iteration 1 at 00:15:00.000000", string())}
-                element { assertEquals("Iteration 2 at 00:25:00.000000", string())}
-                element { assertEquals("Iteration 3 at 00:35:00.000000", string())}
-                element { assertEquals("Iteration 4 at 00:45:00.000000", string())}
-                element { assertEquals("Iteration 5 at 00:55:00.000000", string())}
-                assert(atEnd())
-            }
-        }
+        assertEquals(listOf(
+            "Iteration 1 at 00:15:00.000000",
+            "Iteration 2 at 00:25:00.000000",
+            "Iteration 3 at 00:35:00.000000",
+            "Iteration 4 at 00:45:00.000000",
+            "Iteration 5 at 00:55:00.000000",
+        ), results.reports)
 
         val nextResults = runSimulation(2 * HOUR, incon = results.fincon) { initialize() }
 
-        with (JsonArray(nextResults.reports)) {
-            array {
-                element { assertEquals("Iteration 6 at 01:05:00.000000", string())}
-                element { assertEquals("Iteration 7 at 01:15:00.000000", string())}
-                element { assertEquals("Iteration 8 at 01:25:00.000000", string())}
-                element { assertEquals("Iteration 9 at 01:35:00.000000", string())}
-                element { assertEquals("Iteration 10 at 01:45:00.000000", string())}
-                element { assertEquals("Iteration 11 at 01:55:00.000000", string())}
-                assert(atEnd())
-            }
-        }
+        assertEquals(listOf(
+            "Iteration 6 at 01:05:00.000000",
+            "Iteration 7 at 01:15:00.000000",
+            "Iteration 8 at 01:25:00.000000",
+            "Iteration 9 at 01:35:00.000000",
+            "Iteration 10 at 01:45:00.000000",
+            "Iteration 11 at 01:55:00.000000",
+        ), nextResults.reports)
     }
 
     @Test
@@ -1292,21 +1167,21 @@ class SimulationTest {
         fun initialize() {
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("P")) {
-                it.report("P -- 1", typeOf<String>())
+                it.report("P -- 1")
                 Spawn(Name("C"), {
-                    it.report("C -- 1", typeOf<String>())
+                    it.report("C -- 1")
                     Spawn(Name("GC"), {
-                        it.report("GC -- 1", typeOf<String>())
+                        it.report("GC -- 1")
                         it.Delay(90 * MINUTE, clock) {
-                            it.report("GC -- 2", typeOf<String>())
+                            it.report("GC -- 2")
                             Complete(Unit)
                         }
                     }) {
-                        it.report("C -- 2", typeOf<String>())
+                        it.report("C -- 2")
                         Complete(Unit)
                     }
                 }) {
-                    it.report("P -- 2", typeOf<String>())
+                    it.report("P -- 2")
                     Complete(Unit)
                 }
             }
@@ -1314,25 +1189,17 @@ class SimulationTest {
 
         val results = runSimulation(HOUR, takeFincon = true) { initialize() }
 
-        with (JsonArray(results.reports)) {
-            array {
-                element { assertEquals("P -- 1", string()) }
-                element { assertEquals("P -- 2", string()) }
-                element { assertEquals("C -- 1", string()) }
-                element { assertEquals("C -- 2", string()) }
-                element { assertEquals("GC -- 1", string()) }
-                assert(atEnd())
-            }
-        }
+        assertEquals(listOf(
+            "P -- 1",
+            "P -- 2",
+            "C -- 1",
+            "C -- 2",
+            "GC -- 1",
+        ), results.reports)
 
         val nextResults = runSimulation(2 * HOUR, incon = results.fincon) { initialize() }
 
-        with (JsonArray(nextResults.reports)) {
-            array {
-                element { assertEquals("GC -- 2", string()) }
-                assert(atEnd())
-            }
-        }
+        assertEquals(listOf("GC -- 2"), nextResults.reports)
     }
 
     @Test
@@ -1345,11 +1212,11 @@ class SimulationTest {
             for (i in 1..100) {
                 // Case A - Task delays directly to fincon time
                 spawn(Name("A$i")) {
-                    it.report("A$i -- 1", typeOf<String>())
+                    it.report("A$i -- 1")
                     it.Delay(MINUTE, clock) {
-                        it.report("A$i -- 2", typeOf<String>())
+                        it.report("A$i -- 2")
                         it.Delay(10 * SECOND, clock) {
-                            it.report("A$i -- 3", typeOf<String>())
+                            it.report("A$i -- 3")
                             Complete(Unit)
                         }
                     }
@@ -1359,12 +1226,12 @@ class SimulationTest {
                 //   Fincon task delays to fincon time directly, so if there are effects due to the order that tasks
                 //   are added to the queue, this hopes to provoke those effects.
                 spawn(Name("B$i")) {
-                    it.report("B$i -- 1", typeOf<String>())
+                    it.report("B$i -- 1")
                     it.Delay(30 * SECOND, clock) {
                         it.Delay(30 * SECOND, clock) {
-                            it.report("B$i -- 2", typeOf<String>())
+                            it.report("B$i -- 2")
                             it.Delay(10 * SECOND, clock) {
-                                it.report("B$i -- 3", typeOf<String>())
+                                it.report("B$i -- 3")
                                 Complete(Unit)
                             }
                         }
@@ -1373,12 +1240,12 @@ class SimulationTest {
 
                 // Case C - Children spawned at fincon time
                 spawn(Name("C$i")) {
-                    it.report("C$i -- 1", typeOf<String>())
+                    it.report("C$i -- 1")
                     it.Delay(MINUTE, clock) {
                         Spawn(Name("C${i}_child"), {
-                            it.report("C$i -- 2", typeOf<String>())
+                            it.report("C$i -- 2")
                             it.Delay(10 * SECOND, clock) {
-                                it.report("C$i -- 3", typeOf<String>())
+                                it.report("C$i -- 3")
                                 Complete(Unit)
                             }
                         }) {
@@ -1396,7 +1263,7 @@ class SimulationTest {
         // For every task, assert that it was properly saved and restored by seeing the 3rd report from it.
         for (i in 1..100) {
             for (t in listOf("A", "B", "C")) {
-                assertContains(nextResults.reports, JsonPrimitive("$t$i -- 3"))
+                assertContains(nextResults.reports, "$t$i -- 3")
             }
         }
     }

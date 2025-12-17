@@ -5,7 +5,6 @@ import gov.nasa.jpl.pyre.foundation.reporting.Channel
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler__deprecated
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
@@ -110,7 +109,13 @@ class PlanSimulation<M> {
 
             override fun <T> channel(name: Name, metadata: Map<String, String>, valueType: KType): Channel<T> {
                 val reportType = ChannelData::class.withArg(valueType)
-                state.initScope.report(ChannelMetadata<T>(name, metadata, reportType))
+                state.initScope.report(ChannelMetadata<T>(
+                    name,
+                    metadata,
+                    dataType = valueType,
+                    reportType = reportType,
+                    metadataType = ChannelMetadata::class.withArg(valueType),
+                ))
                 return Channel(name, reportType)
             }
 

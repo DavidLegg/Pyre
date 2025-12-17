@@ -2,12 +2,16 @@ package gov.nasa.jpl.pyre.examples.orbit
 
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
+import gov.nasa.jpl.pyre.foundation.plans.InstantSerializer
+import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.modules.SerializersModule
+import kotlin.time.Instant
 
 class EarthOrbit(
     context: InitScope,
@@ -42,6 +46,15 @@ class EarthOrbit(
             moonPosition = orbitalSimulation.bodyPositions.getValue(moon)
                 .named { "moon_position" }
                 .registered()
+        }
+    }
+
+    companion object {
+        val JSON_FORMAT = Json {
+            serializersModule = SerializersModule {
+                contextual(Instant::class, InstantSerializer())
+                activities<EarthOrbit> {}
+            }
         }
     }
 }

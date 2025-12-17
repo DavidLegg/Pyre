@@ -25,7 +25,7 @@ object UnitTesting {
     inline fun <reified M> runUnitTest(
         simulationStart: Instant,
         noinline constructModel: context (InitScope) () -> M,
-        noinline testTask: context (TaskScope) (M) -> Unit
+        noinline testTask: suspend context (TaskScope) (M) -> Unit
     ): SimulationResults {
         val results = MutableSimulationResults(simulationStart, simulationStart, )
 

@@ -34,6 +34,7 @@ import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.VsQuantity.div
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.convertedTo
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
@@ -61,25 +62,14 @@ fun main(args: Array<String>) {
     // Sample main function that basically hard-codes a plan
     // The point here is just to exercise the demo model, not to fully hook everything up.
 
-    val jsonFormat = Json {
-        serializersModule = SerializersModule {
-            contextual(Instant::class, String.serializer()
-                .alias(InvertibleFunction.of(Instant::parse, Instant::toString)))
-
-            activities {
-                activity(SwitchDevice::class)
-            }
-        }
-    }
     System.out.use { out ->
-        CsvReportHandler(out, jsonFormat).use { reportHandler ->
+        CsvReportHandler(out, UnitDemo.JSON_FORMAT).use { reportHandler ->
             val epoch = Instant.parse("2000-01-01T00:00:00Z")
 
-            val simulation = PlanSimulation.withoutIncon(
+            val simulation = PlanSimulation(
                 reportHandler,
                 epoch,
-                epoch,
-                ::UnitDemo,
+                constructModel = ::UnitDemo,
             )
 
             simulation.addActivities(listOf(
@@ -186,6 +176,19 @@ class UnitDemo(
                 batterySOC = (batteryEnergy / maxBatteryEnergy).valueIn(Unit.SCALAR)
                     .named { "battery_soc" }
                     .registered()
+            }
+        }
+    }
+
+    companion object {
+        val JSON_FORMAT = Json {
+            serializersModule = SerializersModule {
+                contextual(Instant::class, String.serializer()
+                    .alias(InvertibleFunction.of(Instant::parse, Instant::toString)))
+
+                activities {
+                    activity(SwitchDevice::class)
+                }
             }
         }
     }

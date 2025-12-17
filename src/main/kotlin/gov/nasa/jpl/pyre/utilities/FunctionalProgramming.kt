@@ -43,3 +43,21 @@ inline fun <A, B, C, D, E, F, G, H, I, J> curry(crossinline fn: (A, B, C, D, E, 
 inline fun <A, B, C, D, E, F, G, H, I, J, K> curry(crossinline fn: (A, B, C, D, E, F, G, H, I, J) -> K):
             (A) -> (B) -> (C) -> (D) -> (E) -> (F) -> (G) -> (H) -> (I) -> (J) -> K =
     { a -> { b -> {c -> { d -> { e -> { f -> { g -> { h -> { i -> { j -> fn(a, b, c, d, e, f, g, h, i, j) } } } } } } } } } }
+
+// Partial application overloads, inspired by an answer on Stack Overflow:
+// https://stackoverflow.com/questions/52711621/does-kotlin-support-partial-application
+
+operator fun <A, B, C> ((A, B) -> C).invoke(a: A): (B) -> C = { b -> this(a, b) }
+operator fun <A, B, C, D> ((A, B, C) -> D).invoke(a: A): (B, C) -> D = { b, c -> this(a, b, c) }
+operator fun <A, B, C, D, E> ((A, B, C, D) -> E).invoke(a: A): (B, C, D) -> E = { b, c, d -> this(a, b, c, d) }
+operator fun <A, B, C, D, E, F> ((A, B, C, D, E) -> F).invoke(a: A): (B, C, D, E) -> F = { b, c, d, e -> this(a, b, c, d, e) }
+
+operator fun <A, B, C, D> ((A, B, C) -> D).invoke(a: A, b: B): (C) -> D = { c -> this(a, b, c) }
+operator fun <A, B, C, D, E> ((A, B, C, D) -> E).invoke(a: A, b: B): (C, D) -> E = { c, d -> this(a, b, c, d) }
+operator fun <A, B, C, D, E, F> ((A, B, C, D, E) -> F).invoke(a: A, b: B): (C, D, E) -> F = { c, d, e -> this(a, b, c, d, e) }
+
+operator fun <A, B, C, D, E> ((A, B, C, D) -> E).invoke(a: A, b: B, c: C): (D) -> E = { d -> this(a, b, c, d) }
+operator fun <A, B, C, D, E, F> ((A, B, C, D, E) -> F).invoke(a: A, b: B, c: C): (D, E) -> F = { d, e -> this(a, b, c, d, e) }
+
+operator fun <A, B, C, D, E, F> ((A, B, C, D, E) -> F).invoke(a: A, b: B, c: C, d: D): (E) -> F = { e -> this(a, b, c, d, e) }
+

@@ -35,7 +35,7 @@ data class StandardPlanSimulationSetup<M>(
 )
 
 /**
- * Baseline way to set up and run a [gov.nasa.jpl.pyre.foundation.plans.PlanSimulation].
+ * Baseline way to set up and run a [PlanSimulation].
  *
  * A JSON setup file is read from disk.
  * The setup file indicates a plan and (optionally) an incon, as paths relative to the location of the setup file.
@@ -51,20 +51,13 @@ data class StandardPlanSimulationSetup<M>(
  * Model constructor, usually the constructor method of a top-level model class.
  *
  * @param jsonFormat
- * The [kotlinx.serialization.json.Json] format to use everywhere, including plan deserialization, reports, and incon/fincon handling.
- *
- * @param buildReportHandler
- * Given the output stream to write to, constructs a [gov.nasa.jpl.pyre.kernel.ReportHandler] and gives it to the callback.
- * Defaults to using [gov.nasa.jpl.pyre.general.reporting.ReportHandling.jsonlReportHandler], writing the output in JSON Lines format.
- * The callback pattern permits [AutoCloseable] report handlers, which may call the callback inside [AutoCloseable.use].
+ * The [Json] format to use everywhere, including plan deserialization, reports, and incon/fincon handling.
  */
 @OptIn(ExperimentalSerializationApi::class)
 inline fun <reified M> runStandardPlanSimulation(
     setupFile: String,
     noinline constructModel: InitScope.() -> M,
     jsonFormat: Json = Json.Default,
-    buildReportHandler: (OutputStream) -> Closeable<ReportHandler> =
-        { CsvReportHandler(it, jsonFormat).asCloseable() },
 ) {
     val setupPath = Path(setupFile).absolute()
     val setup = jsonFormat.decodeFromFile<StandardPlanSimulationSetup<M>>(setupPath)
@@ -87,28 +80,27 @@ inline fun <reified M> runStandardPlanSimulation(
     println("Reading plan $planPath")
     val plan = jsonFormat.decodeFromFile<Plan<M>>(planPath)
     outputStream.use { out ->
-        buildReportHandler(out).use { baseReportHandler ->
+        CsvReportHandler(out, jsonFormat).use { baseReportHandler ->
             runBlocking {
                 // Write output in parallel with simulation
                 baseReportHandler.inParallel { reportHandler ->
                     // Initialize the simulation from an incon, if available.
-                    val simulation = if (setup.inconFile == null) {
-                        println("No initial conditions given")
-                        PlanSimulation.Companion.withoutIncon<M>(
-                            reportHandler,
-                            plan.startTime,
-                            plan.startTime,
-                            constructModel
-                        )
-                    } else {
+                    val incon: JsonConditions?
+                    if (setup.inconFile != null) {
                         val inconPath = setupPath.resolveSibling(setup.inconFile)
                         println("Reading initial conditions $inconPath")
-                        PlanSimulation.Companion.withIncon<M>(
-                            reportHandler,
-                            JsonConditions.Companion.fromFile(inconPath, jsonFormat),
-                            constructModel
-                        )
+                        incon = JsonConditions.fromFile(inconPath, jsonFormat)
+                    } else {
+                        println("No initial conditions given.")
+                        incon = null
                     }
+
+                    val simulation = PlanSimulation(
+                        reportHandler,
+                        plan.startTime,
+                        incon,
+                        constructModel,
+                    )
 
                     // Run the plan itself
                     println("Running plan")
