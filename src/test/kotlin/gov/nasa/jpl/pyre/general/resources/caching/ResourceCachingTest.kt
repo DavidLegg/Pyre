@@ -34,6 +34,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.kernel.Name
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -182,11 +183,9 @@ class ResourceCachingTest {
         // By the design of this test, every resource was cached and registered again.
         // Except for the "activities" channel, the outputs should be identical.
         assertEquals(
-            outputFile1.readLines()
-                .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
+            outputFile1.readReports(jsonFormat)
                 .filter { it.channel != Name("activities") },
-            outputFile2.readLines()
-                .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
+            outputFile2.readReports(jsonFormat)
         )
     }
 
@@ -242,8 +241,7 @@ class ResourceCachingTest {
         // Now, since we're starting the replay at ~epoch + 20 min, the output should be identical
         // iff we strip out the activities channel, drop the reports before that time,
         // and add new initial value reports.
-        val output2 = outputFile2.readLines()
-            .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
+        val output2 = outputFile2.readReports(jsonFormat)
         // Since the initial values can be reported in any order, compare those separately, as sets
         assertEquals<Set<ChannelizedReport<JsonElement>>>(
             setOf(
@@ -254,10 +252,19 @@ class ResourceCachingTest {
         )
         // All other reports should be deterministically ordered
         assertEquals(
-            outputFile1.readLines()
-                .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
+            outputFile1.readReports(jsonFormat)
                 .filter { it.time > sim2start && it.channel != Name("activities") },
             output2.drop(2)
         )
     }
+
+    private fun Path.readReports(jsonFormat: Json): List<ChannelizedReport<JsonElement>> = readLines()
+        .mapNotNull {
+            try {
+                jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it)
+            } catch (_: SerializationException) {
+                // Ignore reports that aren't values, like metadata
+                null
+            }
+        }
 }

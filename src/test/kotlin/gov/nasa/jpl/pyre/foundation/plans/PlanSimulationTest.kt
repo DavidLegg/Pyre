@@ -27,6 +27,7 @@ import gov.nasa.jpl.pyre.general.reporting.ReportHandling.discardReports
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.*
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.equals
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
@@ -42,14 +43,16 @@ import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.foundation.value
+import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.encodeToJsonElement
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.modules.SerializersModule
 import org.junit.jupiter.api.Assertions.*
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.time.Instant
 
 class PlanSimulationTest {
@@ -70,13 +73,43 @@ class PlanSimulationTest {
     }
 
     class ModelWithResources {
-        val x: MutableDiscreteResource<Int>
-        val y: MutableDiscreteResource<String>
+        val intR: MutableIntResource
+        val longR: MutableLongResource
+        val boolR: MutableBooleanResource
+        val stringR: MutableStringResource
+        val doubleR: MutableDoubleResource
+        val floatR: MutableFloatResource
+        val enumR: MutableDiscreteResource<PowerState>
 
         constructor(context: InitScope) {
             with(context) {
-                x = discreteResource("x", 0).registered()
-                y = discreteResource("y", "XYZ").registered()
+                intR = discreteResource("intR", 0).registered()
+                longR = discreteResource("longR", 1L).registered()
+                boolR = discreteResource("boolR", false).registered()
+                stringR = discreteResource("stringR", "string value").registered()
+                doubleR = discreteResource("doubleR", 2.0).registered()
+                floatR = discreteResource("floatR", 3.0f).registered()
+                enumR = discreteResource("enumR", OFF).registered()
+
+                assertEquals(0, intR.getValue())
+                assertEquals(1L, longR.getValue())
+                assertEquals(false, boolR.getValue())
+                assertEquals("string value", stringR.getValue())
+                assertEquals(2.0, doubleR.getValue())
+                assertEquals(3.0f, floatR.getValue())
+                assertEquals(OFF, enumR.getValue())
+
+                spawn("Reader", task {
+                    assertEquals(0, intR.getValue())
+                    assertEquals(1L, longR.getValue())
+                    assertEquals(false, boolR.getValue())
+                    assertEquals("string value", stringR.getValue())
+                    assertEquals(2.0, doubleR.getValue())
+                    assertEquals(3.0f, floatR.getValue())
+                    assertEquals(OFF, enumR.getValue())
+
+                    stdout.report("Reader done")
+                })
             }
         }
 
@@ -85,16 +118,24 @@ class PlanSimulationTest {
             context(scope: TaskScope)
             override suspend fun effectModel(model: ModelWithResources) {}
         }
+
+        companion object {
+            val JSON_FORMAT = Json {
+                serializersModule = SerializersModule {
+                    contextual(Instant::class, String.serializer().alias(
+                        InvertibleFunction.of(Instant::parse, Instant::toString)))
+
+                    activities {
+                        activity(DummyActivity::class)
+                    }
+                }
+            }
+        }
     }
 
     @Test
     fun model_with_resources_can_be_created() {
-        val jsonFormat = Json {
-            serializersModule = SerializersModule {
-                contextual(Instant::class, String.serializer().alias(InvertibleFunction.of(Instant::parse, Instant::toString)))
-            }
-        }
-        val reports = ChannelizedReports(jsonFormat)
+        val reports = ChannelizedReports(ModelWithResources.JSON_FORMAT)
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation = PlanSimulation.withoutIncon(
             reportHandler = reports.handler(),
@@ -105,14 +146,45 @@ class PlanSimulationTest {
         simulation.runUntil(Instant.parse("2020-01-01T01:00:00Z"))
 
         with (reports) {
-            channel("x") {
+            channel("intR") {
                 at(Instant.parse("2020-01-01T00:00:00Z"))
                 element { assertEquals(0, int()) }
                 assert(atEnd())
             }
-            channel("y") {
+            channel("longR") {
                 at(Instant.parse("2020-01-01T00:00:00Z"))
-                element { assertEquals("XYZ", string()) }
+                element { assertEquals(1, int()) }
+                assert(atEnd())
+            }
+            channel("boolR") {
+                at(Instant.parse("2020-01-01T00:00:00Z"))
+                element { assertEquals(false, boolean()) }
+                assert(atEnd())
+            }
+            channel("stringR") {
+                at(Instant.parse("2020-01-01T00:00:00Z"))
+                element { assertEquals("string value", string()) }
+                assert(atEnd())
+            }
+            channel("doubleR") {
+                at(Instant.parse("2020-01-01T00:00:00Z"))
+                element { assertEquals(2.0, double()) }
+                assert(atEnd())
+            }
+            channel("floatR") {
+                at(Instant.parse("2020-01-01T00:00:00Z"))
+                element { assertEquals(3.0, double()) }
+                assert(atEnd())
+            }
+            channel("enumR") {
+                at(Instant.parse("2020-01-01T00:00:00Z"))
+                element { assertEquals("OFF", string()) }
+                assert(atEnd())
+            }
+            // Ensure the reader task finished, which proves those assertions ran
+            channel("stdout") {
+                at(Instant.parse("2020-01-01T00:00:00Z"))
+                element { assertEquals("Reader done", string()) }
                 assert(atEnd())
             }
         }
@@ -120,12 +192,7 @@ class PlanSimulationTest {
 
     @Test
     fun activities_can_be_created() {
-        val jsonFormat = Json {
-            serializersModule = SerializersModule {
-                contextual(Instant::class, String.serializer().alias(InvertibleFunction.of(Instant::parse, Instant::toString)))
-            }
-        }
-        val reports = ChannelizedReports(jsonFormat)
+        val reports = ChannelizedReports(ModelWithResources.JSON_FORMAT)
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation = PlanSimulation.withoutIncon(
             reportHandler = reports.handler(),
@@ -147,16 +214,6 @@ class PlanSimulationTest {
         simulation.runUntil(Instant.parse("2020-01-01T01:00:00Z"))
 
         with (reports) {
-            channel("x") {
-                at(Instant.parse("2020-01-01T00:00:00Z"))
-                element { assertEquals(0, int()) }
-                assert(atEnd())
-            }
-            channel("y") {
-                at(Instant.parse("2020-01-01T00:00:00Z"))
-                element { assertEquals("XYZ", string()) }
-                assert(atEnd())
-            }
             channel("activities") {
                 at(Instant.parse("2020-01-01T00:05:00Z"))
                 activityStart("Activity 1", "Type A")
@@ -191,7 +248,7 @@ class PlanSimulationTest {
                     SHUTDOWN to 1.0,
                 )
                 miscPower = discreteResource("miscPower", 0.0).registered()
-                totalPower = (DiscreteResourceMonad.map(deviceState) { s -> requireNotNull(powerTable[s]) } + miscPower)
+                totalPower = (map(deviceState, powerTable::getValue) + miscPower)
                     .named { "totalPower" }
                     .registered()
 
@@ -252,12 +309,17 @@ class PlanSimulationTest {
         }
 
         companion object {
-            val activitySerializersModule = SerializersModule {
-                activities {
-                    activity(DeviceBoot::class)
-                    activity(DeviceActivate::class)
-                    activity(DeviceShutdown::class)
-                    activity(AddMiscPower::class)
+            val JSON_FORMAT = Json {
+                serializersModule = SerializersModule {
+                    contextual(Instant::class, String.serializer().alias(
+                        InvertibleFunction.of(Instant::parse, Instant::toString)))
+
+                    activities {
+                        activity(DeviceBoot::class)
+                        activity(DeviceActivate::class)
+                        activity(DeviceShutdown::class)
+                        activity(AddMiscPower::class)
+                    }
                 }
             }
         }
@@ -265,12 +327,7 @@ class PlanSimulationTest {
 
     @Test
     fun activities_can_interact_with_model() {
-        val jsonFormat = Json {
-            serializersModule = SerializersModule {
-                contextual(Instant::class, String.serializer().alias(InvertibleFunction.of(Instant::parse, Instant::toString)))
-            }
-        }
-        val reports = ChannelizedReports(jsonFormat)
+        val reports = ChannelizedReports(TestModel.JSON_FORMAT)
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation = PlanSimulation.withoutIncon(
             reportHandler = reports.handler(),
@@ -428,14 +485,7 @@ class PlanSimulationTest {
 
     @Test
     fun activities_can_be_saved_and_restored() {
-        val jsonFormat = Json {
-            serializersModule = SerializersModule {
-                include(TestModel.activitySerializersModule)
-                contextual(Instant::class, String.serializer().alias(
-                    InvertibleFunction.of(Instant::parse, Instant::toString)))
-            }
-        }
-        val reports1 = ChannelizedReports(jsonFormat)
+        val reports1 = ChannelizedReports(TestModel.JSON_FORMAT)
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation1 = PlanSimulation.withoutIncon(
             reportHandler = reports1.handler(),
@@ -464,12 +514,12 @@ class PlanSimulationTest {
             }
         }
 
-        val fincon1 = jsonFormat.encodeToJsonElement(JsonConditions(jsonFormat).also(simulation1::save))
+        val fincon1 = JsonConditions(TestModel.JSON_FORMAT).also(simulation1::save).encodeToJsonElement()
 
-        val reports2 = ChannelizedReports(jsonFormat)
+        val reports2 = ChannelizedReports(TestModel.JSON_FORMAT)
         val simulation2 = PlanSimulation.withIncon(
             reportHandler = reports2.handler(),
-            inconProvider = jsonFormat.decodeJsonConditionsFromJsonElement(fincon1),
+            inconProvider = TestModel.JSON_FORMAT.decodeJsonConditionsFromJsonElement(fincon1),
             constructModel = ::TestModel,
         )
         // Add an activity which will spawn a child, which will be active during the next fincon cycle
@@ -493,12 +543,12 @@ class PlanSimulationTest {
             }
         }
 
-        val fincon2 = jsonFormat.encodeToJsonElement(JsonConditions(jsonFormat).also(simulation2::save))
+        val fincon2 = JsonConditions(TestModel.JSON_FORMAT).also(simulation2::save).encodeToJsonElement()
 
-        val reports3 = ChannelizedReports(jsonFormat)
+        val reports3 = ChannelizedReports(TestModel.JSON_FORMAT)
         val simulation3 = PlanSimulation.withIncon(
             reportHandler = reports3.handler(),
-            inconProvider = jsonFormat.decodeJsonConditionsFromJsonElement(fincon2),
+            inconProvider = TestModel.JSON_FORMAT.decodeJsonConditionsFromJsonElement(fincon2),
             constructModel = ::TestModel,
         )
         simulation3.runUntil(Instant.parse("2020-01-01T03:00:00Z"))

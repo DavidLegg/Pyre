@@ -27,6 +27,7 @@ import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import java.nio.file.Path
@@ -126,7 +127,14 @@ object ResourceCaching {
         val reader = file.bufferedReader()
         val realChannel = (channel ?: (scope.contextName / name))
         val points = reader.lineSequence()
-            .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
+            .mapNotNull {
+                try {
+                    jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it)
+                } catch (_: SerializationException) {
+                    // Ignore any report which isn't a channelized report, e.g. metadata entries
+                    null
+                }
+            }
             .filter { it.channel == realChannel }
             .map { ResourcePoint(it.time, jsonFormat.decodeFromJsonElement<D>(dynamicsType, it.data)) }
             .closesWith { reader.close() }

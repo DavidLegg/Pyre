@@ -7,7 +7,7 @@ import kotlin.reflect.KType
 
 @Serializable
 data class ChannelMetadata(
-    val name: Name,
+    val channel: Name,
     val metadata: Map<String, String>,
     @Transient
     val reportType: KType? = null,

@@ -31,6 +31,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.channel
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
@@ -96,7 +97,10 @@ class PlanSimulation<M> {
                 return Channel(name, reportType)
             }
 
-            override fun <T> report(channel: Channel<T>, value: T) = state.initScope.report(value, channel.reportType)
+            override fun <T> report(channel: Channel<T>, value: T) =
+                state.initScope.report(
+                    ChannelizedReport(channel.name, now(), value),
+                    channel.reportType)
 
             override val contextName: Name? = null
             override fun toString() = ""
