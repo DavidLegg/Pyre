@@ -16,7 +16,7 @@ interface BasicInitScope {
     ): Cell<T>
     fun <T> spawn(name: Name, step: PureTaskStep<T>)
     fun <T> read(cell: Cell<T>): T = cell.value
-    fun <T> report(value: T, type: KType)
+    fun <T> report(value: T)
 
     companion object {
         context (scope: BasicInitScope)
@@ -35,6 +35,6 @@ interface BasicInitScope {
         fun <T> read(cell: Cell<T>): T = scope.read(cell)
 
         context (scope: BasicInitScope)
-        fun <T> report(value: T, type: KType) = scope.report(value, type)
+        fun <T> report(value: T) = scope.report(value)
     }
 }

@@ -14,7 +14,7 @@ import java.util.Comparator.comparing
 import java.util.PriorityQueue
 import kotlin.reflect.KType
 
-typealias ReportHandler = (Any?, KType) -> Unit
+typealias ReportHandler = (Any?) -> Unit
 
 class SimulationState(private val reportHandler: ReportHandler, incon: InconProvider? = null) {
     // Use a class, not a data class, for performance.
@@ -96,7 +96,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: InconProv
             }
         }
 
-        override fun <T> report(value: T, type: KType) = reportHandler(value, type)
+        override fun <T> report(value: T) = reportHandler(value)
     }
 
     private fun restoreTask(rootTask: Task<*>, inconProvider: InconProvider): TaskEntry? =
@@ -196,7 +196,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: InconProv
                 modifiedCells += cell
             }
 
-            override fun <V> report(value: V, type: KType) = reportHandler(value, type)
+            override fun <V> report(value: V) = reportHandler(value)
         }
 
         // "trampoline" through the continuations of task

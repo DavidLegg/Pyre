@@ -2,17 +2,16 @@ package gov.nasa.jpl.pyre.foundation.plans
 
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelMetadata
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler__deprecated
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvider
-import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
-import gov.nasa.jpl.pyre.kernel.InconProvidingContext.Companion.provide
-import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.kernel.SimulationState
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
@@ -37,6 +36,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulatio
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
+import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.provide
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.reflect.KType
@@ -64,16 +64,33 @@ class PlanSimulation<M> {
     private val state: SimulationState
     private val activityResource: MutableDiscreteResource<GroundedActivity<M>?>
 
-    private constructor(
-        reportHandler: ReportHandler,
-        simulationEpoch: Instant?,
-        simulationStart: Duration?,
-        inconProvider: InconProvider?,
+    constructor(
+        reportHandler: ChannelizedReportHandler,
+        start: Instant? = null,
+        inconProvider: InconProvider? = null,
         constructModel: context (InitScope) () -> M,
         modelClass: KType,
     ) {
-        val simulationEpoch = requireNotNull(simulationEpoch ?: inconProvider?.within("simulation", "epoch")?.provide<Instant>())
-        var start: Duration = requireNotNull(simulationStart ?: inconProvider?.within("simulation", "time")?.provide<Duration>())
+        val epoch: Instant
+        val startDuration: Duration
+        if (inconProvider == null) {
+            epoch = requireNotNull(start) {
+                "If inconProvider is null, start must be provided."
+            }
+            startDuration = Duration.ZERO
+        } else {
+            epoch = requireNotNull(inconProvider.provide<Instant>("simulation", "epoch")) {
+                "Incon must provide simulation.epoch"
+            }
+            startDuration = requireNotNull(inconProvider.provide<Duration>("simulation", "time")) {
+                "Incon must provide simulation.time"
+            }
+            val inconStart = epoch + startDuration.toKotlinDuration()
+            require(start == null || start == inconStart) {
+                "start time $start must be null or match incon start time $inconStart"
+            }
+        }
+
         state = SimulationState(reportHandler, inconProvider)
         simulationScope = object : InitScope {
             override fun <T : Any> allocate(
@@ -92,21 +109,19 @@ class PlanSimulation<M> {
                 state.initScope.read(cell)
 
             override fun <T> channel(name: Name, metadata: Map<String, String>, valueType: KType): Channel<T> {
-                val reportType = ChannelizedReport::class.withArg(valueType)
-                state.initScope.report(ChannelMetadata(name, metadata, reportType), typeOf<ChannelMetadata>())
+                val reportType = ChannelData::class.withArg(valueType)
+                state.initScope.report(ChannelMetadata<T>(name, metadata, reportType))
                 return Channel(name, reportType)
             }
 
             override fun <T> report(channel: Channel<T>, value: T) =
-                state.initScope.report(
-                    ChannelizedReport(channel.name, now(), value),
-                    channel.reportType)
+                state.initScope.report(ChannelData(channel.name, now(), value))
 
             override val contextName: Name? = null
             override fun toString() = ""
 
-            override val simulationClock = resource("simulation_clock", Timer(start, 1))
-            override val simulationEpoch = simulationEpoch
+            override val simulationClock = resource("simulation_clock", Timer(startDuration, 1))
+            override val simulationEpoch = epoch
 
             override val activities = channel<ActivityEvent>(Name("activities"))
             override val stdout = channel<String>(Name("stdout"))
@@ -140,59 +155,6 @@ class PlanSimulation<M> {
          * This provides protection against some kinds of infinitely looping tasks.
          */
         var SIMULATION_STALL_LIMIT: Int = 100
-
-        inline fun <reified M> withIncon(
-            noinline reportHandler: ReportHandler,
-            inconProvider: InconProvider,
-            noinline constructModel: InitScope.() -> M,
-        ) = withIncon(
-            reportHandler,
-            inconProvider,
-            constructModel,
-            typeOf<M>(),
-        )
-
-        fun <M> withIncon(
-            reportHandler: ReportHandler,
-            inconProvider: InconProvider,
-            constructModel: InitScope.() -> M,
-            modelClass: KType,
-        ) = PlanSimulation(
-            reportHandler = reportHandler,
-            inconProvider = inconProvider,
-            simulationEpoch = null,
-            simulationStart = null,
-            constructModel = constructModel,
-            modelClass = modelClass,
-        )
-
-        inline fun <reified M> withoutIncon(
-            noinline reportHandler: ReportHandler,
-            simulationEpoch: Instant,
-            simulationStart: Instant,
-            noinline constructModel: InitScope.() -> M,
-        ) = withoutIncon(
-            reportHandler,
-            simulationEpoch,
-            simulationStart,
-            constructModel,
-            typeOf<M>(),
-        )
-
-        fun <M> withoutIncon(
-            reportHandler: ReportHandler,
-            simulationEpoch: Instant,
-            simulationStart: Instant,
-            constructModel: InitScope.() -> M,
-            modelClass: KType,
-        ) = PlanSimulation(
-            reportHandler = reportHandler,
-            inconProvider = null,
-            simulationEpoch = simulationEpoch,
-            simulationStart = (simulationStart - simulationEpoch).toPyreDuration(),
-            constructModel = constructModel,
-            modelClass = modelClass,
-        )
     }
 
     fun time() = simulationScope.simulationEpoch + state.time().toKotlinDuration()
@@ -278,3 +240,10 @@ class PlanSimulation<M> {
         runUntil(plan.endTime)
     }
 }
+
+inline fun <reified M> PlanSimulation(
+    reportHandler: ChannelizedReportHandler,
+    start: Instant? = null,
+    inconProvider: InconProvider? = null,
+    noinline constructModel: context (InitScope) () -> M,
+) = PlanSimulation(reportHandler, start, inconProvider, constructModel, typeOf<M>())

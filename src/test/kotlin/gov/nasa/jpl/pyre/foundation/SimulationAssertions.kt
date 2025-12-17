@@ -6,7 +6,7 @@ import gov.nasa.jpl.pyre.double
 import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.int
 import gov.nasa.jpl.pyre.foundation.ChannelizedReports.Report
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelData
 import gov.nasa.jpl.pyre.string
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -25,12 +25,12 @@ class ChannelizedReports(
     private val unchannelizedReports: MutableList<JsonElement> = mutableListOf()
 
     fun handler(): ReportHandler = { value, type ->
-        (value as? ChannelizedReport<*>)?.let {
+        (value as? ChannelData<*>)?.let {
             handleChannelized(it, type)
         } ?: unchannelizedReports.add(encode(value, type))
     }
 
-    private fun <T> handleChannelized(value: ChannelizedReport<T>, type: KType) {
+    private fun <T> handleChannelized(value: ChannelData<T>, type: KType) {
         channelizedReports.getOrPut(value.channel.toString(), ::mutableListOf)
             .add(Report(value.time, encode(value.data, requireNotNull(type.arguments[0].type))))
     }

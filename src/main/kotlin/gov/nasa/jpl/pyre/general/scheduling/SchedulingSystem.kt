@@ -1,18 +1,14 @@
 package gov.nasa.jpl.pyre.general.scheduling
 
-import gov.nasa.jpl.pyre.utilities.andThen;
 import gov.nasa.jpl.pyre.kernel.InconProvider
 import gov.nasa.jpl.pyre.kernel.JsonConditions
-import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
-import gov.nasa.jpl.pyre.general.reporting.ReportHandling.assumeType
-import gov.nasa.jpl.pyre.general.reporting.ReportHandling.channels
 import gov.nasa.jpl.pyre.general.results.SimulationResults
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
@@ -24,10 +20,14 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
 import gov.nasa.jpl.pyre.foundation.tasks.task
+import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.Profile
 import gov.nasa.jpl.pyre.general.results.ProfileOperations.asProfile
 import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.general.results.ProfileOperations.computeProfile
+import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
+import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toMutableSimulationResults
+import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplayScope.Companion.replay
 import gov.nasa.jpl.pyre.general.units.UnitAware
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
@@ -61,7 +61,7 @@ import kotlin.time.Instant
 class SchedulingSystem<M, C> private constructor(
     startTime: Instant?,
     val config: C,
-    private val constructModel: InitScope.(C) -> M,
+    private val constructModel: context (InitScope) (C) -> M,
     private val modelClass: KType,
     private val jsonFormat: Json,
     incon: InconProvider?,
@@ -69,46 +69,26 @@ class SchedulingSystem<M, C> private constructor(
     private val futureActivities: PriorityQueue<GroundedActivity<M>> = PriorityQueue(compareBy { it.time }),
     /** Activities which have been incorporated into the simulation. */
     private val pastActivities: MutableList<GroundedActivity<M>> = mutableListOf(),
-    private val resources: MutableMap<Name, MutableList<ChannelizedReport<*>>> = mutableMapOf(),
-    private val activitySpans: MutableMap<Activity<*>, ActivityEvent> = mutableMapOf(),
+    private val results: MutableSimulationResults = MutableSimulationResults(),
 ) {
     private var model: M? = null
-    private val reportHandler: ReportHandler = channels(
-        Name("activities") to (assumeType<ActivityEvent>() andThen { (value, type) ->
-            // The event coming straight out of the simulator will have a non-null activity.
-            // It's only when deserializing ActivityEvents that we lose the activity object reference.
-            // Additionally, ActivityEvents are cumulative - we only want to keep the last one for any given activity.
-            activitySpans[requireNotNull(value.data.activity)] = value.data
-        }),
-        miscHandler = { value, type ->
-            if (value is ChannelizedReport<*>) {
-                resources.getOrPut(value.channel, ::mutableListOf) += value
-            }
-        }
+    private val simulation: PlanSimulation<M> = PlanSimulation(
+        results.reportHandler(),
+        startTime,
+        incon,
+        { constructModel(config).also { model = it } },
+        modelClass,
     )
-    private val simulation: PlanSimulation<M> = if (incon == null) {
-        PlanSimulation.withoutIncon(
-            reportHandler,
-            requireNotNull(startTime),
-            startTime,
-            { constructModel(config).also { model = it } },
-            modelClass,
-        )
-    } else {
-        PlanSimulation.withIncon(
-            reportHandler,
-            incon,
-            { constructModel(config).also { model = it } },
-            modelClass,
-        )
+    init {
+        // Get the start time from the simulation, regardless of how the simulation was initialized, to keep the two in sync.
+        results.startTime = simulation.time()
     }
-    // Get the start time from the simulation, regardless of how the simulation was initialized, to keep the two in sync.
-    val startTime: Instant = simulation.time()
+    // Defer to the results object for the start time, so we don't duplicate and potentially disagree on start time.
+    val startTime: Instant get() = results.startTime
 
     fun time() = simulation.time()
 
     fun runUntil(endTime: Instant) {
-        val startTime = time()
         // Inject only the activities that we're about to run.
         // This way, we can adjust the plan that's still in the future when we're done.
         val activitiesToRun = mutableListOf<GroundedActivity<M>>()
@@ -118,6 +98,7 @@ class SchedulingSystem<M, C> private constructor(
         simulation.addActivities(activitiesToRun)
         pastActivities += activitiesToRun
         simulation.runUntil(endTime)
+        results.endTime = time()
     }
 
     /**
@@ -132,7 +113,7 @@ class SchedulingSystem<M, C> private constructor(
         // Do a regular run until the activity begins
         runUntil(activity.time)
         // So long as we haven't recorded the end of this activity, keep asking the simulation to step forward.
-        while (activitySpans[activity.activity]?.end == null && simulation.time() < Instant.DISTANT_FUTURE) {
+        while (results.activities[activity.activity]?.end == null && simulation.time() < Instant.DISTANT_FUTURE) {
             // First, look for any activities we need to inject right now:
             val activitiesToRun = mutableListOf<GroundedActivity<M>>()
             while (futureActivities.peek()?.run { time == simulation.time() } ?: false) {
@@ -147,7 +128,8 @@ class SchedulingSystem<M, C> private constructor(
             // Since the activity must run a task step to end, the simulation will not advance past the activity end.
             simulation.stepTo(nextActivityTime)
         }
-        return activitySpans[activity.activity]?.end ?: Instant.DISTANT_FUTURE
+        results.endTime = time()
+        return results.activities[activity.activity]?.end ?: Instant.DISTANT_FUTURE
     }
 
     fun addActivity(activity: GroundedActivity<M>) {
@@ -164,26 +146,24 @@ class SchedulingSystem<M, C> private constructor(
     operator fun plusAssign(activities: Collection<GroundedActivity<M>>) = addActivities(activities)
     operator fun plusAssign(plan: Plan<M>) = addPlan(plan)
 
-    fun plan() = Plan(startTime, time(), pastActivities + futureActivities)
+    fun plan() = Plan(results.startTime, time(), pastActivities + futureActivities)
 
-    fun results() = SimulationResults(
-        startTime,
-        time(),
-        resources.toMap(),
-        activitySpans.toMap(),
-    )
+    fun results(): SimulationResults {
+        results.endTime = simulation.time()
+        return results.toSimulationResults()
+    }
 
     /** Get a single profile, selected by the resource object itself. */
     fun <D : Dynamics<*, D>> profile(selector: M.() -> Resource<D>): Profile<D> {
         val name = model!!.selector().name
-        return resources.getValue(name).asProfile(name, time())
+        return results.resources.getValue(name).data.asProfile(name, time())
     }
 
     /** Get the last value of a registered resource, selected by the resource object itself. */
     fun <V, D : Dynamics<V, D>> lastValue(selector: M.() -> Resource<D>): V {
         val name = model!!.selector().name
         @Suppress("UNCHECKED_CAST")
-        val report = resources.getValue(name).last() as ChannelizedReport<D>
+        val report = results.resources.getValue(name).data.last() as ChannelData<D>
         return report.data.step((time() - report.time).toPyreDuration()).value()
     }
 
@@ -193,7 +173,7 @@ class SchedulingSystem<M, C> private constructor(
         val resource = model!!.selector()
         val name = resource.name
         @Suppress("UNCHECKED_CAST")
-        val report = resources.getValue(name).last() as ChannelizedReport<D>
+        val report = results.resources.getValue(name).data.last() as ChannelData<D>
         return UnitAware(
             report.data.step((time() - report.time).toPyreDuration()).value(),
             resource.unit,
@@ -228,7 +208,8 @@ class SchedulingSystem<M, C> private constructor(
         val scope = object : SchedulingReplayScope {
             context (_: InitScope)
             override fun <D : Dynamics<*, D>> replay(name: Name): Resource<D> =
-                this@SchedulingSystem.resources.getValue(name)
+                this@SchedulingSystem.results.resources.getValue(name)
+                    .data
                     .asProfile<D>(name, this@SchedulingSystem.time())
                     .asResource()
 
@@ -236,7 +217,7 @@ class SchedulingSystem<M, C> private constructor(
             context(_: InitScope)
             override fun countActivities(predicate: (ActivityEvent) -> Boolean): IntResource {
                 val counter = discreteResource("counted activities", 0)
-                activitySpans.values
+                results.activities.values
                     // Restrict to activities that haven't already ended and satisfy the predicate
                     .filter { (it.end?.let { it >= now() } ?: true) && predicate(it) }
                     .forEach {
@@ -276,8 +257,7 @@ class SchedulingSystem<M, C> private constructor(
         // Copy over all the other bookkeeping data
         futureActivities = PriorityQueue(futureActivities),
         pastActivities = pastActivities.toMutableList(),
-        resources = resources.toMutableMap(),
-        activitySpans = activitySpans.toMutableMap(),
+        results = results.toMutableSimulationResults(),
     )
 
     companion object {

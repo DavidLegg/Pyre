@@ -1,9 +1,7 @@
 package gov.nasa.jpl.pyre.general.reporting
 
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelMetadata
 import gov.nasa.jpl.pyre.kernel.ReportHandler
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
-import kotlinx.serialization.encodeToString
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelData
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
 import java.io.OutputStream
@@ -24,7 +22,7 @@ class CsvReportHandler(
 
     override fun invoke(value: Any?, type: KType) {
         when (value) {
-            is ChannelizedReport<*> -> {
+            is ChannelData<*> -> {
                 val dataType = requireNotNull(type.arguments[0].type)
                 val s = jsonFormat.encodeToString(jsonFormat.serializersModule.serializer(dataType), value.data)
                 val dataStr = if (s.startsWith('"') && s.endsWith('"') && ESCAPE_CHARS.none { it in s.substring(1..s.length-2) }) {

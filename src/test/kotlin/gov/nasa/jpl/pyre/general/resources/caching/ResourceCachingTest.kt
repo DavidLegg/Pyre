@@ -15,9 +15,8 @@ import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.general.resources.caching.ResourceCaching.fileBackedResource
 import gov.nasa.jpl.pyre.general.resources.caching.ResourceCachingTest.OriginalResourceModel.*
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelData
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
@@ -243,10 +242,10 @@ class ResourceCachingTest {
         // and add new initial value reports.
         val output2 = outputFile2.readReports(jsonFormat)
         // Since the initial values can be reported in any order, compare those separately, as sets
-        assertEquals<Set<ChannelizedReport<JsonElement>>>(
+        assertEquals<Set<ChannelData<JsonElement>>>(
             setOf(
-                ChannelizedReport(Name("resourceB"), sim2start, JsonPrimitive("Second string")),
-                ChannelizedReport(Name("resourceA"), sim2start, JsonPrimitive(-10)),
+                ChannelData(Name("resourceB"), sim2start, JsonPrimitive("Second string")),
+                ChannelData(Name("resourceA"), sim2start, JsonPrimitive(-10)),
                 ),
             output2.take(2).toSet()
         )
@@ -258,10 +257,10 @@ class ResourceCachingTest {
         )
     }
 
-    private fun Path.readReports(jsonFormat: Json): List<ChannelizedReport<JsonElement>> = readLines()
+    private fun Path.readReports(jsonFormat: Json): List<ChannelData<JsonElement>> = readLines()
         .mapNotNull {
             try {
-                jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it)
+                jsonFormat.decodeFromString<ChannelData<JsonElement>>(it)
             } catch (_: SerializationException) {
                 // Ignore reports that aren't values, like metadata
                 null

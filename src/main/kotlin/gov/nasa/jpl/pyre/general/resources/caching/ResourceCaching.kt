@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.utilities.Closeable.Companion.closesWith
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromJsonElement
 import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.Expiring
 import gov.nasa.jpl.pyre.foundation.resources.Expiry
@@ -58,7 +58,7 @@ object ResourceCaching {
     }
 
     /**
-     * Trimmed down version of [ChannelizedReport] for use with [precomputedResource].
+     * Trimmed down version of [ChannelData] for use with [precomputedResource].
      */
     @Serializable
     data class ResourcePoint<D>(
@@ -110,7 +110,7 @@ object ResourceCaching {
     //   4. A CSV reader, for CSV output format?
 
     /**
-     * Accepts a JSON Lines file which is a list of [ChannelizedReport]s in time order, one per line.
+     * Accepts a JSON Lines file which is a list of [ChannelData]s in time order, one per line.
      * Selects the reports on the given channel, and returns a resource which evolves according to that profile.
      *
      * Note that this is the default output file format produced by [gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation].
@@ -129,7 +129,7 @@ object ResourceCaching {
         val points = reader.lineSequence()
             .mapNotNull {
                 try {
-                    jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it)
+                    jsonFormat.decodeFromString<ChannelData<JsonElement>>(it)
                 } catch (_: SerializationException) {
                     // Ignore any report which isn't a channelized report, e.g. metadata entries
                     null

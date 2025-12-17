@@ -12,12 +12,16 @@ import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
 object Reporting {
+    /**
+     * Construct a [Channel] incorporating this [scope]'s contextName
+     */
     context (scope: InitScope)
     inline fun <reified T> channel(name: String, vararg metadata: Pair<String, String>): Channel<T> =
         channel(scope.contextName / name, *metadata)
 
     /**
-     * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
+     * Register a resource to be reported whenever it changes.
+     * Reports are issued to a [Channel] dedicated to this resource.
      */
     context (scope: InitScope)
     fun <V, D : Dynamics<V, D>> register(
@@ -33,7 +37,8 @@ object Reporting {
     }
 
     /**
-     * Register a resource to be reported whenever it changes, using a [ChannelizedReport]
+     * Register a resource to be reported whenever it changes.
+     * Reports are issued to a [Channel] dedicated to this resource.
      */
     context (scope: InitScope)
     inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> R.registered(vararg metadata: Pair<String, String>): R =
