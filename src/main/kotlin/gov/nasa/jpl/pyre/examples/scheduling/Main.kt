@@ -205,11 +205,10 @@ fun schedulingMain(args: Array<String>) {
 
         val planStart = Instant.parse("2020-01-01T00:00:00Z")
         val planEnd = Instant.parse("2025-01-01T00:00:00Z")
-        val baseScheduler = SchedulingSystem.withoutIncon(
-            planStart,
+        val baseScheduler = SchedulingSystem(
             STANDARD_CONFIG,
             ::SystemModel,
-            JSON_FORMAT,
+            planStart,
         )
 
         val commPasses: List<CommPass> = commScheduleFile.inputStream()
@@ -472,13 +471,12 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_dir
 
 fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_subsystem(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
     // Build a dedicated GNC scheduler, rather than running the full system, for performance.
-    val gncScheduler = SchedulingSystem.withIncon(
+    val gncScheduler = SchedulingSystem(
         // Collect a fincon from the full system to ensure the new scheduler is in the same state
         // Note that this is a "rough" fincon - some tasks will restart because subsystems don't align perfectly with full-systems,
         // but it should be "good enough" to get a high-precision turn time estimate.
         // Part of this requires building a subsystem-specific JSON_FORMAT, so that activities get dumped during restore.
         // This is a bit of a kludge, but again it's largely "good enough".
-        fincon().copy(GNC_JSON_FORMAT),
         config.gncConfig,
         { config ->
             // Instead of other subsystems, fill the inputs for the GNC system with replays of the prior layer.
@@ -486,7 +484,7 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_sub
             // Note that we need to build the GNC model in subContext("gnc") to line up with the full system fincon.
             GncModel(subContext("gnc"), config, gncInputProfiles.asInputs())
         },
-        jsonFormat = GNC_JSON_FORMAT,
+        incon = fincon(),
     )
     // Use the GNC scheduler to find when to start the turn
     val turn = gncScheduler.scheduleActivityToEndNear(scienceOpTurn(scienceOp.target), scienceOp.start)

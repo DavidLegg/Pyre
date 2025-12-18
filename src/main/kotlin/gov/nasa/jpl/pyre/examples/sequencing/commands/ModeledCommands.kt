@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.examples.sequencing.commands
 
-import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
 import gov.nasa.jpl.pyre.examples.sequencing.commands.seq.SEQ_MODELED_COMMANDS
 import gov.nasa.jpl.pyre.examples.sequencing.commands.telecom.TELECOM_MODELED_COMMANDS
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.Command
@@ -35,50 +34,6 @@ interface ModeledCommands<M : Any> {
      */
     context (builder: ActivityModuleBuilder<M>)
     fun includeModeledCommands()
-
-    companion object {
-        @OptIn(ExperimentalSerializationApi::class)
-        inline fun <reified A : Activity<SequencingDemo>> activity(model: SequencingDemo) = CommandBehavior { command ->
-            val serializer = serializer<A>()
-
-            val jsonObject = buildJsonObject {
-                for ((i, arg) in command.args.withIndex()) {
-                    val argName = serializer.descriptor.getElementName(i)
-                    val argDescriptor = serializer.descriptor.getElementDescriptor(i)
-
-                    fun requireSerialKind(vararg allowedKinds: SerialKind) {
-                        require(argDescriptor.kind in allowedKinds) {
-                            "Actual argument kind ${arg.javaClass.simpleName} is incompatible with expected kinds" +
-                                    " ${allowedKinds.joinToString(",")} for $argName"
-                        }
-                    }
-
-                    val jsonValue = when (arg) {
-                        is Command.Arg.FloatArg -> {
-                            requireSerialKind(PrimitiveKind.FLOAT, PrimitiveKind.DOUBLE)
-                            JsonPrimitive(arg.value)
-                        }
-                        is Command.Arg.IntArg -> {
-                            requireSerialKind(PrimitiveKind.INT, PrimitiveKind.LONG)
-                            JsonPrimitive(arg.value)
-                        }
-                        is Command.Arg.UIntArg -> {
-                            requireSerialKind(PrimitiveKind.INT, PrimitiveKind.LONG)
-                            JsonPrimitive(arg.value)
-                        }
-                        is Command.Arg.StringArg -> {
-                            requireSerialKind(PrimitiveKind.STRING, SerialKind.ENUM)
-                            JsonPrimitive(arg.value)
-                        }
-                    }
-                    put(argName, jsonValue)
-                }
-            }
-
-            val activity = Json.decodeFromJsonElement(serializer, jsonObject)
-            call(activity, model)
-        }
-    }
 }
 
 @OptIn(ExperimentalSerializationApi::class, InternalSerializationApi::class)

@@ -1,5 +1,6 @@
 .gradle
 .kotlin/
+.python-version
 build/
 temp/
 !gradle/wrapper/gradle-wrapper.jar

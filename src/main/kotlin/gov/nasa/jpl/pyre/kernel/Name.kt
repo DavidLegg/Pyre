@@ -24,7 +24,7 @@ data class Name(val namespace: Name?, val simpleName: String) {
         private const val SEPARATOR: Char = '/'
     }
 
-    private class NameSerializer: KSerializer<Name> by String.serializer().alias(InvertibleFunction.of(
+    class NameSerializer: KSerializer<Name> by String.serializer().alias(InvertibleFunction.of(
         { it.split(SEPARATOR).fold(null) { ns, n -> ns / n }!! },
         { it.toString() }
     ))

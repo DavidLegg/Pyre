@@ -1,189 +1,188 @@
 package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
-import gov.nasa.jpl.pyre.kernel.InconProvidingContext.Companion.provide
+import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.provide
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import kotlinx.serialization.ContextualSerializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.descriptors.element
+import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonDecoder
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonEncoder
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.decodeFromStream
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.encodeToStream
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.serializer
-import java.io.InputStream
-import java.io.OutputStream
-import java.nio.file.Path
-import kotlin.collections.component1
-import kotlin.collections.component2
 import kotlin.collections.iterator
-import kotlin.io.path.inputStream
-import kotlin.io.path.outputStream
 import kotlin.reflect.KType
+import kotlin.reflect.KTypeProjection
+import kotlin.reflect.KVariance
+import kotlin.reflect.full.createType
 
 /**
- * JSON-based [Conditions], fulfilling both [FinconCollector] and [InconProvider] roles.
+ * A version of [Conditions] which keeps all values as-is in memory, rather than serializing them.
  *
- * Note that the jsonFormat is not preserved through serialization.
- * Use [JsonConditions.encodeToJsonElement] and [JsonConditions.decodeJsonConditionsFromJsonElement],
- * and their string- and stream-based counterparts, to preserve jsonFormat correctly.
+ * Note that this will preserve object instances, which may cause poor behavior if those instances enclose references
+ * to the simulation.
+ * Put another way, conditions objects should be "pure data", immutable objects storing their own values.
  */
-@Serializable(with = JsonConditions.JsonConditionsSerializer::class)
 class JsonConditions private constructor(
-    private var value: JsonElement?,
-    private val children: MutableMap<String, JsonConditions>,
-    private val jsonFormat: Json,
-    private val locationDescription: List<String>,
+    private var value: Any? = null,
+    private var type: KType? = null,
+    private val children: MutableMap<String, JsonConditions> = mutableMapOf(),
+    private var locationDescription: Name? = null,
 ) : Conditions {
+    constructor() : this(null)
 
-    constructor(jsonFormat: Json = Json) : this(null, mutableMapOf(), jsonFormat, emptyList())
+    override fun <T> report(value: T, type: KType) {
+        require(this.value == null) {
+            "Duplicate fincon value reported at ${locationDescription ?: "<top level>"}"
+        }
+        this.value = value
+        this.type = type
+    }
 
-    fun copy(jsonFormat: Json = this.jsonFormat): JsonConditions = JsonConditions(
-        value = value,
-        children = children.mapValuesTo(mutableMapOf()) { it.value.copy(jsonFormat) },
-        jsonFormat = jsonFormat,
-        locationDescription = locationDescription,
-    )
+    @Suppress("UNCHECKED_CAST")
+    override fun <T> provide(type: KType): T? = this.value as T?
 
     override fun within(key: String): Conditions = children.getOrPut(key) {
-        JsonConditions(null, mutableMapOf(), jsonFormat, locationDescription + key)
+        JsonConditions(locationDescription = locationDescription / key)
     }
 
     override fun incremental(block: FinconCollectingContext.() -> Unit) {
-        val incrementalReports = mutableListOf<JsonElement>()
+        val incrementalReports = mutableListOf<Any?>()
         object : FinconCollectingContext {
             override fun <T> report(value: T, type: KType) {
-                incrementalReports += encode(value, type)
+                incrementalReports += value
             }
         }.block()
-        report(incrementalReports)
+        report<List<Any?>>(incrementalReports)
     }
 
     override fun <R> incremental(block: InconProvidingContext.() -> R): R? {
-        return provide<List<JsonElement>>()?.let {
+        return provide<List<Any?>>()?.let {
             var n = 0
             object : InconProvidingContext {
+                @Suppress("UNCHECKED_CAST")
                 override fun <T> provide(type: KType): T? =
-                    it.getOrNull(n++)?.let { decode(it, type) }
+                    it.getOrNull(n++) as T?
 
                 override fun inconExists(): Boolean = n in it.indices
             }.block()
         }
     }
 
-    override fun <T> report(value: T, type: KType) {
-        require(this.value == null) {
-            "Duplicate final condition reported at " +
-                    (locationDescription
-                        .takeUnless { it.isEmpty() }
-                        ?.joinToString(".")
-                        ?: "<top level>")
-        }
-        this.value = encode(value, type)
-    }
-
-    override fun <T> provide(type: KType): T? {
-        return value?.let { decode(it, type) }
-    }
-
     override fun inconExists(): Boolean = value != null
 
-    private fun <T> encode(value: T, type: KType): JsonElement =
-        jsonFormat.encodeToJsonElement(jsonFormat.serializersModule.serializer(type), value)
-
-    @Suppress("UNCHECKED_CAST")
-    private fun <T> decode(value: JsonElement, type: KType): T =
-        jsonFormat.decodeFromJsonElement(jsonFormat.serializersModule.serializer(type), value) as T
-
-    companion object {
-        fun JsonConditions.encodeToJsonElement() =
-            jsonFormat.encodeToJsonElement(this)
-
-        @OptIn(ExperimentalSerializationApi::class)
-        fun JsonConditions.encodeToStream(stream: OutputStream) =
-            jsonFormat.encodeToStream(this, stream)
-
-        fun JsonConditions.encodeToString() =
-            jsonFormat.encodeToString(this)
-
-        fun Json.decodeJsonConditionsFromJsonElement(json: JsonElement) =
-            decodeFromJsonElement<JsonConditions>(json).copy(jsonFormat = this)
-
-        @OptIn(ExperimentalSerializationApi::class)
-        fun Json.decodeJsonConditionsFromStream(stream: InputStream) =
-            decodeFromStream<JsonConditions>(stream).copy(jsonFormat = this)
-
-        fun Json.decodeJsonConditionsFromString(string: String) =
-            decodeFromString<JsonConditions>(string).copy(jsonFormat = this)
-
-        // Since reading/writing to disk is so common, add methods to do that a "canonical" way here:
-        /**
-         * Canonical way to read [JsonConditions] from disk.
-         *
-         * Be sure to supply a [Json] format to handle contextually-serialized types like activities.
-         */
-        fun fromFile(conditionsFile: Path, jsonFormat: Json = Json): JsonConditions =
-            conditionsFile.inputStream().use {
-                jsonFormat.decodeJsonConditionsFromStream(it)
-            }
-
-        /**
-         * Canonical way to write [JsonConditions] to disk.
-         */
-        fun JsonConditions.toFile(conditionsFile: Path) =
-            conditionsFile.outputStream().use { encodeToStream(it) }
+    /**
+     * Set this node's [locationDescription], and propagate the change to all children
+     */
+    private fun setLocation(location: Name) {
+        locationDescription = location
+        for ((key, child) in children) {
+            child.setLocation(location / key)
+        }
     }
 
-    private class JsonConditionsSerializer: KSerializer<JsonConditions> {
-        private val baseSerializer = serializer<JsonObject>()
+    private class MemoryConditionsSerializer() : KSerializer<JsonConditions> {
+        @OptIn(ExperimentalSerializationApi::class)
+        override val descriptor: SerialDescriptor =
+            buildClassSerialDescriptor(JsonConditions::class.qualifiedName!!) {
+                // Type is looked up statically and resolved at runtime
+                element("type", InvariantKTypeSerializer().descriptor, isOptional = true)
+                // That type is used to find a deserializer for value itself
+                element("value", ContextualSerializer(Any::class).descriptor, isOptional = true)
+                element<Map<String, JsonConditions>>("children", isOptional = true)
+            }
 
-        override val descriptor: SerialDescriptor = buildClassSerialDescriptor(
-            JsonConditions::class.qualifiedName!!,
-            baseSerializer.descriptor)
-
+        @OptIn(ExperimentalStdlibApi::class)
         override fun serialize(encoder: Encoder, value: JsonConditions) {
-            require(encoder is JsonEncoder)
-            encoder.encodeJsonElement(buildJsonObject {
-                value.value?.let { put("$", it) }
-                for ((key, child) in value.children) {
-                    put(key, encoder.json.encodeToJsonElement(this@JsonConditionsSerializer, child))
-                }
-            })
+            val structEncoder = encoder.beginStructure(descriptor)
+            value.type?.let {
+                structEncoder.encodeSerializableElement(descriptor, 0, InvariantKTypeSerializer(), it)
+            }
+            value.value?.let {
+                structEncoder.encodeSerializableElement(descriptor, 1, encoder.serializersModule.serializer(checkNotNull(value.type)), it)
+            }
+            value.children.takeUnless { it.isEmpty() }?.let {
+                structEncoder.encodeSerializableElement(descriptor, 2, encoder.serializersModule.serializer(), it)
+            }
+            structEncoder.endStructure(descriptor)
         }
 
         override fun deserialize(decoder: Decoder): JsonConditions {
-            require(decoder is JsonDecoder)
-            val jsonObject = decoder.decodeJsonElement().jsonObject
-
-            var value: JsonElement? = null
-            val children = mutableMapOf<String, JsonConditions>()
-
-            for ((key, element) in jsonObject) {
-                if (key == "$") {
-                    value = element
-                } else {
-                    children[key] = decoder.json.decodeFromJsonElement(this, element).prependLocation(key)
+            val structDecoder = decoder.beginStructure(descriptor)
+            var type: KType? = null
+            var value: Any? = null
+            var children: MutableMap<String, JsonConditions> = mutableMapOf()
+            while (true) {
+                when (val index = structDecoder.decodeElementIndex(descriptor)) {
+                    0 -> type = structDecoder.decodeSerializableElement(descriptor, index, InvariantKTypeSerializer())
+                    // TODO: This serializer inappropriately demands that "type" appear before "value"
+                    // Use concrete type deserialized earlier to deserialize value
+                    1 -> value = structDecoder.decodeSerializableElement(descriptor, index, decoder.serializersModule.serializer(requireNotNull(type) { "type must be specified before value" }))
+                    2 -> children = structDecoder.decodeSerializableElement(descriptor, index, decoder.serializersModule.serializer())
+                    CompositeDecoder.Companion.DECODE_DONE -> break
+                    else -> throw SerializationException("Unknown index $index")
                 }
             }
+            structDecoder.endStructure(descriptor)
 
-            return JsonConditions(value, children, Json, emptyList())
+            // Check that this node is consistent:
+            require((type == null) == (value == null)) {
+                "type and value must both be absent or both be present"
+            }
+            // Propagate a name change to all children, telling them where they are in the global conditions
+            for ((key, child) in children) {
+                child.setLocation(Name(key))
+            }
+            // Finally return the fully-constructed node
+            return JsonConditions(value, type, children)
         }
 
-        private fun JsonConditions.prependLocation(key: String): JsonConditions = JsonConditions(
-            value = value,
-            children = children.mapValuesTo(mutableMapOf()) { (_, c) -> c.prependLocation(key) },
-            jsonFormat = jsonFormat,
-            locationDescription = listOf(key) + locationDescription,
-        )
+    }
+
+    private class InvariantKTypeSerializer() : KSerializer<KType> {
+        override val descriptor: SerialDescriptor = buildClassSerialDescriptor(KType::class.qualifiedName!!) {
+            element<String>("name")
+            element<List<KType>>("typeArgs", isOptional = true)
+        }
+
+        override fun serialize(encoder: Encoder, value: KType) {
+            val structEncoder = encoder.beginStructure(descriptor)
+            structEncoder.encodeStringElement(descriptor, 0, value.javaClass.name)
+            if (value.arguments.isNotEmpty()) {
+                structEncoder.encodeSerializableElement(descriptor, 1, encoder.serializersModule.serializer(), value.arguments.map {
+                    require(it.variance == KVariance.INVARIANT) {
+                        "Only fully-invariant KTypes can be serialized."
+                    }
+                    // Null safety: it.type == null iff this argument is star-projected iff it.variance == null
+                    // In such cases, require() above would have already failed.
+                    it.type!!
+                })
+            }
+            structEncoder.endStructure(descriptor)
+        }
+
+        override fun deserialize(decoder: Decoder): KType {
+            val structDecoder = decoder.beginStructure(descriptor)
+            var name: String? = null
+            var typeArgs: List<KType> = emptyList()
+            while (true) {
+                when (val index = structDecoder.decodeElementIndex(descriptor)) {
+                    0 -> name = structDecoder.decodeStringElement(descriptor, 0)
+                    1 -> typeArgs = structDecoder.decodeSerializableElement(descriptor, 1, decoder.serializersModule.serializer())
+                    CompositeDecoder.DECODE_DONE -> break
+                    else -> throw SerializationException("Unknown index $index")
+                }
+            }
+            structDecoder.endStructure(descriptor)
+
+            // Require a class name, and construct the concrete type using invariant projections.
+            return Class.forName(requireNotNull(name) { "name is required" }).kotlin.createType(
+                typeArgs.map { KTypeProjection(KVariance.INVARIANT, it) }
+            )
+        }
     }
 }

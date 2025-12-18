@@ -6,12 +6,8 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.general.reporting.ParallelReportHandler.Companion.inParallel
 import gov.nasa.jpl.pyre.kernel.JsonConditions
-import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.toFile
-import gov.nasa.jpl.pyre.kernel.ReportHandler
-import gov.nasa.jpl.pyre.utilities.Closeable
-import gov.nasa.jpl.pyre.utilities.Closeable.Companion.asCloseable
-import gov.nasa.jpl.pyre.utilities.Closeable.Companion.use
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromFile
+import gov.nasa.jpl.pyre.utilities.Serialization.encodeToFile
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
@@ -89,7 +85,7 @@ inline fun <reified M> runStandardPlanSimulation(
                     if (setup.inconFile != null) {
                         val inconPath = setupPath.resolveSibling(setup.inconFile)
                         println("Reading initial conditions $inconPath")
-                        incon = JsonConditions.fromFile(inconPath, jsonFormat)
+                        incon = jsonFormat.decodeFromFile<JsonConditions>(inconPath)
                     } else {
                         println("No initial conditions given.")
                         incon = null
@@ -110,9 +106,7 @@ inline fun <reified M> runStandardPlanSimulation(
                     if (setup.finconFile != null) {
                         val finconPath = setupPath.resolveSibling(setup.finconFile)
                         println("Writing final conditions to $finconPath")
-                        JsonConditions(jsonFormat)
-                            .also(simulation::save)
-                            .toFile(finconPath)
+                        jsonFormat.encodeToFile(JsonConditions().also(simulation::save), finconPath)
                     } else {
                         println("No final conditions requested")
                     }

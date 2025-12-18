@@ -10,13 +10,13 @@ import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.allocate
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.read
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
-import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.decodeJsonConditionsFromJsonElement
 import gov.nasa.jpl.pyre.kernel.Task.PureStepResult.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
@@ -42,7 +42,7 @@ class SimulationTest {
             val reports = mutableListOf<Any?>()
             val simulation = SimpleSimulation(SimulationSetup(
                 reportHandler = reports::add,
-                inconProvider = incon?.let { Json.decodeJsonConditionsFromJsonElement(it) },
+                inconProvider = incon?.let { Json.decodeFromJsonElement<InconProvider>(it) },
                 initialize = initialize,
             ))
             // Run the simulation to the end
