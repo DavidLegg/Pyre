@@ -36,16 +36,6 @@ class UnitAware<T>(
         // Pass-through unit-independent mapping operation
         fun <T, S> UnitAware<T>.map(f: (T) -> S): UnitAware<S> = UnitAware(f(value), unit)
 
-        /**
-         * Convert to a particular unit, but remain a [UnitAware].
-         * This is mostly a performance optimization, where we know a particular unit would be more performant,
-         * or to be used in conjunction with [registered] to select a favored unit for registration.
-         *
-         * Contrast [valueIn], which returns the unit-free value after conversion.
-         */
-        context (_: Scaling<T>)
-        fun <T> UnitAware<T>.convertedTo(unit: Unit): UnitAware<T> = UnitAware(valueIn(unit), unit)
-
         // TODO: See if we can re-work UnitAware's type parameter to be "out" (covariant) and get rid of upcast.
         /** Up-cast this to a [UnitAware] around a more generic type */
         fun <T, S : T> UnitAware<S>.upcast(): UnitAware<T> = map { it }

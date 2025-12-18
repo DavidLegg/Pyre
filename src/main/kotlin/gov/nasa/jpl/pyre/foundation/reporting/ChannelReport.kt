@@ -1,9 +1,13 @@
 package gov.nasa.jpl.pyre.foundation.reporting
 
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.Serialization.alias
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import kotlinx.serialization.Contextual
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
+import kotlinx.serialization.builtins.serializer
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.time.Instant
@@ -30,7 +34,7 @@ sealed interface ChannelReport<T> {
     @Serializable
     data class ChannelMetadata<T>(
         val channel: Name,
-        val metadata: Map<String, String>,
+        val metadata: Map<String, Metadatum>,
         @Transient
         val dataType: KType = typeOf<Any?>(),
         @Transient
@@ -38,4 +42,16 @@ sealed interface ChannelReport<T> {
         @Transient
         val metadataType: KType = typeOf<ChannelMetadata<*>>(),
     ) : ChannelReport<T>
+
+    /**
+     * Generic metadata value, with both an in-memory [value] and on-disk [text] representation.
+     */
+    @Serializable(with = Metadatum.MetadatumSerializer::class)
+    data class Metadatum(
+        val value: Any?,
+        val text: String = value.toString(),
+    ) {
+        private class MetadatumSerializer : KSerializer<Metadatum> by
+                String.serializer().alias(InvertibleFunction.of({ Metadatum(null, it) }, { it.text }))
+    }
 }

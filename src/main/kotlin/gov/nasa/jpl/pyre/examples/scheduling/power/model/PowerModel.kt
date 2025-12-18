@@ -22,7 +22,6 @@ import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.VsQuantity.div
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.convertedTo
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.plus
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.upcast
@@ -130,12 +129,10 @@ class PowerModel(
                         + heater1.powerDraw
                         + heater2.powerDraw
                 ).named { "total_power_draw" }
-                    .convertedTo(WATT)
-                    .registered()
+                    .registered(WATT)
                 netPowerProduction = (constant(config.rtgPowerProduction) - totalPowerDraw.asPolynomial())
                     .named { "net_power_production" }
-                    .convertedTo(WATT)
-                    .registered()
+                    .registered(WATT)
                 val batteryIntegral = netPowerProduction.clampedIntegral(
                     "battery_energy",
                     constant(0.0 * JOULE),
@@ -143,15 +140,16 @@ class PowerModel(
                     config.batteryCapacity
                 )
                 batteryEnergy = batteryIntegral.integral
-                    .convertedTo(WATT_HOUR)
-                    .registered()
+                    .registered(WATT_HOUR)
                 batterySOC = (batteryEnergy / config.batteryCapacity).valueIn(Unit.SCALAR)
-                    .named { "battery_soc" }.registered()
+                    .named { "battery_soc" }
+                    .registered()
                 powerOverdrawn = batteryIntegral.underflow
                     .named { "power_overdrawn" }
-                    .convertedTo(WATT)
-                    .registered()
-                energyOverdrawn = powerOverdrawn.integral("energy_overdrawn", 0.0 * WATT_HOUR).registered().upcast()
+                    .registered(WATT)
+                energyOverdrawn = powerOverdrawn.integral("energy_overdrawn", 0.0 * WATT_HOUR)
+                    .registered(WATT_HOUR)
+                    .upcast()
             }
         }
     }

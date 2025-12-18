@@ -16,7 +16,7 @@ object Reporting {
      * Construct a [Channel] incorporating this [scope]'s contextName
      */
     context (scope: InitScope)
-    inline fun <reified T> channel(name: String, vararg metadata: Pair<String, String>): Channel<T> =
+    inline fun <reified T> channel(name: String, vararg metadata: Pair<String, ChannelReport.Metadatum>): Channel<T> =
         channel(scope.contextName / name, *metadata)
 
     /**
@@ -27,7 +27,7 @@ object Reporting {
     fun <V, D : Dynamics<V, D>> register(
         resource: Resource<D>,
         dynamicsType: KType,
-        metadata: Map<String, String> = mapOf(),
+        metadata: Map<String, ChannelReport.Metadatum> = mapOf(),
     ) {
         val channel = scope.channel<D>(resource.name, metadata, dynamicsType)
         channel.report(resource.getDynamics().data)
@@ -41,6 +41,6 @@ object Reporting {
      * Reports are issued to a [Channel] dedicated to this resource.
      */
     context (scope: InitScope)
-    inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> R.registered(vararg metadata: Pair<String, String>): R =
+    inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> R.registered(vararg metadata: Pair<String, ChannelReport.Metadatum>): R =
         also { register(it, typeOf<D>(), metadata.toMap()) }
 }

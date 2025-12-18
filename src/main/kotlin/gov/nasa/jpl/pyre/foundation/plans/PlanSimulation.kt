@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.foundation.plans
 
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
@@ -107,7 +108,7 @@ class PlanSimulation<M> {
             override fun <T> read(cell: Cell<T>): T =
                 state.initScope.read(cell)
 
-            override fun <T> channel(name: Name, metadata: Map<String, String>, valueType: KType): Channel<T> {
+            override fun <T> channel(name: Name, metadata: Map<String, ChannelReport.Metadatum>, valueType: KType): Channel<T> {
                 val reportType = ChannelData::class.withArg(valueType)
                 state.initScope.report(ChannelMetadata<T>(
                     name,

@@ -13,7 +13,6 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperation
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.convertedTo
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.upcast
 import gov.nasa.jpl.pyre.general.units.discrete_unit_aware_resource.UnitAwareDiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
@@ -40,15 +39,15 @@ class TelecomModel(
         with (context) {
             unitAware {
                 commandedDataRate = discreteResource("commanded_data_rate", 0.0 * BITS_PER_SECOND)
-                    .registered()
+                    .registered(BITS_PER_SECOND)
                 radioPoweredOn = DiscreteResourceOperations.discreteResource("radio_powered_on", false)
                     .registered()
                 transmittingToEarth = (inputs.isEarthPointed and radioPoweredOn)
-                    .named { "transmitting_to_earth" }.registered()
+                    .named { "transmitting_to_earth" }
+                    .registered()
                 realizedDataRate = ((map(transmittingToEarth) { if (it) 1.0 else 0.0 } * Unit.SCALAR) * commandedDataRate.upcast())
                     .named { "realized_data_rate" }
-                    .convertedTo(BITS_PER_SECOND)
-                    .registered()
+                    .registered(BITS_PER_SECOND)
             }
         }
     }

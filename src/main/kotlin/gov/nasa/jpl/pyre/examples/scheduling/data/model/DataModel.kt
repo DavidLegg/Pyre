@@ -14,7 +14,6 @@ import gov.nasa.jpl.pyre.general.units.StandardUnits.SECOND
 import gov.nasa.jpl.pyre.general.units.Unit
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.convertedTo
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.upcast
 import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.integral
@@ -99,12 +98,10 @@ class DataModel(
             unitAware {
                 netDataRate = (inputs.dataRate - inputs.downlinkDataRate)
                     .named { "net_data_rate" }
-                    .convertedTo(BITS_PER_SECOND)
-                    .registered()
+                    .registered(BITS_PER_SECOND)
                 dataCapacity = constant(config.dataCapacity)
                     .named { "data_capacity" }
-                    .convertedTo(GIGABYTE)
-                    .registered()
+                    .registered(GIGABYTE)
                 val storageIntegral = netDataRate.asPolynomial().clampedIntegral(
                     "stored_data",
                     constant(0.0 * BYTE),
@@ -112,15 +109,17 @@ class DataModel(
                     0.0 * MEGABYTE,
                 )
                 storedData = storageIntegral.integral
-                    .convertedTo(GIGABYTE)
-                    .registered()
+                    .registered(GIGABYTE)
                 // Actual downlink rate is downlinkRate - underflow rate: I.e., when we're underflowing, we're failing to downlink by that rate.
                 actualDownlinkRate = (inputs.downlinkDataRate.asPolynomial() - storageIntegral.underflow)
                     .named { "actual_downlink_rate" }
-                    .convertedTo(BITS_PER_SECOND)
-                    .registered()
-                dataDownlinked = actualDownlinkRate.integral("data_downlinked", 0.0 * GIGABYTE).registered().upcast()
-                dataLost = storageIntegral.overflow.integral("data_lost", 0.0 * GIGABYTE).registered().upcast()
+                    .registered(BITS_PER_SECOND)
+                dataDownlinked = actualDownlinkRate.integral("data_downlinked", 0.0 * GIGABYTE)
+                    .registered(GIGABYTE)
+                    .upcast()
+                dataLost = storageIntegral.overflow.integral("data_lost", 0.0 * GIGABYTE)
+                    .registered(GIGABYTE)
+                    .upcast()
             }
         }
     }

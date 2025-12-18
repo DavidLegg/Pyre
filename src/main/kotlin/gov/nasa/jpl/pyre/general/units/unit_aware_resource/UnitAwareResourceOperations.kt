@@ -1,5 +1,7 @@
 package gov.nasa.jpl.pyre.general.units.unit_aware_resource
 
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.Metadatum
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
@@ -32,7 +34,6 @@ import gov.nasa.jpl.pyre.general.units.quantity.DoubleField
 import gov.nasa.jpl.pyre.general.units.quantity_resource.DoubleResourceField
 import gov.nasa.jpl.pyre.general.units.quantity_resource.MutableDoubleResourceScaling
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.contracts.ExperimentalContracts
 
 object UnitAwareResourceOperations {
@@ -43,9 +44,14 @@ object UnitAwareResourceOperations {
     inline fun <V, reified D : Dynamics<V, D>> resource(name: String, initialDynamics: UnitAware<D>): UnitAware<MutableResource<D>> =
         initialDynamics.map { gov.nasa.jpl.pyre.foundation.resources.resource(name, it) }
 
-    context (_: InitScope)
-    inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> UnitAware<R>.registered(): UnitAware<R> =
-        apply { map { it.fullyNamed { name.namespace / "${name.simpleName} ($unit)" }.registered() } }
+    context (_: InitScope, _: Scaling<R>)
+    inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> UnitAware<R>.registered(unit: Unit): UnitAware<R> = also {
+        // Rescale the value, preserve the name, and report the result in the requested unit.
+        // Then just return the original resource unchanged.
+        valueIn(unit)
+            .fullyNamed { name }
+            .registered("unit" to Metadatum(unit))
+    }
 
     /**
      * Get unit-aware full dynamics from a unit-aware resource.

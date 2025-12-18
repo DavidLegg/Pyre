@@ -62,7 +62,7 @@ class ImagerModel(
                     }
                 } * BITS_PER_SECOND)
                     .named { "data_rate" }
-                    .registered()
+                    .registered(BITS_PER_SECOND)
             }
         }
     }

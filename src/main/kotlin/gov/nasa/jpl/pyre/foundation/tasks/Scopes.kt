@@ -3,6 +3,7 @@ package gov.nasa.jpl.pyre.foundation.tasks
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.foundation.resources.Resource
@@ -133,7 +134,7 @@ interface InitScope : SimulationScope, ResourceScope, ReportScope {
      */
     fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>)
 
-    fun <T> channel(name: Name, metadata: Map<String, String>, valueType: KType): Channel<T>
+    fun <T> channel(name: Name, metadata: Map<String, ChannelReport.Metadatum>, valueType: KType): Channel<T>
 
     companion object {
         context (scope: InitScope)
@@ -184,7 +185,7 @@ interface InitScope : SimulationScope, ResourceScope, ReportScope {
         }
 
         context (scope: InitScope)
-        inline fun <reified T> channel(name: Name, vararg metadata: Pair<String, String>) =
+        inline fun <reified T> channel(name: Name, vararg metadata: Pair<String, ChannelReport.Metadatum>) =
             scope.channel<T>(name, metadata.toMap(), typeOf<T>())
     }
 }

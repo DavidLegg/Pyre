@@ -29,6 +29,7 @@ import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandl
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toMutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplayScope.Companion.replay
+import gov.nasa.jpl.pyre.general.units.Unit
 import gov.nasa.jpl.pyre.general.units.UnitAware
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
@@ -170,13 +171,13 @@ class SchedulingSystem<M, C> private constructor(
     /** Get the last value of a registered resource, selected by the resource object itself. */
     fun <V, D : Dynamics<V, D>> lastQuantity(selector: M.() -> UnitAware<Resource<D>>): UnitAware<V> {
         // TODO: Use channel metadata to do unit conversion rather than resource.unit
-        val resource = model!!.selector()
-        val name = resource.name
+        val resourceResults = results.resources.getValue(model!!.selector().name)
         @Suppress("UNCHECKED_CAST")
-        val report = results.resources.getValue(name).data.last() as ChannelData<D>
+        val report = resourceResults.data.last() as ChannelData<D>
+        val unit = resourceResults.metadata.metadata.getValue("unit").value as Unit
         return UnitAware(
             report.data.step((time() - report.time).toPyreDuration()).value(),
-            resource.unit,
+            unit,
         )
     }
 
@@ -248,7 +249,7 @@ class SchedulingSystem<M, C> private constructor(
 
     // Initialize a new simulation, configured with newConfig and this sim's fincon
     fun copy(newConfig: C = config): SchedulingSystem<M, C> = SchedulingSystem(
-        startTime,
+        time(),
         newConfig,
         constructModel,
         modelClass,

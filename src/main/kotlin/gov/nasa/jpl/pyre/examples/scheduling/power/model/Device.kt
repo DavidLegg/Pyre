@@ -38,7 +38,7 @@ class Device<M>(
                 // Then apply unit WATT to the resource as a whole, instead of each value.
                 powerDraw = (map(mode, powerTable_W::getValue) * WATT)
                     .named { "power_draw" }
-                    .registered()
+                    .registered(WATT)
             }
         }
     }

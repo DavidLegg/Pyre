@@ -9,7 +9,6 @@ import gov.nasa.jpl.pyre.general.units.quantity_resource.MutableQuantityResource
 import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource
 import gov.nasa.jpl.pyre.general.units.quantity.Quantity
 import gov.nasa.jpl.pyre.general.units.quantity.QuantityOperations.div
-import gov.nasa.jpl.pyre.general.units.StandardUnits.DEGREE
 import gov.nasa.jpl.pyre.general.units.StandardUnits.MINUTE
 import gov.nasa.jpl.pyre.general.units.StandardUnits.RADIAN
 import gov.nasa.jpl.pyre.general.units.StandardUnits.ROTATION
@@ -21,7 +20,6 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.choose
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
-import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.bind
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
@@ -41,7 +39,6 @@ import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.time
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.convertedTo
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.upcast
 import gov.nasa.jpl.pyre.general.units.discrete_unit_aware_resource.UnitAwareDiscreteResourceOperations.VsScalar.lessThanOrEquals
 import gov.nasa.jpl.pyre.general.units.discrete_unit_aware_resource.UnitAwareDiscreteResourceOperations.discreteResource
@@ -206,8 +203,7 @@ class GncModel(
                 // Since doing the derivation above likely produced some weird units,
                 // split the declaration and registration, so I can choose the registration unit explicitly.
                 agility = discreteResource("agility", initialAgility)
-                    .convertedTo(MRAD_PER_SECOND)
-                    .registered()
+                    .registered(MRAD_PER_SECOND)
 
                 val primaryPointingTargetVector = (bind(primaryPointingTarget, inputs.pointingTargets::getValue)
                     .named { "${primaryPointingTarget}_vector" }).registered()
@@ -239,21 +235,22 @@ class GncModel(
                 pointingError = (map(targetAttitude, spacecraftAttitude) {
                     q, r -> q.applyInverseTo(r).angle
                 } * RADIAN)
-                    .convertedTo(MRAD)
                     .named { "pointing_error" }
-                    .registered()
+                    .registered(MRAD)
 
                 isSettled = (pointingError lessThanOrEquals config.pointingErrorTolerance)
                     .named { "is_settled" }
                     .registered()
 
                 val turnRequired = isSettled.not()
-                controlMode = (bind(systemMode) {
+                controlMode = bind(systemMode) {
                     when (it) {
                         GncSystemMode.IDLE -> pure(GncControlMode.IDLE)
                         GncSystemMode.ACTIVE -> turnRequired.choose(pure(GncControlMode.TURN), pure(GncControlMode.HOLD))
                     }
-                }.named { "control_mode" }).registered()
+                }
+                    .named { "control_mode" }
+                    .registered()
 
                 val timeSinceLastControllerStep = timer("time_since_last_controller_step")
                 val controllerStepSize = map(controlMode) {

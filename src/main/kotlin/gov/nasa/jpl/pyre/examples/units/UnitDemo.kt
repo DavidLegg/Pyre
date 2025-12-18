@@ -34,9 +34,7 @@ import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.VsQuantity.div
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.convertedTo
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.plus
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.upcast
@@ -148,14 +146,13 @@ class UnitDemo(
                     .named { "total_power_draw" }
                     // Since we're going to register this resource, we're choosing a specific unit to register it in.
                     // Again, this conversion is dimension-checked at initialization and applied as simple double operations in simulation.
-                    .convertedTo(KILOWATT)
-                    .registered()
+                    .registered(KILOWATT)
 
                 // Unit-awareness also "plays nicely" with continuous resources. This lets us do unit-aware integration:
                 // Note that specifying the starting value in kWh means we'll register the results in that unit too.
                 totalEnergyUsed = totalPowerDraw.asPolynomial()
                     .integral("total_energy_used", 0.0 * KILOWATT_HOUR)
-                    .registered()
+                    .registered(KILOWATT_HOUR)
                     .upcast()
 
                 // We can even do complex things like clamped integration, all in a unit-aware way:
@@ -169,7 +166,8 @@ class UnitDemo(
                     constant(0.0 * JOULE),
                     constant(maxBatteryEnergy),
                     500.0 * JOULE,
-                    ).integral.convertedTo(JOULE).registered()
+                    ).integral
+                    .registered(JOULE)
                 // Finally, when we expect a pure scalar (a dimensionless quantity), we can say so.
                 // The framework will ensure we've cancelled all dimensions correctly, and apply any remaining scaling
                 // left over from doing unit conversions (e.g., "hr / s" requires multiplying by 3600).
@@ -209,7 +207,7 @@ class Device(
                 state = discreteResource("state", OFF).registered()
                 powerDraw = (map(state, powerUsageMap::getValue) * MILLIWATT)
                     .named { "power_draw" }
-                    .registered()
+                    .registered(MILLIWATT)
             }
         }
     }

@@ -21,7 +21,6 @@ import gov.nasa.jpl.pyre.general.units.StandardUnits.RADIAN
 import gov.nasa.jpl.pyre.general.units.StandardUnits.ROTATION
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteDynamicsMonad
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
@@ -34,7 +33,6 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.every
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.VsQuantity.times
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.VsQuantity.plus
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.convertedTo
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.plus
 import gov.nasa.jpl.pyre.general.units.VectorSpace
@@ -106,34 +104,31 @@ class GeometryModel(
                     // Notice also how our unit-awareness framework lets us write mixed-unit expressions, e.g. AU and km.
                     addVector((2.0 * Vector3D.PLUS_I * AU), (1e7 * Vector3D.PLUS_K * KILOMETER)),
                     subtractVector((2.0 * Vector3D.PLUS_J * AU), (1e7 * Vector3D.PLUS_K * KILOMETER)),
-                    clock,
-                ).named { "spacecraft_position" }
-                    .convertedTo(KILOMETER)
-                    .registered()
+                    clock)
+                    .named { "spacecraft_position" }
+                    .registered(KILOMETER)
 
                 earthPosition = orbitResource(
                     1.0 * YEAR,
                     0.0 * DEGREE,
                     1.0 * Vector3D.PLUS_I * AU,
                     1.0 * Vector3D.PLUS_J * AU,
-                    clock,
-                ).named { "earth_position" }
-                    .convertedTo(KILOMETER)
-                    .registered()
+                    clock)
+                    .named { "earth_position" }
+                    .registered(KILOMETER)
 
                 marsPosition = orbitResource(
                     1.84 * YEAR,
                     45.0 * DEGREE,
                     1.5 * Vector3D.PLUS_I * AU,
                     1.5 * Vector3D.PLUS_J * AU,
-                    clock
-                ).named { "mars_position" }
-                    .convertedTo(KILOMETER)
-                    .registered()
+                    clock)
+                    .named { "mars_position" }
+                    .registered(KILOMETER)
 
-                sunPosition = constant(Vector3D.ZERO * AU).named { "sun_position" }
-                    .convertedTo(KILOMETER)
-                    .registered()
+                sunPosition = constant(Vector3D.ZERO * AU)
+                    .named { "sun_position" }
+                    .registered(KILOMETER)
 
                 // For operations we haven't explicitly written as unit-aware, we always have the option of "locally" dealing with units.
                 // This means asking for our inputs in a specific unit, performing the operation as a scalar operation
