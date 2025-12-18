@@ -1,13 +1,12 @@
 package gov.nasa.jpl.pyre.examples.lander.models.apss
 
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.kernel.ratioOver
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.registeredIntegral
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.decrease
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.increase
@@ -19,6 +18,9 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
+import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.integral
 import kotlinx.serialization.Serializable
 
 class APSSModel(
@@ -52,7 +54,7 @@ class APSSModel(
 
         init {
             with (context) {
-                state = registeredDiscreteResource("state", initialState)
+                state = discreteResource("state", initialState).registered()
                 inRate = discreteResource("inRate", initialInRate)
                 outRate = discreteResource("outRate", initialOutRate)
             }
@@ -73,21 +75,21 @@ class APSSModel(
     init {
         with (context) {
             subContext("power_on") {
-                paePoweredOn = registeredDiscreteResource("PAE", false)
+                paePoweredOn = discreteResource("PAE", false).registered()
                 components = Component.entries.associateWith {
                     ComponentModel(this, false, ComponentRate(0.0, 0.0), ComponentRate(0.0, 0.0))
                 }
             }
             subContext("internal_volume") {
-                internalRate = registeredDiscreteResource("rate", 0.0)
-                internalVolume = internalRate.asPolynomial().registeredIntegral("volume", 0.0)
+                internalRate = discreteResource("rate", 0.0).registered()
+                internalVolume = internalRate.asPolynomial().integral("volume", 0.0).registered()
             }
             subContext("volume_to_send_to_vc") {
-                rateToSendToVC = registeredDiscreteResource("rate", 0.0)
-                volumeToSendToVC = rateToSendToVC.asPolynomial().registeredIntegral("volume", 0.0)
+                rateToSendToVC = discreteResource("rate", 0.0)
+                volumeToSendToVC = rateToSendToVC.asPolynomial().integral("volume", 0.0).registered()
             }
-            continuousDataSentIn = registeredDiscreteResource("continuous_data_sent_in", 0.0)
-            transferRate = registeredDiscreteResource("transfer_rate", 751.68/3600.0)
+            continuousDataSentIn = discreteResource("continuous_data_sent_in", 0.0).registered()
+            transferRate = discreteResource("transfer_rate", 751.68/3600.0).registered()
         }
     }
 

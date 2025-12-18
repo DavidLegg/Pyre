@@ -8,7 +8,9 @@ import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.allocate
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
@@ -63,7 +65,7 @@ fun <V, D : Dynamics<V, D>> resource(
 
         context(scope: ResourceScope)
         override fun getDynamics(): FullDynamics<D> = scope.read(cell)
-    } named { name }
+    }.named { name }
 }
 
 fun <D> commutingEffects(): MergeResourceEffect<D> = { left, right -> left andThen right }
@@ -83,9 +85,10 @@ fun <D> autoEffects(resultsEqual: (FullDynamics<D>, FullDynamics<D>) -> Boolean 
     }
 }
 
-/**
- * Apply a lazily-computed name to a mutable resource
- */
-infix fun <D> MutableResource<D>.named(nameFn: () -> String) = object : MutableResource<D> by this {
-    override fun toString(): String = nameFn()
+context (scope: SimulationScope)
+fun <D> MutableResource<D>.named(nameFn: () -> String) = fullyNamed { scope.contextName / nameFn() }
+
+fun <D> MutableResource<D>.fullyNamed(nameFn: () -> Name) = object : MutableResource<D> by this {
+    override val name: Name get() = nameFn()
+    override fun toString() = name.simpleName
 }

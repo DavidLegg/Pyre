@@ -22,8 +22,6 @@ import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.general.units.Field
 import gov.nasa.jpl.pyre.general.units.Ring
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.map
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.upcast
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.register
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D
 import kotlin.contracts.ExperimentalContracts
 
@@ -37,10 +35,6 @@ object QuantityVectorResourceOperations {
     context (scope: InitScope)
     fun quantityVectorResource(name: String, vector: QuantityVector): MutableQuantityVectorResource =
         vector.map { discreteResource(name, it) }
-
-    context (_: InitScope, _: VectorResourceVectorSpace)
-    fun registeredQuantityVectorResource(name: String, vector: QuantityVector): MutableQuantityVectorResource =
-        quantityVectorResource(name, vector).also { register(it.upcast(), vector.unit) }
 }
 
 object MutableVectorResourceScaling : Scaling<MutableDiscreteResource<Vector3D>> {

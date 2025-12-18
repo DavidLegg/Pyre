@@ -1,7 +1,8 @@
 package gov.nasa.jpl.pyre.examples.lander.models.ids
 
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import kotlin.math.pow
@@ -21,8 +22,8 @@ class IDSModel(
 
     init {
         with (context) {
-            idaMode = registeredDiscreteResource("IDAMode", IDAMode.Idle)
-            idaSurvivalHeatersNominal = registeredDiscreteResource("IDASurvivalHeatersNominal", true)
+            idaMode = discreteResource("IDAMode", IDAMode.Idle).registered()
+            idaSurvivalHeatersNominal = discreteResource("IDASurvivalHeatersNominal", true).registered()
         }
     }
 

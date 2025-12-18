@@ -1,5 +1,13 @@
 package gov.nasa.jpl.pyre.kernel
 
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.kernel.Serialization.alias
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.serializer
+
+@Serializable(with = Name.NameSerializer::class)
 data class Name(val namespace: Name?, val simpleName: String) {
     constructor(simpleName: String) : this(null, simpleName)
 
@@ -15,6 +23,11 @@ data class Name(val namespace: Name?, val simpleName: String) {
     companion object {
         private const val SEPARATOR: Char = '/'
     }
+
+    private class NameSerializer: KSerializer<Name> by String.serializer().alias(InvertibleFunction.of(
+        { it.split(SEPARATOR).fold(null) { ns, n -> ns / n }!! },
+        { it.toString() }
+    ))
 }
 
 object NameOperations {

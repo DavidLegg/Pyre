@@ -11,6 +11,7 @@ import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.DataModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget
+import gov.nasa.jpl.pyre.examples.scheduling.geometry.utils.unitAware
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.activities.GncSetAgility
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.activities.GncSetSystemMode
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.activities.GncTurn
@@ -39,16 +40,11 @@ import gov.nasa.jpl.pyre.examples.units.KILOWATT_HOUR
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
-import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.general.results.Profile
 import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
-import gov.nasa.jpl.pyre.general.results.ProfileOperations.compute
-import gov.nasa.jpl.pyre.general.results.ProfileOperations.getProfile
-import gov.nasa.jpl.pyre.general.results.ProfileOperations.lastValue
 import gov.nasa.jpl.pyre.general.results.discrete.BooleanProfileOperations.and
 import gov.nasa.jpl.pyre.general.results.discrete.BooleanProfileOperations.sometimes
 import gov.nasa.jpl.pyre.general.results.discrete.BooleanProfileOperations.windows
-import gov.nasa.jpl.pyre.general.results.discrete.IntProfileOperations.countActivities
 import gov.nasa.jpl.pyre.general.units.StandardUnits
 import gov.nasa.jpl.pyre.general.units.StandardUnits.DEGREE
 import gov.nasa.jpl.pyre.general.units.StandardUnits.GIGABYTE
@@ -60,6 +56,11 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.pyre.general.results.discrete.BooleanProfile
+import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.Companion.compute
+import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplayScope.Companion.countActivities
+import gov.nasa.jpl.pyre.general.units.Unit.Companion.SCALAR
+import gov.nasa.jpl.pyre.general.units.quantity.QuantityOperations.div
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.builtins.DoubleArraySerializer
 import kotlinx.serialization.builtins.serializer
@@ -186,216 +187,220 @@ fun simulationMain(args: Array<String>) {
 
 @OptIn(ExperimentalSerializationApi::class, ExperimentalPathApi::class)
 fun schedulingMain(args: Array<String>) {
-    val commScheduleFile = Path(args[0]).absolute()
-    val scienceOpFile = Path(args[1]).absolute()
-    val outputDir = Path(args[2]).absolute()
-    println("Scheduling input files:")
-    println("  Comm Passes: $commScheduleFile")
-    println("  Science Ops: $scienceOpFile")
-    println("  Output Dir:  $outputDir")
+    unitAware {
+        val commScheduleFile = Path(args[0]).absolute()
+        val scienceOpFile = Path(args[1]).absolute()
+        val outputDir = Path(args[2]).absolute()
+        println("Scheduling input files:")
+        println("  Comm Passes: $commScheduleFile")
+        println("  Science Ops: $scienceOpFile")
+        println("  Output Dir:  $outputDir")
 
-    val clock = TimeSource.Monotonic
-    println("Begin scheduling procedure")
-    val schedulingStart = clock.markNow()
+        val clock = TimeSource.Monotonic
+        println("Begin scheduling procedure")
+        val schedulingStart = clock.markNow()
 
-    println("Begin setup")
-    val setupStart = clock.markNow()
+        println("Begin setup")
+        val setupStart = clock.markNow()
 
-    val planStart = Instant.parse("2020-01-01T00:00:00Z")
-    val planEnd = Instant.parse("2025-01-01T00:00:00Z")
-    val baseScheduler = SchedulingSystem.withoutIncon(
-        planStart,
-        STANDARD_CONFIG,
-        ::SystemModel,
-        JSON_FORMAT,
-    )
+        val planStart = Instant.parse("2020-01-01T00:00:00Z")
+        val planEnd = Instant.parse("2025-01-01T00:00:00Z")
+        val baseScheduler = SchedulingSystem.withoutIncon(
+            planStart,
+            STANDARD_CONFIG,
+            ::SystemModel,
+            JSON_FORMAT,
+        )
 
-    val commPasses: List<CommPass> = commScheduleFile.inputStream()
-        .use { JSON_FORMAT.decodeFromStream<List<CommPass>>(it) }
-        .sortedBy { it.start }
-    val scienceOps: List<ScienceOp> = scienceOpFile.inputStream()
-        .use { JSON_FORMAT.decodeFromStream<List<ScienceOp>>(it) }
-        .sortedBy { it.start }
+        val commPasses: List<CommPass> = commScheduleFile.inputStream()
+            .use { JSON_FORMAT.decodeFromStream<List<CommPass>>(it) }
+            .sortedBy { it.start }
+        val scienceOps: List<ScienceOp> = scienceOpFile.inputStream()
+            .use { JSON_FORMAT.decodeFromStream<List<ScienceOp>>(it) }
+            .sortedBy { it.start }
 
-    val setupEnd = clock.markNow()
-    println("End setup - ${setupEnd - setupStart}")
+        val setupEnd = clock.markNow()
+        println("End setup - ${setupEnd - setupStart}")
 
-    // Note, because this is just a regular java program, we can just intermix regular printlns and stuff to get results out.
+        // Note, because this is just a regular java program, we can just intermix regular printlns and stuff to get results out.
 
-    // The layers in this demo show (roughly) increasing complexity in scheduling logic.
-    // Layer 1 shows the simplest scheduling logic - importing activities from file.
-    println("Begin layer 1 - critical activities")
-    val layer1Start = clock.markNow()
-    val layer1Scheduler = baseScheduler.copy()
+        // The layers in this demo show (roughly) increasing complexity in scheduling logic.
+        // Layer 1 shows the simplest scheduling logic - importing activities from file.
+        println("Begin layer 1 - critical activities")
+        val layer1Start = clock.markNow()
+        val layer1Scheduler = baseScheduler.copy()
 
-    // Add in some fixed setup activities, akin to configuring the craft after launch:
-    layer1Scheduler += GroundedActivity(planStart + (10 * MINUTE).toKotlinDuration(),
-        GncActivity(GncSetSystemMode(GncModel.GncSystemMode.ACTIVE)))
+        // Add in some fixed setup activities, akin to configuring the craft after launch:
+        layer1Scheduler += GroundedActivity(
+            planStart + (10 * MINUTE).toKotlinDuration(),
+            GncActivity(GncSetSystemMode(GncModel.GncSystemMode.ACTIVE))
+        )
 
-    // Add in the "critical" activities - these are meant as stand-ins for things that are basically fully determined.
-    // In a real mission, this would be things like TCMs decided by navigation.
+        // Add in the "critical" activities - these are meant as stand-ins for things that are basically fully determined.
+        // In a real mission, this would be things like TCMs decided by navigation.
 
-    layer1Scheduler += commPasses.filter { it.critical }.map(::commPassActivity)
-    layer1Scheduler += scienceOps.filter { it.critical }.map(::scienceOpActivity)
+        layer1Scheduler += commPasses.filter { it.critical }.map(::commPassActivity)
+        layer1Scheduler += scienceOps.filter { it.critical }.map(::scienceOpActivity)
 
-    layer1Scheduler.runUntil(planEnd)
-    val layer1Results = layer1Scheduler.results()
+        layer1Scheduler.runUntil(planEnd)
 
-    val layer1End = clock.markNow()
-    println("End layer 1 - ${layer1End - layer1Start}")
+        val layer1End = clock.markNow()
+        println("End layer 1 - ${layer1End - layer1Start}")
 
-    // Layer 2 shows slightly more sophisticated scheduling.
-    // Here, we're searching for the right start time, such that a turn ends before a deadline.
-    // Since our turn duration is modeled, and depends on the attitude we're turning from and to,
-    // this is harder than simply laying down activities at known times.
-    println("Begin layer 2 - Turns for critical activities")
-    val layer2Start = clock.markNow()
-    // Build a new scheduler, starting at the beginning of the plan, but copy the plan from layer 1:
-    val layer2Scheduler = baseScheduler.copy()
-    layer2Scheduler += layer1Scheduler.plan()
+        // Layer 2 shows slightly more sophisticated scheduling.
+        // Here, we're searching for the right start time, such that a turn ends before a deadline.
+        // Since our turn duration is modeled, and depends on the attitude we're turning from and to,
+        // this is harder than simply laying down activities at known times.
+        println("Begin layer 2 - Turns for critical activities")
+        val layer2Start = clock.markNow()
+        // Build a new scheduler, starting at the beginning of the plan, but copy the plan from layer 1:
+        val layer2Scheduler = baseScheduler.copy()
+        layer2Scheduler += layer1Scheduler.plan()
 
-    // We need to turn to each critical science opportunity, then turn back to the background attitude.
-    // The background attitude points our antenna at Earth, so we don't need to turn for comm passes.
-    // When scheduling turns, we'll just run the GNC subsystem model, not the full system model.
-    // To power that, we need to collect some profiles from the results of the last layer.
-    val gncInputProfiles = GncInputProfiles(layer1Results)
-    scienceOps.filter { it.critical }.forEach {
-        print(".")
-        // Advance the scheduler to the earliest time the turn may start, to minimize re-simulation.
-        layer2Scheduler.runUntil(it.start - GNC_TURN_MAX_DURATION.toKotlinDuration())
-        layer2Scheduler.scheduleScienceOpTurns(it, gncInputProfiles)
-    }
-    println()
-
-    // Finally, advance the layer 2 scheduler to the end of the plan to finish out simulation:
-    layer2Scheduler.runUntil(planEnd)
-
-    // Then, collect the results and do a sweep looking for conflicts.
-    // Since these are critical activities, we won't change anything, just warn the user if they happen.
-    val layer2Results = layer2Scheduler.results()
-    val turning = layer2Results.compute {
-        countActivities { (it.activity as? GncActivity)?.subsystemActivity is GncTurn } greaterThan 0
-    }
-    val observing = layer2Results.compute {
-        countActivities { (it.activity as? ImagerActivity)?.subsystemActivity is ImagerDoObservation } greaterThan 0
-    }
-    val communicating = layer2Results.compute {
-        countActivities { (it.activity as? TelecomActivity)?.subsystemActivity is TelecomPass } greaterThan 0
-    }
-
-    (observing and communicating).takeIf { it.sometimes() }?.let {
-        println("Warning! Critical observation(s) and critical comm pass(es) overlap!")
-        for (window in it.windows()) {
-            println("  ${window.start} - ${window.endExclusive}")
+        // We need to turn to each critical science opportunity, then turn back to the background attitude.
+        // The background attitude points our antenna at Earth, so we don't need to turn for comm passes.
+        // When scheduling turns, we'll just run the GNC subsystem model, not the full system model.
+        // To power that, we need to collect some profiles from the results of the last layer.
+        val gncInputProfiles = GncInputProfiles(layer1Scheduler)
+        scienceOps.filter { it.critical }.forEach {
+            print(".")
+            // Advance the scheduler to the earliest time the turn may start, to minimize re-simulation.
+            layer2Scheduler.runUntil(it.start - GNC_TURN_MAX_DURATION.toKotlinDuration())
+            layer2Scheduler.scheduleScienceOpTurns(it, gncInputProfiles)
         }
-    }
+        println()
 
-    (turning and observing).takeIf { it.sometimes() }?.let {
-        println("Warning! Critical turn(s) and critical observation(s) overlap!")
-        for (window in (turning and observing).windows()) {
-            println("  ${window.start} - ${window.endExclusive}")
+        // Finally, advance the layer 2 scheduler to the end of the plan to finish out simulation:
+        layer2Scheduler.runUntil(planEnd)
+
+        // Then, collect the results and do a sweep looking for conflicts.
+        // Since these are critical activities, we won't change anything, just warn the user if they happen.
+        val turning = layer2Scheduler.compute {
+            countActivities { (it.activity as? GncActivity)?.subsystemActivity is GncTurn } greaterThan 0
         }
-    }
-
-    (turning and communicating).takeIf { it.sometimes() }?.let {
-        println("Warning! Critical turn(s) and critical comm pass(es) overlap!")
-        for (window in (turning and communicating).windows()) {
-            println("  ${window.start} - ${window.endExclusive}")
+        val observing = layer2Scheduler.compute {
+            countActivities { (it.activity as? ImagerActivity)?.subsystemActivity is ImagerDoObservation } greaterThan 0
         }
-    }
-
-    val layer2End = clock.markNow()
-    println("End layer 2 - ${layer2End - layer2Start}")
-
-    // Layer 3 shows even more sophistication in scheduling.
-    // Here, we interleave querying the results and scheduling activities to roughly optimize our data return,
-    // while taking into account constraints like data storage.
-    println("Begin layer 3 - Opportunistic science and downlink")
-    val layer3Start = clock.markNow()
-
-    // Copy the base scheduler again, and copy in the plan from the previous layer.
-    val layer3Scheduler = baseScheduler.copy()
-    layer3Scheduler += layer2Scheduler.plan()
-
-    // For each event, build the window of interest around it.
-    val scienceOpWindows = scienceOps.map { it to (it.start - GNC_TURN_MAX_DURATION.toKotlinDuration() to it.end + GNC_TURN_MAX_DURATION.toKotlinDuration()) }
-    val commWindows = commPasses.map { it to (it.start to it.end) }
-
-    val gncInputProfiles2 = GncInputProfiles(layer2Results)
-
-    for ((event, window) in (scienceOpWindows + commWindows).sortedBy { it.second.first }) {
-        print(".")
-        // Advance the scheduler to the beginning of the window
-        // This will give us the best available information about resources and running activities.
-        layer3Scheduler.runUntil(window.first)
-        // Make a copy of the scheduler, and run it through the end of the window.
-        // This will tell us how activities scheduled so far on this layer overlap this window.
-        val layer3Results = layer3Scheduler.copy().apply { runUntil(window.second) }.results()
-        // We need the spacecraft to be available over the entire window.
-        // Restrict this computation to just the window of interest.
-        val spacecraftUnavailable = layer3Results.compute(window.first, window.second) {
-            // Count all the activities which are any kind of conflicting behavior
-            // The spacecraft is busy if any of these activities are happening
-            countActivities {
-                (it.activity as? GncActivity)?.subsystemActivity is GncTurn
-                        || (it.activity as? ImagerActivity)?.subsystemActivity is ImagerDoObservation
-                        || (it.activity as? TelecomActivity)?.subsystemActivity is TelecomPass
-            } greaterThan 0
+        val communicating = layer2Scheduler.compute {
+            countActivities { (it.activity as? TelecomActivity)?.subsystemActivity is TelecomPass } greaterThan 0
         }
-        // If the spacecraft is unavailable at any time during the window of interest, move on to the next opportunity.
-        if (spacecraftUnavailable.sometimes()) continue
 
-        // Compute how much data we've used, as a fraction of the total data capacity
-        // Note that this is using the latest values as of the start of the window,
-        // and just doing the computation in primitives, rather than using `compute` to do more sophisticated analysis.
-        val dataCapacity = layer3Results.lastValue<Double, Discrete<Double>>("data/data_capacity (GB)")
-        val dataStored = layer3Results.lastValue<Double, Discrete<Double>>("data/stored_data (GB)")
-        val fractionDataCapacityUsed = dataStored / dataCapacity
-        val minimumDataFractionForDownlink = 0.2
-        val maximumDataFractionForScience = 0.8
-
-        when (event) {
-            is ScienceOp -> if (fractionDataCapacityUsed < maximumDataFractionForScience) {
-                // If we have enough data storage to hold the results, then schedule this observation.
-                layer3Scheduler += scienceOpActivity(event)
-                // Similar to before, use pre-computed profiles based on the prior layer to drive a GNC subsystem model
-                // for turn scheduling, which should be faster than a full system model.
-                // In one profiled run, using a GNC subsystem model instead of a full-system model here
-                // reduced the total time to schedule all non-critical turns from ~25s to ~7s.
-                layer3Scheduler.scheduleScienceOpTurns(event, gncInputProfiles2)
+        (observing and communicating).takeIf { it.sometimes() }?.let {
+            println("Warning! Critical observation(s) and critical comm pass(es) overlap!")
+            for (window in it.windows()) {
+                println("  ${window.start} - ${window.endExclusive}")
             }
-            is CommPass -> if (fractionDataCapacityUsed > minimumDataFractionForDownlink) {
-                // If we have enough data to be worth downlinking, then schedule the comm pass.
-                layer3Scheduler += commPassActivity(event)
-            }
-            // This should not be reachable
-            else -> throw UnsupportedOperationException("Unexpected event type!")
         }
+
+        (turning and observing).takeIf { it.sometimes() }?.let {
+            println("Warning! Critical turn(s) and critical observation(s) overlap!")
+            for (window in (turning and observing).windows()) {
+                println("  ${window.start} - ${window.endExclusive}")
+            }
+        }
+
+        (turning and communicating).takeIf { it.sometimes() }?.let {
+            println("Warning! Critical turn(s) and critical comm pass(es) overlap!")
+            for (window in (turning and communicating).windows()) {
+                println("  ${window.start} - ${window.endExclusive}")
+            }
+        }
+
+        val layer2End = clock.markNow()
+        println("End layer 2 - ${layer2End - layer2Start}")
+
+        // Layer 3 shows even more sophistication in scheduling.
+        // Here, we interleave querying the results and scheduling activities to roughly optimize our data return,
+        // while taking into account constraints like data storage.
+        println("Begin layer 3 - Opportunistic science and downlink")
+        val layer3Start = clock.markNow()
+
+        // Copy the base scheduler again, and copy in the plan from the previous layer.
+        val layer3Scheduler = baseScheduler.copy()
+        layer3Scheduler += layer2Scheduler.plan()
+
+        // For each event, build the window of interest around it.
+        val scienceOpWindows =
+            scienceOps.map { it to (it.start - GNC_TURN_MAX_DURATION.toKotlinDuration() to it.end + GNC_TURN_MAX_DURATION.toKotlinDuration()) }
+        val commWindows = commPasses.map { it to (it.start to it.end) }
+
+        val gncInputProfiles2 = GncInputProfiles(layer2Scheduler)
+
+        for ((event, window) in (scienceOpWindows + commWindows).sortedBy { it.second.first }) {
+            print(".")
+            // Advance the scheduler to the beginning of the window
+            // This will give us the best available information about resources and running activities.
+            layer3Scheduler.runUntil(window.first)
+            // Make a copy of the scheduler, and run it through the end of the window.
+            // This will tell us how activities scheduled so far on this layer overlap this window.
+            val layer3Results = layer3Scheduler.copy().apply { runUntil(window.second) }
+            // We need the spacecraft to be available over the entire window.
+            // Restrict this computation to just the window of interest.
+            val spacecraftUnavailable: BooleanProfile = layer3Results.compute(window.first, window.second) {
+                // Count all the activities which are any kind of conflicting behavior
+                // The spacecraft is busy if any of these activities are happening
+                countActivities {
+                    (it.activity as? GncActivity)?.subsystemActivity is GncTurn
+                            || (it.activity as? ImagerActivity)?.subsystemActivity is ImagerDoObservation
+                            || (it.activity as? TelecomActivity)?.subsystemActivity is TelecomPass
+                } greaterThan 0
+            }
+            // If the spacecraft is unavailable at any time during the window of interest, move on to the next opportunity.
+            if (spacecraftUnavailable.sometimes()) continue
+
+            // Compute how much data we've used, as a fraction of the total data capacity
+            // Note that this is using the latest values as of the start of the window,
+            // and just doing the computation in primitives, rather than using `compute` to do more sophisticated analysis.
+            val dataCapacity = layer3Results.lastQuantity { data.dataCapacity }
+            val dataStored = layer3Results.lastQuantity { data.storedData }
+            val fractionDataCapacityUsed = (dataStored / dataCapacity).valueIn(SCALAR)
+            val minimumDataFractionForDownlink = 0.2
+            val maximumDataFractionForScience = 0.8
+
+            when (event) {
+                is ScienceOp -> if (fractionDataCapacityUsed < maximumDataFractionForScience) {
+                    // If we have enough data storage to hold the results, then schedule this observation.
+                    layer3Scheduler += scienceOpActivity(event)
+                    // Similar to before, use pre-computed profiles based on the prior layer to drive a GNC subsystem model
+                    // for turn scheduling, which should be faster than a full system model.
+                    // In one profiled run, using a GNC subsystem model instead of a full-system model here
+                    // reduced the total time to schedule all non-critical turns from ~25s to ~7s.
+                    layer3Scheduler.scheduleScienceOpTurns(event, gncInputProfiles2)
+                }
+
+                is CommPass -> if (fractionDataCapacityUsed > minimumDataFractionForDownlink) {
+                    // If we have enough data to be worth downlinking, then schedule the comm pass.
+                    layer3Scheduler += commPassActivity(event)
+                }
+                // This should not be reachable
+                else -> throw UnsupportedOperationException("Unexpected event type!")
+            }
+        }
+        println()
+
+        // Run this scheduler to the end to finish out the results.
+        layer3Scheduler.runUntil(planEnd)
+
+        val layer3End = clock.markNow()
+        println("End layer 3 - ${layer3End - layer3Start}")
+
+        println("Begin writing output")
+        val outputStart = clock.markNow()
+
+        // DEBUG
+        // val plan = layer3Scheduler.plan()
+        val plan = layer2Scheduler.plan()
+
+        if (outputDir.exists()) outputDir.deleteRecursively()
+        outputDir.createDirectories()
+        JSON_FORMAT.encodeToFile(plan, outputDir / "plan.json")
+
+        val outputEnd = clock.markNow()
+        println("End writing output - ${outputEnd - outputStart}")
+
+        val schedulingEnd = clock.markNow()
+        println("End scheduling procedure - ${schedulingEnd - schedulingStart}")
     }
-    println()
-
-    // Run this scheduler to the end to finish out the results.
-    layer3Scheduler.runUntil(planEnd)
-
-    val layer3End = clock.markNow()
-    println("End layer 3 - ${layer3End - layer3Start}")
-
-    println("Begin writing output")
-    val outputStart = clock.markNow()
-
-    // DEBUG
-    // val plan = layer3Scheduler.plan()
-    val plan = layer2Scheduler.plan()
-
-    if (outputDir.exists()) outputDir.deleteRecursively()
-    outputDir.createDirectories()
-    JSON_FORMAT.encodeToFile(plan, outputDir / "plan.json")
-
-    val outputEnd = clock.markNow()
-    println("End writing output - ${outputEnd - outputStart}")
-
-    val schedulingEnd = clock.markNow()
-    println("End scheduling procedure - ${schedulingEnd - schedulingStart}")
 }
 
 fun commPassActivity(pass: CommPass) = GroundedActivity(
@@ -438,8 +443,8 @@ data class GncInputProfiles(
     val pointingTargets: Map<PointingTarget, Profile<Discrete<Vector3D>>>,
 ) {
     // Given some sim results, build the profiles
-    constructor (results: SimulationResults) : this(PointingTarget.entries.associateWith {
-        results.getProfile("geometry/pointing_direction/$it")
+    constructor (scheduler: SchedulingSystem<SystemModel, *>) : this(PointingTarget.entries.associateWith {
+        scheduler.profile { geometry.pointingDirection.getValue(it) }
     })
 
     // Given an init scope in a particular simulation, build the resources to feed a GncModel

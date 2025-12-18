@@ -8,10 +8,11 @@ import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperatio
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.div
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.lessThanOrEquals
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
+import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 
 class BatteryModel(
@@ -40,7 +41,8 @@ class BatteryModel(
             batteryCapacityWH = batteryCapacityAH * busVoltage
 
             batteryCurrentUnclamped = map(powerProduction, powerDemand, ::computeBatteryCurrent)
-            register("batteryCurrentUnclamped", batteryCurrentUnclamped)
+                .named { "batteryCurrentUnclamped" }
+                .registered()
 
             // Integrated states compute in units of seconds, but battery charge is in units of Amp-hours, hence the
             // factor of 3600
@@ -51,19 +53,25 @@ class BatteryModel(
                 batteryCapacityAH * simConfig.initialSOC * 3600.0 / 100.0)
 
             batteryChargeSec = clampedIntegrate.integral
-            register("batteryChargeSec", batteryChargeSec)
+                .named { "batteryChargeSec" }
+                .registered()
             batteryCurrent = batteryChargeSec.derivative()
-            register("batteryCurrent", batteryCurrent)
+                .named { "batteryCurrent" }
+                .registered()
 
             // Conversion from units of seconds back to hours
-            batteryCharge = batteryChargeSec / 3600.0
-            register("batteryCharge", batteryCharge)
-            batterySOC = batteryCharge / (batteryCapacityAH * 100.0)
-            register("batterySOC", batterySOC)
-            batteryFull = batterySOC greaterThanOrEquals 100.0
-            register("batteryFull", batteryFull)
-            batteryEmpty = batterySOC lessThanOrEquals 0.0
-            register("batteryEmpty", batteryEmpty)
+            batteryCharge = (batteryChargeSec / 3600.0)
+                .named { "batteryCharge" }
+                .registered()
+            batterySOC = (batteryCharge / (batteryCapacityAH * 100.0))
+                .named { "batterySOC" }
+                .registered()
+            batteryFull = (batterySOC greaterThanOrEquals 100.0)
+                .named { "batteryFull" }
+                .registered()
+            batteryEmpty = (batterySOC lessThanOrEquals 0.0)
+                .named { "batteryEmpty" }
+                .registered()
         }
     }
 

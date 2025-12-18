@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.examples.lander.models.seis
 
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
@@ -122,8 +123,8 @@ class SeisConfig {
 
         init {
             with (context) {
-                this@DeviceTypeMetrics.samplingRate = registeredDiscreteResource("sampling_rate", samplingRate)
-                this@DeviceTypeMetrics.gain = registeredDiscreteResource("gain", gain)
+                this@DeviceTypeMetrics.samplingRate = discreteResource("sampling_rate", samplingRate).registered()
+                this@DeviceTypeMetrics.gain = discreteResource("gain", gain).registered()
             }
         }
 

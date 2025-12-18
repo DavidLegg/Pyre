@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.examples.sequencing.telecom
 
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
@@ -13,8 +14,8 @@ class Radio(
 
     init {
         with (context) {
-            poweredOn = registeredDiscreteResource("powered_on", false)
-            downlinkRate = registeredDiscreteResource("downlink_rate", 0.0)
+            poweredOn = discreteResource("powered_on", false).registered()
+            downlinkRate = discreteResource("downlink_rate", 0.0).registered()
         }
     }
 }

@@ -10,7 +10,9 @@ import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
 import gov.nasa.jpl.pyre.foundation.resources.MutableResource
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
+import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.kernel.Name
 
 interface Unstructured<A> : Dynamics<A, Unstructured<A>> {
     companion object {
@@ -148,7 +150,7 @@ object UnstructuredDynamicsApplicative {
 
 @Suppress("NOTHING_TO_INLINE")
 object UnstructuredResourceApplicative {
-    inline fun <A> pure(a: A): UnstructuredResource<A> = ResourceMonad.pure(UnstructuredMonad.pure(a)) named a::toString
+    inline fun <A> pure(a: A): UnstructuredResource<A> = ResourceMonad.pure(UnstructuredMonad.pure(a)).fullyNamed { Name(a.toString()) }
     inline fun <A, B> apply(a: UnstructuredResource<A>, fn: UnstructuredResource<(A) -> B>): UnstructuredResource<B> =
         ResourceMonad.apply(a, ResourceMonad.map(fn, UnstructuredMonad::apply))
     // "distribute" (and consequently "join") can't be written for this type

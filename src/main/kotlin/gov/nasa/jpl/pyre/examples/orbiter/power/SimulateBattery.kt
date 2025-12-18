@@ -34,11 +34,10 @@ fun main(args: Array<String>) {
     }
     val plan: Plan<StandaloneBatteryModel> = jsonFormat.decodeFromStream(FileInputStream(planFile))
 
-    val simulation = PlanSimulation.withoutIncon(
+    val simulation = PlanSimulation(
         jsonlReportHandler(),
         plan.startTime,
-        plan.startTime,
-        ::StandaloneBatteryModel,
+        constructModel = ::StandaloneBatteryModel,
     )
 
     simulation.runPlan(plan)

@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.examples.sequencing.fsw
 
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
@@ -30,29 +31,29 @@ class Variables(
         with (context) {
             subContext("int") {
                 ints = Array(numberOfVariables.getOrDefault(VariableType.INT, 0)) {
-                    registeredDiscreteResource(it.toString(), 0)
+                    discreteResource(it.toString(), 0).registered()
                 }.toList()
             }
             subContext("uint") {
                 uints = Array(numberOfVariables.getOrDefault(VariableType.UINT, 0)) {
-                    registeredDiscreteResource(it.toString(), 0.toUInt())
+                    discreteResource(it.toString(), 0.toUInt()).registered()
                 }.toList()
             }
             subContext("float") {
                 floats = Array(numberOfVariables.getOrDefault(VariableType.FLOAT, 0)) {
-                    registeredDiscreteResource(it.toString(), 0.0)
+                    discreteResource(it.toString(), 0.0).registered()
                 }.toList()
             }
             subContext("string") {
                 strings = Array(numberOfVariables.getOrDefault(VariableType.STRING, 0)) {
-                    registeredDiscreteResource(it.toString(), "")
+                    discreteResource(it.toString(), "").registered()
                 }.toList()
             }
         }
     }
 
     context (scope: TaskScope)
-    suspend fun reset() {
+    fun reset() {
         ints.forEach { it.set(0) }
         uints.forEach { it.set(0.toUInt()) }
         floats.forEach { it.set(0.0) }

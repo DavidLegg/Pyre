@@ -10,14 +10,13 @@ import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQu
 import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.clampedIntegral
 import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.constant
-import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.registeredIntegral
 import gov.nasa.jpl.pyre.general.units.quantity.Quantity
 import gov.nasa.jpl.pyre.general.units.StandardUnits.HOUR
 import gov.nasa.jpl.pyre.general.units.StandardUnits.JOULE
 import gov.nasa.jpl.pyre.general.units.StandardUnits.WATT
 import gov.nasa.jpl.pyre.general.units.Unit
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
@@ -26,8 +25,9 @@ import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.VsQuantity.div
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.plus
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.upcast
+import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.integral
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.register
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
 import kotlinx.serialization.Serializable
 
@@ -128,22 +128,28 @@ class PowerModel(
                         + imager.powerDraw
                         + heater1.powerDraw
                         + heater2.powerDraw
-                ).named { "total_power_draw" }.also { register(it, WATT) }
+                ).named { "total_power_draw" }
+                    .registered(WATT)
                 netPowerProduction = (constant(config.rtgPowerProduction) - totalPowerDraw.asPolynomial())
                     .named { "net_power_production" }
-                    .also { register(it, WATT) }
+                    .registered(WATT)
                 val batteryIntegral = netPowerProduction.clampedIntegral(
                     "battery_energy",
                     constant(0.0 * JOULE),
                     constant(config.batteryCapacity),
                     config.batteryCapacity
                 )
-                batteryEnergy = batteryIntegral.integral.also { register(it, WATT_HOUR) }
+                batteryEnergy = batteryIntegral.integral
+                    .registered(WATT_HOUR)
                 batterySOC = (batteryEnergy / config.batteryCapacity).valueIn(Unit.SCALAR)
-                    .named { "battery_soc" }.also { register(it) }
+                    .named { "battery_soc" }
+                    .registered()
                 powerOverdrawn = batteryIntegral.underflow
-                    .named { "power_overdrawn" }.also { register(it, WATT) }
-                energyOverdrawn = powerOverdrawn.registeredIntegral("energy_overdrawn", 0.0 * WATT_HOUR).upcast()
+                    .named { "power_overdrawn" }
+                    .registered(WATT)
+                energyOverdrawn = powerOverdrawn.integral("energy_overdrawn", 0.0 * WATT_HOUR)
+                    .registered(WATT_HOUR)
+                    .upcast()
             }
         }
     }

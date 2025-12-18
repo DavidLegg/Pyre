@@ -1,5 +1,9 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
+import gov.nasa.jpl.pyre.foundation.reporting.Channel
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Condition
@@ -13,7 +17,6 @@ import gov.nasa.jpl.pyre.kernel.Task.BasicTaskActions
 import gov.nasa.jpl.pyre.kernel.Task.PureStepResult.*
 import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
-import kotlin.reflect.KType
 
 
 context (scope: SimulationScope)
@@ -95,8 +98,9 @@ private class TaskBuilder<T>(
     override fun <V> emit(cell: Cell<V>, effect: Effect<V>) =
         basicTaskActions!!.emit(cell, effect)
 
-    override fun <T> report(value: T, type: KType) =
-        basicTaskActions!!.report(value, type)
+    override fun <T> report(channel: Channel<T>, value: T) {
+        basicTaskActions!!.report(ChannelData(channel.name, now(), value))
+    }
 
     override suspend fun await(condition: Condition) =
         suspendCoroutineUninterceptedOrReturn { c ->

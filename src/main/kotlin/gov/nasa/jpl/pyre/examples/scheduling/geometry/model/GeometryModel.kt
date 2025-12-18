@@ -20,7 +20,7 @@ import gov.nasa.jpl.pyre.general.units.StandardUnits.DEGREE
 import gov.nasa.jpl.pyre.general.units.StandardUnits.RADIAN
 import gov.nasa.jpl.pyre.general.units.StandardUnits.ROTATION
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteDynamicsMonad
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
@@ -35,13 +35,12 @@ import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.VsQuantity.times
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.VsQuantity.plus
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.plus
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.QuantityVs.times
 import gov.nasa.jpl.pyre.general.units.VectorSpace
 import gov.nasa.jpl.pyre.general.units.quantity.QuantityOperations.asDuration
 import gov.nasa.jpl.pyre.general.units.quantity.QuantityOperations.div
 import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResourceOperations.asQuantity
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.register
+import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
 import gov.nasa.jpl.pyre.utilities.named
 import kotlinx.serialization.Serializable
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D
@@ -105,32 +104,31 @@ class GeometryModel(
                     // Notice also how our unit-awareness framework lets us write mixed-unit expressions, e.g. AU and km.
                     addVector((2.0 * Vector3D.PLUS_I * AU), (1e7 * Vector3D.PLUS_K * KILOMETER)),
                     subtractVector((2.0 * Vector3D.PLUS_J * AU), (1e7 * Vector3D.PLUS_K * KILOMETER)),
-                    clock,
-                ).named { "spacecraft_position" }
-                // Note how we can easily ask for the resource in whichever units we please:
-                register(spacecraftPosition, KILOMETER)
-                register(spacecraftPosition, AU)
+                    clock)
+                    .named { "spacecraft_position" }
+                    .registered(KILOMETER)
 
                 earthPosition = orbitResource(
                     1.0 * YEAR,
                     0.0 * DEGREE,
                     1.0 * Vector3D.PLUS_I * AU,
                     1.0 * Vector3D.PLUS_J * AU,
-                    clock,
-                ).named { "earth_position" }
-                register(earthPosition, KILOMETER)
+                    clock)
+                    .named { "earth_position" }
+                    .registered(KILOMETER)
 
                 marsPosition = orbitResource(
                     1.84 * YEAR,
                     45.0 * DEGREE,
                     1.5 * Vector3D.PLUS_I * AU,
                     1.5 * Vector3D.PLUS_J * AU,
-                    clock
-                ).named { "mars_position" }
-                register(marsPosition, KILOMETER)
+                    clock)
+                    .named { "mars_position" }
+                    .registered(KILOMETER)
 
-                sunPosition = constant(Vector3D.ZERO * AU).named { "sun_position" }
-                register(sunPosition, KILOMETER)
+                sunPosition = constant(Vector3D.ZERO * AU)
+                    .named { "sun_position" }
+                    .registered(KILOMETER)
 
                 // For operations we haven't explicitly written as unit-aware, we always have the option of "locally" dealing with units.
                 // This means asking for our inputs in a specific unit, performing the operation as a scalar operation
@@ -152,7 +150,7 @@ class GeometryModel(
                         SUN to map((sunPosition - spacecraftPosition).valueIn(AU), Vector3D::normalize),
                         EARTH to map((earthPosition - spacecraftPosition).valueIn(AU), Vector3D::normalize),
                         MARS to map((marsPosition - spacecraftPosition).valueIn(AU), Vector3D::normalize),
-                    ).mapValues { (target, resource) -> (resource named target::toString).also { register(it) } }
+                    ).mapValues { (target, resource) -> resource.named(target::toString).registered() }
                 }
             }
         }

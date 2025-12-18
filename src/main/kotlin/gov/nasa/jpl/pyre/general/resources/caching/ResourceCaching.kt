@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.utilities.Closeable.Companion.closesWith
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromJsonElement
 import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.Expiring
 import gov.nasa.jpl.pyre.foundation.resources.Expiry
@@ -16,6 +16,7 @@ import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
 import gov.nasa.jpl.pyre.foundation.resources.ThinResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
+import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.resources.resource
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
@@ -26,6 +27,7 @@ import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import java.nio.file.Path
@@ -56,7 +58,7 @@ object ResourceCaching {
     }
 
     /**
-     * Trimmed down version of [gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReport] for use with [precomputedResource].
+     * Trimmed down version of [ChannelData] for use with [precomputedResource].
      */
     @Serializable
     data class ResourcePoint<D>(
@@ -99,7 +101,7 @@ object ResourceCaching {
             val now = now()
             while (nextPoint != null && nextPoint!!.time <= now) advance()
             Expiring(currentPoint.data, Expiry(nextPoint?.time?.let { (it - now).toPyreDuration() }))
-        } named { name }
+        }.fullyNamed { Name(name) }
     }
 
     // TODO: Test this routine. If it works, consider these optimizations:
@@ -108,7 +110,7 @@ object ResourceCaching {
     //   4. A CSV reader, for CSV output format?
 
     /**
-     * Accepts a JSON Lines file which is a list of [ChannelizedReport]s in time order, one per line.
+     * Accepts a JSON Lines file which is a list of [ChannelData]s in time order, one per line.
      * Selects the reports on the given channel, and returns a resource which evolves according to that profile.
      *
      * Note that this is the default output file format produced by [gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation].
@@ -123,9 +125,16 @@ object ResourceCaching {
         dynamicsType: KType
     ): Resource<D> {
         val reader = file.bufferedReader()
-        val realChannel = (channel ?: (scope.contextName / name)).toString()
+        val realChannel = (channel ?: (scope.contextName / name))
         val points = reader.lineSequence()
-            .map { jsonFormat.decodeFromString<ChannelizedReport<JsonElement>>(it) }
+            .mapNotNull {
+                try {
+                    jsonFormat.decodeFromString<ChannelData<JsonElement>>(it)
+                } catch (_: SerializationException) {
+                    // Ignore any report which isn't a channelized report, e.g. metadata entries
+                    null
+                }
+            }
             .filter { it.channel == realChannel }
             .map { ResourcePoint(it.time, jsonFormat.decodeFromJsonElement<D>(dynamicsType, it.data)) }
             .closesWith { reader.close() }

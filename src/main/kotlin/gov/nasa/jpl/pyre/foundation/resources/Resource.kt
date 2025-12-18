@@ -2,10 +2,14 @@ package gov.nasa.jpl.pyre.foundation.resources
 
 import gov.nasa.jpl.pyre.utilities.curry
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 
 fun interface ThinResource<D> {
     context (scope: ResourceScope)
     fun getDynamics() : D
+    val name: Name get() = Name("<anonymous>")
 }
 // TODO: Consider wrapping this in Result (equiv. to ErrorCatching), building ResultMonad, and updating DynamicsMonad
 typealias FullDynamics<D> = Expiring<D>
@@ -18,8 +22,12 @@ typealias Resource<D> = ThinResource<FullDynamics<D>>
 context (scope: ResourceScope)
 fun <V, D : Dynamics<V, D>> Resource<D>.getValue(): V = this.getDynamics().data.value()
 
-infix fun <D> Resource<D>.named(nameFn: () -> String) = object : Resource<D> by this {
-    override fun toString() = nameFn()
+context (scope: SimulationScope)
+fun <D> Resource<D>.named(nameFn: () -> String) = fullyNamed { scope.contextName / nameFn() }
+
+fun <D> Resource<D>.fullyNamed(nameFn: () -> Name) = object : Resource<D> by this {
+    override val name: Name get() = nameFn()
+    override fun toString() = name.simpleName
 }
 
 /*

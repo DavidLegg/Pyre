@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.examples.lander.models.power
 
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableStringResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
@@ -14,10 +15,10 @@ class PowerModel(
 
     init {
         with (context) {
-            genericPowerUsed = registeredDiscreteResource("genericPowerUsed", 0.0)
+            genericPowerUsed = discreteResource("genericPowerUsed", 0.0).registered()
             subContext("pelStates") {
                 pelStates = PelItem.entries.associateWith {
-                    registeredDiscreteResource(it.toString(), it.defaultValue)
+                    discreteResource(it.toString(), it.defaultValue).registered()
                 }
             }
         }

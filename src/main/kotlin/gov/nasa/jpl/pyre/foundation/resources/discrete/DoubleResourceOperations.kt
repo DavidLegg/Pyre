@@ -4,27 +4,28 @@ import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.emit
-import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.kernel.Name
 
 typealias DoubleResource = DiscreteResource<Double>
 typealias MutableDoubleResource = MutableDiscreteResource<Double>
 
 object DoubleResourceOperations {
     operator fun DoubleResource.unaryPlus(): DoubleResource =
-        map(this) { +it } named { "(+$this)"}
+        map(this) { +it }.fullyNamed { Name("(+$this)") }
     operator fun DoubleResource.unaryMinus(): DoubleResource =
-        map(this) { -it } named { "(-$this)"}
+        map(this) { -it }.fullyNamed { Name("(-$this)") }
     operator fun DoubleResource.plus(other: DoubleResource): DoubleResource =
-        map(this, other) { x, y -> x + y } named { "($this) + ($other)" }
+        map(this, other) { x, y -> x + y }.fullyNamed { Name("($this) + ($other)") }
     operator fun DoubleResource.minus(other: DoubleResource): DoubleResource =
-        map(this, other) { x, y -> x - y } named { "($this) - ($other)" }
+        map(this, other) { x, y -> x - y }.fullyNamed { Name("($this) - ($other)") }
     operator fun DoubleResource.times(other: DoubleResource): DoubleResource =
-        map(this, other) { x, y -> x * y } named { "($this) * ($other)" }
+        map(this, other) { x, y -> x * y }.fullyNamed { Name("($this) * ($other)") }
     operator fun DoubleResource.div(other: DoubleResource): DoubleResource =
-        map(this, other) { x, y -> x / y } named { "($this) / ($other)" }
+        map(this, other) { x, y -> x / y }.fullyNamed { Name("($this) / ($other)") }
     operator fun DoubleResource.rem(other: DoubleResource): DoubleResource =
-        map(this, other) { x, y -> x % y } named { "($this) % ($other)" }
+        map(this, other) { x, y -> x % y }.fullyNamed { Name("($this) % ($other)") }
 
     operator fun DoubleResource.plus(other: Double): DoubleResource = this + pure(other)
     operator fun DoubleResource.minus(other: Double): DoubleResource = this - pure(other)

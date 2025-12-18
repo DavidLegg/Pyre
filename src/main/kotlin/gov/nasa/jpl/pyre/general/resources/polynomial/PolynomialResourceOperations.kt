@@ -3,7 +3,6 @@ package gov.nasa.jpl.pyre.general.resources.polynomial
 import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial.Companion.polynomial
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
 import gov.nasa.jpl.pyre.foundation.resources.*
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.bind
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.map
@@ -22,6 +21,8 @@ import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.await
 import gov.nasa.jpl.pyre.kernel.Condition
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.kernel.TRUE
 import kotlin.let
 import kotlin.math.max
@@ -32,44 +33,42 @@ object PolynomialResourceOperations {
     fun polynomialResource(name: String, vararg coefficients: Double): MutablePolynomialResource =
         resource(name, polynomial(*coefficients))
 
-    fun constant(value: Double): PolynomialResource = pure(polynomial(value)) named value::toString
-
-    context (scope: InitScope)
-    fun registeredPolynomialResource(name: String, vararg coefficients: Double) =
-        polynomialResource(name, *coefficients).also { register(it) }
+    fun constant(value: Double): PolynomialResource =
+        pure(polynomial(value)).fullyNamed { Name(value.toString()) }
 
     fun DoubleResource.asPolynomial(): PolynomialResource =
-        map(this) { polynomial(it.value) } named this::toString
+        map(this) { polynomial(it.value) }.fullyNamed { name }
 
     operator fun PolynomialResource.unaryPlus() = this
-    operator fun PolynomialResource.unaryMinus() = map(this, Polynomial::unaryMinus) named { "-($this)" }
+    operator fun PolynomialResource.unaryMinus() =
+        map(this, Polynomial::unaryMinus).fullyNamed { Name("-($this)") }
 
     operator fun PolynomialResource.plus(other: PolynomialResource) =
-        map(this, other) { p, q -> p + q } named { "($this) + ($other)" }
+        map(this, other) { p, q -> p + q }.fullyNamed { Name("($this) + ($other)") }
     operator fun PolynomialResource.minus(other: PolynomialResource) =
-        map(this, other) { p, q -> p - q } named { "($this) - ($other)" }
+        map(this, other) { p, q -> p - q }.fullyNamed { Name("($this) - ($other)") }
     operator fun PolynomialResource.times(other: PolynomialResource) =
-        map(this, other) { p, q -> p * q } named { "($this) * ($other)" }
+        map(this, other) { p, q -> p * q }.fullyNamed { Name("($this) * ($other)") }
 
     operator fun PolynomialResource.plus(other: Double) =
-        map(this) { it + other } named { "($this) + ($other)" }
+        map(this) { it + other }.fullyNamed { Name("($this) + ($other)") }
     operator fun PolynomialResource.minus(other: Double) =
-        map(this) { it - other } named { "($this) - ($other)" }
+        map(this) { it - other }.fullyNamed { Name("($this) - ($other)") }
     operator fun PolynomialResource.times(other: Double) =
-        map(this) { it * other } named { "($this) * ($other)" }
+        map(this) { it * other }.fullyNamed { Name("($this) * ($other)") }
 
     operator fun Double.plus(other: PolynomialResource) =
-        map(other) { this + it } named { "($this) + ($other)" }
+        map(other) { this + it }.fullyNamed { Name("($this) + ($other)") }
     operator fun Double.minus(other: PolynomialResource) =
-        map(other) { this - it } named { "($this) - ($other)" }
+        map(other) { this - it }.fullyNamed { Name("($this) - ($other)") }
     operator fun Double.times(other: PolynomialResource) =
-        map(other) { this * it } named { "($this) * ($other)" }
+        map(other) { this * it }.fullyNamed { Name("($this) * ($other)") }
 
     operator fun PolynomialResource.div(other: Double) =
-        map(this) { it / other } named { "($this) / ($other)" }
+        map(this) { it / other }.fullyNamed { Name("($this) / ($other)") }
 
     fun PolynomialResource.derivative(): PolynomialResource =
-        map(this, Polynomial::derivative) named { "d/dt ($this)" }
+        map(this, Polynomial::derivative).fullyNamed { Name("d/dt ($this)") }
 
     context(scope: InitScope)
     fun PolynomialResource.integral(name: String, startingValue: Double): IntegralResource {
@@ -89,10 +88,6 @@ object PolynomialResourceOperations {
             } named { "Set value of $this to $amount" })
         } named { name }
     }
-
-    context(context: InitScope)
-    fun PolynomialResource.registeredIntegral(name: String, startingValue: Double) =
-        integral(name, startingValue).also { register(it) }
 
     /**
      * Compute the integral of integrand, starting at startingValue.
@@ -279,13 +274,17 @@ object PolynomialResourceOperations {
     )
 
     infix fun PolynomialResource.greaterThan(other: PolynomialResource): BooleanResource =
-        bind(this, other) { p, q -> ThinResourceMonad.pure(p greaterThan q) } named { "($this) > ($other)" }
+        bind(this, other) { p, q -> ThinResourceMonad.pure(p greaterThan q) }
+            .fullyNamed { Name("($this) > ($other)") }
     infix fun PolynomialResource.greaterThanOrEquals(other: PolynomialResource): BooleanResource =
-        bind(this, other) { p, q -> ThinResourceMonad.pure(p greaterThanOrEquals q) } named { "($this) >= ($other)" }
+        bind(this, other) { p, q -> ThinResourceMonad.pure(p greaterThanOrEquals q) }
+            .fullyNamed { Name("($this) >= ($other)") }
     infix fun PolynomialResource.lessThan(other: PolynomialResource): BooleanResource =
-        bind(this, other) { p, q -> ThinResourceMonad.pure(p lessThan q) } named { "($this) < ($other)" }
+        bind(this, other) { p, q -> ThinResourceMonad.pure(p lessThan q) }
+            .fullyNamed { Name("($this) < ($other)") }
     infix fun PolynomialResource.lessThanOrEquals(other: PolynomialResource): BooleanResource =
-        bind(this, other) { p, q -> ThinResourceMonad.pure(p lessThanOrEquals q) } named { "($this) <= ($other)" }
+        bind(this, other) { p, q -> ThinResourceMonad.pure(p lessThanOrEquals q) }
+            .fullyNamed { Name("($this) <= ($other)") }
 
     infix fun PolynomialResource.greaterThan(other: Double) = this greaterThan constant(other)
     infix fun PolynomialResource.greaterThanOrEquals(other: Double) = this greaterThanOrEquals constant(other)
@@ -293,15 +292,15 @@ object PolynomialResourceOperations {
     infix fun PolynomialResource.lessThanOrEquals(other: Double) = this lessThanOrEquals constant(other)
 
     fun min(p: PolynomialResource, q: PolynomialResource): PolynomialResource = bind(p, q) { p, q ->
-        ThinResourceMonad.pure(DynamicsMonad.map(p.dominates(q)) { if (it.value) q else p }) named { "min($p, $q)" }
+        ThinResourceMonad.pure(DynamicsMonad.map(p.dominates(q)) { if (it.value) q else p }).fullyNamed { Name("min($p, $q)") }
     }
 
     fun max(p: PolynomialResource, q: PolynomialResource): PolynomialResource = bind(p, q) { p, q ->
-        ThinResourceMonad.pure(DynamicsMonad.map(p.dominates(q)) { if (it.value) p else q }) named { "max($p, $q)" }
+        ThinResourceMonad.pure(DynamicsMonad.map(p.dominates(q)) { if (it.value) p else q }).fullyNamed { Name("max($p, $q)") }
     }
 
     fun PolynomialResource.clamp(lowerBound: PolynomialResource, upperBound: PolynomialResource): PolynomialResource =
-        min(max(this, lowerBound), upperBound) named { "$this.clamp($lowerBound, $upperBound)" }
+        min(max(this, lowerBound), upperBound).fullyNamed { Name("$this.clamp($lowerBound, $upperBound)") }
 
     context(scope: TaskScope)
     suspend fun MutablePolynomialResource.increase(amount: Double) = emit({ p: Polynomial -> p + amount } named { "Increase $this by $amount" })
@@ -334,6 +333,10 @@ interface IntegralResource : PolynomialResource {
     suspend fun set(amount: Double)
 }
 
-infix fun IntegralResource.named(nameFn: () -> String) = object : IntegralResource by this {
-    override fun toString() = nameFn()
+context (scope: SimulationScope)
+infix fun IntegralResource.named(nameFn: () -> String) = fullyNamed { scope.contextName / nameFn() }
+
+infix fun IntegralResource.fullyNamed(nameFn: () -> Name) = object : IntegralResource by this {
+    override val name: Name get() = nameFn()
+    override fun toString() = name.simpleName
 }

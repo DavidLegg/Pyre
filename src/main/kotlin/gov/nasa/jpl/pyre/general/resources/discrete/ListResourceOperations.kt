@@ -6,23 +6,24 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.emit
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.kernel.Name
 
 typealias ListResource<E> = DiscreteResource<List<E>>
 typealias MutableListResource<E> = MutableDiscreteResource<List<E>>
 
 object ListResourceOperations {
     context (scope: TaskScope)
-    suspend fun <E> MutableListResource<E>.push(element: E) =
+    fun <E> MutableListResource<E>.push(element: E) =
         emit({ it: List<E> -> it + element } named { "Push $element onto $this" })
 
     context (scope: TaskScope)
-    suspend operator fun <E> MutableListResource<E>.plusAssign(element: E) = this.push(element)
+    operator fun <E> MutableListResource<E>.plusAssign(element: E) = this.push(element)
 
     context (scope: TaskScope)
-    suspend fun <E> MutableListResource<E>.pop(): E {
+    fun <E> MutableListResource<E>.pop(): E {
         val poppedElement = requireNotNull(getValue().firstOrNull()) { "$this must be non-empty to pop" }
         emit({ it: List<E> ->
             // Double-check as we do the removal that we're removing the element we plan to return.
@@ -34,6 +35,8 @@ object ListResourceOperations {
         return poppedElement
     }
 
-    fun <E> ListResource<E>.isEmpty(): BooleanResource = map(this) { it.isEmpty() } named { "($this) is empty" }
-    fun <E> ListResource<E>.isNotEmpty(): BooleanResource = map(this) { it.isNotEmpty() } named { "($this) is not empty" }
+    fun <E> ListResource<E>.isEmpty(): BooleanResource =
+        map(this) { it.isEmpty() }.fullyNamed { Name("($this) is empty") }
+    fun <E> ListResource<E>.isNotEmpty(): BooleanResource =
+        map(this) { it.isNotEmpty() }.fullyNamed { Name("($this) is not empty") }
 }

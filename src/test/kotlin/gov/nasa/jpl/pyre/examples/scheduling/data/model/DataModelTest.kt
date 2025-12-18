@@ -44,12 +44,11 @@ class DataModelTest {
         }
     }
 
-    private fun runUnitTest(testTask: suspend context(TaskScope) TestModel.() -> Unit) {
-        // Specialize the general unit test format with some constants and a default config
+    private fun runUnitTest(testTask: suspend context (TaskScope) TestModel.() -> Unit) {
         runUnitTest(
             Instant.parse("2020-01-01T00:00:00Z"),
-            { TestModel(this) },
-            testTask
+            ::TestModel,
+            testTask,
         )
     }
 

@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.examples.lander.models.eng
 
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
@@ -22,7 +23,7 @@ class EngModel(
         with (context) {
             subContext("safe_mode") {
                 safeMode = Component.entries.associateWith {
-                    registeredDiscreteResource(it.toString(), false)
+                    discreteResource(it.toString(), false).registered()
                 }
             }
         }

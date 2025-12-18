@@ -64,7 +64,7 @@ interface Task<T> {
     interface BasicTaskActions {
         fun <V> read(cell: Cell<V>): V
         fun <V> emit(cell: Cell<V>, effect: Effect<V>)
-        fun <V> report(value: V, type: KType)
+        fun <V> report(value: V)
         // Note that "spawn" is not listed here. Arguably, it's a non-yielding action and should be here.
         // It winds up being easier to restore tasks if we can choose which branch (parent or child) to take.
         // For this reason, it's better to treat spawn as a yielding action.
@@ -158,7 +158,7 @@ private class PureTask<T>(
 
             // Emit and Report don't need to write any history; they'll just run again when restoring.
             override fun <V> emit(cell: Cell<V>, effect: Effect<V>) = actions.emit(cell, effect)
-            override fun <V> report(value: V, type: KType) = actions.report(value, type)
+            override fun <V> report(value: V) = actions.report(value)
         }
         return when (val stepResult = step(historyCapturingActions)) {
             is PureStepResult.Complete -> TaskStepResult.Complete(stepResult.value)
@@ -215,7 +215,7 @@ private class PureTask<T>(
                     "No restore data available to read $cell! Incon data is malformed."
                 }.value
             override fun <V> emit(cell: Cell<V>, effect: Effect<V>) { /* ignore and continue */ }
-            override fun <V> report(value: V, type: KType) { /* ignore and continue */ }
+            override fun <V> report(value: V) { /* ignore and continue */ }
         }
 
         // Only run the next step of the task if we have history for it

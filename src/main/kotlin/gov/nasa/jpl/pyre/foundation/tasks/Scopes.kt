@@ -1,5 +1,9 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
+import gov.nasa.jpl.pyre.foundation.reporting.Channel
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.foundation.resources.Resource
@@ -38,12 +42,36 @@ interface SimulationScope {
      */
     val simulationEpoch: Instant
 
+    /**
+     * Standard channel for reporting [ActivityEvent]s for all activities.
+     */
+    val activities: Channel<ActivityEvent>
+
+    /**
+     * Standard channel for general-purpose "logging" style output
+     */
+    val stdout: Channel<String>
+
+    /**
+     * Standard channel for general-purpose "logging" style output that signals some kind of warning or error.
+     */
+    val stderr: Channel<String>
+
     companion object {
         context (scope: SimulationScope)
         val simulationClock get() = scope.simulationClock
 
         context (scope: SimulationScope)
         val simulationEpoch get() = scope.simulationEpoch
+
+        context (scope: SimulationScope)
+        val activities get() = scope.activities
+
+        context (scope: SimulationScope)
+        val stdout get() = scope.stdout
+
+        context (scope: SimulationScope)
+        val stderr get() = scope.stderr
 
         context (scope: SimulationScope)
         fun subSimulationScope(contextName: Name) = object : SimulationScope by scope {
@@ -57,31 +85,27 @@ interface ResourceScope : SimulationScope {
 
     companion object {
         context (scope: ResourceScope)
-        fun <V> read(cell: Cell<V>): V = scope.read(cell)
-
-        context (scope: ResourceScope)
         fun now() = simulationEpoch + simulationClock.getValue().toKotlinDuration()
+    }
+}
+
+interface ReportScope : SimulationScope {
+    fun <T> report(channel: Channel<T>, value: T)
+
+    companion object {
+        context (scope: ReportScope)
+        fun <T> Channel<T>.report(value: T) = scope.report(this, value)
     }
 }
 
 interface ConditionScope : ResourceScope
 
-interface TaskScope : ResourceScope {
+interface TaskScope : ResourceScope, ReportScope {
     fun <V> emit(cell: Cell<V>, effect: Effect<V>)
-    fun <T> report(value: T, type: KType)
     suspend fun await(condition: Condition)
     suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>)
 
     companion object {
-        context (scope: TaskScope)
-        inline fun <reified T> report(value: T) = report(value, typeOf<T>())
-
-        context (scope: TaskScope)
-        fun <V> emit(cell: Cell<V>, effect: Effect<V>) = scope.emit(cell, effect)
-
-        context (scope: TaskScope)
-        fun <T> report(value: T, type: KType) = scope.report(value, type)
-
         context (scope: TaskScope)
         suspend fun await(condition: Condition) = scope.await(condition)
 
@@ -96,7 +120,7 @@ interface TaskScope : ResourceScope {
 // Note: We specifically don't implement BasicInitScope here.
 //   We want to supplant its methods with higher-level methods that change its signature somehow.
 // TODO: Allocate/read/emit on Resource, instead of Cell, to force all cell allocation to hide behind a resource.
-interface InitScope : SimulationScope, ResourceScope {
+interface InitScope : SimulationScope, ResourceScope, ReportScope {
     fun <T: Any> allocate(
         name: Name,
         value: T,
@@ -110,7 +134,7 @@ interface InitScope : SimulationScope, ResourceScope {
      */
     fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>)
 
-    fun <T> report(value: T, type: KType)
+    fun <T> channel(name: Name, metadata: Map<String, ChannelReport.Metadatum>, valueType: KType): Channel<T>
 
     companion object {
         context (scope: InitScope)
@@ -161,6 +185,7 @@ interface InitScope : SimulationScope, ResourceScope {
         }
 
         context (scope: InitScope)
-        fun <T> report(value: T, type: KType) = scope.report(value, type)
+        inline fun <reified T> channel(name: Name, vararg metadata: Pair<String, ChannelReport.Metadatum>) =
+            scope.channel<T>(name, metadata.toMap(), typeOf<T>())
     }
 }

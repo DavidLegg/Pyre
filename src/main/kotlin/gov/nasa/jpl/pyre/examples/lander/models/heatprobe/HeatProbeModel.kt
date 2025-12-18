@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.examples.lander.models.heatprobe
 
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
@@ -8,9 +9,7 @@ import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.registeredIntegral
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.registeredDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
@@ -18,6 +17,9 @@ import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
+import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.integral
 
 
 class HeatProbeModel(
@@ -74,20 +76,21 @@ class HeatProbeModel(
 
     init {
         with (context) {
-            powerState = registeredDiscreteResource("powerState", PowerState.Off)
+            powerState = discreteResource("powerState", PowerState.Off).registered()
             internalDataRate = discreteResource("internalDataRate", 0.0)
-            internalData = internalDataRate.asPolynomial().registeredIntegral("internalData", 0.0)
-            sciDataSentInActivity = registeredDiscreteResource("sciDataSentInActivity", 0.0)
-            ssaState = registeredDiscreteResource("ssaState", SSAState.Off)
-            radState = registeredDiscreteResource("radState", RADState.Off)
+            internalData = internalDataRate.asPolynomial().integral("internalData", 0.0)
+                .registered()
+            sciDataSentInActivity = discreteResource("sciDataSentInActivity", 0.0).registered()
+            ssaState = discreteResource("ssaState", SSAState.Off).registered()
+            radState = discreteResource("radState", RADState.Off).registered()
             subContext("tableParams") {
                 parametersInTable = HeatProbeParameter.entries.associateWith {
-                    registeredDiscreteResource(it.toString(), defaultParameters.getValue(it))
+                    discreteResource(it.toString(), defaultParameters.getValue(it)).registered()
                 }
             }
             subContext("currentParams") {
                 parametersCurrent = HeatProbeParameter.entries.associateWith {
-                    registeredDiscreteResource(it.toString(), defaultParameters.getValue(it))
+                    discreteResource(it.toString(), defaultParameters.getValue(it)).registered()
                 }
             }
         }
