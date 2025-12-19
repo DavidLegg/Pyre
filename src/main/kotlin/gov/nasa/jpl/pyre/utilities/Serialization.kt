@@ -16,20 +16,20 @@ import kotlin.reflect.KType
 @Suppress("UNCHECKED_CAST")
 object Serialization {
     fun <T> Json.decodeFromJsonElement(type: KType, jsonElement: JsonElement) =
-        this.decodeFromJsonElement(this.serializersModule.serializer(type) as DeserializationStrategy<T>, jsonElement)
+        decodeFromJsonElement(serializersModule.serializer(type) as DeserializationStrategy<T>, jsonElement)
 
     fun <T> Json.decodeFromString(type: KType, string: String) =
-        this.decodeFromString(this.serializersModule.serializer(type) as DeserializationStrategy<T>, string)
+        decodeFromString(serializersModule.serializer(type) as DeserializationStrategy<T>, string)
 
     @OptIn(ExperimentalSerializationApi::class)
     fun <T> Json.decodeFromStream(type: KType, stream: InputStream) =
-        this.decodeFromStream(this.serializersModule.serializer(type) as DeserializationStrategy<T>, stream)
+        decodeFromStream(serializersModule.serializer(type) as DeserializationStrategy<T>, stream)
 
     @OptIn(ExperimentalSerializationApi::class)
     inline fun <reified T> Json.encodeToFile(value: T, file: Path) =
-        file.outputStream().use { this.encodeToStream(value, it) }
+        file.outputStream().use { encodeToStream(value, it) }
 
     @OptIn(ExperimentalSerializationApi::class)
     inline fun <reified T> Json.decodeFromFile(file: Path) =
-        file.inputStream().use { this.decodeFromStream<T>(it) }
+        file.inputStream().use { decodeFromStream<T>(it) }
 }

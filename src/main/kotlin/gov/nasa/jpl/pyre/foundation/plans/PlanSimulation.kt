@@ -8,10 +8,7 @@ import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
-import gov.nasa.jpl.pyre.kernel.FinconCollector
-import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
-import gov.nasa.jpl.pyre.kernel.InconProvider
+import gov.nasa.jpl.pyre.kernel.Snapshot
 import gov.nasa.jpl.pyre.kernel.SimulationState
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
@@ -35,8 +32,11 @@ import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.kernel.Cell
+import gov.nasa.jpl.pyre.kernel.MutableSnapshot
+import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.report
+import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.within
 import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.provide
+import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.reflect.KType
@@ -67,7 +67,7 @@ class PlanSimulation<M> {
     constructor(
         reportHandler: ChannelizedReportHandler,
         start: Instant? = null,
-        inconProvider: InconProvider? = null,
+        inconProvider: Snapshot? = null,
         constructModel: context (InitScope) () -> M,
         modelClass: KType,
     ) {
@@ -153,16 +153,6 @@ class PlanSimulation<M> {
         }
     }
 
-    companion object {
-        /**
-         * The maximum number of iterations the simulation may perform without advancing in time,
-         * before it is declared "stalled" and aborted.
-         *
-         * This provides protection against some kinds of infinitely looping tasks.
-         */
-        var SIMULATION_STALL_LIMIT: Int = 100
-    }
-
     fun time() = simulationScope.simulationEpoch + state.time().toKotlinDuration()
 
     /**
@@ -199,7 +189,7 @@ class PlanSimulation<M> {
         }
     }
 
-    fun save(finconCollector: FinconCollector) {
+    fun save(finconCollector: MutableSnapshot) {
         state.save(finconCollector)
         finconCollector.within("simulation", "epoch").report(simulationScope.simulationEpoch)
     }
@@ -245,11 +235,23 @@ class PlanSimulation<M> {
         addActivities(plan.activities)
         runUntil(plan.endTime)
     }
+
+    companion object {
+        /**
+         * The maximum number of iterations the simulation may perform without advancing in time,
+         * before it is declared "stalled" and aborted.
+         *
+         * This provides protection against some kinds of infinitely looping tasks.
+         */
+        var SIMULATION_STALL_LIMIT: Int = 100
+
+        fun PlanSimulation<*>.save(): Snapshot = MutableSnapshot().also(this::save)
+    }
 }
 
 inline fun <reified M> PlanSimulation(
     reportHandler: ChannelizedReportHandler,
     start: Instant? = null,
-    inconProvider: InconProvider? = null,
+    inconProvider: Snapshot? = null,
     noinline constructModel: context (InitScope) () -> M,
 ) = PlanSimulation(reportHandler, start, inconProvider, constructModel, typeOf<M>())

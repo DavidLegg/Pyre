@@ -11,8 +11,6 @@ import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.unfinished
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.JsonConditions
-import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.decodeJsonConditionsFromJsonElement
 import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.kernel.times
@@ -21,6 +19,7 @@ import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.ModelWithResources.
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.PowerState.*
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.TestModel.*
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation.Companion.save
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.discardReports
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.*
@@ -45,10 +44,13 @@ import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
-import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.encodeToJsonElement
+import gov.nasa.jpl.pyre.kernel.MutableSnapshot
+import gov.nasa.jpl.pyre.kernel.Snapshot
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.modules.SerializersModule
 import org.junit.jupiter.api.Assertions.*
 import kotlin.test.Test
@@ -107,7 +109,7 @@ class PlanSimulationTest {
                     assertEquals(3.0f, floatR.getValue())
                     assertEquals(OFF, enumR.getValue())
 
-                    stdout.report("Reader done")
+                    contextOf<TaskScope>().stdout.report("Reader done")
                 })
             }
         }
@@ -228,7 +230,7 @@ class PlanSimulationTest {
 
                 spawn("Overheat Protection", whenever(
                     (totalPower greaterThan 15.0) and (deviceState notEquals OFF)) {
-                    stderr.report("Overheat Protection triggered!")
+                    contextOf<TaskScope>().stderr.report("Overheat Protection triggered!")
                     spawn(DeviceShutdown(), this@TestModel)
                     await(deviceState equals OFF)
                 })
@@ -415,12 +417,12 @@ class PlanSimulationTest {
             }
         }
 
-        val fincon1 = JsonConditions(TestModel.JSON_FORMAT).also(simulation1::save).encodeToJsonElement()
+        val fincon1 = TestModel.JSON_FORMAT.encodeToJsonElement(simulation1.save())
 
         val reports2 = MutableSimulationResults()
         val simulation2 = PlanSimulation(
             reportHandler = reports2.reportHandler(),
-            inconProvider = TestModel.JSON_FORMAT.decodeJsonConditionsFromJsonElement(fincon1),
+            inconProvider = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot>(fincon1),
             constructModel = ::TestModel,
         )
         // Add an activity which will spawn a child, which will be active during the next fincon cycle
@@ -438,12 +440,12 @@ class PlanSimulationTest {
             }
         }
 
-        val fincon2 = JsonConditions(TestModel.JSON_FORMAT).also(simulation2::save).encodeToJsonElement()
+        val fincon2 = TestModel.JSON_FORMAT.encodeToJsonElement(simulation2.save())
 
         val reports3 = MutableSimulationResults()
         val simulation3 = PlanSimulation(
             reportHandler = reports3.reportHandler(),
-            inconProvider = TestModel.JSON_FORMAT.decodeJsonConditionsFromJsonElement(fincon2),
+            inconProvider = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot>(fincon2),
             constructModel = ::TestModel,
         )
         simulation3.runUntil(Instant.parse("2020-01-01T03:00:00Z"))

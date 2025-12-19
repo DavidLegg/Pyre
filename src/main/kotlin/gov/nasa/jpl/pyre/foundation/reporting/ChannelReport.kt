@@ -51,7 +51,7 @@ sealed interface ChannelReport<T> {
         val value: Any?,
         val text: String = value.toString(),
     ) {
-        private class MetadatumSerializer : KSerializer<Metadatum> by
-                String.serializer().alias(InvertibleFunction.of({ Metadatum(null, it) }, { it.text }))
+        class MetadatumSerializer : KSerializer<Metadatum> by String.serializer().alias(
+            InvertibleFunction.of({ Metadatum(null, it) }, { it.text }))
     }
 }

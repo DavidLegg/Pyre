@@ -1,21 +1,22 @@
 package gov.nasa.jpl.pyre.examples.orbiter.power
 
-import gov.nasa.jpl.pyre.kernel.JsonConditions
-import gov.nasa.jpl.pyre.kernel.JsonConditions.Companion.encodeToStream
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation.Companion.save
 import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.jsonlReportHandler
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.pyre.kernel.MutableSnapshot
+import gov.nasa.jpl.pyre.utilities.Serialization.encodeToFile
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.modules.SerializersModule
 import java.io.FileInputStream
-import java.io.FileOutputStream
+import kotlin.io.path.Path
 
 /**
  * Run [BatteryModel] as a standalone simulation.
@@ -41,9 +42,7 @@ fun main(args: Array<String>) {
     )
 
     simulation.runPlan(plan)
-    JsonConditions(jsonFormat)
-        .also(simulation::save)
-        .encodeToStream(FileOutputStream(finconFile))
+    jsonFormat.encodeToFile(simulation.save(), Path(finconFile))
 }
 
 /**

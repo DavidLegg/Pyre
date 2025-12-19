@@ -10,7 +10,7 @@ import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 class SimpleSimulation(setup: SimulationSetup) {
     data class SimulationSetup(
         val reportHandler: ReportHandler,
-        val inconProvider: InconProvider?,
+        val inconProvider: Snapshot?,
         val startingTime: Duration = ZERO,
         val initialize: context (BasicInitScope) () -> Unit,
     )
@@ -31,7 +31,11 @@ class SimpleSimulation(setup: SimulationSetup) {
         while (state.time() < time) state.stepTo(time)
     }
 
-    fun save(finconCollector: FinconCollector) {
+    fun save(finconCollector: MutableSnapshot) {
         state.save(finconCollector)
+    }
+
+    companion object {
+        fun SimpleSimulation.save(): Snapshot = MutableSnapshot().also(this::save)
     }
 }

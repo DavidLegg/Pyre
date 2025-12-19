@@ -1,12 +1,12 @@
 package gov.nasa.jpl.pyre.general.scheduling
 
-import gov.nasa.jpl.pyre.kernel.InconProvider
-import gov.nasa.jpl.pyre.kernel.JsonConditions
+import gov.nasa.jpl.pyre.kernel.Snapshot
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation.Companion.save
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
@@ -32,9 +32,9 @@ import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplaySco
 import gov.nasa.jpl.pyre.general.units.Unit
 import gov.nasa.jpl.pyre.general.units.UnitAware
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
+import gov.nasa.jpl.pyre.kernel.MutableSnapshot
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.kernel.Name
-import kotlinx.serialization.json.Json
 import java.util.PriorityQueue
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
@@ -64,13 +64,12 @@ class SchedulingSystem<M, C> private constructor(
     val config: C,
     private val constructModel: context (InitScope) (C) -> M,
     private val modelClass: KType,
-    private val jsonFormat: Json,
-    incon: InconProvider?,
+    incon: Snapshot?,
     /** Activities not yet part of the simulation */
-    private val futureActivities: PriorityQueue<GroundedActivity<M>> = PriorityQueue(compareBy { it.time }),
+    private val futureActivities: PriorityQueue<GroundedActivity<M>>,
     /** Activities which have been incorporated into the simulation. */
-    private val pastActivities: MutableList<GroundedActivity<M>> = mutableListOf(),
-    private val results: MutableSimulationResults = MutableSimulationResults(),
+    private val pastActivities: MutableList<GroundedActivity<M>>,
+    private val results: MutableSimulationResults,
 ) {
     private var model: M? = null
     private val simulation: PlanSimulation<M> = PlanSimulation(
@@ -86,6 +85,23 @@ class SchedulingSystem<M, C> private constructor(
     }
     // Defer to the results object for the start time, so we don't duplicate and potentially disagree on start time.
     val startTime: Instant get() = results.startTime
+
+    constructor(
+        startTime: Instant?,
+        config: C,
+        constructModel: context (InitScope) (C) -> M,
+        modelClass: KType,
+        incon: Snapshot?,
+    ) : this(
+        startTime,
+        config,
+        constructModel,
+        modelClass,
+        incon,
+        PriorityQueue(compareBy { it.time }),
+        mutableListOf(),
+        MutableSimulationResults(),
+    )
 
     fun time() = simulation.time()
 
@@ -245,7 +261,7 @@ class SchedulingSystem<M, C> private constructor(
         )
     }
 
-    fun fincon() = JsonConditions(jsonFormat).also(simulation::save)
+    fun fincon() = simulation.save()
 
     // Initialize a new simulation, configured with newConfig and this sim's fincon
     fun copy(newConfig: C = config): SchedulingSystem<M, C> = SchedulingSystem(
@@ -253,7 +269,6 @@ class SchedulingSystem<M, C> private constructor(
         newConfig,
         constructModel,
         modelClass,
-        jsonFormat,
         fincon(),
         // Copy over all the other bookkeeping data
         futureActivities = PriorityQueue(futureActivities),
@@ -262,36 +277,6 @@ class SchedulingSystem<M, C> private constructor(
     )
 
     companion object {
-        fun <M, C> withoutIncon(
-            startTime: Instant,
-            config: C,
-            constructModel: InitScope.(C) -> M,
-            modelClass: KType,
-            jsonFormat: Json = Json,
-        ) = SchedulingSystem(startTime, config, constructModel, modelClass, jsonFormat, null)
-
-        inline fun <reified M, C> withoutIncon(
-            startTime: Instant,
-            config: C,
-            noinline constructModel: InitScope.(C) -> M,
-            jsonFormat: Json = Json,
-        ) = withoutIncon(startTime, config, constructModel, typeOf<M>(), jsonFormat)
-
-        fun <M, C> withIncon(
-            incon: InconProvider,
-            config: C,
-            constructModel: InitScope.(C) -> M,
-            modelClass: KType,
-            jsonFormat: Json = Json,
-        ) = SchedulingSystem(null, config, constructModel, modelClass, jsonFormat, incon)
-
-        inline fun <reified M, C> withIncon(
-            incon: InconProvider,
-            config: C,
-            noinline constructModel: InitScope.(C) -> M,
-            jsonFormat: Json = Json,
-        ) = withIncon(incon, config, constructModel, typeOf<M>(), jsonFormat)
-
         /**
          * Compute a resource derived from the results collected by this [SchedulingSystem] so far.
          *
@@ -304,3 +289,10 @@ class SchedulingSystem<M, C> private constructor(
         ) = compute(start, end, derivation, typeOf<D>())
     }
 }
+
+inline fun <reified M, C> SchedulingSystem(
+    config: C,
+    noinline constructModel: context (InitScope) (C) -> M,
+    startTime: Instant? = null,
+    incon: Snapshot? = null,
+) = SchedulingSystem(startTime, config, constructModel, typeOf<M>(), incon)
