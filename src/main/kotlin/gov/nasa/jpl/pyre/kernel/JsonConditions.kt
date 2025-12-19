@@ -6,19 +6,29 @@ import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlinx.serialization.ContextualSerializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SealedSerializationApi
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.SerialKind
+import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
 import kotlinx.serialization.descriptors.element
+import kotlinx.serialization.descriptors.serialDescriptor
 import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.encoding.decodeStructure
+import kotlinx.serialization.encoding.encodeStructure
 import kotlinx.serialization.serializer
+import kotlin.collections.emptyList
 import kotlin.collections.iterator
 import kotlin.reflect.KType
 import kotlin.reflect.KTypeProjection
 import kotlin.reflect.KVariance
 import kotlin.reflect.full.createType
+import kotlin.reflect.jvm.jvmErasure
 
 /**
  * A version of [Conditions] which keeps all values as-is in memory, rather than serializing them.
@@ -27,6 +37,7 @@ import kotlin.reflect.full.createType
  * to the simulation.
  * Put another way, conditions objects should be "pure data", immutable objects storing their own values.
  */
+@Serializable(with = JsonConditions.JsonConditionsSerializer::class)
 class JsonConditions private constructor(
     private var value: Any? = null,
     private var type: KType? = null,
@@ -85,62 +96,93 @@ class JsonConditions private constructor(
         }
     }
 
-    private class MemoryConditionsSerializer() : KSerializer<JsonConditions> {
-        @OptIn(ExperimentalSerializationApi::class)
-        override val descriptor: SerialDescriptor =
-            buildClassSerialDescriptor(JsonConditions::class.qualifiedName!!) {
-                // Type is looked up statically and resolved at runtime
-                element("type", InvariantKTypeSerializer().descriptor, isOptional = true)
-                // That type is used to find a deserializer for value itself
-                element("value", ContextualSerializer(Any::class).descriptor, isOptional = true)
-                element<Map<String, JsonConditions>>("children", isOptional = true)
-            }
+    class JsonConditionsSerializer() : KSerializer<JsonConditions> {
+        // Because JsonConditions is a recursive type, we have to go against the Kotlin team's advice and directly implement SerialDescriptor.
+        // This is so we can inject "this" object into the descriptor itself, making a reference loop that the
+        // sanctioned builder would not allow us to create.
+        // This descriptor is patterned off of kotlinx.serialization.internal.MapLikeDescriptor
+        @OptIn(SealedSerializationApi::class)
+        private object DESCRIPTOR : SerialDescriptor {
+            override val serialName: String = JsonConditions::class.qualifiedName!!
+            override val kind: SerialKind = StructureKind.MAP
+            override val elementsCount: Int = 6
 
-        @OptIn(ExperimentalStdlibApi::class)
-        override fun serialize(encoder: Encoder, value: JsonConditions) {
-            val structEncoder = encoder.beginStructure(descriptor)
-            value.type?.let {
-                structEncoder.encodeSerializableElement(descriptor, 0, InvariantKTypeSerializer(), it)
+            override fun getElementName(index: Int): String = index.toString()
+            override fun getElementIndex(name: String): Int =
+                name.toIntOrNull() ?: throw IllegalArgumentException("$name is not a valid map index")
+            override fun getElementAnnotations(index: Int): List<Annotation> {
+                require(index >= 0) { "Illegal index $index, $serialName expects only non-negative indices"}
+                return emptyList()
             }
-            value.value?.let {
-                structEncoder.encodeSerializableElement(descriptor, 1, encoder.serializersModule.serializer(checkNotNull(value.type)), it)
-            }
-            value.children.takeUnless { it.isEmpty() }?.let {
-                structEncoder.encodeSerializableElement(descriptor, 2, encoder.serializersModule.serializer(), it)
-            }
-            structEncoder.endStructure(descriptor)
-        }
-
-        override fun deserialize(decoder: Decoder): JsonConditions {
-            val structDecoder = decoder.beginStructure(descriptor)
-            var type: KType? = null
-            var value: Any? = null
-            var children: MutableMap<String, JsonConditions> = mutableMapOf()
-            while (true) {
-                when (val index = structDecoder.decodeElementIndex(descriptor)) {
-                    0 -> type = structDecoder.decodeSerializableElement(descriptor, index, InvariantKTypeSerializer())
-                    // TODO: This serializer inappropriately demands that "type" appear before "value"
-                    // Use concrete type deserialized earlier to deserialize value
-                    1 -> value = structDecoder.decodeSerializableElement(descriptor, index, decoder.serializersModule.serializer(requireNotNull(type) { "type must be specified before value" }))
-                    2 -> children = structDecoder.decodeSerializableElement(descriptor, index, decoder.serializersModule.serializer())
-                    CompositeDecoder.Companion.DECODE_DONE -> break
-                    else -> throw SerializationException("Unknown index $index")
+            @OptIn(ExperimentalSerializationApi::class)
+            override fun getElementDescriptor(index: Int): SerialDescriptor {
+                require(index >= 0) { "Illegal index $index, $serialName expects only non-negative indices"}
+                return when (index) {
+                    // TODO: See if we can avoid serializing type, and defer until providing the value.
+                    //   This may require an asymmetric serialization scheme.
+                    // The first key/value pair is "__type": type
+                    0 -> serialDescriptor<String>()
+                    1 -> InvariantKTypeSerializer().descriptor
+                    // The second key/value pair is "$": value
+                    2 -> serialDescriptor<String>()
+                    3 -> ContextualSerializer(Any::class).descriptor
+                    // The other keys are all the children of this node, collapsed into this node.
+                    else -> if (index % 2 == 0) serialDescriptor<String>() else this
                 }
             }
-            structDecoder.endStructure(descriptor)
+            override fun isElementOptional(index: Int): Boolean {
+                require(index >= 0) { "Illegal index $index, $serialName expects only non-negative indices"}
+                return index <= 3
+            }
+        }
+
+        override val descriptor: SerialDescriptor = DESCRIPTOR
+
+        override fun serialize(encoder: Encoder, value: JsonConditions) = encoder.encodeStructure(descriptor) {
+            if (value.value != null) {
+                val t = checkNotNull(value.type)
+                val v = checkNotNull(value.value)
+                encodeStringElement(descriptor, 0, "__type")
+                encodeSerializableElement(descriptor, 1, InvariantKTypeSerializer(), t)
+                encodeStringElement(descriptor, 2, "$")
+                encodeSerializableElement(descriptor, 3, encoder.serializersModule.serializer(t), v)
+            }
+            var index = 4
+            for ((key, child) in value.children) {
+                encodeStringElement(descriptor, index++, key)
+                encodeSerializableElement(descriptor, index++, this@JsonConditionsSerializer, child)
+            }
+        }
+
+        override fun deserialize(decoder: Decoder): JsonConditions = decoder.decodeStructure(descriptor) {
+            var type: KType? = null
+            var value: Any? = null
+            val children: MutableMap<String, JsonConditions> = mutableMapOf()
+
+            while (true) {
+                val index = decodeElementIndex(descriptor)
+                if (index == CompositeDecoder.DECODE_DONE) break
+                val key = decodeStringElement(descriptor, index)
+                require (decodeElementIndex(descriptor) == index + 1) { "Malformed serialization" }
+                when (key) {
+                    "__type" -> type = decodeSerializableElement(descriptor, index + 1, InvariantKTypeSerializer())
+                    // TODO: This serializer inappropriately demands that "__type" appear before "value"
+                    // Use concrete type deserialized earlier to deserialize value
+                    "$" -> value = decodeSerializableElement(descriptor, index + 1, decoder.serializersModule.serializer(
+                        requireNotNull(type) { "type (__type) must be specified before value ($)" }))
+                    // For a general element, decode a new JsonConditions node, and apply a location update to tell it where it is.
+                    else -> children[key] = decodeSerializableElement(descriptor, index + 1, this@JsonConditionsSerializer)
+                            .apply { setLocation(Name(key)) }
+                }
+            }
 
             // Check that this node is consistent:
             require((type == null) == (value == null)) {
                 "type and value must both be absent or both be present"
             }
-            // Propagate a name change to all children, telling them where they are in the global conditions
-            for ((key, child) in children) {
-                child.setLocation(Name(key))
-            }
             // Finally return the fully-constructed node
-            return JsonConditions(value, type, children)
+            JsonConditions(value, type, children)
         }
-
     }
 
     private class InvariantKTypeSerializer() : KSerializer<KType> {
@@ -151,9 +193,11 @@ class JsonConditions private constructor(
 
         override fun serialize(encoder: Encoder, value: KType) {
             val structEncoder = encoder.beginStructure(descriptor)
-            structEncoder.encodeStringElement(descriptor, 0, value.javaClass.name)
+            structEncoder.encodeStringElement(descriptor, 0, requireNotNull(value.jvmErasure.java.name) {
+                "Only concrete classes can be serialized."
+            })
             if (value.arguments.isNotEmpty()) {
-                structEncoder.encodeSerializableElement(descriptor, 1, encoder.serializersModule.serializer(), value.arguments.map {
+                structEncoder.encodeSerializableElement(descriptor, 1, ListSerializer(this), value.arguments.map {
                     require(it.variance == KVariance.INVARIANT) {
                         "Only fully-invariant KTypes can be serialized."
                     }
@@ -172,7 +216,7 @@ class JsonConditions private constructor(
             while (true) {
                 when (val index = structDecoder.decodeElementIndex(descriptor)) {
                     0 -> name = structDecoder.decodeStringElement(descriptor, 0)
-                    1 -> typeArgs = structDecoder.decodeSerializableElement(descriptor, 1, decoder.serializersModule.serializer())
+                    1 -> typeArgs = structDecoder.decodeSerializableElement(descriptor, 1, ListSerializer(this))
                     CompositeDecoder.DECODE_DONE -> break
                     else -> throw SerializationException("Unknown index $index")
                 }
