@@ -8,7 +8,6 @@ import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvider
@@ -36,6 +35,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulatio
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
+import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.report
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.provide
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div

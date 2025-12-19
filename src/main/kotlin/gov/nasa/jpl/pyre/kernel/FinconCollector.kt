@@ -3,17 +3,9 @@ package gov.nasa.jpl.pyre.kernel
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
-interface FinconCollectingContext {
-    fun <T> report(value: T, type: KType)
-
-    companion object {
-        inline fun <reified T> FinconCollectingContext.report(value: T) = report(value, typeOf<T>())
-    }
-}
-
-interface FinconCollector : FinconCollectingContext {
+interface FinconCollector {
     fun within(key: String): FinconCollector
-    fun incremental(block: FinconCollectingContext.() -> Unit)
+    fun <T> report(value: T, type: KType)
 
     companion object {
         fun FinconCollector.within(keys: Sequence<String>): FinconCollector {
@@ -22,5 +14,6 @@ interface FinconCollector : FinconCollectingContext {
             return result
         }
         fun FinconCollector.within(vararg keys: String): FinconCollector = within(keys.asSequence())
+        inline fun <reified T> FinconCollector.report(value: T) = report(value, typeOf<T>())
     }
 }

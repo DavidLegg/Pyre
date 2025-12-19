@@ -1,12 +1,14 @@
 package gov.nasa.jpl.pyre.kernel
 
+import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.report
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
+import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.provide
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
-import gov.nasa.jpl.pyre.kernel.InconProvidingContext.Companion.provide
 import gov.nasa.jpl.pyre.kernel.PureTask.TaskHistoryStep.*
 import gov.nasa.jpl.pyre.kernel.Task.*
+import gov.nasa.jpl.pyre.kernel.TaskHistoryCollector.Companion.report
+import gov.nasa.jpl.pyre.kernel.TaskHistoryProvider.Companion.provide
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KType
@@ -137,14 +139,14 @@ interface Task<T> {
 private class PureTask<T>(
     override val id: TaskId,
     private val step: PureTaskStep<T>,
-    private val saveData: FinconCollectingContext.() -> Unit,
+    private val saveData: TaskHistoryCollector.() -> Unit,
     rootTask: PureTask<T>?
 ) : Task<T> {
     private val rootTask: PureTask<T> = rootTask ?: this
 
     override fun runStep(actions: BasicTaskActions): TaskStepResult<T> {
-        val partialHistory: MutableList<FinconCollectingContext.() -> Unit> = mutableListOf()
-        fun FinconCollectingContext.reportHistory() {
+        val partialHistory: MutableList<TaskHistoryCollector.() -> Unit> = mutableListOf()
+        fun TaskHistoryCollector.reportHistory() {
             saveData()
             partialHistory.forEach { it() }
         }
@@ -182,7 +184,7 @@ private class PureTask<T>(
         }
     }
 
-    private fun <S> runSpawn(step: PureStepResult.Spawn<S, T>, reportHistory: FinconCollectingContext.() -> Unit) = TaskStepResult.Spawn(
+    private fun <S> runSpawn(step: PureStepResult.Spawn<S, T>, reportHistory: TaskHistoryCollector.() -> Unit) = TaskStepResult.Spawn(
         PureTask(
             id.child(step.childName),
             step.child,
@@ -197,18 +199,17 @@ private class PureTask<T>(
         )
     )
 
-    override fun save(finconCollector: FinconCollector) {
-        finconCollector.incremental(saveData)
-    }
+    override fun save(finconCollector: FinconCollector) =
+        // We only have a serializer for TaskHistory, not for MutableTaskHistory.
+        finconCollector.report<TaskHistory>(MutableTaskHistory().apply(saveData))
 
-    override fun restore(inconProvider: InconProvider): Task<*>? {
+    override fun restore(inconProvider: InconProvider): Task<*>? =
         // Restore this task itself, if there's incon data for it.
-        return inconProvider.incremental(::restoreSingle)
-    }
+        inconProvider.provide<TaskHistory>()?.let {
+            restoreSingle(it.provider())
+        }
 
-    private fun restoreSingle(inconProvider: InconProvidingContext): Task<*> {
-        var thisTask: Task<*> = this
-
+    private fun restoreSingle(inconProvider: TaskHistoryProvider): Task<*> {
         val restorationActions = object : BasicTaskActions {
             override fun <V> read(cell: Cell<V>): V =
                 requireNotNull(inconProvider.provide<ReadMarker<V>>(ReadMarker.concreteType(cell.valueType))) {
@@ -218,8 +219,10 @@ private class PureTask<T>(
             override fun <V> report(value: V) { /* ignore and continue */ }
         }
 
+        var thisTask: Task<*> = this
+
         // Only run the next step of the task if we have history for it
-        while (inconProvider.inconExists()) {
+        while (inconProvider.hasNext()) {
             thisTask = when (val stepResult = thisTask.runStep(restorationActions)) {
                 is TaskStepResult.Await -> {
                     // If an await step has incon data, it completed, so continue the task
@@ -246,7 +249,7 @@ private class PureTask<T>(
         return thisTask
     }
 
-    private inline fun <reified S : TaskHistoryStep> InconProvidingContext.provideStep(block: (S) -> Task<*>): Task<*>? =
+    private inline fun <reified S : TaskHistoryStep> TaskHistoryProvider.provideStep(block: (S) -> Task<*>): Task<*>? =
         // Provide a general TaskHistoryStep, so deserializer interprets the class discriminator field "type"
         // Then verify it was the exact type we expected
         provide<TaskHistoryStep>()?.let { block(it as S) }

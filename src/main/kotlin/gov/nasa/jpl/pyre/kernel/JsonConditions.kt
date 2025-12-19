@@ -1,7 +1,5 @@
 package gov.nasa.jpl.pyre.kernel
 
-import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
-import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.provide
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlinx.serialization.ContextualSerializer
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -22,8 +20,10 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.encoding.decodeStructure
 import kotlinx.serialization.encoding.encodeStructure
 import kotlinx.serialization.serializer
+import javax.lang.model.type.PrimitiveType
 import kotlin.collections.emptyList
 import kotlin.collections.iterator
+import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.KTypeProjection
 import kotlin.reflect.KVariance
@@ -59,29 +59,6 @@ class JsonConditions private constructor(
 
     override fun within(key: String): Conditions = children.getOrPut(key) {
         JsonConditions(locationDescription = locationDescription / key)
-    }
-
-    override fun incremental(block: FinconCollectingContext.() -> Unit) {
-        val incrementalReports = mutableListOf<Any?>()
-        object : FinconCollectingContext {
-            override fun <T> report(value: T, type: KType) {
-                incrementalReports += value
-            }
-        }.block()
-        report<List<Any?>>(incrementalReports)
-    }
-
-    override fun <R> incremental(block: InconProvidingContext.() -> R): R? {
-        return provide<List<Any?>>()?.let {
-            var n = 0
-            object : InconProvidingContext {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T> provide(type: KType): T? =
-                    it.getOrNull(n++) as T?
-
-                override fun inconExists(): Boolean = n in it.indices
-            }.block()
-        }
     }
 
     override fun inconExists(): Boolean = value != null
@@ -223,9 +200,23 @@ class JsonConditions private constructor(
             }
             structDecoder.endStructure(descriptor)
 
-            // Require a class name, and construct the concrete type using invariant projections.
-            return Class.forName(requireNotNull(name) { "name is required" }).kotlin.createType(
-                typeArgs.map { KTypeProjection(KVariance.INVARIANT, it) }
+            // Require a class name to look up an erasure (class name without type args)
+            requireNotNull(name) { "name is required" }
+            val erasure = PRIMITIVES.getOrElse(name) { Class.forName(name).kotlin }
+            // Construct the concrete type using invariant projections.
+            return erasure.createType(typeArgs.map { KTypeProjection(KVariance.INVARIANT, it) })
+        }
+
+        companion object {
+            private val PRIMITIVES: Map<String, KClass<*>> = mapOf(
+                "byte" to Byte::class,
+                "short" to Short::class,
+                "int" to Int::class,
+                "long" to Long::class,
+                "float" to Float::class,
+                "double" to Double::class,
+                "boolean" to Boolean::class,
+                "char" to Char::class,
             )
         }
     }

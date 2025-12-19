@@ -2,7 +2,7 @@ package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.kernel.Task.TaskStepResult.*
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.kernel.FinconCollectingContext.Companion.report
+import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.report
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.provide
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
