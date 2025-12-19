@@ -34,6 +34,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.kernel.Cell
+import gov.nasa.jpl.pyre.kernel.Conditions
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.report
 import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.provide

@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.examples.orbiter.power
 
-import gov.nasa.jpl.pyre.kernel.JsonConditions
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
 import gov.nasa.jpl.pyre.foundation.plans.activities
@@ -9,6 +8,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperation
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.pyre.kernel.Conditions
 import gov.nasa.jpl.pyre.utilities.Serialization.encodeToFile
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
@@ -41,7 +41,7 @@ fun main(args: Array<String>) {
     )
 
     simulation.runPlan(plan)
-    jsonFormat.encodeToFile(JsonConditions().also(simulation::save), Path(finconFile))
+    jsonFormat.encodeToFile(Conditions().also(simulation::save), Path(finconFile))
 }
 
 /**

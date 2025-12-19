@@ -42,14 +42,14 @@ class SimulationTest {
             val reports = mutableListOf<Any?>()
             val simulation = SimpleSimulation(SimulationSetup(
                 reportHandler = reports::add,
-                inconProvider = incon?.let { Json.decodeFromJsonElement<JsonConditions>(it) },
+                inconProvider = incon?.let { Json.decodeFromJsonElement<Conditions>(it) },
                 initialize = initialize,
             ))
             // Run the simulation to the end
             simulation.runUntil(endTime)
             // Cut a fincon, if requested
             val fincon = if (takeFincon) {
-                Json.encodeToJsonElement(JsonConditions().also(simulation::save))
+                Json.encodeToJsonElement(Conditions().also(simulation::save))
             } else null
             // Return all results, and let the simulation itself be garbage collected
             return SimulationResult(reports, fincon)

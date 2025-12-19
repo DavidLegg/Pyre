@@ -11,7 +11,6 @@ import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.unfinished
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.JsonConditions
 import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.kernel.times
@@ -44,6 +43,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
+import gov.nasa.jpl.pyre.kernel.Conditions
 import gov.nasa.jpl.pyre.kernel.InconProvider
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
@@ -416,12 +416,12 @@ class PlanSimulationTest {
             }
         }
 
-        val fincon1 = TestModel.JSON_FORMAT.encodeToJsonElement(JsonConditions().also(simulation1::save))
+        val fincon1 = TestModel.JSON_FORMAT.encodeToJsonElement(Conditions().also(simulation1::save))
 
         val reports2 = MutableSimulationResults()
         val simulation2 = PlanSimulation(
             reportHandler = reports2.reportHandler(),
-            inconProvider = TestModel.JSON_FORMAT.decodeFromJsonElement<JsonConditions>(fincon1),
+            inconProvider = TestModel.JSON_FORMAT.decodeFromJsonElement<Conditions>(fincon1),
             constructModel = ::TestModel,
         )
         // Add an activity which will spawn a child, which will be active during the next fincon cycle
@@ -439,12 +439,12 @@ class PlanSimulationTest {
             }
         }
 
-        val fincon2 = TestModel.JSON_FORMAT.encodeToJsonElement(JsonConditions().also(simulation2::save))
+        val fincon2 = TestModel.JSON_FORMAT.encodeToJsonElement(Conditions().also(simulation2::save))
 
         val reports3 = MutableSimulationResults()
         val simulation3 = PlanSimulation(
             reportHandler = reports3.reportHandler(),
-            inconProvider = TestModel.JSON_FORMAT.decodeFromJsonElement<JsonConditions>(fincon2),
+            inconProvider = TestModel.JSON_FORMAT.decodeFromJsonElement<Conditions>(fincon2),
             constructModel = ::TestModel,
         )
         simulation3.runUntil(Instant.parse("2020-01-01T03:00:00Z"))

@@ -96,7 +96,7 @@ sealed interface TaskHistory {
             override fun hasNext(): Boolean = i < steps.size
 
             @Suppress("UNCHECKED_CAST")
-            override fun <T> provide(type: KType): T? = steps.getOrNull(i++) as T?
+            override fun <T> provide(type: KType): T? = steps.getOrNull(i++)?.first as T?
         }
     }
 

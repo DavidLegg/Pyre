@@ -3,6 +3,9 @@ package gov.nasa.jpl.pyre.kernel
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
+/**
+ * Writeable view of [Conditions], used to capture the state of a simulation.
+ */
 interface FinconCollector {
     fun within(key: String): FinconCollector
     fun <T> report(value: T, type: KType)

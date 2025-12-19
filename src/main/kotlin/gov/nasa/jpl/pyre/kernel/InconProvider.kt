@@ -3,6 +3,9 @@ package gov.nasa.jpl.pyre.kernel
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
+/**
+ * Read-only view of [Conditions], a snapshot of a simulation we can use to restore a functionally identical simulation.
+ */
 interface InconProvider {
     fun within(key: String): InconProvider
     fun <T> provide(type: KType): T?

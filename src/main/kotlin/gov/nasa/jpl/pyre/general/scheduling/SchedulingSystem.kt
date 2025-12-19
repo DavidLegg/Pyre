@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.general.scheduling
 
 import gov.nasa.jpl.pyre.kernel.InconProvider
-import gov.nasa.jpl.pyre.kernel.JsonConditions
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
@@ -32,6 +31,7 @@ import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplaySco
 import gov.nasa.jpl.pyre.general.units.Unit
 import gov.nasa.jpl.pyre.general.units.UnitAware
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
+import gov.nasa.jpl.pyre.kernel.Conditions
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.kernel.Name
 import java.util.PriorityQueue
@@ -260,7 +260,7 @@ class SchedulingSystem<M, C> private constructor(
         )
     }
 
-    fun fincon() = JsonConditions().also(simulation::save)
+    fun fincon() = Conditions().also(simulation::save)
 
     // Initialize a new simulation, configured with newConfig and this sim's fincon
     fun copy(newConfig: C = config): SchedulingSystem<M, C> = SchedulingSystem(

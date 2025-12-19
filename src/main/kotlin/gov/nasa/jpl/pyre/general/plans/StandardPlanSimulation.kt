@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.general.reporting.ParallelReportHandler.Companion.inParallel
-import gov.nasa.jpl.pyre.kernel.JsonConditions
+import gov.nasa.jpl.pyre.kernel.Conditions
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromFile
 import gov.nasa.jpl.pyre.utilities.Serialization.encodeToFile
 import kotlinx.coroutines.runBlocking
@@ -81,11 +81,11 @@ inline fun <reified M> runStandardPlanSimulation(
                 // Write output in parallel with simulation
                 baseReportHandler.inParallel { reportHandler ->
                     // Initialize the simulation from an incon, if available.
-                    val incon: JsonConditions?
+                    val incon: Conditions?
                     if (setup.inconFile != null) {
                         val inconPath = setupPath.resolveSibling(setup.inconFile)
                         println("Reading initial conditions $inconPath")
-                        incon = jsonFormat.decodeFromFile<JsonConditions>(inconPath)
+                        incon = jsonFormat.decodeFromFile<Conditions>(inconPath)
                     } else {
                         println("No initial conditions given.")
                         incon = null
@@ -106,7 +106,7 @@ inline fun <reified M> runStandardPlanSimulation(
                     if (setup.finconFile != null) {
                         val finconPath = setupPath.resolveSibling(setup.finconFile)
                         println("Writing final conditions to $finconPath")
-                        jsonFormat.encodeToFile(JsonConditions().also(simulation::save), finconPath)
+                        jsonFormat.encodeToFile(Conditions().also(simulation::save), finconPath)
                     } else {
                         println("No final conditions requested")
                     }
