@@ -11,7 +11,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonEncoder
-import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.serializer
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
@@ -20,7 +19,7 @@ import kotlin.reflect.typeOf
 //   which should collapse FinconCollectingContext into FinconCollector and simiarly for incons.
 
 /**
- * Collects each step of a task history as an individual report, for saving to [Conditions].
+ * Collects each step of a task history as an individual report, for saving to [MutableSnapshot].
  * Implementations of this type are stateful and are mutated by [report].
  */
 interface TaskHistoryCollector {
@@ -32,7 +31,7 @@ interface TaskHistoryCollector {
 }
 
 /**
- * Provides reports indicating what steps a task has taken, usually from [Conditions].
+ * Provides reports indicating what steps a task has taken, usually from [MutableSnapshot].
  * Implementations of this type are stateful and are mutated by [provide], like an Iterator would be.
  */
 interface TaskHistoryProvider {

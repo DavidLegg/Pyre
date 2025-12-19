@@ -1,11 +1,11 @@
 package gov.nasa.jpl.pyre.kernel
 
+import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.report
+import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.within
 import gov.nasa.jpl.pyre.kernel.Task.TaskStepResult.*
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.report
-import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
-import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.provide
-import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
+import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
+import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.within
 import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.utilities.andThen
@@ -16,7 +16,7 @@ import kotlin.reflect.KType
 
 typealias ReportHandler = (Any?) -> Unit
 
-class SimulationState(private val reportHandler: ReportHandler, incon: InconProvider? = null) {
+class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot? = null) {
     // Use a class, not a data class, for performance.
     // Adding and removing entries from the task queue is faster when the entry uses object identity
     // rather than deep equality.
@@ -99,7 +99,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: InconProv
         override fun <T> report(value: T) = reportHandler(value)
     }
 
-    private fun restoreTask(rootTask: Task<*>, inconProvider: InconProvider): TaskEntry? =
+    private fun restoreTask(rootTask: Task<*>, inconProvider: Snapshot): TaskEntry? =
         rootTask.restore(inconProvider)?.let { restoredTask ->
             val restoredTime = requireNotNull(inconProvider.within("time").provide<Duration>())
             TaskEntry(restoredTime, restoredTask)
@@ -314,15 +314,15 @@ class SimulationState(private val reportHandler: ReportHandler, incon: InconProv
         awaitingTask.scheduledTask?.let(tasks::remove)
     }
 
-    fun save(finconCollector: FinconCollector) {
-        with (finconCollector.within("simulation")) {
+    fun save(snapshot: MutableSnapshot) {
+        with (snapshot.within("simulation")) {
             within("time").report(time)
         }
-        val cellCollector = finconCollector.within("cells")
+        val cellCollector = snapshot.within("cells")
         for (cell in cells) {
             cellCollector.within(cell.name.asSequence()).report(cell.value, cell.valueType)
         }
-        val taskCollector = finconCollector.within("tasks")
+        val taskCollector = snapshot.within("tasks")
         // Tasks which are the scheduled re-evaluation or continuation of a condition should not be directly restored.
         // Instead, we should restore the listening task, and it will generate the appropriate task when it first runs.
         val excludedTasks: Set<TaskEntry> = listeningTasks.keys.mapNotNullTo(mutableSetOf()) { it.scheduledTask }

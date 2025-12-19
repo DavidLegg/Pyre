@@ -10,6 +10,7 @@ import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.allocate
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.read
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
+import gov.nasa.jpl.pyre.kernel.SimpleSimulation.Companion.save
 import gov.nasa.jpl.pyre.kernel.Task.PureStepResult.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -42,14 +43,14 @@ class SimulationTest {
             val reports = mutableListOf<Any?>()
             val simulation = SimpleSimulation(SimulationSetup(
                 reportHandler = reports::add,
-                inconProvider = incon?.let { Json.decodeFromJsonElement<Conditions>(it) },
+                inconProvider = incon?.let { Json.decodeFromJsonElement<Snapshot>(it) },
                 initialize = initialize,
             ))
             // Run the simulation to the end
             simulation.runUntil(endTime)
             // Cut a fincon, if requested
             val fincon = if (takeFincon) {
-                Json.encodeToJsonElement(Conditions().also(simulation::save))
+                Json.encodeToJsonElement(simulation.save())
             } else null
             // Return all results, and let the simulation itself be garbage collected
             return SimulationResult(reports, fincon)

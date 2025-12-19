@@ -2,10 +2,12 @@ package gov.nasa.jpl.pyre.general.plans
 
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation.Companion.save
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.general.reporting.ParallelReportHandler.Companion.inParallel
-import gov.nasa.jpl.pyre.kernel.Conditions
+import gov.nasa.jpl.pyre.kernel.MutableSnapshot
+import gov.nasa.jpl.pyre.kernel.Snapshot
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromFile
 import gov.nasa.jpl.pyre.utilities.Serialization.encodeToFile
 import kotlinx.coroutines.runBlocking
@@ -81,11 +83,11 @@ inline fun <reified M> runStandardPlanSimulation(
                 // Write output in parallel with simulation
                 baseReportHandler.inParallel { reportHandler ->
                     // Initialize the simulation from an incon, if available.
-                    val incon: Conditions?
+                    val incon: Snapshot?
                     if (setup.inconFile != null) {
                         val inconPath = setupPath.resolveSibling(setup.inconFile)
                         println("Reading initial conditions $inconPath")
-                        incon = jsonFormat.decodeFromFile<Conditions>(inconPath)
+                        incon = jsonFormat.decodeFromFile<Snapshot>(inconPath)
                     } else {
                         println("No initial conditions given.")
                         incon = null
@@ -106,7 +108,7 @@ inline fun <reified M> runStandardPlanSimulation(
                     if (setup.finconFile != null) {
                         val finconPath = setupPath.resolveSibling(setup.finconFile)
                         println("Writing final conditions to $finconPath")
-                        jsonFormat.encodeToFile(Conditions().also(simulation::save), finconPath)
+                        jsonFormat.encodeToFile(simulation.save(), finconPath)
                     } else {
                         println("No final conditions requested")
                     }

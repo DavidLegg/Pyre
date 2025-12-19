@@ -1,10 +1,9 @@
 package gov.nasa.jpl.pyre.kernel
 
-import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.report
+import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.report
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.kernel.FinconCollector.Companion.within
-import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.provide
-import gov.nasa.jpl.pyre.kernel.InconProvider.Companion.within
+import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
+import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.within
 import gov.nasa.jpl.pyre.kernel.PureTask.TaskHistoryStep.*
 import gov.nasa.jpl.pyre.kernel.Task.*
 import gov.nasa.jpl.pyre.kernel.TaskHistoryCollector.Companion.report
@@ -33,21 +32,21 @@ interface Task<T> {
     /**
      * Saves this task's history directly to the given collector.
      *
-     * Assumes that finconCollector has been restricted using [FinconCollector.within] to the desired location for this task's history.
+     * Assumes that finconCollector has been restricted using [MutableSnapshot.within] to the desired location for this task's history.
      *
      * Suggested to use [RootTaskId.conditionKeys] in that location.
      */
-    fun save(finconCollector: FinconCollector)
+    fun save(finconCollector: MutableSnapshot)
 
     /**
      * Restore a task from history provided by inconProvider.
      *
      * Assumes that this is the root task from which the given task was spawned,
-     * and that inconProvider has been restricted using [InconProvider.within] to the desired task's history.
+     * and that inconProvider has been restricted using [Snapshot.within] to the desired task's history.
      *
      * May return a task with a different [TaskId] from this, if restoring a child task.
      */
-    fun restore(inconProvider: InconProvider): Task<*>?
+    fun restore(inconProvider: Snapshot): Task<*>?
 
     class TaskId(val rootTaskName: Name, val name: Name, val stepNumber: Int) {
         constructor(name: Name) : this(name, name, 0)
@@ -199,11 +198,11 @@ private class PureTask<T>(
         )
     )
 
-    override fun save(finconCollector: FinconCollector) =
+    override fun save(finconCollector: MutableSnapshot) =
         // We only have a serializer for TaskHistory, not for MutableTaskHistory.
         finconCollector.report<TaskHistory>(MutableTaskHistory().apply(saveData))
 
-    override fun restore(inconProvider: InconProvider): Task<*>? =
+    override fun restore(inconProvider: Snapshot): Task<*>? =
         // Restore this task itself, if there's incon data for it.
         inconProvider.provide<TaskHistory>()?.let {
             restoreSingle(it.provider())

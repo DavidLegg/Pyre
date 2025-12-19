@@ -1,11 +1,12 @@
 package gov.nasa.jpl.pyre.general.scheduling
 
-import gov.nasa.jpl.pyre.kernel.InconProvider
+import gov.nasa.jpl.pyre.kernel.Snapshot
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation.Companion.save
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
@@ -31,7 +32,7 @@ import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplaySco
 import gov.nasa.jpl.pyre.general.units.Unit
 import gov.nasa.jpl.pyre.general.units.UnitAware
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
-import gov.nasa.jpl.pyre.kernel.Conditions
+import gov.nasa.jpl.pyre.kernel.MutableSnapshot
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.kernel.Name
 import java.util.PriorityQueue
@@ -63,7 +64,7 @@ class SchedulingSystem<M, C> private constructor(
     val config: C,
     private val constructModel: context (InitScope) (C) -> M,
     private val modelClass: KType,
-    incon: InconProvider?,
+    incon: Snapshot?,
     /** Activities not yet part of the simulation */
     private val futureActivities: PriorityQueue<GroundedActivity<M>>,
     /** Activities which have been incorporated into the simulation. */
@@ -90,7 +91,7 @@ class SchedulingSystem<M, C> private constructor(
         config: C,
         constructModel: context (InitScope) (C) -> M,
         modelClass: KType,
-        incon: InconProvider?,
+        incon: Snapshot?,
     ) : this(
         startTime,
         config,
@@ -260,7 +261,7 @@ class SchedulingSystem<M, C> private constructor(
         )
     }
 
-    fun fincon() = Conditions().also(simulation::save)
+    fun fincon() = simulation.save()
 
     // Initialize a new simulation, configured with newConfig and this sim's fincon
     fun copy(newConfig: C = config): SchedulingSystem<M, C> = SchedulingSystem(
@@ -293,5 +294,5 @@ inline fun <reified M, C> SchedulingSystem(
     config: C,
     noinline constructModel: context (InitScope) (C) -> M,
     startTime: Instant? = null,
-    incon: InconProvider? = null,
+    incon: Snapshot? = null,
 ) = SchedulingSystem(startTime, config, constructModel, typeOf<M>(), incon)
