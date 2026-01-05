@@ -10,7 +10,7 @@ import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 class SimpleSimulation(setup: SimulationSetup) {
     data class SimulationSetup(
         val reportHandler: ReportHandler,
-        val inconProvider: Snapshot?,
+        val inconProvider: Snapshot? = null,
         val startingTime: Duration = ZERO,
         val initialize: context (BasicInitScope) () -> Unit,
     )
