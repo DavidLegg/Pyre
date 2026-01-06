@@ -1,8 +1,8 @@
-package gov.nasa.jpl.pyre.incremental
+package gov.nasa.jpl.pyre.incremental.kernel
 
 data class KernelPlanEdits(
-    val removals: List<KernelActivity>,
-    val additions: List<KernelActivity>,
+    val removals: List<KernelActivity> = emptyList(),
+    val additions: List<KernelActivity> = emptyList(),
 )
 
 object KernelPlanEditOperations {

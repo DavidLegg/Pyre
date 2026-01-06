@@ -1,8 +1,4 @@
-package gov.nasa.jpl.pyre.incremental
-
-import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
-import gov.nasa.jpl.pyre.general.results.SimulationResults
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
+package gov.nasa.jpl.pyre.incremental.kernel
 
 class GraphIncrementalSimulation : IncrementalKernelSimulation {
     override var plan: KernelPlan = KernelPlan(emptyList())

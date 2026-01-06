@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.incremental
+package gov.nasa.jpl.pyre.incremental.kernel
 
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Name
