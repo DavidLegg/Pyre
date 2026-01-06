@@ -5,8 +5,8 @@ import gov.nasa.jpl.pyre.foundation.plans.Plan
 import kotlin.collections.plus
 
 data class PlanEdits<M>(
-    val additions: List<GroundedActivity<M>>,
-    val removals: List<GroundedActivity<M>>,
+    val additions: List<GroundedActivity<M>> = emptyList(),
+    val removals: List<GroundedActivity<M>> = emptyList(),
 ) {
     fun applyTo(plan: Plan<M>): Plan<M> =
         plan.copy(activities = plan.activities.filter { it !in removals } + additions)

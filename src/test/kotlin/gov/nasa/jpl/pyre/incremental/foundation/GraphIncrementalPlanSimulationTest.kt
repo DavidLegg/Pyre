@@ -11,9 +11,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperation
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableIntResource
-import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
@@ -251,6 +249,7 @@ class GraphIncrementalPlanSimulationTest {
     private infix fun <M> Activity<M>.at(time: Duration): GroundedActivity<M> =
         GroundedActivity(planStart + time.toKotlinDuration(), this)
 
+    // TODO: Something like this might actually be useful more generally, applied to an incremental simulator.
     // Private test-ism to quickly and legibly make simple edits to a plan
     private fun <M> IncrementalSimulationTester<M>.add(vararg activities: GroundedActivity<M>) =
         run(PlanEdits(activities.toList(), emptyList()))

@@ -15,9 +15,16 @@ class GraphIncrementalPlanSimulation<M>(
 ) : IncrementalPlanSimulation<M> {
     override var plan: Plan<M> = plan
         private set
-    override val results: SimulationResults get() = TODO()
+    override val results: SimulationResults get() =
+        SimulationResults(plan.startTime, plan.endTime, emptyMap(), emptyMap())
+
+    init {
+        TODO("initial run")
+    }
 
     override fun run(edits: PlanEdits<M>) {
         TODO("Not yet implemented")
     }
+
 }
+

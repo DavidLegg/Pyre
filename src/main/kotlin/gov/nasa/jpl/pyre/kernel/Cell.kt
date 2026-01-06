@@ -5,8 +5,12 @@ import kotlin.reflect.KType
 typealias Effect<T> = (T) -> T
 
 // Cell is class, not data class, because we want to use object-identity equality
-class Cell<T> internal constructor(
-    val name: Name,
+interface Cell<T> {
+    val name: Name
+}
+
+class CellImpl<T> internal constructor(
+    override val name: Name,
     internal var value: T,
     val valueType: KType,
     val stepBy: (T, Duration) -> T,
@@ -17,7 +21,7 @@ class Cell<T> internal constructor(
     internal var trunkNetEffect: NetEffect<T>? = null,
     /** Internal bookkeeping: the net effect of this branch only */
     internal var branchNetEffect: Effect<T>? = null,
-) {
+) : Cell<T> {
     override fun toString() = "$name = $value"
 }
 

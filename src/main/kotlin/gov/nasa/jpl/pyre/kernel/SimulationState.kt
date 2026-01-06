@@ -56,7 +56,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
             valueType: KType,
             stepBy: (T, Duration) -> T,
             mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
-        ): Cell<T> = Cell(
+        ): Cell<T> = CellImpl(
             name,
             cellIncon?.within(name.asSequence())?.provide(valueType) ?: value,
             valueType,
@@ -141,7 +141,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
     }
 
     private fun <T> Cell<T>.stepBy(time: Duration) {
-        value = stepBy(value, time)
+        (this as CellImpl<T>).value = stepBy(value, time)
     }
 
     private fun runTaskBatch(tasks: MutableSet<Task<*>>) {
@@ -150,7 +150,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
         }
 
         fun <T> Cell<T>.applyTrunkNetEffect() {
-            value = trunkNetEffect!!.value ?: trunkNetEffect!!.effect(value)
+            (this as CellImpl<T>).value = trunkNetEffect!!.value ?: trunkNetEffect!!.effect(value)
             trunkNetEffect = null
         }
 
@@ -176,11 +176,11 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
         val cellsModifiedByThisTask: MutableSet<Cell<*>> = mutableSetOf()
 
         val actions = object : Task.BasicTaskActions {
-            override fun <V> read(cell: Cell<V>): V = cell.value
+            override fun <V> read(cell: Cell<V>): V = (cell as CellImpl<V>).value
 
             override fun <V> emit(cell: Cell<V>, effect: Effect<V>) {
                 // Store the trunk value if this is the first write to this cell
-                cell.trunkValue = cell.trunkValue ?: cell.value
+                (cell as CellImpl<V>).trunkValue = cell.trunkValue ?: cell.value
                 // Update the value by directly applying the effect
                 cell.value = effect(cell.value)
                 // Record the new net effect of this branch, composing with prior effects if present
@@ -231,7 +231,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
 
         fun <T> Cell<T>.revertBranch() {
             // Merge the branch net effect into the trunk net effect:
-            trunkNetEffect = if (trunkNetEffect == null) {
+            (this as CellImpl<T>).trunkNetEffect = if (trunkNetEffect == null) {
                 // This is the only branch to modify this cell; adopt the branch net effect and record our net value
                 NetEffect(value, branchNetEffect!!)
             } else {
@@ -260,7 +260,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
         val result = awaitingTask.await.condition(object : ReadActions {
             override fun <V> read(cell: Cell<V>): V {
                 cellsRead += cell
-                return cell.value
+                return (cell as CellImpl<V>).value
             }
         })
 
@@ -320,7 +320,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
         }
         val cellCollector = snapshot.within("cells")
         for (cell in cells) {
-            cellCollector.within(cell.name.asSequence()).report(cell.value, cell.valueType)
+            cellCollector.within(cell.name.asSequence()).report((cell as CellImpl<*>).value, cell.valueType)
         }
         val taskCollector = snapshot.within("tasks")
         // Tasks which are the scheduled re-evaluation or continuation of a condition should not be directly restored.

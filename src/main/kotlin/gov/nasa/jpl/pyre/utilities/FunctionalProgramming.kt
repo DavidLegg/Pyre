@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.utilities
 
-fun <A> identity(): (A) -> A = {it}
+fun <A> identity(): (A) -> A = { a: A -> a } named { "identity" }
 inline infix fun <A, B, C> ((A) -> B).andThen(crossinline g: (B) -> C): (A) -> C = { g(this(it)) }
 inline infix fun <A, B, C> ((B) -> C).compose(crossinline g: (A) -> B): (A) -> C = { this(g(it)) }
 

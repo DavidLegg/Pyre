@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.incremental
+package gov.nasa.jpl.pyre.incremental.foundation
 
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Effect
@@ -32,6 +32,7 @@ interface SimulationGraph {
     sealed interface CellNode<T> : SGNode
 
     class CellWriteNode<T>(
+        val value: T,
         val effect: Effect<T>,
     ) : CellNode<T>
 
