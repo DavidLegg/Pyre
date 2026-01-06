@@ -23,7 +23,7 @@ object ListResourceOperations {
     operator fun <E> MutableListResource<E>.plusAssign(element: E) = this.push(element)
 
     context (scope: TaskScope)
-    fun <E> MutableListResource<E>.pop(): E {
+    fun <E> MutableListResource<E>.popFirst(): E {
         val poppedElement = requireNotNull(getValue().firstOrNull()) { "$this must be non-empty to pop" }
         emit({ it: List<E> ->
             // Double-check as we do the removal that we're removing the element we plan to return.
@@ -31,6 +31,19 @@ object ListResourceOperations {
             require(it.isNotEmpty()) { "Concurrent effects on list resource conflict with pop effect" }
             require(it.first() == poppedElement) { "Concurrent effects on list resource conflict with pop" }
             it.subList(1, it.size)
+        } named { "Pop $poppedElement off of $this" })
+        return poppedElement
+    }
+
+    context (scope: TaskScope)
+    fun <E> MutableListResource<E>.pop(): E {
+        val poppedElement = requireNotNull(getValue().lastOrNull()) { "$this must be non-empty to pop" }
+        emit({ it: List<E> ->
+            // Double-check as we do the removal that we're removing the element we plan to return.
+            // Otherwise, concurrent pops could be non-deterministic or even incorrect!
+            require(it.isNotEmpty()) { "Concurrent effects on list resource conflict with pop effect" }
+            require(it.last() == poppedElement) { "Concurrent effects on list resource conflict with pop" }
+            it.subList(0, it.size - 1)
         } named { "Pop $poppedElement off of $this" })
         return poppedElement
     }
