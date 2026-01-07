@@ -9,7 +9,7 @@ interface SimulationGraph {
     sealed interface SGNode
 
     class ReportNode(
-        val report: Any?,
+        val report: IncrementalReport,
     ) : SGNode
 
     sealed interface TaskNode : SGNode

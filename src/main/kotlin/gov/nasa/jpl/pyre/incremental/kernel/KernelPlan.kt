@@ -18,3 +18,7 @@ data class KernelActivity(
     val time: Instant,
     val task: PureTaskStep<*>,
 )
+
+// TODO: Consider using Instant as the kernel-level time type everywhere and ditching Duration
+//   See what, if any, effect this has on performance, esp. compared to using an inline value Duration.
+//   I suspect the effect would be negligible, because we so frequently wind up converting to Instant anyways.

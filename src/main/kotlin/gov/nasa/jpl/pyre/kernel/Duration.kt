@@ -19,6 +19,7 @@ import kotlin.math.roundToLong
 import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Instant
 
+// TODO: See if making this a @JvmInline value class improves performance
 @Serializable(with = DurationSerializer::class)
 data class Duration(val ticks: Long) : Comparable<Duration> {
     override fun compareTo(other: Duration): Int {

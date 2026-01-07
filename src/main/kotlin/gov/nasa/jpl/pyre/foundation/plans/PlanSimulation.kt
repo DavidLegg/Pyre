@@ -59,18 +59,18 @@ import kotlin.time.Instant
  * 3. simulating until the end of this cycle, and
  * 4. cutting a fincon in preparation for the next cycle.
  */
-class PlanSimulation<M> {
+class PlanSimulation<M>(
+    reportHandler: ChannelizedReportHandler,
+    start: Instant? = null,
+    inconProvider: Snapshot? = null,
+    constructModel: context (InitScope) () -> M,
+    modelClass: KType,
+) {
     private val simulationScope: SimulationScope
     private val state: SimulationState
     private val activityResource: MutableDiscreteResource<GroundedActivity<M>?>
 
-    constructor(
-        reportHandler: ChannelizedReportHandler,
-        start: Instant? = null,
-        inconProvider: Snapshot? = null,
-        constructModel: context (InitScope) () -> M,
-        modelClass: KType,
-    ) {
+    init {
         val epoch: Instant
         val startDuration: Duration
         if (inconProvider == null) {
