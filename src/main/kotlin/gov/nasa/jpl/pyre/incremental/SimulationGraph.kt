@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.incremental.foundation
+package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Effect
@@ -9,7 +9,7 @@ interface SimulationGraph {
     sealed interface SGNode
 
     class ReportNode(
-        val report: IncrementalReport,
+        val report: IncrementalReport<*>,
     ) : SGNode
 
     sealed interface TaskNode : SGNode

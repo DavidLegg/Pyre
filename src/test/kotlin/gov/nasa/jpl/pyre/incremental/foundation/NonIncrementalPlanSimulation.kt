@@ -7,10 +7,12 @@ import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
+import gov.nasa.jpl.pyre.incremental.IncrementalPlanSimulation
+import gov.nasa.jpl.pyre.incremental.PlanEdits
 import kotlin.reflect.KType
 
 /**
- * Not-actually-incremental implementation of [IncrementalPlanSimulation].
+ * Not-actually-incremental implementation of [gov.nasa.jpl.pyre.incremental.IncrementalPlanSimulation].
  * This is the baseline correct behavior for an incremental simulator, without the complexity of actually being incremental.
  */
 class NonIncrementalPlanSimulation<M>(

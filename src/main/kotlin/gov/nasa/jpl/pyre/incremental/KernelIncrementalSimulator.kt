@@ -1,9 +1,5 @@
-package gov.nasa.jpl.pyre.incremental.foundation
+package gov.nasa.jpl.pyre.incremental
 
-import gov.nasa.jpl.pyre.incremental.foundation.SimulationGraph.*
-import gov.nasa.jpl.pyre.incremental.kernel.KernelActivity
-import gov.nasa.jpl.pyre.incremental.kernel.KernelPlan
-import gov.nasa.jpl.pyre.incremental.kernel.KernelPlanEdits
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Duration
@@ -13,7 +9,10 @@ import gov.nasa.jpl.pyre.kernel.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.utilities.identity
 import java.util.TreeMap
+import kotlin.collections.plusAssign
 import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 import kotlin.reflect.KType
 import kotlin.time.Instant
 
@@ -21,8 +20,8 @@ import kotlin.time.Instant
  * Support for [GraphIncrementalPlanSimulation], which implements graph-based incremental simulation at the kernel level.
  */
 class KernelIncrementalSimulator {
-    val cellNodes: MutableMap<Cell<*>, TreeMap<Instant, CellNode<*>>> = mutableMapOf()
-    val taskNodes: MutableMap<KernelActivity, RootTaskNode> = mutableMapOf()
+    val cellNodes: MutableMap<Cell<*>, TreeMap<Instant, SimulationGraph.CellNode<*>>> = mutableMapOf()
+    val taskNodes: MutableMap<KernelActivity, SimulationGraph.RootTaskNode> = mutableMapOf()
     val reportNodes: MutableList<Any?> = mutableListOf()
 
     // Need to use secondary constructor to add a contract statement
@@ -32,8 +31,8 @@ class KernelIncrementalSimulator {
         kernelPlan: KernelPlan,
         reportHandler: IncrementalReportHandler
     ) {
-        kotlin.contracts.contract {
-            callsInPlace(constructModel, kotlin.contracts.InvocationKind.EXACTLY_ONCE)
+        contract {
+            callsInPlace(constructModel, InvocationKind.EXACTLY_ONCE)
         }
         var reportTime = ReportTimeImpl(kernelPlan.planStart)
         val basicInitScope = object : BasicInitScope {
@@ -45,28 +44,28 @@ class KernelIncrementalSimulator {
                 mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
             ): Cell<T> {
                 // Create an incremental cell, and add its initial value to the graph
-                return IncrementalCellImpl<T>(name).also {
-                    cellNodes[it] = TreeMap<Instant, CellNode<*>>().apply {
-                        put(kernelPlan.planStart, CellWriteNode(value, identity()))
+                return IncrementalCellImpl(name, valueType, stepBy, mergeConcurrentEffects).also {
+                    cellNodes[it] = TreeMap<Instant, SimulationGraph.CellNode<*>>().apply {
+                        put(kernelPlan.planStart, SimulationGraph.CellWriteNode(value, identity()))
                     }
                 }
             }
 
             override fun <T> spawn(name: Name, step: PureTaskStep<T>) {
                 // Add the task node into the graph. Implicitly, the continuation is not expanded.
-                taskNodes[KernelActivity(name, kernelPlan.planStart, step)] = RootTaskNode(name, step)
+                taskNodes[KernelActivity(name, kernelPlan.planStart, step)] = SimulationGraph.RootTaskNode(name, step)
             }
 
             override fun <T> read(cell: Cell<T>): T {
                 // Since there cannot be effects during init,
                 // we may safely assume the first node to be the write node added during allocation
-                return (getCellNodes(cell).firstEntry().value as CellWriteNode<T>).value
+                return (getCellNodes(cell).firstEntry().value as SimulationGraph.CellWriteNode<T>).value
             }
 
             override fun <T> report(value: T) {
                 // Create the uniquely-identifiable incremental report
                 val report = IncrementalReport(reportTime, value)
-                reportNodes += ReportNode(report)
+                reportNodes += SimulationGraph.ReportNode(report)
                 reportHandler.report(report)
                 reportTime = reportTime.nextStep()
             }
@@ -78,9 +77,14 @@ class KernelIncrementalSimulator {
         TODO("Not yet implemented")
     }
 
-    private class IncrementalCellImpl<T>(override val name: Name) : Cell<T>
+    private class IncrementalCellImpl<T>(
+        override val name: Name,
+        override val valueType: KType,
+        override val stepBy: (T, Duration) -> T,
+        override val mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>,
+    ) : Cell<T>
     @Suppress("UNCHECKED_CAST")
-    private fun <T> getCellNodes(cell: Cell<T>) = cellNodes.getValue(cell) as TreeMap<Instant, CellNode<T>>
+    private fun <T> getCellNodes(cell: Cell<T>) = cellNodes.getValue(cell) as TreeMap<Instant, SimulationGraph.CellNode<T>>
 
     // Time within the simulator is primarily the Instant at which a task runs.
     // Within a single instant, there's a series of job batches.

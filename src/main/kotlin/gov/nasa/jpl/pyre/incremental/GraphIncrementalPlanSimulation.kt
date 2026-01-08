@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.incremental.foundation
+package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
@@ -19,9 +19,6 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
 import gov.nasa.jpl.pyre.general.results.ResourceResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
-import gov.nasa.jpl.pyre.incremental.kernel.KernelActivity
-import gov.nasa.jpl.pyre.incremental.kernel.KernelPlan
-import gov.nasa.jpl.pyre.incremental.kernel.KernelPlanEdits
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Duration
@@ -55,7 +52,8 @@ class GraphIncrementalPlanSimulation<M>(
 
     private val resourceResults: MutableMap<Name, MutableIncrementalResourceResults<*>> = mutableMapOf()
     private val activityResults: MutableMap<Activity<*>, MutableActivityProgress> = mutableMapOf()
-    private lateinit var simulationScope: SimulationScope
+    private val simulationScope: SimulationScope
+    private val model: M
     private val kernelSimulation: KernelIncrementalSimulator
     private val kernelActivityMap: MutableMap<GroundedActivity<*>, KernelActivity> = mutableMapOf()
 
@@ -114,8 +112,8 @@ class GraphIncrementalPlanSimulation<M>(
                     }
                 }
         }
-        var model: M? = null
         var tempSimulationScope: SimulationScope? = null
+        var tempModel: M? = null
         kernelSimulation = KernelIncrementalSimulator(
             {
                 val basicInitScope = contextOf<BasicInitScope>()
@@ -168,7 +166,7 @@ class GraphIncrementalPlanSimulation<M>(
                     override val stderr: Channel<String> = channel(Name("stderr"))
                 }
                 tempSimulationScope = initScope
-                model = constructModel(initScope)
+                tempModel = constructModel(initScope)
             },
             KernelPlan(
                 plan.startTime,
@@ -181,6 +179,7 @@ class GraphIncrementalPlanSimulation<M>(
             incrementalReportHandler
         )
         simulationScope = checkNotNull(tempSimulationScope)
+        model = checkNotNull(tempModel)
     }
 
     override fun run(edits: PlanEdits<M>) {

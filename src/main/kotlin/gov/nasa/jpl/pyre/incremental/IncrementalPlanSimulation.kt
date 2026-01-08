@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.incremental.foundation
+package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.general.results.SimulationResults

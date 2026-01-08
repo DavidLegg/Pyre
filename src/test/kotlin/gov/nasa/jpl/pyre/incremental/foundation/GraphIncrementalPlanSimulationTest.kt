@@ -28,6 +28,8 @@ import gov.nasa.jpl.pyre.general.resources.discrete.MutableListResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.polynomialResource
+import gov.nasa.jpl.pyre.incremental.GraphIncrementalPlanSimulation
+import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.EPSILON
@@ -256,15 +258,19 @@ class GraphIncrementalPlanSimulationTest {
     private fun <M> IncrementalSimulationTester<M>.remove(vararg activities: GroundedActivity<M>) =
         run(PlanEdits(emptyList(), activities.toList()))
     private fun <M> IncrementalSimulationTester<M>.edit(vararg activities: Pair<GroundedActivity<M>, Activity<M>>) =
-        run(PlanEdits(
-            activities.map { GroundedActivity(it.first.time, it.second) },
-            activities.map { it.first },
-        ))
+        run(
+            PlanEdits(
+                activities.map { GroundedActivity(it.first.time, it.second) },
+                activities.map { it.first },
+            )
+        )
     private fun <M> IncrementalSimulationTester<M>.move(vararg activities: Pair<GroundedActivity<M>, Duration>) =
-        run(PlanEdits(
-            activities.map { GroundedActivity(planStart + it.second.toKotlinDuration(), it.first.activity) },
-            activities.map { it.first },
-        ))
+        run(
+            PlanEdits(
+                activities.map { GroundedActivity(planStart + it.second.toKotlinDuration(), it.first.activity) },
+                activities.map { it.first },
+            )
+        )
 }
 
 private class IncrementalSimulationTester<M>(

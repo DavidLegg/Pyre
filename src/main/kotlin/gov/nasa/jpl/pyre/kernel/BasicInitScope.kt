@@ -15,7 +15,7 @@ interface BasicInitScope {
         mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>,
     ): Cell<T>
     fun <T> spawn(name: Name, step: PureTaskStep<T>)
-    fun <T> read(cell: Cell<T>): T = cell.value
+    fun <T> read(cell: Cell<T>): T
     fun <T> report(value: T)
 
     companion object {

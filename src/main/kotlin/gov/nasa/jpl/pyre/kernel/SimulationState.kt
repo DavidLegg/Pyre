@@ -64,6 +64,8 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
             mergeConcurrentEffects,
         ).also { cells += it }
 
+        override fun <T> read(cell: Cell<T>): T = (cell as CellImpl<T>).value
+
         override fun <T> spawn(name: Name, step: PureTaskStep<T>) {
             // "name" is a root task name. Remember it for saving a fincon later.
             rootTaskNames += name

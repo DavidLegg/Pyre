@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.incremental.kernel
+package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.PureTaskStep
