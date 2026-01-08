@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.incremental
 
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.*
 import gov.nasa.jpl.pyre.kernel.Name
 
@@ -31,10 +32,25 @@ abstract class BaseIncrementalChannelizedReportHandler : IncrementalChannelizedR
 
     @Suppress("UNCHECKED_CAST")
     override fun report(report: IncrementalReport<*>) =
-        coerceAndReport((report as IncrementalReport<ChannelData<*>>).content, report)
+        when (val channelReport = channelizedContent(report)) {
+            is ChannelMetadata<*> -> initChannel(channelReport)
+            is ChannelData<*> -> coerceAndReport(channelReport, report as IncrementalReport<ChannelData<*>>)
+        }
     @Suppress("UNCHECKED_CAST")
     override fun revoke(report: IncrementalReport<*>) =
-        coerceAndRevoke((report as IncrementalReport<ChannelData<*>>).content, report)
+        when (val channelReport = channelizedContent(report)) {
+            is ChannelMetadata<*> -> Unit // Ignore; there's actually no meaning to "revoking" a channel initializer.
+            is ChannelData<*> -> coerceAndRevoke(channelReport, report as IncrementalReport<ChannelData<*>>)
+        }
+
+    private fun channelizedContent(report: IncrementalReport<*>): ChannelReport<*> {
+        require(report.content is ChannelReport<*>) {
+            IncrementalChannelizedReportHandler::class.simpleName +
+                    " expects all report content to be ${ChannelReport::class.simpleName}," +
+                    " but this report is ${report.content?.let { it::class.simpleName } ?: "null"} instead."
+        }
+        return report.content
+    }
 
     // These awkwardly-typed helper functions are a kludge around the generics system imposed by type erasure.
     // We need the type variable T to appear as a top-level type var in order to omit it above,
