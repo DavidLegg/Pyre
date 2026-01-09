@@ -11,6 +11,7 @@ import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.kernel.Task
+import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.utilities.identity
 import java.util.PriorityQueue
 import java.util.TreeMap
@@ -97,28 +98,55 @@ class KernelIncrementalSimulator(
                     // Add it to the frontier, to be processed at an appropriate later time
                     frontier += ContinueTask(runTaskNode)
                 }
+
                 is ContinueTask -> {
-                    @Suppress("UNCHECKED_CAST")
                     fun <V> getCellNode(cell: Cell<V>): CellNode<V> {
                         val thisCellsNodes = cellNodes.getValue(cell)
                         // Get the most recent cell node.
-                        val (t, cellNode) = checkNotNull(thisCellsNodes.floorEntry(action.node.time))
+                        var (t, cellNode) = checkNotNull(thisCellsNodes.floorEntry(action.time))
                         // This may have come from another task running in this batch though!
-                        if ((t as SimulationTimeImpl).isConcurrentWith(action.node.time)) {
+                        if ((t as SimulationTimeImpl).isConcurrentWith(action.time)) {
                             // If so, set the time to the first possible time of this batch,
                             // and ask for the cell node before that. That'll get the last cell node
                             // of the batch before this, which must be a merge or step or something.
-                            return checkNotNull(thisCellsNodes.lowerEntry(
-                                action.node.time.batchStart())).value as CellNode<V>
+                            cellNode = checkNotNull(thisCellsNodes.lowerEntry(
+                                action.time.batchStart())).value
                         }
-                        return cellNode as CellNode<V>
+                        @Suppress("UNCHECKED_CAST")
+                        cellNode as CellNode<V>
+                        // Now, check if we need to step up this cell node to the requested time
+                        if (cellNode.time.instant < action.time.instant) {
+                            val stepSize = (action.time.instant - cellNode.time.instant).toPyreDuration()
+                            // Build the new step node
+                            val stepNode = CellStepNode(
+                                action.time.cellSteppingBatch(),
+                                cell.stepBy(cellNode.value, stepSize),
+                                cellNode,
+                                stepSize,
+                                cellNode.next.toMutableList(),
+                                // Leave the reads as-is, they happen before the stepping
+                            )
+                            // Fix the edges leading to this step node
+                            cellNode.next.clear()
+                            cellNode.next += stepNode
+                            // Fix the edges leaving from this step node
+                            for (nextNode in stepNode.next) {
+                                // TODO: Prove that only step nodes can be next.
+                                check(nextNode is CellStepNode<V>) {
+                                    "Internal error! Node following an injected step node was not itself a step node."
+                                }
+                                nextNode.prior = stepNode
+                            }
+                            // TODO: Consider how (and when) to "collapse" step nodes together.
+                            return stepNode
+                        } else {
+                            // Since no stepping is required, return the node we found
+                            return cellNode
+                        }
                     }
 
                     // Expand this task node
                     val basicTaskActions = object : Task.BasicTaskActions {
-                        // TODO: How do we handle stepping cells up?
-                        // This code assumes that the cell is already stepped up to this time!
-                        // But injecting a ton of step nodes is likely inefficient...
                         override fun <V> read(cell: Cell<V>): V = getCellNode(cell).also {
                             // Record the read in the graph
                             it.reads += action.node
@@ -130,9 +158,9 @@ class KernelIncrementalSimulator(
                             effect: Effect<V>
                         ) {
                             // Look up the cell node we're writing to
-                            val priorCellNode: CellNode<V> = getCellNode(cell)
+                            val priorCellNode = getCellNode(cell)
                             // Build this write node
-                            val writeNode: CellWriteNode<V> = CellWriteNode(
+                            val writeNode = CellWriteNode(
                                 action.time,
                                 effect(priorCellNode.value),
                                 priorCellNode,
@@ -162,8 +190,9 @@ class KernelIncrementalSimulator(
                             }
                             for (read in priorCellNode.reads) {
                                 if (read.time isCausallyAfter writeNode.time) {
+                                    // TODO: Check if the read would have read the same value; if so, don't rerun
                                     // This read could be affected by this write!
-
+                                    frontier += RerunTask(read)
                                 }
                             }
                             TODO()
@@ -183,11 +212,16 @@ class KernelIncrementalSimulator(
                         is Task.TaskStepResult.Spawn<*, *> -> TODO()
                     }
                 }
+
                 is RerunTask -> {
                     // TODO: Remove this task node, all its continuations, and all its children (recursively)
                     // TODO: Remove all their reports
                     // TODO: Remove all their CellWriteNodes
                     // TODO: Mark all nodes that are after a removed CellWrite to be reprocessed
+                    TODO()
+                }
+
+                is CheckCell -> {
                     TODO()
                 }
             }
@@ -246,6 +280,11 @@ class KernelIncrementalSimulator(
 
     private fun SimulationTime.batchStart() = when (this) {
         is SimulationTimeImpl -> copy(branch = 0, step = 0)
+    }
+
+    private fun SimulationTime.cellSteppingBatch() = when (this) {
+        // Conceptually, cells are stepped in a special "batch", before any tasks are run
+        is SimulationTimeImpl -> copy(batch = -1, branch = 0, step = 0)
     }
 
     infix fun SimulationTime.isConcurrentWith(other: SimulationTime): Boolean = when (this) {
