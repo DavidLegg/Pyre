@@ -12,7 +12,9 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KType
 
-typealias PureTaskStep<T> = (BasicTaskActions) -> PureStepResult<T>
+fun interface PureTaskStep<T> {
+    fun run(actions: BasicTaskActions): PureStepResult<T>
+}
 
 /**
  * A Task is a unit of action in the simulation.
@@ -161,7 +163,7 @@ private class PureTask<T>(
             override fun <V> emit(cell: Cell<V>, effect: Effect<V>) = actions.emit(cell, effect)
             override fun <V> report(value: V) = actions.report(value)
         }
-        return when (val stepResult = step(historyCapturingActions)) {
+        return when (val stepResult = step.run(historyCapturingActions)) {
             is PureStepResult.Complete -> TaskStepResult.Complete(stepResult.value)
             is PureStepResult.Await -> TaskStepResult.Await(
                 stepResult.condition,

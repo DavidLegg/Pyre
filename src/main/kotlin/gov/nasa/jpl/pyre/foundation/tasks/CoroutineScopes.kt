@@ -139,7 +139,7 @@ private class TaskBuilder<T>(
         nextResult!!
     }
 
-    fun runTask(actions: BasicTaskActions): Task.PureStepResult<T> = continueWith(start)(actions)
+    fun runTask(actions: BasicTaskActions): Task.PureStepResult<T> = continueWith(start).run(actions)
 
     override fun toString(): String = contextName.toString()
 }
