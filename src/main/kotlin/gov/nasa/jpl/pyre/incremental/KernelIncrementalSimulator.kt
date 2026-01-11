@@ -15,6 +15,7 @@ import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.utilities.identity
 import java.util.PriorityQueue
 import java.util.TreeMap
+import java.util.stream.Stream.iterate
 import kotlin.collections.plusAssign
 import kotlin.reflect.KType
 import kotlin.time.Instant
@@ -82,35 +83,40 @@ class KernelIncrementalSimulator(
             when (val action = frontier.poll() ?: break) {
                 is StartTask -> {
                     // Find an unoccupied branch of the appropriate batch to schedule this job in
-                    var time = action.node.time + BATCH
+                    var time = action.time + BATCH
                     while (taskNodes.containsKey(time)) {
                         time += BRANCH
                     }
-                    val runTaskNode = RunTaskNode(
+                    val beginNode = StepBeginNode(
                         time,
                         action.node,
-                        Task.of(action.node.name, action.node.task)
+                        Task.of(action.node.name, action.node.task),
                     )
                     // Note that this new task exists
-                    taskNodes[time] = runTaskNode
-                    // Record it as the continuation of the root
-                    action.node.continuation = runTaskNode
+                    taskNodes[time] = beginNode
+                    // Record it as the successor of the root
+                    action.node.next = beginNode
                     // Add it to the frontier, to be processed at an appropriate later time
-                    frontier += ContinueTask(runTaskNode)
+                    frontier += ContinueTask(beginNode)
                 }
 
                 is ContinueTask -> {
+                    // Expand this task node
+                    var lastTaskStepNode: TaskStepNode = action.node
+                    // TODO: Check everywhere in this function that we reference action.time -
+                    //   we likely want to reference lTSN.time + STEP instead.
+
                     fun <V> getCellNode(cell: Cell<V>): CellNode<V> {
                         val thisCellsNodes = cellNodes.getValue(cell)
                         // Get the most recent cell node.
-                        var (t, cellNode) = checkNotNull(thisCellsNodes.floorEntry(action.time))
+                        var (t, cellNode) = checkNotNull(thisCellsNodes.floorEntry(lastTaskStepNode.time))
                         // This may have come from another task running in this batch though!
-                        if ((t as SimulationTimeImpl).isConcurrentWith(action.time)) {
+                        if ((t as SimulationTimeImpl).isConcurrentWith(lastTaskStepNode.time)) {
                             // If so, set the time to the first possible time of this batch,
                             // and ask for the cell node before that. That'll get the last cell node
                             // of the batch before this, which must be a merge or step or something.
                             cellNode = checkNotNull(thisCellsNodes.lowerEntry(
-                                action.time.batchStart())).value
+                                lastTaskStepNode.time.batchStart())).value
                         }
                         @Suppress("UNCHECKED_CAST")
                         cellNode as CellNode<V>
@@ -145,13 +151,19 @@ class KernelIncrementalSimulator(
                         }
                     }
 
-                    // Expand this task node
                     val basicTaskActions = object : Task.BasicTaskActions {
-                        override fun <V> read(cell: Cell<V>): V = getCellNode(cell).also {
-                            // Record the read in the graph
-                            it.reads += action.node
-                            action.node.reads += it
-                        }.value
+                        override fun <V> read(cell: Cell<V>): V {
+                            // Look up the cell node
+                            val cellNode = getCellNode(cell)
+                            // Record this read in the graph
+                            lastTaskStepNode = ReadNode(
+                                lastTaskStepNode.time + STEP,
+                                lastTaskStepNode,
+                                cellNode
+                            ).also { lastTaskStepNode.next = it }
+                            // Return the value
+                            return cellNode.value
+                        }
 
                         override fun <V> emit(
                             cell: Cell<V>,
@@ -159,19 +171,27 @@ class KernelIncrementalSimulator(
                         ) {
                             // Look up the cell node we're writing to
                             val priorCellNode = getCellNode(cell)
+                            // Filter out the nodes causally after this write operation
+                            val it = priorCellNode.next.iterator()
+                            val nodesAfterWrite = mutableListOf<CellNode<V>>()
+                            while (it.hasNext()) {
+                                val next = it.next()
+                                if (next.time isCausallyAfter lastTaskStepNode.time) {
+                                    it.remove()
+                                    nodesAfterWrite += next
+                                }
+                            }
                             // Build this write node
                             val writeNode = CellWriteNode(
-                                action.time,
+                                lastTaskStepNode.time + STEP,
                                 effect(priorCellNode.value),
                                 priorCellNode,
                                 effect,
-                                next = priorCellNode.next.toMutableList(),
+                                next = nodesAfterWrite
                             )
-                            // Fix the cell edges leading to this write node
-                            priorCellNode.next.clear()
+                            // Add the edge from prior to this write node
                             priorCellNode.next += writeNode
                             // Fix the cell edges leaving from this write node
-                            // TODO: check if these nodes need re-processing
                             for (nextCellNode in writeNode.next) {
                                 when (nextCellNode) {
                                     is CellMergeNode<V> -> {
@@ -188,28 +208,56 @@ class KernelIncrementalSimulator(
                                 // Also schedule all of these nodes to be checked
                                 frontier += CheckCell(nextCellNode)
                             }
+
                             for (read in priorCellNode.reads) {
                                 if (read.time isCausallyAfter writeNode.time) {
-                                    // TODO: Check if the read would have read the same value; if so, don't rerun
-                                    // This read could be affected by this write!
+                                    // Our write intercedes between the read and the value it read.
+                                    // Presuming this task should now read a different value, it must be re-run.
                                     frontier += RerunTask(read)
                                 }
                             }
-                            TODO()
+
+                            // Having constructed the cell's write node, now construct the next step node for the task.
+                            lastTaskStepNode = WriteNode(
+                                lastTaskStepNode.time + STEP,
+                                lastTaskStepNode,
+                                writeNode,
+                            ).also {
+                                // Also add the edges from the prior task step and from the cell write node to this.
+                                lastTaskStepNode.next = it
+                                writeNode.writer = it
+                            }
                         }
 
                         override fun <V> report(value: V) {
-                            TODO("Not yet implemented")
+                            // Record this report in the task graph and issue it to the reportHandler
+                            lastTaskStepNode.next = ReportNode(
+                                lastTaskStepNode,
+                                IncrementalReport(lastTaskStepNode.time + STEP, value)
+                                    .also(reportHandler::report),
+                            ).also { lastTaskStepNode.next = it }
                         }
                     }
-                    val result = checkNotNull(action.node.task) {
+                    val result = checkNotNull(action.node.continuation) {
                         "Internal error! Task nodes on the frontier must have a non-null task."
                     }.runStep(basicTaskActions)
                     when (result) {
-                        is Task.TaskStepResult.Await<*> -> TODO()
-                        is Task.TaskStepResult.Complete<*> -> TODO()
-                        is Task.TaskStepResult.NoOp<*> -> TODO()
-                        is Task.TaskStepResult.Spawn<*, *> -> TODO()
+                        is Task.TaskStepResult.Await<*> -> {
+                            // TODO: Think through how to do awaits.
+                            TODO()
+                        }
+                        is Task.TaskStepResult.Complete<*> -> { /* Nothing to do */ }
+                        is Task.TaskStepResult.NoOp<*> -> {
+                            // TODO: I think I need to rework the kernel handling of restarts, to expose the restart action at the kernel level.
+                            //   I need to have an explicit restart step here, so I know I can rerun the task from here.
+                            TODO()
+                        }
+                        is Task.TaskStepResult.Spawn<*, *> -> {
+                            // TODO: Need to think through if this is the right signature...
+                            //   Ideally, I want to be able to restart a child task without replaying through the parent.
+                            //   Not sure if that's possible with the data I'm collecting here...
+                            TODO()
+                        }
                     }
                 }
 
@@ -312,8 +360,8 @@ class KernelIncrementalSimulator(
         val time: SimulationTime get() = node.time
 
         data class StartTask(override val node: RootTaskNode) : FrontierAction
-        data class ContinueTask(override val node: RunTaskNode) : FrontierAction
-        data class RerunTask(override val node: RunTaskNode) : FrontierAction
+        data class ContinueTask(override val node: YieldingStepNode) : FrontierAction
+        data class RerunTask(override val node: TaskStepNode) : FrontierAction
         data class CheckCell(override val node: CellNode<*>) : FrontierAction
     }
 }
