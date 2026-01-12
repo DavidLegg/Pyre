@@ -115,6 +115,7 @@ class GraphIncrementalPlanSimulation<M>(
         var tempSimulationScope: SimulationScope? = null
         var tempModel: M? = null
         kernelSimulation = KernelIncrementalSimulator(
+            plan.startTime,
             {
                 val basicInitScope = contextOf<BasicInitScope>()
                 // TODO: Coalesce this construction of an InitScope with that in PlanSimulation
@@ -167,15 +168,11 @@ class GraphIncrementalPlanSimulation<M>(
                 }
                 tempSimulationScope = initScope
                 tempModel = constructModel(initScope)
-            },
-            KernelPlan(
-                plan.startTime,
-                plan.endTime,
                 plan.activities.map { activity ->
                     // Convert plan activities to kernel activities, and record those translations
-                    activity.toKernelActivity().also { kernelActivityMap[activity] = it }
+                    activity.toKernelActivity(tempSimulationScope).also { kernelActivityMap[activity] = it }
                 }
-            ),
+            },
             incrementalReportHandler
         )
         simulationScope = checkNotNull(tempSimulationScope)
@@ -193,12 +190,12 @@ class GraphIncrementalPlanSimulation<M>(
             },
             edits.additions.map { activity ->
                 // Convert plan activities to kernel activities, and record those translations
-                activity.toKernelActivity().also { kernelActivityMap[activity] = it }
+                activity.toKernelActivity(simulationScope).also { kernelActivityMap[activity] = it }
             }
         ))
     }
 
-    private fun GroundedActivity<M>.toKernelActivity() = KernelActivity(
+    private fun GroundedActivity<M>.toKernelActivity(simulationScope: SimulationScope) = KernelActivity(
         Name("activities") / name,
         time,
         context (simulationScope) {

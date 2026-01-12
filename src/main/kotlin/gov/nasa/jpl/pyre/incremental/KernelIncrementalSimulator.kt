@@ -28,8 +28,8 @@ import kotlin.time.Instant
  * Support for [GraphIncrementalPlanSimulation], which implements graph-based incremental simulation at the kernel level.
  */
 class KernelIncrementalSimulator(
-    constructModel: context (BasicInitScope) () -> Unit,
-    kernelPlan: KernelPlan,
+    planStart: Instant,
+    constructPlan: context (BasicInitScope) () -> List<KernelActivity>,
     private val reportHandler: IncrementalReportHandler
 ) {
     private val cellNodes: MutableMap<Cell<*>, TreeMap<SimulationTime, CellNode<*>>> = mutableMapOf()
@@ -38,7 +38,7 @@ class KernelIncrementalSimulator(
 
     init {
         // Init happens before any tasks, at plan start.
-        var initTime = SimulationTimeImpl(kernelPlan.planStart, batch = -1)
+        var initTime = SimulationTimeImpl(planStart, batch = -1)
         var startTime = initTime + BATCH
 
         val basicInitScope = object : BasicInitScope {
@@ -78,7 +78,15 @@ class KernelIncrementalSimulator(
                 initTime += STEP
             }
         }
-        constructModel(basicInitScope)
+        val activities = constructPlan(basicInitScope)
+        for (activity in activities) {
+            frontier += StartTask(
+                RootTaskNode(
+                    nextAvailableBranch(SimulationTimeImpl(activity.time)).reactionsStep(),
+                    Task.of(activity.name, activity.task),
+                )
+            ).also { occupyBranch(it.time) }
+        }
         resolve()
     }
 
@@ -403,6 +411,8 @@ class KernelIncrementalSimulator(
                 n
             }
         }
+
+        override fun toString(): String = "$instant::$batch/$branch/$step"
     }
 
     enum class SimulationTimeIncrement {

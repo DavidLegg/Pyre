@@ -294,6 +294,7 @@ private class IncrementalSimulationTester<M>(
     private fun assertSynced() {
         assertEquals(baselineSimulation.plan, testSimulation.plan)
         assertEquals(baselineSimulation.results, testSimulation.results)
+        // TODO: Write a finer-grained assertSynced routine to make debugging easier
     }
 }
 
