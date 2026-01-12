@@ -225,7 +225,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
                     tasks += TaskEntry(time, stepResult.child)
                     nextTask = stepResult.continuation
                 }
-                is NoOp -> {
+                is Restart -> {
                     nextTask = stepResult.continuation
                 }
             }

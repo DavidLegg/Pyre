@@ -120,7 +120,7 @@ interface Task<T> {
         // If the restart instead becomes a NoOp, that NoOp can yield an empty history, keeping the fincon files clean.
         // In particular, for any PlanSimulation, the activity loader immediately awaits the next activity to load.
         // Without the NoOp, it always saves the last activity it loaded instead of saving an empty history.
-        data class NoOp<T>(val continuation: Task<T>) : TaskStepResult<T> {
+        data class Restart<T>(val continuation: Task<T>) : TaskStepResult<T> {
             override fun toString() = "NoOp"
         }
     }
@@ -181,7 +181,7 @@ private class PureTask<T>(
                 )
             )
             is PureStepResult.Spawn<*, T> -> runSpawn(stepResult) { reportHistory() }
-            is PureStepResult.Restart -> TaskStepResult.NoOp(rootTask)
+            is PureStepResult.Restart -> TaskStepResult.Restart(rootTask)
         }
     }
 
@@ -241,8 +241,8 @@ private class PureTask<T>(
                     // It should not be possible not to have incon data for a spawn - they always run to completion
                     "'spawn' step missing from incon. Incon data for ${thisTask.id.name} is malformed."
                 }
-                // NoOp's don't contribute to task history themselves, just keep restoring with the next step
-                is TaskStepResult.NoOp -> stepResult.continuation
+                // We really shouldn't get a restart, but if we do, just keep restoring. They don't directly contribute to task history.
+                is TaskStepResult.Restart -> stepResult.continuation
                 is TaskStepResult.Complete -> throw IllegalArgumentException("Extra restore data for completed task")
             }
         }

@@ -13,36 +13,31 @@ interface SimulationGraph {
         val time: SimulationTime
     }
 
-    sealed interface TaskNode : SGNode
-
-    /**
-     * All [TaskNode]s except for [RootTaskNode], these record the actions taken by a task.
-     */
-    sealed interface TaskStepNode : TaskNode {
-        val prior: TaskNode
-        var next: TaskStepNode?
+    sealed interface TaskNode : SGNode {
+        val prior: TaskNode?
+        var next: TaskNode?
     }
 
     /**
      * Any step of a task which yields back to the simulator.
      * These have an explicit continuation [Task] used to resume the rest of the task when appropriate.
      */
-    sealed interface YieldingStepNode : TaskStepNode {
+    sealed interface YieldingStepNode : TaskNode {
         var continuation: Task<*>?
     }
 
     /**
-     * Any [TaskStepNode] which is not a [YieldingStepNode].
+     * Any [TaskNode] which is not a [YieldingStepNode].
      * The task continues immediately, with no opportunity for the simulator to pause at this point.
      */
-    sealed interface NonYieldingStepNode : TaskStepNode
+    sealed interface NonYieldingStepNode : TaskNode
 
     /** The root task, from which a task can be restarted or replayed. */
     class RootTaskNode(
         override val time: SimulationTime,
-        val name: Name,
-        val task: PureTaskStep<*>,
-        var next: TaskNode? = null,
+        val task: Task<*>,
+        override val prior: TaskNode? = null,
+        override var next: TaskNode? = null,
     ) : TaskNode
 
     /** The first node in a task step, following a root or yielding step. Used to schedule the next task step. */
@@ -50,27 +45,27 @@ interface SimulationGraph {
         override val time: SimulationTime,
         override val prior: TaskNode,
         override var continuation: Task<*>?,
-        override var next: TaskStepNode? = null,
+        override var next: TaskNode? = null,
     ) : YieldingStepNode
 
     class ReadNode(
         override val time: SimulationTime,
         override val prior: TaskNode,
         val cell: CellNode<*>,
-        override var next: TaskStepNode? = null,
+        override var next: TaskNode? = null,
     ) : NonYieldingStepNode
 
     class WriteNode(
         override val time: SimulationTime,
         override val prior: TaskNode,
         val cell: CellWriteNode<*>,
-        override var next: TaskStepNode? = null,
+        override var next: TaskNode? = null,
     ) : NonYieldingStepNode
 
     class ReportNode(
         override val prior: TaskNode,
         val report: IncrementalReport<*>,
-        override var next: TaskStepNode? = null,
+        override var next: TaskNode? = null,
     ) : NonYieldingStepNode {
         override val time: SimulationTime get() = report.time
     }
@@ -80,21 +75,22 @@ interface SimulationGraph {
         override val prior: TaskNode,
         val child: RootTaskNode,
         override var continuation: Task<*>?,
-        override var next: TaskStepNode? = null,
+        override var next: TaskNode? = null,
     ) : YieldingStepNode
 
     class AwaitNode(
         override val time: SimulationTime,
         override val prior: TaskNode,
         val condition: Condition,
-        val reads: MutableSet<CellNode<*>>,
+        val reads: MutableSet<CellNode<*>> = TreeSet(compareBy { it.time }),
         override var continuation: Task<*>?,
-        override var next: TaskStepNode? = null,
+        override var next: TaskNode? = null,
     ) : YieldingStepNode
 
     sealed interface CellNode<T> : SGNode {
         val value: T
         val reads: MutableSet<ReadNode>
+        val awaiters: MutableSet<AwaitNode>
         val next: MutableList<CellNode<T>>
     }
 
@@ -107,6 +103,7 @@ interface SimulationGraph {
         var writer: WriteNode? = null,
         override val next: MutableList<CellNode<T>> = mutableListOf(),
         override val reads: MutableSet<ReadNode> = TreeSet(compareBy { it.time }),
+        override val awaiters: MutableSet<AwaitNode> = TreeSet(compareBy { it.time }),
     ) : CellNode<T>
 
     class CellMergeNode<T>(
@@ -115,6 +112,7 @@ interface SimulationGraph {
         val prior: MutableList<CellWriteNode<T>>,
         override val next: MutableList<CellNode<T>> = mutableListOf(),
         override val reads: MutableSet<ReadNode> = TreeSet(compareBy { it.time }),
+        override val awaiters: MutableSet<AwaitNode> = TreeSet(compareBy { it.time }),
     ) : CellNode<T>
 
     class CellStepNode<T>(
@@ -124,5 +122,6 @@ interface SimulationGraph {
         val step: Duration,
         override val next: MutableList<CellNode<T>> = mutableListOf(),
         override val reads: MutableSet<ReadNode> = TreeSet(compareBy { it.time }),
+        override val awaiters: MutableSet<AwaitNode> = TreeSet(compareBy { it.time }),
     ) : CellNode<T>
 }

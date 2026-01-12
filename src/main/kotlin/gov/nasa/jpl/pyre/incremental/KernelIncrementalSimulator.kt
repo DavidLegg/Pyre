@@ -9,8 +9,12 @@ import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.PureTaskStep
+import gov.nasa.jpl.pyre.kernel.ReadActions
 import gov.nasa.jpl.pyre.kernel.ReportHandler
+import gov.nasa.jpl.pyre.kernel.SatisfiedAt
 import gov.nasa.jpl.pyre.kernel.Task
+import gov.nasa.jpl.pyre.kernel.UnsatisfiedUntil
+import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.utilities.identity
 import java.util.PriorityQueue
@@ -29,11 +33,14 @@ class KernelIncrementalSimulator(
     private val reportHandler: IncrementalReportHandler
 ) {
     private val cellNodes: MutableMap<Cell<*>, TreeMap<SimulationTime, CellNode<*>>> = mutableMapOf()
-    private val taskNodes: TreeMap<SimulationTime, TaskNode> = TreeMap()
+    private val occupiedBranches: MutableSet<SimulationTime> = mutableSetOf()
     private val frontier: PriorityQueue<FrontierAction> = PriorityQueue(compareBy { it.time })
 
     init {
-        var time = SimulationTimeImpl(kernelPlan.planStart)
+        // Init happens before any tasks, at plan start.
+        var initTime = SimulationTimeImpl(kernelPlan.planStart, batch = -1)
+        var startTime = initTime + BATCH
+
         val basicInitScope = object : BasicInitScope {
             override fun <T : Any> allocate(
                 name: Name,
@@ -45,16 +52,19 @@ class KernelIncrementalSimulator(
                 // Create an incremental cell, and add its initial value to the graph
                 IncrementalCellImpl(name, valueType, stepBy, mergeConcurrentEffects).also {
                     cellNodes[it] = TreeMap<SimulationTime, CellNode<*>>().apply {
-                        put(time, CellWriteNode(time, value, null, identity()))
-                        time += STEP
+                        put(initTime, CellWriteNode(initTime, value, null, identity()))
+                        initTime += STEP
                     }
                 }
 
             override fun <T> spawn(name: Name, step: PureTaskStep<T>) {
-                // Add the task node into the graph. Implicitly, the continuation is not expanded.
-                val rootTaskNode = RootTaskNode(time, name, step)
-                time += STEP
-                frontier += StartTask(rootTaskNode)
+                // Schedule the task on its own branch, as part of the first batch.
+                occupyBranch(startTime)
+                // Note that root task nodes go into the "reactions" step, ahead of regular task steps,
+                // so that the first real step can happen at step 0.
+                frontier += StartTask(RootTaskNode(startTime.reactionsStep(), Task.of(name, step)))
+                // Since we're doing init, we can sequentially assign branches rather than search for available branches.
+                startTime += BRANCH
             }
 
             override fun <T> read(cell: Cell<T>): T {
@@ -64,10 +74,8 @@ class KernelIncrementalSimulator(
             }
 
             override fun <T> report(value: T) {
-                // Create the uniquely-identifiable incremental report
-                val report = IncrementalReport(time, value)
-                time += STEP
-                reportHandler.report(report)
+                reportHandler.report(IncrementalReport(initTime, value))
+                initTime += STEP
             }
         }
         constructModel(basicInitScope)
@@ -82,79 +90,29 @@ class KernelIncrementalSimulator(
         while (true) {
             when (val action = frontier.poll() ?: break) {
                 is StartTask -> {
-                    // Find an unoccupied branch of the appropriate batch to schedule this job in
-                    var time = action.time + BATCH
-                    while (taskNodes.containsKey(time)) {
-                        time += BRANCH
+                    action.node.next?.let {
+                        // If this root has already been expanded, revoke that expansion
+                        revokeTask(it)
                     }
-                    val beginNode = StepBeginNode(
-                        time,
+                    // Add the first step of the job in an unoccupied branch, and schedule it to run
+                    action.node.next = StepBeginNode(
+                        nextAvailableBranch(action.time + BATCH),
                         action.node,
-                        Task.of(action.node.name, action.node.task),
-                    )
-                    // Note that this new task exists
-                    taskNodes[time] = beginNode
-                    // Record it as the successor of the root
-                    action.node.next = beginNode
-                    // Add it to the frontier, to be processed at an appropriate later time
-                    frontier += ContinueTask(beginNode)
+                        action.node.task,
+                    ).also {
+                        occupyBranch(it.time)
+                        frontier += ContinueTask(it)
+                    }
                 }
 
                 is ContinueTask -> {
                     // Expand this task node
-                    var lastTaskStepNode: TaskStepNode = action.node
-                    // TODO: Check everywhere in this function that we reference action.time -
-                    //   we likely want to reference lTSN.time + STEP instead.
-
-                    fun <V> getCellNode(cell: Cell<V>): CellNode<V> {
-                        val thisCellsNodes = cellNodes.getValue(cell)
-                        // Get the most recent cell node.
-                        var (t, cellNode) = checkNotNull(thisCellsNodes.floorEntry(lastTaskStepNode.time))
-                        // This may have come from another task running in this batch though!
-                        if ((t as SimulationTimeImpl).isConcurrentWith(lastTaskStepNode.time)) {
-                            // If so, set the time to the first possible time of this batch,
-                            // and ask for the cell node before that. That'll get the last cell node
-                            // of the batch before this, which must be a merge or step or something.
-                            cellNode = checkNotNull(thisCellsNodes.lowerEntry(
-                                lastTaskStepNode.time.batchStart())).value
-                        }
-                        @Suppress("UNCHECKED_CAST")
-                        cellNode as CellNode<V>
-                        // Now, check if we need to step up this cell node to the requested time
-                        if (cellNode.time.instant < action.time.instant) {
-                            val stepSize = (action.time.instant - cellNode.time.instant).toPyreDuration()
-                            // Build the new step node
-                            val stepNode = CellStepNode(
-                                action.time.cellSteppingBatch(),
-                                cell.stepBy(cellNode.value, stepSize),
-                                cellNode,
-                                stepSize,
-                                cellNode.next.toMutableList(),
-                                // Leave the reads as-is, they happen before the stepping
-                            )
-                            // Fix the edges leading to this step node
-                            cellNode.next.clear()
-                            cellNode.next += stepNode
-                            // Fix the edges leaving from this step node
-                            for (nextNode in stepNode.next) {
-                                // TODO: Prove that only step nodes can be next.
-                                check(nextNode is CellStepNode<V>) {
-                                    "Internal error! Node following an injected step node was not itself a step node."
-                                }
-                                nextNode.prior = stepNode
-                            }
-                            // TODO: Consider how (and when) to "collapse" step nodes together.
-                            return stepNode
-                        } else {
-                            // Since no stepping is required, return the node we found
-                            return cellNode
-                        }
-                    }
+                    var lastTaskStepNode: TaskNode = action.node
 
                     val basicTaskActions = object : Task.BasicTaskActions {
                         override fun <V> read(cell: Cell<V>): V {
                             // Look up the cell node
-                            val cellNode = getCellNode(cell)
+                            val cellNode = getCellNode(cell, lastTaskStepNode.time + STEP)
                             // Record this read in the graph
                             lastTaskStepNode = ReadNode(
                                 lastTaskStepNode.time + STEP,
@@ -170,20 +128,21 @@ class KernelIncrementalSimulator(
                             effect: Effect<V>
                         ) {
                             // Look up the cell node we're writing to
-                            val priorCellNode = getCellNode(cell)
+                            val writeTime = lastTaskStepNode.time + STEP
+                            val priorCellNode = getCellNode(cell, writeTime)
                             // Filter out the nodes causally after this write operation
                             val it = priorCellNode.next.iterator()
                             val nodesAfterWrite = mutableListOf<CellNode<V>>()
                             while (it.hasNext()) {
                                 val next = it.next()
-                                if (next.time isCausallyAfter lastTaskStepNode.time) {
+                                if (next.time isCausallyAfter writeTime) {
                                     it.remove()
                                     nodesAfterWrite += next
                                 }
                             }
                             // Build this write node
                             val writeNode = CellWriteNode(
-                                lastTaskStepNode.time + STEP,
+                                writeTime,
                                 effect(priorCellNode.value),
                                 priorCellNode,
                                 effect,
@@ -209,6 +168,10 @@ class KernelIncrementalSimulator(
                                 frontier += CheckCell(nextCellNode)
                             }
 
+                            // Add the write node to the global cell map for quick lookups later.
+                            getCellNodes(cell)[writeNode.time] = writeNode
+
+                            // Schedule any reads that were disturbed by this write
                             for (read in priorCellNode.reads) {
                                 if (read.time isCausallyAfter writeNode.time) {
                                     // Our write intercedes between the read and the value it read.
@@ -217,9 +180,28 @@ class KernelIncrementalSimulator(
                                 }
                             }
 
+                            for (awaiter in priorCellNode.awaiters) {
+                                // If there was previously a scheduled await, revoke that task.
+                                awaiter.next?.let{
+                                    // If we're planning on re-checking this condition later, don't.
+                                    if (it is AwaitNode) frontier -= CheckCondition(it)
+                                    // If we're planning on continuing the task later (because the condition would be satisfied then), don't.
+                                    if (it is YieldingStepNode) frontier -= ContinueTask(it)
+                                    // If we're disturbing the results of a previous run in any way, revoke it.
+                                    revokeTask(it)
+                                }
+                                // Regardless, build a new await node and schedule it for the reaction to this batch
+                                awaiter.next = AwaitNode(
+                                    nextAvailableBranch(writeNode.time + BATCH).reactionsStep(),
+                                    awaiter,
+                                    awaiter.condition,
+                                    continuation = awaiter.continuation,
+                                ).also { frontier += CheckCondition(it) }
+                            }
+
                             // Having constructed the cell's write node, now construct the next step node for the task.
                             lastTaskStepNode = WriteNode(
-                                lastTaskStepNode.time + STEP,
+                                writeTime,
                                 lastTaskStepNode,
                                 writeNode,
                             ).also {
@@ -243,19 +225,38 @@ class KernelIncrementalSimulator(
                     }.runStep(basicTaskActions)
                     when (result) {
                         is Task.TaskStepResult.Await<*> -> {
-                            // TODO: Think through how to do awaits.
-                            TODO()
+                            // Create an await node and add it to the frontier, to be checked at the end of the batch.
+                            lastTaskStepNode = AwaitNode(
+                                // The "reactions" to this batch are just the reactionsStep of the next batch.
+                                nextAvailableBranch(lastTaskStepNode.time + BATCH).reactionsStep(),
+                                lastTaskStepNode,
+                                result.condition,
+                                continuation = result.continuation,
+                            ).also {
+                                // Having constructed the node, link it to chain of task step nodes
+                                lastTaskStepNode.next = it
+                                // Schedule the condition to be checked
+                                frontier += CheckCondition(it)
+                                // And mark the branch as occupied
+                                occupyBranch(it.time)
+                            }
                         }
                         is Task.TaskStepResult.Complete<*> -> { /* Nothing to do */ }
-                        is Task.TaskStepResult.NoOp<*> -> {
-                            // TODO: I think I need to rework the kernel handling of restarts, to expose the restart action at the kernel level.
-                            //   I need to have an explicit restart step here, so I know I can rerun the task from here.
-                            TODO()
+                        is Task.TaskStepResult.Restart<*> -> {
+                            // Add a new root task, from which we can restart the next task at any time.
+                            lastTaskStepNode = RootTaskNode(
+                                // Restarting does not yield to the engine, it's the next step of this task.
+                                lastTaskStepNode.time + STEP,
+                                result.continuation,
+                                lastTaskStepNode,
+                            ).also {
+                                lastTaskStepNode.next = it
+                                frontier += StartTask(it)
+                            }
                         }
                         is Task.TaskStepResult.Spawn<*, *> -> {
-                            // TODO: Need to think through if this is the right signature...
-                            //   Ideally, I want to be able to restart a child task without replaying through the parent.
-                            //   Not sure if that's possible with the data I'm collecting here...
+                            // Spawning is a yielding action, so add our continuation to the next batch:
+                            // TODO: Spawning
                             TODO()
                         }
                     }
@@ -272,11 +273,61 @@ class KernelIncrementalSimulator(
                 is CheckCell -> {
                     TODO()
                 }
+
+                is CheckCondition -> {
+                    val readActions = object : ReadActions {
+                        override fun <V> read(cell: Cell<V>): V {
+                            // Get the appropriate cell node to read:
+                            val cellNode = getCellNode(cell, action.time)
+                            // Record bidirectionally that this read happened:
+                            cellNode.awaiters += action.node
+                            action.node.reads += cellNode
+                            // Finally, return the value we read
+                            return cellNode.value
+                        }
+                    }
+                    // Schedule the next evaluation or the continuation, as appropriate
+                    when (val result = action.node.condition(readActions)) {
+                        is SatisfiedAt -> {
+                            // Schedule the continuation of the task for the time indicated
+                            action.node.next = StepBeginNode(
+                                SimulationTimeImpl(action.time.instant + result.time.toKotlinDuration()),
+                                action.node,
+                                action.node.continuation,
+                            ).also { frontier += ContinueTask(it) }
+                        }
+                        is UnsatisfiedUntil -> {
+                            // If we're unsatisfied only for a finite time, add and schedule an await for that time
+                            result.time?.let { t ->
+                                action.node.next = AwaitNode(
+                                    SimulationTimeImpl(action.time.instant + t.toKotlinDuration()),
+                                    action.node,
+                                    action.node.condition,
+                                    continuation = action.node.continuation,
+                                ).also { frontier += CheckCondition(it) }
+                            }
+                            // If we're unsatisfied indefinitely, nothing to do for now.
+                            // In either case, cell writes to any of the read cells will reschedule awaits as needed.
+                        }
+                    }
+                }
             }
         }
     }
 
-    private fun <T> PureTaskStep<T>.toTask(name: Name): Task<T> = Task.of(name, this)
+    private fun occupyBranch(time: SimulationTime) {
+        occupiedBranches += time.batchStart()
+    }
+
+    private fun nextAvailableBranch(time: SimulationTime): SimulationTime =
+        iterate(time.batchStart()) { it + BRANCH }
+            .filter { it !in occupiedBranches }
+            .findFirst()
+            .get()
+
+    private fun revokeTask(task: TaskNode) {
+        TODO("revoking a task in the simulation DAG")
+    }
 
     private class IncrementalCellImpl<T>(
         override val name: Name,
@@ -285,7 +336,52 @@ class KernelIncrementalSimulator(
         override val mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>,
     ) : Cell<T>
     @Suppress("UNCHECKED_CAST")
-    private fun <T> getCellNodes(cell: Cell<T>) = cellNodes.getValue(cell) as TreeMap<Instant, CellNode<T>>
+    private fun <T> getCellNodes(cell: Cell<T>) = cellNodes.getValue(cell) as TreeMap<SimulationTime, CellNode<T>>
+
+    fun <V> getCellNode(cell: Cell<V>, time: SimulationTime): CellNode<V> {
+        val thisCellsNodes = getCellNodes(cell)
+        // Get the most recent cell node.
+        var (t, cellNode) = checkNotNull(thisCellsNodes.floorEntry(time))
+        // This may have come from another task running in this batch though!
+        if ((t as SimulationTimeImpl).isConcurrentWith(time)) {
+            // If so, set the time to the first possible time of this batch,
+            // and ask for the cell node before that. That'll get the last cell node
+            // of the batch before this, which must be a merge or step or something.
+            cellNode = checkNotNull(thisCellsNodes.lowerEntry(time.batchStart())).value
+        }
+        // Now, check if we need to step up this cell node to the requested time
+        if (cellNode.time.instant < time.instant) {
+            val stepSize = (time.instant - cellNode.time.instant).toPyreDuration()
+            // Build the new step node
+            val stepNode = CellStepNode(
+                time.cellSteppingBatch(),
+                cell.stepBy(cellNode.value, stepSize),
+                cellNode,
+                stepSize,
+                cellNode.next.toMutableList(),
+                // Leave the reads as-is, they happen before the stepping
+            )
+            // Fix the edges leading to this step node
+            cellNode.next.clear()
+            cellNode.next += stepNode
+            // Fix the edges leaving from this step node
+            for (nextNode in stepNode.next) {
+                // TODO: Prove that only step nodes can be next.
+                check(nextNode is CellStepNode<V>) {
+                    "Internal error! Node following an injected step node was not itself a step node."
+                }
+                nextNode.prior = stepNode
+            }
+            // TODO: Do we need to propagate awaiters forward?
+            // Let the global cell map know about this node for quick lookup later
+            thisCellsNodes[stepNode.time] = stepNode
+            // TODO: Consider how (and when) to "collapse" step nodes together.
+            return stepNode
+        } else {
+            // Since no stepping is required, return the node we found
+            return cellNode
+        }
+    }
 
     // Time within the simulator is primarily the Instant at which a task runs.
     // Within a single instant, there's a series of job batches.
@@ -335,6 +431,11 @@ class KernelIncrementalSimulator(
         is SimulationTimeImpl -> copy(batch = -1, branch = 0, step = 0)
     }
 
+    private fun SimulationTime.reactionsStep() = when (this) {
+        // Conceptually, reactions happen in a special step before regular tasks, so their task can run in that step
+        is SimulationTimeImpl -> copy(step = -1)
+    }
+
     infix fun SimulationTime.isConcurrentWith(other: SimulationTime): Boolean = when (this) {
         is SimulationTimeImpl -> when (other) {
             is SimulationTimeImpl -> instant == other.instant
@@ -361,8 +462,9 @@ class KernelIncrementalSimulator(
 
         data class StartTask(override val node: RootTaskNode) : FrontierAction
         data class ContinueTask(override val node: YieldingStepNode) : FrontierAction
-        data class RerunTask(override val node: TaskStepNode) : FrontierAction
+        data class RerunTask(override val node: TaskNode) : FrontierAction
         data class CheckCell(override val node: CellNode<*>) : FrontierAction
+        data class CheckCondition(override val node: AwaitNode) : FrontierAction
     }
 }
 
