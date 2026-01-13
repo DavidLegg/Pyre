@@ -6,6 +6,7 @@ import gov.nasa.jpl.pyre.incremental.SimulationGraph.*
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Duration
+import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.PureTaskStep
@@ -17,6 +18,7 @@ import gov.nasa.jpl.pyre.kernel.UnsatisfiedUntil
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.utilities.identity
+import java.io.File
 import java.util.PriorityQueue
 import java.util.TreeMap
 import java.util.stream.Stream.iterate
@@ -33,6 +35,8 @@ class KernelIncrementalSimulator(
     private val reportHandler: IncrementalReportHandler
 ) {
     private val cellNodes: MutableMap<Cell<*>, TreeMap<SimulationTime, CellNode<*>>> = mutableMapOf()
+    // TODO: This taskNodes set is likely overkill, but useful for debugging. Get rid of it once we have confidence in the simulator.
+    private val taskNodes: MutableSet<TaskNode> = mutableSetOf()
     private val occupiedBranches: MutableSet<SimulationTime> = mutableSetOf()
     private val frontier: PriorityQueue<FrontierAction> = PriorityQueue(compareBy { it.time })
 
@@ -62,7 +66,7 @@ class KernelIncrementalSimulator(
                 occupyBranch(startTime)
                 // Note that root task nodes go into the "reactions" step, ahead of regular task steps,
                 // so that the first real step can happen at step 0.
-                frontier += StartTask(RootTaskNode(startTime.reactionsStep(), Task.of(name, step)))
+                frontier += StartTask(RootTaskNode(startTime.reactionsStep(), Task.of(name, step)).also(taskNodes::add))
                 // Since we're doing init, we can sequentially assign branches rather than search for available branches.
                 startTime += BRANCH
             }
@@ -74,28 +78,38 @@ class KernelIncrementalSimulator(
             }
 
             override fun <T> report(value: T) {
+                // Init reports can be issued directly, without a DAG node. There's no task to associate them with anyways.
                 reportHandler.report(IncrementalReport(initTime, value))
                 initTime += STEP
             }
         }
         val activities = constructPlan(basicInitScope)
-        for (activity in activities) {
+        run(KernelPlanEdits(additions = activities))
+    }
+
+    fun run(planEdits: KernelPlanEdits) {
+        planEdits.removals.forEach { TODO("kernel plan removals") }
+        for (activity in planEdits.additions) {
             frontier += StartTask(
                 RootTaskNode(
                     nextAvailableBranch(SimulationTimeImpl(activity.time)).reactionsStep(),
                     Task.of(activity.name, activity.task),
-                )
+                ).also(taskNodes::add)
             ).also { occupyBranch(it.time) }
         }
-        resolve()
-    }
-
-    fun run(planEdits: KernelPlanEdits) {
-        TODO("Not yet implemented")
+        try {
+            resolve()
+        } finally {
+            // DEBUG
+            File("/Users/dlegg/Code/Pyre/tmp/tmp-final.dot").writeText(dumpDot())
+        }
     }
 
     private fun resolve() {
+        var debugStep = 0
         while (true) {
+            // DEBUG
+            File("/Users/dlegg/Code/Pyre/tmp/tmp${debugStep++.toString().padStart(6, '0')}.dot").writeText(dumpDot())
             when (val action = frontier.poll() ?: break) {
                 is StartTask -> {
                     action.node.next?.let {
@@ -110,6 +124,7 @@ class KernelIncrementalSimulator(
                     ).also {
                         occupyBranch(it.time)
                         frontier += ContinueTask(it)
+                        taskNodes += it
                     }
                 }
 
@@ -125,8 +140,12 @@ class KernelIncrementalSimulator(
                             lastTaskStepNode = ReadNode(
                                 lastTaskStepNode.time + STEP,
                                 lastTaskStepNode,
-                                cellNode
-                            ).also { lastTaskStepNode.next = it }
+                                cellNode,
+                            ).also {
+                                lastTaskStepNode.next = it
+                                cellNode.reads += it
+                                taskNodes += it
+                            }
                             // Return the value
                             return cellNode.value
                         }
@@ -189,8 +208,8 @@ class KernelIncrementalSimulator(
                             }
 
                             for (awaiter in priorCellNode.awaiters) {
-                                // If there was previously a scheduled await, revoke that task.
-                                awaiter.next?.let{
+                                // If the awaiter has a future action depending on this cell, revoke it.
+                                awaiter.next?.takeIf { it.time isCausallyAfter writeTime }?.let{
                                     // If we're planning on re-checking this condition later, don't.
                                     if (it is AwaitNode) frontier -= CheckCondition(it)
                                     // If we're planning on continuing the task later (because the condition would be satisfied then), don't.
@@ -204,7 +223,11 @@ class KernelIncrementalSimulator(
                                     awaiter,
                                     awaiter.condition,
                                     continuation = awaiter.continuation,
-                                ).also { frontier += CheckCondition(it) }
+                                ).also {
+                                    occupyBranch(it.time)
+                                    frontier += CheckCondition(it);
+                                    taskNodes += it
+                                }
                             }
 
                             // Having constructed the cell's write node, now construct the next step node for the task.
@@ -216,22 +239,23 @@ class KernelIncrementalSimulator(
                                 // Also add the edges from the prior task step and from the cell write node to this.
                                 lastTaskStepNode.next = it
                                 writeNode.writer = it
+                                taskNodes += it
                             }
                         }
 
                         override fun <V> report(value: V) {
                             // Record this report in the task graph and issue it to the reportHandler
-                            lastTaskStepNode.next = ReportNode(
+                            lastTaskStepNode = ReportNode(
                                 lastTaskStepNode,
                                 IncrementalReport(lastTaskStepNode.time + STEP, value)
                                     .also(reportHandler::report),
-                            ).also { lastTaskStepNode.next = it }
+                            ).also {
+                                lastTaskStepNode.next = it
+                                taskNodes += it
+                            }
                         }
                     }
-                    val result = checkNotNull(action.node.continuation) {
-                        "Internal error! Task nodes on the frontier must have a non-null task."
-                    }.runStep(basicTaskActions)
-                    when (result) {
+                    when (val result = action.node.continuation.runStep(basicTaskActions)) {
                         is Task.TaskStepResult.Await<*> -> {
                             // Create an await node and add it to the frontier, to be checked at the end of the batch.
                             lastTaskStepNode = AwaitNode(
@@ -247,6 +271,7 @@ class KernelIncrementalSimulator(
                                 frontier += CheckCondition(it)
                                 // And mark the branch as occupied
                                 occupyBranch(it.time)
+                                taskNodes += it
                             }
                         }
                         is Task.TaskStepResult.Complete<*> -> { /* Nothing to do */ }
@@ -260,6 +285,7 @@ class KernelIncrementalSimulator(
                             ).also {
                                 lastTaskStepNode.next = it
                                 frontier += StartTask(it)
+                                taskNodes += it
                             }
                         }
                         is Task.TaskStepResult.Spawn<*, *> -> {
@@ -298,11 +324,23 @@ class KernelIncrementalSimulator(
                     when (val result = action.node.condition(readActions)) {
                         is SatisfiedAt -> {
                             // Schedule the continuation of the task for the time indicated
+                            // If that time is in the future, find and occupy a branch in batch 0 then.
+                            // If that time is now, run in the next step; this await already occupies a branch.
+                            val satisfiedTime = if (result.time > ZERO) {
+                                nextAvailableBranch(SimulationTimeImpl(action.time.instant + result.time.toKotlinDuration()))
+                                    .also { occupyBranch(it) }
+                            } else {
+                                action.time + STEP
+                            }
                             action.node.next = StepBeginNode(
-                                SimulationTimeImpl(action.time.instant + result.time.toKotlinDuration()),
+                                satisfiedTime,
                                 action.node,
                                 action.node.continuation,
-                            ).also { frontier += ContinueTask(it) }
+                            ).also {
+                                occupyBranch(it.time)
+                                frontier += ContinueTask(it)
+                                taskNodes += it
+                            }
                         }
                         is UnsatisfiedUntil -> {
                             // If we're unsatisfied only for a finite time, add and schedule an await for that time
@@ -312,7 +350,11 @@ class KernelIncrementalSimulator(
                                     action.node,
                                     action.node.condition,
                                     continuation = action.node.continuation,
-                                ).also { frontier += CheckCondition(it) }
+                                ).also {
+                                    occupyBranch(it.time)
+                                    frontier += CheckCondition(it)
+                                    taskNodes += it
+                                }
                             }
                             // If we're unsatisfied indefinitely, nothing to do for now.
                             // In either case, cell writes to any of the read cells will reschedule awaits as needed.
@@ -324,11 +366,11 @@ class KernelIncrementalSimulator(
     }
 
     private fun occupyBranch(time: SimulationTime) {
-        occupiedBranches += time.batchStart()
+        occupiedBranches += time.branchStart()
     }
 
     private fun nextAvailableBranch(time: SimulationTime): SimulationTime =
-        iterate(time.batchStart()) { it + BRANCH }
+        iterate(time.branchStart()) { it + BRANCH }
             .filter { it !in occupiedBranches }
             .findFirst()
             .get()
@@ -380,7 +422,20 @@ class KernelIncrementalSimulator(
                 }
                 nextNode.prior = stepNode
             }
-            // TODO: Do we need to propagate awaiters forward?
+
+            // Add anything that was awaiting the prior node as awaiting this node too.
+            // Just stepping a node doesn't disturb the awaiters, though.
+            for (awaiter in cellNode.awaiters) {
+                // If the awaiter has no registered next node, or its next node is after this step,
+                // then this awaiter can read this step as well.
+                if (awaiter.next?.run { time isCausallyAfter stepNode.time } ?: true) {
+                    stepNode.awaiters += awaiter
+                    // TODO: Think carefully about this edge. It violates causal order!
+                    awaiter.reads += stepNode
+                }
+                // Otherwise, the awaiter completed before this step happens, so don't connect it.
+            }
+
             // Let the global cell map know about this node for quick lookup later
             thisCellsNodes[stepNode.time] = stepNode
             // TODO: Consider how (and when) to "collapse" step nodes together.
@@ -436,6 +491,10 @@ class KernelIncrementalSimulator(
         is SimulationTimeImpl -> copy(branch = 0, step = 0)
     }
 
+    private fun SimulationTime.branchStart() = when (this) {
+        is SimulationTimeImpl -> copy(step = 0)
+    }
+
     private fun SimulationTime.cellSteppingBatch() = when (this) {
         // Conceptually, cells are stepped in a special "batch", before any tasks are run
         is SimulationTimeImpl -> copy(batch = -1, branch = 0, step = 0)
@@ -475,6 +534,143 @@ class KernelIncrementalSimulator(
         data class RerunTask(override val node: TaskNode) : FrontierAction
         data class CheckCell(override val node: CellNode<*>) : FrontierAction
         data class CheckCondition(override val node: AwaitNode) : FrontierAction
+    }
+
+    /**
+     * Debugging function which dumps the current simulation DAG as a Graphviz (dot) file
+     */
+    private fun dumpDot(): String {
+        val graphBuilder = StringBuilder("digraph ${KernelIncrementalSimulator::class.simpleName} {\n")
+        graphBuilder.append("  concentrate = true\n")
+        var n = 0
+        val cellDotId = mutableMapOf<CellNode<*>, String>()
+        val taskDotId = mutableMapOf<TaskNode, String>()
+        val rankClusters = TreeMap<SimulationTime, StringBuilder>()
+        val frontierModifier = frontier.groupBy { it.node }
+            .mapValues { (_, actions) -> actions.joinToString(", ") { it::class.simpleName!! } }
+        // The "rank" is just the time ignoring the branch
+        fun SimulationTime.rank() = when (this) { is SimulationTimeImpl -> copy(branch = 0) }
+        for ((cell, cellTree) in cellNodes) {
+            for (node in cellTree.values) {
+                val id = "cell${n++}"
+                cellDotId[node] = id
+
+                val rankBuilder = rankClusters.computeIfAbsent(node.time.rank()) { StringBuilder() }
+                val label = when (node) {
+                    is CellMergeNode<*> -> "Merge ${cell.name}"
+                    is CellStepNode<*> -> "Step ${cell.name}"
+                    is CellWriteNode<*> -> "Write ${cell.name}"
+                }
+                if (node in frontierModifier)  {
+                    val fillColor = if (node === frontier.firstOrNull()?.node) "#69aa7c" else "#50a0f4"
+                    rankBuilder.append("    ", id, " [shape = ellipse, style = filled, fillcolor = \"$fillColor\", label = \"$label\\l${node.value}\\l${node.time}\\l** ${frontierModifier.getValue(node)}\\l\"]\n")
+                } else {
+                    rankBuilder.append("    ", id, " [shape = ellipse, label = \"$label\\l${node.value}\\l${node.time}\\l\"]\n")
+                }
+            }
+        }
+        for (node in taskNodes) {
+            val id = "task${n++}"
+            taskDotId[node] = id
+            val rankBuilder = rankClusters.computeIfAbsent(node.time.rank()) { StringBuilder() }
+
+            val label = when (node) {
+                is ReadNode -> "Read"
+                is ReportNode -> "Report ${node.report.content}"
+                is WriteNode -> "Write"
+                is RootTaskNode -> "Root ${node.task.id.name}"
+                is AwaitNode -> "Await"
+                is SpawnNode -> "Spawn"
+                is StepBeginNode -> "Begin"
+            }
+            if (node in frontierModifier) {
+                val fillColor = if (node === frontier.firstOrNull()?.node) "#69aa7c" else "#50a0f4"
+                rankBuilder.append("    ", id, " [shape = box, style = filled, fillcolor = \"$fillColor\", label = \"$label\\l${node.time}\\l** ${frontierModifier.getValue(node)}\\l\"]\n")
+            } else {
+                rankBuilder.append("    ", id, " [shape = box, label = \"$label\\l${node.time}\\l\"]\n")
+            }
+        }
+
+        for ((i, rankBuilder) in rankClusters.values.withIndex()) {
+            if (i > 0) {
+                // Add invisible edges between representative nodes on each rank, to enforce rank order
+                graphBuilder.append("  r", i - 1, " -> r", i, " [ style = invis ]\n")
+            }
+            graphBuilder
+                .append("  {\n")
+                .append("    // Rank ", i, "\n")
+                .append("    rank = same\n")
+                // Add an invisible representative node, to enforce rank ordering, so edges between them don't interfere
+                .append("    r", i, " [ style = invis ]\n")
+                .append("    ", rankBuilder)
+                .append("  }\n")
+        }
+
+        // Now fill in the edges
+        for ((node, nodeId) in cellDotId) {
+            for (next in node.next) {
+                graphBuilder.append("  ", nodeId, " -> ", cellDotId.getValue(next), "\n")
+                // Sanity check
+                check(when (next) {
+                    is CellMergeNode<*> -> next.prior.any { it === node }
+                    is CellStepNode<*> -> node === next.prior
+                    is CellWriteNode<*> -> node === next.prior
+                })
+            }
+            for (read in node.reads) {
+                graphBuilder.append("  ", nodeId, " -> ", taskDotId.getValue(read), "\n")
+                // Sanity check
+                check(read.cell === node)
+            }
+            for (awaiter in node.awaiters) {
+                graphBuilder.append("  ", nodeId, " -> ", taskDotId.getValue(awaiter), "\n")
+                // Sanity check
+                check(node in awaiter.reads)
+            }
+            // Sanity check
+            when (node) {
+                is CellMergeNode<*> -> check(node.prior.all { it in cellDotId })
+                is CellStepNode<*> -> check(node.prior in cellDotId)
+                is CellWriteNode<*> -> {
+                    node.prior?.let { check(it in cellDotId) }
+                    node.writer?.let { check(it in taskDotId) }
+                }
+            }
+        }
+        for ((node, nodeId) in taskDotId) {
+            node.next?.let {
+                graphBuilder.append("  ", nodeId, " -> ", taskDotId.getValue(it), "\n")
+                // Sanity check
+                check(it.prior == node)
+            }
+            when (node) {
+                is SpawnNode -> {
+                    graphBuilder.append("  ", nodeId, " -> ", taskDotId.getValue(node.child), "\n")
+                    // Sanity check
+                    check(node.child.prior === node)
+                }
+                is WriteNode -> {
+                    graphBuilder.append("  ", nodeId, " -> ", cellDotId.getValue(node.cell), "\n")
+                    // Sanity check
+                    check(node.cell.writer === node)
+                }
+                is ReadNode -> {
+                    // Sanity check
+                    check(node.cell in cellDotId)
+                }
+                is AwaitNode -> {
+                    // Sanity check
+                    check(node.reads.all { it in cellDotId })
+                }
+                else -> Unit
+            }
+            node.prior?.let {
+                // Sanity check
+                check(it in taskDotId)
+            }
+        }
+        graphBuilder.append("}\n")
+        return graphBuilder.toString()
     }
 }
 

@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
@@ -17,6 +18,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulatio
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
+import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.ResourceResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
@@ -170,7 +172,7 @@ class GraphIncrementalPlanSimulation<M>(
                 tempModel = constructModel(initScope)
                 plan.activities.map { activity ->
                     // Convert plan activities to kernel activities, and record those translations
-                    activity.toKernelActivity(tempSimulationScope).also { kernelActivityMap[activity] = it }
+                    activity.toKernelActivity(tempSimulationScope, tempModel).also { kernelActivityMap[activity] = it }
                 }
             },
             incrementalReportHandler
@@ -190,18 +192,18 @@ class GraphIncrementalPlanSimulation<M>(
             },
             edits.additions.map { activity ->
                 // Convert plan activities to kernel activities, and record those translations
-                activity.toKernelActivity(simulationScope).also { kernelActivityMap[activity] = it }
+                activity.toKernelActivity(simulationScope, model).also { kernelActivityMap[activity] = it }
             }
         ))
     }
 
-    private fun GroundedActivity<M>.toKernelActivity(simulationScope: SimulationScope) = KernelActivity(
+    private fun GroundedActivity<M>.toKernelActivity(simulationScope: SimulationScope, model: M) = KernelActivity(
         Name("activities") / name,
         time,
         context (simulationScope) {
-            coroutineTask {
-                TaskScopeResult.Complete(Unit)
-            }
+            coroutineTask(task {
+                call(activity, model)
+            })
         }
     )
 

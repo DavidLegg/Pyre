@@ -43,6 +43,7 @@ import kotlin.math.PI
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.time.Instant
 
 class GraphIncrementalPlanSimulationTest {
@@ -292,9 +293,32 @@ private class IncrementalSimulationTester<M>(
     }
 
     private fun assertSynced() {
+        // The reported plan is rarely different, so a coarse assertion is fine here.
         assertEquals(baselineSimulation.plan, testSimulation.plan)
-        assertEquals(baselineSimulation.results, testSimulation.results)
-        // TODO: Write a finer-grained assertSynced routine to make debugging easier
+
+        // The results are often different if there's a bug, so fine-grained assertions help debugging
+        val baseResults = baselineSimulation.results
+        val testResults = testSimulation.results
+        // Plan bounds:
+        assertEquals(baseResults.startTime, testResults.startTime)
+        assertEquals(baseResults.endTime, testResults.endTime)
+        // Resources:
+        for ((resourceName, baselineResource) in baseResults.resources) {
+            assert(resourceName in testResults.resources)
+            val testResource = testResults.resources.getValue(resourceName)
+            assertEquals(baselineResource.metadata, testResource.metadata)
+            for ((baselineReport, testReport) in baselineResource.data zip testResource.data) {
+                assertEquals(baselineReport, testReport)
+            }
+            assertEquals(baselineResource.data.size, testResource.data.size)
+        }
+        assertEquals(baseResults.resources.size, testResults.resources.size)
+        // Activities:
+        for ((baseActivity, baseEvent) in baseResults.activities) {
+            val testEvent = testResults.activities[baseActivity]
+            assertEquals(baseEvent, testEvent)
+        }
+        assertEquals(baseResults.activities.size, testResults.activities.size)
     }
 }
 

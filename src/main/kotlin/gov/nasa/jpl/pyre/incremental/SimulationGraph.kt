@@ -23,7 +23,7 @@ interface SimulationGraph {
      * These have an explicit continuation [Task] used to resume the rest of the task when appropriate.
      */
     sealed interface YieldingStepNode : TaskNode {
-        var continuation: Task<*>?
+        val continuation: Task<*>
     }
 
     /**
@@ -44,7 +44,7 @@ interface SimulationGraph {
     class StepBeginNode(
         override val time: SimulationTime,
         override val prior: TaskNode,
-        override var continuation: Task<*>?,
+        override val continuation: Task<*>,
         override var next: TaskNode? = null,
     ) : YieldingStepNode
 
@@ -74,7 +74,7 @@ interface SimulationGraph {
         override val time: SimulationTime,
         override val prior: TaskNode,
         val child: RootTaskNode,
-        override var continuation: Task<*>?,
+        override val continuation: Task<*>,
         override var next: TaskNode? = null,
     ) : YieldingStepNode
 
@@ -83,7 +83,7 @@ interface SimulationGraph {
         override val prior: TaskNode,
         val condition: Condition,
         val reads: MutableSet<CellNode<*>> = TreeSet(compareBy { it.time }),
-        override var continuation: Task<*>?,
+        override val continuation: Task<*>,
         override var next: TaskNode? = null,
     ) : YieldingStepNode
 
