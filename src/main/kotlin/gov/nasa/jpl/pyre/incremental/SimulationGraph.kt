@@ -36,7 +36,8 @@ interface SimulationGraph {
     class RootTaskNode(
         override val time: SimulationTime,
         val task: Task<*>,
-        override val prior: TaskNode? = null,
+        // prior is mutable so that spawn nodes can link them after making them
+        override var prior: TaskNode? = null,
         override var next: TaskNode? = null,
     ) : TaskNode
 
