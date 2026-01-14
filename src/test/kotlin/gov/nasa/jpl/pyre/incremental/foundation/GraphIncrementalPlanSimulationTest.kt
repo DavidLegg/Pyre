@@ -20,6 +20,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stdout
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.isNotEmpty
 import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.pop
@@ -38,7 +39,6 @@ import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.utilities.named
-import org.junit.jupiter.api.Assertions.*
 import kotlin.math.PI
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
@@ -102,7 +102,7 @@ class GraphIncrementalPlanSimulationTest {
             val p = polynomialResource("p", 0.0, 1e-3).registered()
             val b = (p greaterThan map(x) { it.toDouble() }.asPolynomial()).named { "b" }.registered()
             spawn("daemon", whenever(b) {
-                spawn("daemon child", task {
+                TaskScope.spawn("daemon child", task {
                     repeat(10) {
                         x.increment()
                         delay(5 * SECOND)
@@ -348,7 +348,9 @@ class TestModel(scope: InitScope) {
             spawn("daemon", whenever(daemonTaskQueue.isNotEmpty()) {
                 val seed = daemonTaskQueue.pop()
                 val name = "daemon($seed)"
-                spawn(name, task {
+                // TODO: See if there's a way to eliminate InitScope from the context within this block,
+                //   or at least make calling InitScope.spawn after initialization a runtime error.
+                TaskScope.spawn(name, task {
                     var steps = 0
                     var n = seed
                     while (n > 1) {
@@ -362,8 +364,7 @@ class TestModel(scope: InitScope) {
                         { (lcfSeed, lcfLength): Pair<Int, Int> ->
                             if (steps > lcfLength) seed to steps
                             else lcfSeed to lcfLength
-                        }
-                        named { "Update LCF for ($seed, $steps)" }
+                        } named { "Update LCF for ($seed, $steps)" }
                     )
                 })
             })
