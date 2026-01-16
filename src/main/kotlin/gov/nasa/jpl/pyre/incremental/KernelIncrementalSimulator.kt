@@ -21,7 +21,6 @@ import gov.nasa.jpl.pyre.utilities.identity
 import java.io.File
 import java.util.PriorityQueue
 import java.util.TreeMap
-import java.util.TreeSet
 import kotlin.collections.plusAssign
 import kotlin.reflect.KType
 import kotlin.time.Instant
@@ -31,6 +30,7 @@ import kotlin.time.Instant
  */
 class KernelIncrementalSimulator(
     planStart: Instant,
+    private val planEnd: Instant,
     constructPlan: context (BasicInitScope) () -> List<KernelActivity>,
     private val reportHandler: IncrementalReportHandler
 ) {
@@ -89,6 +89,9 @@ class KernelIncrementalSimulator(
     fun run(planEdits: KernelPlanEdits) {
         planEdits.removals.forEach { TODO("kernel plan removals") }
         for (activity in planEdits.additions) {
+            require(activity.time < planEnd) {
+                "Cannot add activity $activity at or after plan ends at $planEnd"
+            }
             frontier += StartTask(
                 RootTaskNode(
                     nextAvailableBranch(SimulationTimeImpl(activity.time)),
@@ -101,15 +104,17 @@ class KernelIncrementalSimulator(
         } finally {
             // DEBUG
             // Disable the integrity check on this run, so we can get a final graph even if it's invalid.
-            File("/Users/dlegg/Code/Pyre/tmp/tmp-final.dot").writeText(dumpDot(checkIntegrity = false))
+            if (DEBUG) File("/Users/dlegg/Code/Pyre/tmp/tmp-final.dot").writeText(dumpDot(checkIntegrity = false))
         }
     }
+
+    private val DEBUG = false
 
     private fun resolve() {
         var debugStep = 0
         while (true) {
             // DEBUG
-            File("/Users/dlegg/Code/Pyre/tmp/tmp${debugStep++.toString().padStart(6, '0')}.dot").writeText(dumpDot())
+            if (DEBUG) File("/Users/dlegg/Code/Pyre/tmp/tmp${debugStep++.toString().padStart(6, '0')}.dot").writeText(dumpDot())
             when (val action = frontier.poll() ?: break) {
                 is StartTask -> {
                     action.node.next?.let {
@@ -221,7 +226,7 @@ class KernelIncrementalSimulator(
                                         awaiter.condition,
                                         continuation = awaiter.continuation,
                                     ).also {
-                                        frontier += CheckCondition(it);
+                                        frontier += CheckCondition(it)
                                         taskNodes += it
                                     }
                                 }
@@ -343,26 +348,38 @@ class KernelIncrementalSimulator(
                             } else {
                                 action.time + STEP
                             }
-                            action.node.next = StepBeginNode(
-                                satisfiedTime,
-                                action.node,
-                                action.node.continuation,
-                            ).also {
-                                frontier += ContinueTask(it)
-                                taskNodes += it
+                            if (satisfiedTime.instant < planEnd) {
+                                action.node.next = StepBeginNode(
+                                    satisfiedTime,
+                                    action.node,
+                                    action.node.continuation,
+                                ).also {
+                                    frontier += ContinueTask(it)
+                                    taskNodes += it
+                                }
                             }
+                            // If satisfiedTime >= planEnd, don't schedule the node. It's the same as UnsatisfiedUntil(inf.)
                         }
                         is UnsatisfiedUntil -> {
                             // If we're unsatisfied only for a finite time, add and schedule an await for that time
+                            // If that time is in the future, find and occupy a branch in batch 0 then.
+                            // If that time is now, run in the next step; this await already occupies a branch.
                             result.time?.let { t ->
-                                action.node.next = AwaitNode(
-                                    SimulationTimeImpl(action.time.instant + t.toKotlinDuration()),
-                                    action.node,
-                                    action.node.condition,
-                                    continuation = action.node.continuation,
-                                ).also {
-                                    frontier += CheckCondition(it)
-                                    taskNodes += it
+                                val recheckTime = if (t > ZERO) {
+                                    nextAvailableBranch(SimulationTimeImpl(action.time.instant + t.toKotlinDuration()))
+                                } else {
+                                    action.time + STEP
+                                }
+                                if (recheckTime.instant < planEnd) {
+                                    action.node.next = AwaitNode(
+                                        recheckTime,
+                                        action.node,
+                                        action.node.condition,
+                                        continuation = action.node.continuation,
+                                    ).also {
+                                        frontier += CheckCondition(it)
+                                        taskNodes += it
+                                    }
                                 }
                             }
                             // If we're unsatisfied indefinitely, nothing to do for now.
@@ -375,6 +392,7 @@ class KernelIncrementalSimulator(
     }
 
     private fun nextAvailableBranch(time: SimulationTime): SimulationTime = when (val batch = time.batchStart()) {
+        // TODO: Change default from -1 to 0, so branches records number of branches, not the last 0-based index assigned
         is SimulationTimeImpl -> batch.copy(branch = branches.compute(batch) { _, n -> (n ?: -1) + 1 }!!)
     }
 

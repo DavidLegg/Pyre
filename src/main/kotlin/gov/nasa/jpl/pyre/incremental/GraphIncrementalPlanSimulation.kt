@@ -118,6 +118,7 @@ class GraphIncrementalPlanSimulation<M>(
         var tempModel: M? = null
         kernelSimulation = KernelIncrementalSimulator(
             plan.startTime,
+            plan.endTime,
             {
                 val basicInitScope = contextOf<BasicInitScope>()
                 // TODO: Coalesce this construction of an InitScope with that in PlanSimulation

@@ -42,13 +42,14 @@ import gov.nasa.jpl.pyre.utilities.named
 import kotlin.math.PI
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
+import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
 
 class GraphIncrementalPlanSimulationTest {
     private val planStart = Instant.parse("2025-01-01T00:00:00Z")
-    private val planEnd = Instant.parse("2025-02-01T00:00:00Z")
+    private val planEnd = Instant.parse("2025-01-02T00:00:00Z")
     private inline fun <reified M> test(
         noinline constructModel: context (InitScope) () -> M
     ) = IncrementalSimulationTester(constructModel, Plan(planStart, planEnd), typeOf<M>())
