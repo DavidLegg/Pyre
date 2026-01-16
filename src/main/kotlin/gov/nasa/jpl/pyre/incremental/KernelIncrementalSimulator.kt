@@ -43,6 +43,8 @@ class KernelIncrementalSimulator(
     private val branches: TreeMap<SimulationTime, Int> = TreeMap()
     /** The work list of actions to resolve the DAG. */
     private val frontier: PriorityQueue<FrontierAction> = PriorityQueue(compareBy { it.time })
+    /** Root task nodes corresponding to activities in the plan, recorded to facilitate revoking tasks. */
+    private val planTaskNodes: MutableMap<KernelActivity, RootTaskNode> = mutableMapOf()
 
     init {
         // Init happens before any tasks, at plan start.
@@ -87,7 +89,12 @@ class KernelIncrementalSimulator(
     }
 
     fun run(planEdits: KernelPlanEdits) {
-        planEdits.removals.forEach { TODO("kernel plan removals") }
+        planEdits.removals.forEach {
+            val rootTaskNode = requireNotNull(planTaskNodes[it]) {
+                "Activity $it not found in the plan."
+            }
+            revokeTask(rootTaskNode)
+        }
         for (activity in planEdits.additions) {
             require(activity.time < planEnd) {
                 "Cannot add activity $activity at or after plan ends at $planEnd"
@@ -96,7 +103,10 @@ class KernelIncrementalSimulator(
                 RootTaskNode(
                     nextAvailableBranch(SimulationTimeImpl(activity.time)),
                     Task.of(activity.name, activity.task),
-                ).also(taskNodes::add)
+                ).also {
+                    taskNodes += it
+                    planTaskNodes[activity] = it
+                }
             )
         }
         try {
@@ -315,13 +325,13 @@ class KernelIncrementalSimulator(
                 is RerunTask -> {
                     // TODO: Remove this task node, all its continuations, and all its children (recursively)
                     // TODO: Remove all their reports
-                    // TODO: Remove all their CellWriteNodes
+                    // TODO: Revoke all their CellWriteNodes
                     // TODO: Mark all nodes that are after a removed CellWrite to be reprocessed
-                    TODO()
+                    TODO("Rerun task")
                 }
 
                 is CheckCell -> {
-                    TODO()
+                    TODO("Check cell")
                 }
 
                 is CheckCondition -> {
@@ -422,7 +432,73 @@ class KernelIncrementalSimulator(
     }
 
     private fun <T> revokeCell(cell: CellNode<T>) {
-        TODO("revokeCell")
+        when (cell) {
+            is CellWriteNode -> {
+                checkNotNull(cell.prior) {
+                    "Cannot revoke initial cell write node!"
+                }
+                for (next in cell.next) {
+                    when (next) {
+                        is CellWriteNode -> {
+                            next.prior = cell.prior
+                            frontier += CheckCell(next)
+                        }
+                        is CellStepNode -> {
+                            next.prior = cell.prior!!
+                            frontier += CheckCell(next)
+                        }
+                        is CellMergeNode -> {
+                            next.prior.remove(cell)
+                            when (val prior = cell.prior!!) {
+                                is CellWriteNode -> {
+                                    // We're shortening this branch without removing it.
+                                    // Link the write before cell to next, then schedule next to be re-checked.
+                                    next.prior += prior
+                                    frontier += CheckCell(next)
+                                }
+                                is CellStepNode, is CellMergeNode -> {
+                                    // We've completely removed a branch.
+                                    if (next.prior.size <= 1) {
+                                        // If we removed the second-to-last branch, revoke the merge itself too.
+                                        revokeCell(next)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // A CellWriteNode is revoked only when the writer is revoked. Nothing to do for cell.writer
+            }
+            is CellStepNode -> TODO("Revoking cell step nodes")
+            is CellMergeNode -> {
+                val prior = checkNotNull(cell.prior.singleOrNull()) {
+                    "Internal error! Only single-branch merge nodes can be revoked."
+                }
+                for (next in cell.next) {
+                    when (next) {
+                        is CellWriteNode -> {
+                            next.prior = prior
+                            frontier += CheckCell(next)
+                        }
+                        is CellStepNode -> {
+                            next.prior = prior
+                            frontier += CheckCell(next)
+                        }
+                        is CellMergeNode -> {
+                            check(false) {
+                                "Internal error! Merge nodes cannot contain empty branches."
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        cell.reads.forEach {
+            frontier += RerunTask(it)
+        }
+        cell.awaiters.forEach {
+            frontier += RerunTask(it)
+        }
     }
 
     private class IncrementalCellImpl<T>(

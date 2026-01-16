@@ -110,7 +110,7 @@ interface SimulationGraph {
     class CellMergeNode<T>(
         override val time: SimulationTime,
         override val value: T,
-        val prior: MutableList<CellWriteNode<T>>,
+        var prior: MutableList<CellWriteNode<T>>,
         override val next: MutableList<CellNode<T>> = mutableListOf(),
         override val reads: MutableSet<ReadNode> = TreeSet(compareBy { it.time }),
         override val awaiters: MutableSet<AwaitNode> = TreeSet(compareBy { it.time }),
