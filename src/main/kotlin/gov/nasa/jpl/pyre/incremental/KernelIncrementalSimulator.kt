@@ -219,9 +219,9 @@ class KernelIncrementalSimulator(
                                 }
                                 if (awaiter.next == null) {
                                     // The awaiter is active (it had no next node, or the next node was revoked).
-                                    // Build a new await node and schedule it for the reaction to this batch
+                                    // Build a new await node and schedule it for the next batch
                                     awaiter.next = AwaitNode(
-                                        nextAvailableBranch(writeNode.time + BATCH).reactionsStep(),
+                                        nextAvailableBranch(writeNode.time + BATCH),
                                         awaiter,
                                         awaiter.condition,
                                         continuation = awaiter.continuation,
@@ -259,10 +259,9 @@ class KernelIncrementalSimulator(
                     }
                     when (val result = action.node.continuation.runStep(basicTaskActions)) {
                         is Task.TaskStepResult.Await<*> -> {
-                            // Create an await node and add it to the frontier, to be checked at the end of the batch.
+                            // Create an await node and add it to the frontier, to be checked in the next batch.
                             lastTaskStepNode = AwaitNode(
-                                // The "reactions" to this batch are just the reactionsStep of the next batch.
-                                nextAvailableBranch(lastTaskStepNode.time + BATCH).reactionsStep(),
+                                nextAvailableBranch(lastTaskStepNode.time + BATCH),
                                 lastTaskStepNode,
                                 result.condition,
                                 continuation = result.continuation,
@@ -392,8 +391,7 @@ class KernelIncrementalSimulator(
     }
 
     private fun nextAvailableBranch(time: SimulationTime): SimulationTime = when (val batch = time.batchStart()) {
-        // TODO: Change default from -1 to 0, so branches records number of branches, not the last 0-based index assigned
-        is SimulationTimeImpl -> batch.copy(branch = branches.compute(batch) { _, n -> (n ?: -1) + 1 }!!)
+        is SimulationTimeImpl -> batch.copy(branch = branches.compute(batch) { _, n -> (n ?: 0) + 1 }!!)
     }
 
     private fun revokeTask(task: TaskNode) {
@@ -539,18 +537,9 @@ class KernelIncrementalSimulator(
         is SimulationTimeImpl -> copy(branch = 0, step = 0)
     }
 
-    private fun SimulationTime.branchStart() = when (this) {
-        is SimulationTimeImpl -> copy(step = 0)
-    }
-
     private fun SimulationTime.cellSteppingBatch() = when (this) {
         // Conceptually, cells are stepped in a special "batch", before any tasks are run
         is SimulationTimeImpl -> copy(batch = -1, branch = 0, step = 0)
-    }
-
-    private fun SimulationTime.reactionsStep() = when (this) {
-        // Conceptually, reactions happen in a special step before regular tasks, so their task can run in that step
-        is SimulationTimeImpl -> copy(step = -1)
     }
 
     infix fun SimulationTime.isConcurrentWith(other: SimulationTime): Boolean = when (this) {
