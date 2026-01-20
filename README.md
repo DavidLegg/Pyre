@@ -15,4 +15,6 @@ The motivating concerns for Pyre are:
 ## Getting started
 
 To get started, I suggest looking at the [examples](src/main/kotlin/gov/nasa/jpl/pyre/examples).
-At the time of writing, [scheduling](src/main/kotlin/gov/nasa/jpl/pyre/examples/scheduling) provides the most complete example.
+At the time of writing,
+[orbit](src/main/kotlin/gov/nasa/jpl/pyre/examples/orbit) provides a very simple example,
+and [scheduling](src/main/kotlin/gov/nasa/jpl/pyre/examples/scheduling) provides the most complete example.
