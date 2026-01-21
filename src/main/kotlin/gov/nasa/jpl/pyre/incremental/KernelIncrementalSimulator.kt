@@ -45,6 +45,8 @@ class KernelIncrementalSimulator(
     private val frontier: PriorityQueue<FrontierAction> = PriorityQueue(compareBy { it.time })
     /** Root task nodes corresponding to activities in the plan, recorded to facilitate revoking tasks. */
     private val planTaskNodes: MutableMap<KernelActivity, RootTaskNode> = mutableMapOf()
+    /** Root nodes with which we may merge restart requests, rather than re-running. */
+    private val rootMergeOpportunities: MutableMap<Task<*>, RootTaskNode> = mutableMapOf()
 
     init {
         // Init happens before any tasks, at plan start.
@@ -93,7 +95,7 @@ class KernelIncrementalSimulator(
             val rootTaskNode = requireNotNull(planTaskNodes[it]) {
                 "Activity $it not found in the plan."
             }
-            revokeTask(rootTaskNode)
+            fullyRevokeTask(rootTaskNode)
         }
         for (activity in planEdits.additions) {
             require(activity.time < planEnd) {
@@ -127,10 +129,6 @@ class KernelIncrementalSimulator(
             if (DEBUG) File("/Users/dlegg/Code/Pyre/tmp/tmp${debugStep++.toString().padStart(6, '0')}.dot").writeText(dumpDot())
             when (val action = frontier.poll() ?: break) {
                 is StartTask -> {
-                    action.node.next?.let {
-                        // If this root has already been expanded, revoke that expansion
-                        revokeTask(it)
-                    }
                     // Start the job in the next step. Roots are already assigned to their own branches.
                     action.node.next = StepBeginNode(
                         action.time + STEP,
@@ -145,6 +143,11 @@ class KernelIncrementalSimulator(
                 is ContinueTask -> {
                     // Expand this task node
                     var lastTaskStepNode: TaskNode = action.node
+                    // Go find the root task, to look up root merge opportunities...
+                    // TODO: Key off of something easier to find...
+                    val rootTaskNode = generateSequence<TaskNode>(action.node) { it.prior }.first { it is RootTaskNode }
+                    val rootTask = (rootTaskNode as RootTaskNode).task
+                    var mergeOpportunity: RootTaskNode? = rootMergeOpportunities[rootTask]
 
                     val basicTaskActions = object : Task.BasicTaskActions {
                         override fun <V> read(cell: Cell<V>): V {
@@ -156,6 +159,8 @@ class KernelIncrementalSimulator(
                                 lastTaskStepNode,
                                 cellNode,
                             ).also {
+                                // Reject the merge opportunity if applicable, clearing the way for a new task node.
+                                mergeOpportunity = mergeOpportunity?.rejectMergeOpportunity(it.time)
                                 lastTaskStepNode.next = it
                                 cellNode.reads += it
                                 taskNodes += it
@@ -225,7 +230,8 @@ class KernelIncrementalSimulator(
                                 awaiter.next?.takeIf { it.time isCausallyAfter writeTime }?.let {
                                     // If the awaiter continues causally after this write, revoke that continuation.
                                     // This will include clearing awaiter.next.
-                                    revokeTask(it)
+                                    // TODO: Should this be a full revoke, or should we somehow permit re-merging?
+                                    fullyRevokeTask(it)
                                 }
                                 if (awaiter.next == null) {
                                     // The awaiter is active (it had no next node, or the next node was revoked).
@@ -248,6 +254,8 @@ class KernelIncrementalSimulator(
                                 lastTaskStepNode,
                                 writeNode,
                             ).also {
+                                // Reject the merge opportunity if applicable, clearing the way for a new task node.
+                                mergeOpportunity = mergeOpportunity?.rejectMergeOpportunity(it.time)
                                 // Also add the edges from the prior task step and from the cell write node to this.
                                 lastTaskStepNode.next = it
                                 writeNode.writer = it
@@ -262,6 +270,8 @@ class KernelIncrementalSimulator(
                                 IncrementalReport(lastTaskStepNode.time + STEP, value)
                                     .also(reportHandler::report),
                             ).also {
+                                // Reject the merge opportunity if applicable, clearing the way for a new task node.
+                                mergeOpportunity = mergeOpportunity?.rejectMergeOpportunity(it.time)
                                 lastTaskStepNode.next = it
                                 taskNodes += it
                             }
@@ -276,6 +286,8 @@ class KernelIncrementalSimulator(
                                 result.condition,
                                 continuation = result.continuation,
                             ).also {
+                                // Reject the merge opportunity if applicable, clearing the way for a new task node.
+                                mergeOpportunity = mergeOpportunity?.rejectMergeOpportunity(it.time)
                                 // Having constructed the node, link it to chain of task step nodes
                                 lastTaskStepNode.next = it
                                 // Schedule the condition to be checked
@@ -284,8 +296,34 @@ class KernelIncrementalSimulator(
                                 taskNodes += it
                             }
                         }
-                        is Task.TaskStepResult.Complete<*> -> { /* Nothing to do */ }
+                        is Task.TaskStepResult.Complete<*> -> {
+                            // Nothing to do.
+                            // Note that if there was a merge opportunity, there's also a scheduled FrontierAction
+                            // to revoke it. We'll let that frontierAction handle things.
+                        }
                         is Task.TaskStepResult.Restart<*> -> {
+                            // First, look for an opportunity to merge instead of building a new node.
+                            val mergeOpportunity = rootMergeOpportunities[result.continuation]
+                            // TODO: Rewrite this case of the when statement
+                            if (mergeOpportunity != null && mergeOpportunity.time isConcurrentWith lastTaskStepNode.time) {
+                                // I believe this is enough to merge the running task with the opportunity.
+                                // TODO: Stress-test this assertion with tasks that do "dense" work,
+                                //   restarting a lot without advancing time.
+                                // It's tempting to just say lastTaskStepNode.next = mergeOpportunity
+                                // However, to get causal time right, we actually need to move the nodes
+                                // in the current batch onto mergeOpportunity's branch, so that this work is causally prior
+                                // to the merge node.
+                                // First, find the "join point" - the most recent node causally prior to the merge opportunity.
+                                var join = lastTaskStepNode
+                                while (!(join.time isCausallyBefore mergeOpportunity.time)) {
+                                    join = checkNotNull(join.prior) {
+                                        "Internal error! Task chain ends before reaching a causally-prior join point when merging."
+                                    }
+                                }
+                                lastTaskStepNode = join.moveToBranch(mergeOpportunity.time)
+                                // TODO: Move node to mergeOpportunity's branch
+                            }
+
                             // Add a new root task, from which we can restart the next task at any time.
                             lastTaskStepNode = RootTaskNode(
                                 // Restarting does not yield to the engine, it's the next step of this task.
@@ -322,11 +360,42 @@ class KernelIncrementalSimulator(
                     }
                 }
 
+                is RevokeRootTask -> {
+                    // We use the RevokeRootTask frontier action instead of directly calling fullyRevokeTask
+                    // when we're doing incremental resimulation, hoping to merge an existing RootTaskNode
+                    // with a re-simulated one.
+                    // For example, the reporting task for a resource repeats, placing a new root exactly where the old
+                    // root was, and that can be merged instead of re-done.
+                    // If we merge, we remove the RevokeRootTask action.
+                    // Hence if we run the RevokeRootTask action, we failed to merge this root.
+                    // Remove that root, but optimistically add its downstream repeat as a merge opportunity.
+                    // Also schedule that repeat to be revoked if it isn't merged.
+                    rootMergeOpportunities.remove(action.node.task)
+                    revokeSingleTask(action.node)?.let {
+                        frontier += RevokeRootTask(it)
+                        rootMergeOpportunities[it.task] = it
+                    }
+                }
+
                 is RerunTask -> {
-                    // TODO: Remove this task node, all its continuations, and all its children (recursively)
-                    // TODO: Remove all their reports
-                    // TODO: Revoke all their CellWriteNodes
-                    // TODO: Mark all nodes that are after a removed CellWrite to be reprocessed
+                    // Revoke the rest of this task, up to any repeat.
+                    // If it repeats, add that repeat as a merge opportunity, and schedule it to be revoked if not merged.
+                    revokeSingleTask(action.node)?.let {
+                        frontier += RevokeRootTask(it)
+                        rootMergeOpportunities[it.task] = it
+                    }
+                    val prior = checkNotNull(action.node.prior) {
+                        "Cannot rerun a root task node!"
+                    }
+                    // Find the root node from which to replay this task
+                    var root = prior
+                    while (root !is RootTaskNode) {
+                        root = checkNotNull(root.prior) {
+                            "Internal error! Task chain does not start at a root task node."
+                        }
+                    }
+                    // TODO: Replay from root to the removed node.
+                    // TODO: Schedule the end of the replay to continue?
                     TODO("Rerun task")
                 }
 
@@ -404,7 +473,30 @@ class KernelIncrementalSimulator(
         is SimulationTimeImpl -> batch.copy(branch = branches.compute(batch) { _, n -> (n ?: 0) + 1 }!!)
     }
 
-    private fun revokeTask(task: TaskNode) {
+    private fun SimulationTime.onBranch(target: SimulationTime): SimulationTime = when (this) {
+        is SimulationTimeImpl -> when (target) {
+            is SimulationTimeImpl -> copy(branch = target.branch)
+        }
+    }
+
+    /**
+     * Revoke all task nodes starting from [task].
+     * This includes repetitions and children spawned by this task.
+     */
+    private fun fullyRevokeTask(task: TaskNode) {
+        var next: TaskNode? = task
+        while (next != null) {
+            next = revokeSingleTask(task)
+        }
+    }
+
+    /**
+     * Revoke all task nodes starting from [task], up to but not including its repeat (if applicable).
+     * Children spawned by [task] will be fully revoked.
+     *
+     * @return RootTaskNodes following [task]
+     */
+    private fun revokeSingleTask(task: TaskNode): RootTaskNode? {
         // Remove our record of this node
         taskNodes -= task
         // Remove any frontier action(s) related to this node
@@ -424,12 +516,34 @@ class KernelIncrementalSimulator(
             is WriteNode -> revokeCell(task.cell)
             is RootTaskNode -> { /* Nothing to do */ }
             is AwaitNode -> task.reads.forEach { it.awaiters -= task }
-            is SpawnNode -> revokeTask(task.child)
+            // The child of a revoked parent can never be merged.
+            // If the root of this parent wasn't merged, it's because this task and any candidate for merging
+            // couldn't be proven to be in the same state. Since children (may) inherit state from their parents,
+            // any child spawned from possibly-different parents may itself be possibly-different, so cannot be merged.
+            is SpawnNode -> fullyRevokeTask(task.child)
             is StepBeginNode -> { /* Nothing to do */ }
         }
         // Continue revoking the rest of this task
-        task.next?.let(::revokeTask)
+        return task.next?.let { it as? RootTaskNode ?: revokeSingleTask(it) }
     }
+
+    /**
+     * If [time] is at or after this [RootTaskNode], reject the opportunity to merge with this node.
+     *
+     * @return The next merge opportunity, if one is found.
+     */
+    fun RootTaskNode.rejectMergeOpportunity(time: SimulationTime): RootTaskNode? = if (time >= this.time) {
+        // This execution of the task has passed over its merge opportunity.
+        // Revoke this opportunity, but capture the next opportunity if applicable.
+        frontier -= RevokeRootTask(this)
+        revokeSingleTask(this).also { newMergeOp ->
+            if (newMergeOp == null) {
+                rootMergeOpportunities.remove(task)
+            } else {
+                rootMergeOpportunities[task] = newMergeOp
+            }
+        }
+    } else this
 
     private fun <T> revokeCell(cell: CellNode<T>) {
         when (cell) {
@@ -577,6 +691,10 @@ class KernelIncrementalSimulator(
         override val instant: Instant,
         val batch: Int = 0,
         val branch: Int = 0,
+        // TODO: To facilitate better incremental merging, use a pointer to a "reference SGNode" instead of a step counter.
+        //   To compare SimTimeImpls, compare up to the batch, then if needed, walk the graph looking for each other.
+        //   Most comparisons are different branches, at minimum, so only a few nodes need to be traversed.
+        //   This is robust against "stitching" partial branches together, so long as we never re-order nodes in a branch.
         val step: Int = 0,
     ) : SimulationTime {
         override fun compareTo(other: SimulationTime): Int = when (other) {
@@ -613,6 +731,10 @@ class KernelIncrementalSimulator(
         is SimulationTimeImpl -> copy(branch = 0, step = 0)
     }
 
+    private fun SimulationTime.branchStart() = when (this) {
+        is SimulationTimeImpl -> copy(step = 0)
+    }
+
     private fun SimulationTime.cellSteppingBatch() = when (this) {
         // Conceptually, cells are stepped in a special "batch", before any tasks are run
         is SimulationTimeImpl -> copy(batch = -1, branch = 0, step = 0)
@@ -647,6 +769,7 @@ class KernelIncrementalSimulator(
         data class RerunTask(override val node: TaskNode) : FrontierAction
         data class CheckCell(override val node: CellNode<*>) : FrontierAction
         data class CheckCondition(override val node: AwaitNode) : FrontierAction
+        data class RevokeRootTask(override val node: RootTaskNode) : FrontierAction
     }
 
     /**
