@@ -159,8 +159,6 @@ class KernelIncrementalSimulator(
                                 lastTaskStepNode,
                                 cellNode,
                             ).also {
-                                // Reject the merge opportunity if applicable, clearing the way for a new task node.
-                                mergeOpportunity = mergeOpportunity?.rejectMergeOpportunity(it.time)
                                 lastTaskStepNode.next = it
                                 cellNode.reads += it
                                 taskNodes += it
@@ -254,8 +252,6 @@ class KernelIncrementalSimulator(
                                 lastTaskStepNode,
                                 writeNode,
                             ).also {
-                                // Reject the merge opportunity if applicable, clearing the way for a new task node.
-                                mergeOpportunity = mergeOpportunity?.rejectMergeOpportunity(it.time)
                                 // Also add the edges from the prior task step and from the cell write node to this.
                                 lastTaskStepNode.next = it
                                 writeNode.writer = it
@@ -270,8 +266,6 @@ class KernelIncrementalSimulator(
                                 IncrementalReport(lastTaskStepNode.time + STEP, value)
                                     .also(reportHandler::report),
                             ).also {
-                                // Reject the merge opportunity if applicable, clearing the way for a new task node.
-                                mergeOpportunity = mergeOpportunity?.rejectMergeOpportunity(it.time)
                                 lastTaskStepNode.next = it
                                 taskNodes += it
                             }
@@ -286,8 +280,6 @@ class KernelIncrementalSimulator(
                                 result.condition,
                                 continuation = result.continuation,
                             ).also {
-                                // Reject the merge opportunity if applicable, clearing the way for a new task node.
-                                mergeOpportunity = mergeOpportunity?.rejectMergeOpportunity(it.time)
                                 // Having constructed the node, link it to chain of task step nodes
                                 lastTaskStepNode.next = it
                                 // Schedule the condition to be checked
@@ -302,27 +294,9 @@ class KernelIncrementalSimulator(
                             // to revoke it. We'll let that frontierAction handle things.
                         }
                         is Task.TaskStepResult.Restart<*> -> {
-                            // First, look for an opportunity to merge instead of building a new node.
-                            val mergeOpportunity = rootMergeOpportunities[result.continuation]
+                            // Look at the mergeOpportunity - if it's the same branch as this, connect lastTaskStepNode to it.
+
                             // TODO: Rewrite this case of the when statement
-                            if (mergeOpportunity != null && mergeOpportunity.time isConcurrentWith lastTaskStepNode.time) {
-                                // I believe this is enough to merge the running task with the opportunity.
-                                // TODO: Stress-test this assertion with tasks that do "dense" work,
-                                //   restarting a lot without advancing time.
-                                // It's tempting to just say lastTaskStepNode.next = mergeOpportunity
-                                // However, to get causal time right, we actually need to move the nodes
-                                // in the current batch onto mergeOpportunity's branch, so that this work is causally prior
-                                // to the merge node.
-                                // First, find the "join point" - the most recent node causally prior to the merge opportunity.
-                                var join = lastTaskStepNode
-                                while (!(join.time isCausallyBefore mergeOpportunity.time)) {
-                                    join = checkNotNull(join.prior) {
-                                        "Internal error! Task chain ends before reaching a causally-prior join point when merging."
-                                    }
-                                }
-                                lastTaskStepNode = join.moveToBranch(mergeOpportunity.time)
-                                // TODO: Move node to mergeOpportunity's branch
-                            }
 
                             // Add a new root task, from which we can restart the next task at any time.
                             lastTaskStepNode = RootTaskNode(
@@ -526,24 +500,6 @@ class KernelIncrementalSimulator(
         // Continue revoking the rest of this task
         return task.next?.let { it as? RootTaskNode ?: revokeSingleTask(it) }
     }
-
-    /**
-     * If [time] is at or after this [RootTaskNode], reject the opportunity to merge with this node.
-     *
-     * @return The next merge opportunity, if one is found.
-     */
-    fun RootTaskNode.rejectMergeOpportunity(time: SimulationTime): RootTaskNode? = if (time >= this.time) {
-        // This execution of the task has passed over its merge opportunity.
-        // Revoke this opportunity, but capture the next opportunity if applicable.
-        frontier -= RevokeRootTask(this)
-        revokeSingleTask(this).also { newMergeOp ->
-            if (newMergeOp == null) {
-                rootMergeOpportunities.remove(task)
-            } else {
-                rootMergeOpportunities[task] = newMergeOp
-            }
-        }
-    } else this
 
     private fun <T> revokeCell(cell: CellNode<T>) {
         when (cell) {
