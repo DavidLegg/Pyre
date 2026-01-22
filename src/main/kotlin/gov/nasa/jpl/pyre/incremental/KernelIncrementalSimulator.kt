@@ -682,32 +682,61 @@ class KernelIncrementalSimulator(
         }
     }
 
+    // TODO: See if the "step" notion of order can be eliminated, in favor of just using branches.
+    //   This would only partially order the nodes, but maybe that's good enough and way simpler?
     // Time within the simulator is primarily the Instant at which a task runs.
     // Within a single instant, there's a series of job batches.
     // All the jobs in a batch run in parallel.
     // The ordering of steps between two parallel jobs is meaningless, but we can impose an arbitrary order for sorting purposes.
     // Finally, within a job, there are a series of steps.
+    // When doing incremental re-simulation, steps in a branch may be added and removed, but they cannot be re-ordered.
+    // To reflect this, times have a mutable "priorStep" field, reflecting the causally-prior time in this branch.
+    // For efficiency, the first step in a branch should *not* point back to a prior batch.
+    // We can then compare times by traversing these prior links.
+    // This is a mildly dangerous thing to do, given how volatile the task graph can be.
+    // However, whenever we're comparing times, the graph should be in a well-formed state.
     private data class SimulationTimeImpl(
         override val instant: Instant,
         val batch: Int = 0,
         val branch: Int = 0,
-        // TODO: To facilitate better incremental merging, use a pointer to a "reference SGNode" instead of a step counter.
-        //   To compare SimTimeImpls, compare up to the batch, then if needed, walk the graph looking for each other.
-        //   Most comparisons are different branches, at minimum, so only a few nodes need to be traversed.
-        //   This is robust against "stitching" partial branches together, so long as we never re-order nodes in a branch.
-        val step: Int = 0,
+        var priorStep: SimulationTimeImpl? = null
     ) : SimulationTime {
-        override fun compareTo(other: SimulationTime): Int = when (other) {
-            is SimulationTimeImpl -> {
-                var n = instant.compareTo(other.instant)
-                if (n == 0) n = batch.compareTo(other.batch)
-                if (n == 0) n = branch.compareTo(other.branch)
-                if (n == 0) n = step.compareTo(other.step)
-                n
+        override fun compareTo(other: SimulationTime): Int {
+            when (other) {
+                is SimulationTimeImpl -> {
+                    // O(1) comparison between times in different branches
+                    var n = instant.compareTo(other.instant)
+                    if (n == 0) n = batch.compareTo(other.batch)
+                    if (n == 0) n = branch.compareTo(other.branch)
+                    if (n != 0) return n
+
+                    var thisPredecessor = this.priorStep
+                    var otherPredecessor = other.priorStep
+                    while (true) {
+                        if (thisPredecessor === other) return 1
+                        if (otherPredecessor === this) return -1
+                        // Walk both prior pointers in unison
+                        // That way, the comparison is linear time in the distance between the two points.
+                        // That is (asymptotically) minimal, whereas walking the history of just one point at a time
+                        // could mean walking an arbitrarily long prefix of nodes prior to both this and other.
+                        thisPredecessor = thisPredecessor?.priorStep
+                        otherPredecessor = otherPredecessor?.priorStep
+                        // In a well-formed graph, it should always be the case that one node of a branch precedes the other...
+                        check(! (thisPredecessor == null && otherPredecessor == null)) {
+                            "Internal error! Comparing two time points of the same batch with mutually exclusive histories."
+                        }
+                    }
+                }
             }
         }
 
-        override fun toString(): String = "$instant::$batch/$branch/$step"
+        override fun toString(): String = "$instant::$batch/$branch/${stepNumber()}"
+
+        /**
+         * Count the links in this branch back to the first step.
+         * Note that this number can fluctuate as the simulation graph changes.
+         */
+        private fun stepNumber(): Int = priorStep?.run { stepNumber() + 1 } ?: 0
     }
 
     enum class SimulationTimeIncrement {
@@ -721,23 +750,23 @@ class KernelIncrementalSimulator(
      */
     private operator fun SimulationTime.plus(inc: SimulationTimeIncrement) = when (this) {
         is SimulationTimeImpl -> when (inc) {
-            BATCH -> copy(batch = batch + 1, branch = 0, step = 0)
-            BRANCH -> copy(branch = branch + 1, step = 0)
-            STEP -> copy(step = step + 1)
+            BATCH -> copy(batch = batch + 1, branch = 0, priorStep = null)
+            BRANCH -> copy(branch = branch + 1, priorStep = null)
+            STEP -> copy(priorStep = this)
         }
     }
 
     private fun SimulationTime.batchStart() = when (this) {
-        is SimulationTimeImpl -> copy(branch = 0, step = 0)
+        is SimulationTimeImpl -> copy(branch = 0, priorStep = null)
     }
 
     private fun SimulationTime.branchStart() = when (this) {
-        is SimulationTimeImpl -> copy(step = 0)
+        is SimulationTimeImpl -> copy(priorStep = null)
     }
 
     private fun SimulationTime.cellSteppingBatch() = when (this) {
         // Conceptually, cells are stepped in a special "batch", before any tasks are run
-        is SimulationTimeImpl -> copy(batch = -1, branch = 0, step = 0)
+        is SimulationTimeImpl -> copy(batch = -1, branch = 0, priorStep = null)
     }
 
     infix fun SimulationTime.isConcurrentWith(other: SimulationTime): Boolean = when (this) {
