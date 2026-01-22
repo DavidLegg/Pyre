@@ -21,6 +21,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.ResourceResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
+import gov.nasa.jpl.pyre.incremental.SimulationGraph.ReportNode
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Duration
@@ -65,7 +66,7 @@ class GraphIncrementalPlanSimulation<M>(
                 if (metadata.channel == Name("activities")) {
                     @Suppress("UNCHECKED_CAST")
                     object : IncrementalChannelHandler<ActivityEvent> {
-                        override fun report(report: IncrementalReport<ChannelData<ActivityEvent>>) {
+                        override fun report(report: ReportNode<ChannelData<ActivityEvent>>) {
                             // The event coming straight out of the simulator will have a non-null activity.
                             // It's only when deserializing ActivityEvents that we lose the activity object reference.
                             // Additionally, ActivityEvents are cumulative - we only want to keep the last one for any given activity.
@@ -81,7 +82,7 @@ class GraphIncrementalPlanSimulation<M>(
                             }
                         }
 
-                        override fun revoke(report: IncrementalReport<ChannelData<ActivityEvent>>) {
+                        override fun revoke(report: ReportNode<ChannelData<ActivityEvent>>) {
                             // The event coming straight out of the simulator will have a non-null activity.
                             // It's only when deserializing ActivityEvents that we lose the activity object reference.
                             activityResults.compute(requireNotNull(report.content.data.activity)) { _, progress ->
@@ -104,11 +105,11 @@ class GraphIncrementalPlanSimulation<M>(
                     val thisResourceResults = MutableIncrementalResourceResults(metadata)
                     resourceResults[metadata.channel] = thisResourceResults
                     object : IncrementalChannelHandler<T> {
-                        override fun report(report: IncrementalReport<ChannelData<T>>) {
+                        override fun report(report: ReportNode<ChannelData<T>>) {
                             thisResourceResults.data.add(report)
                         }
 
-                        override fun revoke(report: IncrementalReport<ChannelData<T>>) {
+                        override fun revoke(report: ReportNode<ChannelData<T>>) {
                             thisResourceResults.data.remove(report)
                         }
                     }
@@ -212,7 +213,7 @@ class GraphIncrementalPlanSimulation<M>(
         val metadata: ChannelMetadata<T>,
         // By using a TreeSet and sorting by report time, we maintain a fully-ordered list of reports on each channel,
         // but insertions and deletions remain O(log n) in the number of reports on this channel.
-        val data: TreeSet<IncrementalReport<ChannelData<T>>> = TreeSet(compareBy { it.time }),
+        val data: TreeSet<ReportNode<ChannelData<T>>> = TreeSet(),
     ) {
         fun toResourceResults(): ResourceResults<T> =
             ResourceResults(metadata, data.map { it.content })
@@ -221,8 +222,8 @@ class GraphIncrementalPlanSimulation<M>(
     private data class MutableActivityProgress(
         // In order to keep the exact incremental report object, we have to store the full activity event for both start and end
         // This is a bit wasteful, as the end event subsumes the start event by design.
-        var start: IncrementalReport<ChannelData<ActivityEvent>>? = null,
-        var end: IncrementalReport<ChannelData<ActivityEvent>>? = null,
+        var start: ReportNode<ChannelData<ActivityEvent>>? = null,
+        var end: ReportNode<ChannelData<ActivityEvent>>? = null,
     )
 }
 

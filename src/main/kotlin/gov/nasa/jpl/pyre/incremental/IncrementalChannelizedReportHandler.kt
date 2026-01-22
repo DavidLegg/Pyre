@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.*
+import gov.nasa.jpl.pyre.incremental.SimulationGraph.ReportNode
 import gov.nasa.jpl.pyre.kernel.Name
 
 /**
@@ -14,8 +15,8 @@ interface IncrementalChannelizedReportHandler : IncrementalReportHandler {
 }
 
 interface IncrementalChannelHandler<T> {
-    fun report(report: IncrementalReport<ChannelData<T>>)
-    fun revoke(report: IncrementalReport<ChannelData<T>>)
+    fun report(report: ReportNode<ChannelData<T>>)
+    fun revoke(report: ReportNode<ChannelData<T>>)
 }
 
 abstract class BaseIncrementalChannelizedReportHandler : IncrementalChannelizedReportHandler {
@@ -31,19 +32,19 @@ abstract class BaseIncrementalChannelizedReportHandler : IncrementalChannelizedR
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun report(report: IncrementalReport<*>) =
+    override fun report(report: ReportNode<*>) =
         when (val channelReport = channelizedContent(report)) {
             is ChannelMetadata<*> -> initChannel(channelReport)
-            is ChannelData<*> -> coerceAndReport(channelReport, report as IncrementalReport<ChannelData<*>>)
+            is ChannelData<*> -> coerceAndReport(channelReport, report as ReportNode<ChannelData<*>>)
         }
     @Suppress("UNCHECKED_CAST")
-    override fun revoke(report: IncrementalReport<*>) =
+    override fun revoke(report: ReportNode<*>) =
         when (val channelReport = channelizedContent(report)) {
             is ChannelMetadata<*> -> Unit // Ignore; there's actually no meaning to "revoking" a channel initializer.
-            is ChannelData<*> -> coerceAndRevoke(channelReport, report as IncrementalReport<ChannelData<*>>)
+            is ChannelData<*> -> coerceAndRevoke(channelReport, report as ReportNode<ChannelData<*>>)
         }
 
-    private fun channelizedContent(report: IncrementalReport<*>): ChannelReport<*> {
+    private fun channelizedContent(report: ReportNode<*>): ChannelReport<*> {
         require(report.content is ChannelReport<*>) {
             IncrementalChannelizedReportHandler::class.simpleName +
                     " expects all report content to be ${ChannelReport::class.simpleName}," +
@@ -57,12 +58,12 @@ abstract class BaseIncrementalChannelizedReportHandler : IncrementalChannelizedR
     // and we must omit it above since we only have star projections above.
 
     @Suppress("UNCHECKED_CAST")
-    private fun <T> coerceAndReport(reportContent: ChannelData<T>, report: IncrementalReport<ChannelData<*>>) =
+    private fun <T> coerceAndReport(reportContent: ChannelData<T>, report: ReportNode<ChannelData<*>>) =
         (channelHandlers.getValue(reportContent.channel) as IncrementalChannelHandler<T>)
-            .report(report as IncrementalReport<ChannelData<T>>)
+            .report(report as ReportNode<ChannelData<T>>)
 
     @Suppress("UNCHECKED_CAST")
-    private fun <T> coerceAndRevoke(reportContent: ChannelData<T>, report: IncrementalReport<ChannelData<*>>) =
+    private fun <T> coerceAndRevoke(reportContent: ChannelData<T>, report: ReportNode<ChannelData<*>>) =
         (channelHandlers.getValue(reportContent.channel) as IncrementalChannelHandler<T>)
-            .revoke(report as IncrementalReport<ChannelData<T>>)
+            .revoke(report as ReportNode<ChannelData<T>>)
 }

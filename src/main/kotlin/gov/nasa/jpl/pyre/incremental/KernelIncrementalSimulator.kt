@@ -50,9 +50,10 @@ class KernelIncrementalSimulator(
 
     init {
         // Init happens before any tasks, at plan start.
-        val cellAllocTime = SimulationTimeImpl(planStart, batch = -1)
+        val cellAllocTime = SimulationTime(planStart, batch = -1)
         var initTime = cellAllocTime
         var startTime = initTime + BATCH
+        var lastReport: ReportNode<*>? = null
 
         val basicInitScope = object : BasicInitScope {
             override fun <T : Any> allocate(
@@ -81,9 +82,8 @@ class KernelIncrementalSimulator(
             }
 
             override fun <T> report(value: T) {
-                // Init reports can be issued directly, without a DAG node. There's no task to associate them with anyways.
-                reportHandler.report(IncrementalReport(initTime, value))
-                initTime += STEP
+                lastReport = ReportNode(initTime, lastReport, value).also { lastReport?.next = it }
+                reportHandler.report(lastReport)
             }
         }
         val activities = constructPlan(basicInitScope)
@@ -103,7 +103,7 @@ class KernelIncrementalSimulator(
             }
             frontier += StartTask(
                 RootTaskNode(
-                    nextAvailableBranch(SimulationTimeImpl(activity.time)),
+                    nextAvailableBranch(SimulationTime(activity.time)),
                     Task.of(activity.name, activity.task),
                 ).also {
                     taskNodes += it
@@ -131,7 +131,7 @@ class KernelIncrementalSimulator(
                 is StartTask -> {
                     // Start the job in the next step. Roots are already assigned to their own branches.
                     action.node.next = StepBeginNode(
-                        action.time + STEP,
+                        action.time,
                         action.node,
                         action.node.task,
                     ).also {
@@ -141,6 +141,7 @@ class KernelIncrementalSimulator(
                 }
 
                 is ContinueTask -> {
+                    // TODO: Clean up lastTaskStepNode.time to just be action.time if we commit to using time = branch only
                     // Expand this task node
                     var lastTaskStepNode: TaskNode = action.node
                     // Go find the root task, to look up root merge opportunities...
@@ -152,10 +153,10 @@ class KernelIncrementalSimulator(
                     val basicTaskActions = object : Task.BasicTaskActions {
                         override fun <V> read(cell: Cell<V>): V {
                             // Look up the cell node
-                            val cellNode = getCellNode(cell, lastTaskStepNode.time + STEP)
+                            val cellNode = getCellNode(cell, lastTaskStepNode.time)
                             // Record this read in the graph
                             lastTaskStepNode = ReadNode(
-                                lastTaskStepNode.time + STEP,
+                                lastTaskStepNode.time,
                                 lastTaskStepNode,
                                 cellNode,
                             ).also {
@@ -172,7 +173,7 @@ class KernelIncrementalSimulator(
                             effect: Effect<V>
                         ) {
                             // Look up the cell node we're writing to
-                            val writeTime = lastTaskStepNode.time + STEP
+                            val writeTime = lastTaskStepNode.time
                             val priorCellNode = getCellNode(cell, writeTime)
                             // Filter out the nodes causally after this write operation
                             val it = priorCellNode.next.iterator()
@@ -262,12 +263,13 @@ class KernelIncrementalSimulator(
                         override fun <V> report(value: V) {
                             // Record this report in the task graph and issue it to the reportHandler
                             lastTaskStepNode = ReportNode(
+                                lastTaskStepNode.time,
                                 lastTaskStepNode,
-                                IncrementalReport(lastTaskStepNode.time + STEP, value)
-                                    .also(reportHandler::report),
+                                value,
                             ).also {
                                 lastTaskStepNode.next = it
                                 taskNodes += it
+                                reportHandler.report(it)
                             }
                         }
                     }
@@ -301,7 +303,7 @@ class KernelIncrementalSimulator(
                             // Add a new root task, from which we can restart the next task at any time.
                             lastTaskStepNode = RootTaskNode(
                                 // Restarting does not yield to the engine, it's the next step of this task.
-                                lastTaskStepNode.time + STEP,
+                                lastTaskStepNode.time,
                                 result.continuation,
                                 lastTaskStepNode,
                             ).also {
@@ -396,9 +398,9 @@ class KernelIncrementalSimulator(
                             // If that time is in the future, find and occupy a branch in batch 0 then.
                             // If that time is now, run in the next step; this await already occupies a branch.
                             val satisfiedTime = if (result.time > ZERO) {
-                                nextAvailableBranch(SimulationTimeImpl(action.time.instant + result.time.toKotlinDuration()))
+                                nextAvailableBranch(SimulationTime(action.time.instant + result.time.toKotlinDuration()))
                             } else {
-                                action.time + STEP
+                                action.time
                             }
                             if (satisfiedTime.instant < planEnd) {
                                 action.node.next = StepBeginNode(
@@ -418,9 +420,9 @@ class KernelIncrementalSimulator(
                             // If that time is now, run in the next step; this await already occupies a branch.
                             result.time?.let { t ->
                                 val recheckTime = if (t > ZERO) {
-                                    nextAvailableBranch(SimulationTimeImpl(action.time.instant + t.toKotlinDuration()))
+                                    nextAvailableBranch(SimulationTime(action.time.instant + t.toKotlinDuration()))
                                 } else {
-                                    action.time + STEP
+                                    action.time
                                 }
                                 if (recheckTime.instant < planEnd) {
                                     action.node.next = AwaitNode(
@@ -444,12 +446,12 @@ class KernelIncrementalSimulator(
     }
 
     private fun nextAvailableBranch(time: SimulationTime): SimulationTime = when (val batch = time.batchStart()) {
-        is SimulationTimeImpl -> batch.copy(branch = branches.compute(batch) { _, n -> (n ?: 0) + 1 }!!)
+        is SimulationTime -> batch.copy(branch = branches.compute(batch) { _, n -> (n ?: 0) + 1 }!!)
     }
 
     private fun SimulationTime.onBranch(target: SimulationTime): SimulationTime = when (this) {
-        is SimulationTimeImpl -> when (target) {
-            is SimulationTimeImpl -> copy(branch = target.branch)
+        is SimulationTime -> when (target) {
+            is SimulationTime -> copy(branch = target.branch)
         }
     }
 
@@ -486,7 +488,7 @@ class KernelIncrementalSimulator(
         // Do any special actions based on this node type
         when (task) {
             is ReadNode -> task.cell.reads -= task
-            is ReportNode -> reportHandler.revoke(task.report)
+            is ReportNode<*> -> reportHandler.revoke(task)
             is WriteNode -> revokeCell(task.cell)
             is RootTaskNode -> { /* Nothing to do */ }
             is AwaitNode -> task.reads.forEach { it.awaiters -= task }
@@ -585,7 +587,7 @@ class KernelIncrementalSimulator(
         // Get the most recent cell node.
         var (t, cellNode) = checkNotNull(thisCellsNodes.floorEntry(time))
         // This may have come from another task running in this batch though!
-        if ((t as SimulationTimeImpl).isConcurrentWith(time)) {
+        if ((t as SimulationTime).isConcurrentWith(time)) {
             // If so, set the time to the first possible time of this batch,
             // and ask for the cell node before that. That'll get the last cell node
             // of the batch before this, which must be a merge or step or something.
@@ -638,112 +640,38 @@ class KernelIncrementalSimulator(
         }
     }
 
-    // TODO: See if the "step" notion of order can be eliminated, in favor of just using branches.
-    //   This would only partially order the nodes, but maybe that's good enough and way simpler?
-    // Time within the simulator is primarily the Instant at which a task runs.
-    // Within a single instant, there's a series of job batches.
-    // All the jobs in a batch run in parallel.
-    // The ordering of steps between two parallel jobs is meaningless, but we can impose an arbitrary order for sorting purposes.
-    // Finally, within a job, there are a series of steps.
-    // When doing incremental re-simulation, steps in a branch may be added and removed, but they cannot be re-ordered.
-    // To reflect this, times have a mutable "priorStep" field, reflecting the causally-prior time in this branch.
-    // For efficiency, the first step in a branch should *not* point back to a prior batch.
-    // We can then compare times by traversing these prior links.
-    // This is a mildly dangerous thing to do, given how volatile the task graph can be.
-    // However, whenever we're comparing times, the graph should be in a well-formed state.
-    private data class SimulationTimeImpl(
-        override val instant: Instant,
-        val batch: Int = 0,
-        val branch: Int = 0,
-        var priorStep: SimulationTimeImpl? = null
-    ) : SimulationTime {
-        override fun compareTo(other: SimulationTime): Int {
-            when (other) {
-                is SimulationTimeImpl -> {
-                    // O(1) comparison between times in different branches
-                    var n = instant.compareTo(other.instant)
-                    if (n == 0) n = batch.compareTo(other.batch)
-                    if (n == 0) n = branch.compareTo(other.branch)
-                    if (n != 0) return n
-
-                    var thisPredecessor = this.priorStep
-                    var otherPredecessor = other.priorStep
-                    while (true) {
-                        if (thisPredecessor === other) return 1
-                        if (otherPredecessor === this) return -1
-                        // Walk both prior pointers in unison
-                        // That way, the comparison is linear time in the distance between the two points.
-                        // That is (asymptotically) minimal, whereas walking the history of just one point at a time
-                        // could mean walking an arbitrarily long prefix of nodes prior to both this and other.
-                        thisPredecessor = thisPredecessor?.priorStep
-                        otherPredecessor = otherPredecessor?.priorStep
-                        // In a well-formed graph, it should always be the case that one node of a branch precedes the other...
-                        check(! (thisPredecessor == null && otherPredecessor == null)) {
-                            "Internal error! Comparing two time points of the same batch with mutually exclusive histories."
-                        }
-                    }
-                }
-            }
-        }
-
-        override fun toString(): String = "$instant::$batch/$branch/${stepNumber()}"
-
-        /**
-         * Count the links in this branch back to the first step.
-         * Note that this number can fluctuate as the simulation graph changes.
-         */
-        private fun stepNumber(): Int = priorStep?.run { stepNumber() + 1 } ?: 0
-    }
-
     enum class SimulationTimeIncrement {
         BATCH,
-        BRANCH,
-        STEP
+        BRANCH
     }
 
     /**
      * Generally used as "+=", increments the time in the indicated field and resets later fields to 0.
      */
     private operator fun SimulationTime.plus(inc: SimulationTimeIncrement) = when (this) {
-        is SimulationTimeImpl -> when (inc) {
-            BATCH -> copy(batch = batch + 1, branch = 0, priorStep = null)
-            BRANCH -> copy(branch = branch + 1, priorStep = null)
-            STEP -> copy(priorStep = this)
+        is SimulationTime -> when (inc) {
+            BATCH -> copy(batch = batch + 1, branch = 0)
+            BRANCH -> copy(branch = branch + 1)
         }
     }
 
     private fun SimulationTime.batchStart() = when (this) {
-        is SimulationTimeImpl -> copy(branch = 0, priorStep = null)
-    }
-
-    private fun SimulationTime.branchStart() = when (this) {
-        is SimulationTimeImpl -> copy(priorStep = null)
+        is SimulationTime -> copy(branch = 0)
     }
 
     private fun SimulationTime.cellSteppingBatch() = when (this) {
         // Conceptually, cells are stepped in a special "batch", before any tasks are run
-        is SimulationTimeImpl -> copy(batch = -1, branch = 0, priorStep = null)
+        is SimulationTime -> copy(batch = -1, branch = 0)
     }
 
-    infix fun SimulationTime.isConcurrentWith(other: SimulationTime): Boolean = when (this) {
-        is SimulationTimeImpl -> when (other) {
-            is SimulationTimeImpl -> instant == other.instant
-                    && batch == other.batch
-                    && branch != other.branch
-        }
-    }
+    infix fun SimulationTime.isConcurrentWith(other: SimulationTime): Boolean =
+        instant == other.instant && batch == other.batch && branch != other.branch
 
-    infix fun SimulationTime.isCausallyBefore(other: SimulationTime): Boolean = when (this) {
-        is SimulationTimeImpl -> when (other) {
-            is SimulationTimeImpl -> this < other && !(this isConcurrentWith other)
-        }
-    }
+    infix fun SimulationTime.isCausallyBefore(other: SimulationTime): Boolean =
+        this < other && !(this isConcurrentWith other)
 
-    infix fun SimulationTime.isCausallyAfter(other: SimulationTime): Boolean = when (this) {
-        is SimulationTimeImpl -> when (other) {
-            is SimulationTimeImpl -> this > other && !(this isConcurrentWith other)
-        }
-    }
+    infix fun SimulationTime.isCausallyAfter(other: SimulationTime): Boolean =
+        this > other && !(this isConcurrentWith other)
 
     private sealed interface FrontierAction {
         val node: SGNode
@@ -775,9 +703,9 @@ class KernelIncrementalSimulator(
         val cells = mutableMapOf<CellNode<*>, Cell<*>>()
         val ranks = TreeMap<SimulationTime, MutableList<SGNode>>()
         // The "rank" is just the time ignoring the branch
-        fun SimulationTime.rank() = when (this) { is SimulationTimeImpl -> copy(branch = 0) }
+        fun SimulationTime.rank() = when (this) { is SimulationTime -> copy(branch = 0) }
         // The "file" is the horizontal position within the rank
-        fun SimulationTime.file() = when (this) { is SimulationTimeImpl -> branch }
+        fun SimulationTime.file() = when (this) { is SimulationTime -> branch }
         fun collect(node: SGNode) = ranks.computeIfAbsent(node.time.rank()) { mutableListOf() }.add(node)
         val frontierModifier = frontier.groupBy { it.node }
             .mapValues { (_, actions) -> actions.joinToString(", ") { it::class.simpleName!! } }
@@ -828,7 +756,7 @@ class KernelIncrementalSimulator(
                     is TaskNode -> {
                         val label = when (node) {
                             is ReadNode -> "Read"
-                            is ReportNode -> "Report ${node.report.content}"
+                            is ReportNode<*> -> "Report ${node.content}"
                             is WriteNode -> "Write '${node.cell.effect}'"
                             is RootTaskNode -> "Root ${node.task.id.name}"
                             is AwaitNode -> "Await"
@@ -936,23 +864,11 @@ class KernelIncrementalSimulator(
     }
 }
 
-/** Wrapper around a report to give every report a unique identity, so they can later be revoked. */
-class IncrementalReport<T>(
-    val time: SimulationTime,
-    val content: T,
-) {
-    override fun toString(): String = "$time: $content"
-}
-
-sealed interface SimulationTime : Comparable<SimulationTime> {
-    val instant: Instant
-}
-
 /**
  * A generalization of [ReportHandler] which allows the simulator to revoke a report it issued previously,
  * in response to incremental changes to the simulation.
  */
 interface IncrementalReportHandler {
-    fun report(report: IncrementalReport<*>)
-    fun revoke(report: IncrementalReport<*>)
+    fun report(report: ReportNode<*>)
+    fun revoke(report: ReportNode<*>)
 }

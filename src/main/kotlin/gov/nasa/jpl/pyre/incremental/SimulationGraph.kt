@@ -3,19 +3,55 @@ package gov.nasa.jpl.pyre.incremental
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.Task
 import java.util.TreeSet
+import kotlin.time.Instant
 
 interface SimulationGraph {
+    // Time within the simulator is primarily the Instant at which a task runs.
+    // Within a single instant, there's a series of job batches.
+    // All the jobs in a batch run in parallel.
+    // The ordering of steps between two parallel jobs is meaningless, but we can impose an arbitrary order for sorting purposes.
+    // Finally, within a job, there are a series of steps.
+    // When doing incremental re-simulation, steps in a branch may be added and removed, but they cannot be re-ordered.
+    // Because of this, the step number is not recorded in the time field. Instead, we traverse the graph itself.
+    data class SimulationTime(
+        val instant: Instant,
+        val batch: Int = 0,
+        val branch: Int = 0,
+    ) : Comparable<SimulationTime> {
+        override fun compareTo(other: SimulationTime): Int {
+            var n = instant.compareTo(other.instant)
+            if (n == 0) n = batch.compareTo(other.batch)
+            if (n == 0) n = branch.compareTo(other.branch)
+            return n
+        }
+
+        override fun toString(): String = "$instant::$batch/$branch"
+    }
+
     sealed interface SGNode {
         val time: SimulationTime
     }
 
-    sealed interface TaskNode : SGNode {
+    sealed interface TaskNode : SGNode, Comparable<TaskNode> {
         val prior: TaskNode?
         var next: TaskNode?
+
+        override fun compareTo(other: TaskNode): Int {
+            val n = time.compareTo(other.time)
+            if (n != 0) return n
+
+            var thisAncestor = this.prior
+            var otherAncestor = other.prior
+            while (thisAncestor != null || otherAncestor != null) {
+                if (thisAncestor === other) return 1
+                if (otherAncestor === this) return -1
+                thisAncestor = thisAncestor?.prior?.takeIf { it.time == time }
+                otherAncestor = otherAncestor?.prior?.takeIf { it.time == time }
+            }
+            throw IllegalStateException("Internal error! Task nodes on the same branch are not connected by 'prior' edges.")
+        }
     }
 
     /**
@@ -63,13 +99,12 @@ interface SimulationGraph {
         override var next: TaskNode? = null,
     ) : NonYieldingStepNode
 
-    class ReportNode(
-        override val prior: TaskNode,
-        val report: IncrementalReport<*>,
+    class ReportNode<T>(
+        override val time: SimulationTime,
+        override val prior: TaskNode?,
+        val content: T,
         override var next: TaskNode? = null,
-    ) : NonYieldingStepNode {
-        override val time: SimulationTime get() = report.time
-    }
+    ) : NonYieldingStepNode
 
     class SpawnNode(
         override val time: SimulationTime,
