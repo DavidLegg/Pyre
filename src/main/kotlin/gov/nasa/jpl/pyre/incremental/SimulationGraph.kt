@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.incremental
 
+import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Effect
@@ -124,6 +125,7 @@ interface SimulationGraph {
     ) : YieldingStepNode
 
     sealed interface CellNode<T> : SGNode {
+        val cell: Cell<T>
         val value: T
         val reads: MutableSet<ReadNode>
         val awaiters: MutableSet<AwaitNode>
@@ -132,6 +134,7 @@ interface SimulationGraph {
 
     class CellWriteNode<T>(
         override val time: SimulationTime,
+        override val cell: Cell<T>,
         override val value: T,
         var prior: CellNode<T>?,
         val effect: Effect<T>,
@@ -144,6 +147,7 @@ interface SimulationGraph {
 
     class CellMergeNode<T>(
         override val time: SimulationTime,
+        override val cell: Cell<T>,
         override val value: T,
         var prior: MutableList<CellWriteNode<T>>,
         override val next: MutableList<CellNode<T>> = mutableListOf(),
@@ -153,6 +157,7 @@ interface SimulationGraph {
 
     class CellStepNode<T>(
         override val time: SimulationTime,
+        override val cell: Cell<T>,
         override val value: T,
         var prior: CellNode<T>,
         val step: Duration,

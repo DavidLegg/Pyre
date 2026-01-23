@@ -41,6 +41,9 @@ class KernelIncrementalSimulator(
     // TODO: Find a way to prevent taskBranch from growing indefinitely as tasks are added and removed
     /** The permanently-assigned branch number for each task. */
     private val taskBranch: MutableMap<Task<*>, Int> = mutableMapOf()
+    // TODO: We may want to de-duplicate frontier actions, and/or sort them by type
+    //   Using a TreeSet with a "thenBy" that gets an integer sorting key for action type might accomplish this...
+    //   I should prove that before I make the code change, though.
     /** The work list of actions to resolve the DAG. */
     private val frontier: PriorityQueue<FrontierAction> = PriorityQueue(compareBy { it.time })
     /** Root task nodes corresponding to activities in the plan, recorded to facilitate revoking tasks. */
@@ -66,7 +69,7 @@ class KernelIncrementalSimulator(
                 // Create an incremental cell, and add its initial value to the graph
                 IncrementalCellImpl(name, valueType, stepBy, mergeConcurrentEffects).also {
                     cellNodes[it] = TreeMap<SimulationTime, CellNode<*>>().apply {
-                        put(initTime, CellWriteNode(cellAllocTime, value, null, identity()))
+                        put(initTime, CellWriteNode(cellAllocTime, it, value, null, identity()))
                     }
                 }
 
@@ -255,7 +258,31 @@ class KernelIncrementalSimulator(
                 }
 
                 is CheckCell -> {
-                    TODO("Check cell")
+                    when (action.node) {
+                        is CellMergeNode<*> -> {
+                            // We need to check our prior list (branches to merge).
+                            // I think we must have more than one prior, or we would have deleted this node instead of checking it.
+                            // Maybe that logic should be rolled into this step instead, though?
+                            // Roll up the net effect of each branch and apply the merge.
+                            // If that computed value is equal to this value, we're done.
+                            // Otherwise, re-run all readers and awaiters, and check all next cell nodes.
+                            TODO("check merge node")
+                        }
+                        is CellStepNode<*> -> {
+                            // Apply the step duration to the prior cell value.
+                            // If that computed value is equal to this value, we're done.
+                            // Otherwise, re-run all readers and awaiters, and check all next cell nodes.
+                            TODO("check step node")
+                        }
+                        is CellWriteNode<*> -> {
+                            // Apply the effect to the prior cell value.
+                            // If that computed value is equal to this value, we're done.
+                            // Otherwise, re-run all readers and awaiters, and check all next cell nodes.
+                            TODO("check write node")
+                        }
+                    }
+                    // TODO: After writing the logic for each kind of cell node individually,
+                    //   see if there's a nice way to refactor them to reduce duplication.
                 }
 
                 is CheckCondition -> {
@@ -396,6 +423,7 @@ class KernelIncrementalSimulator(
                 // Build this write node
                 val writeNode = CellWriteNode(
                     writeTime,
+                    cell,
                     effect(priorCellNode.value),
                     priorCellNode,
                     effect,
@@ -700,6 +728,7 @@ class KernelIncrementalSimulator(
             // Build the new step node
             val stepNode = CellStepNode(
                 time.cellSteppingBatch(),
+                cell,
                 cell.stepBy(cellNode.value, stepSize),
                 cellNode,
                 stepSize,
