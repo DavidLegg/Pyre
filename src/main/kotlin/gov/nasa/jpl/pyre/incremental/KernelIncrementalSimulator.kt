@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator.FrontierAction.*
-import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator.SimulationTimeIncrement.*
 import gov.nasa.jpl.pyre.incremental.SimulationGraph.*
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
@@ -39,8 +38,9 @@ class KernelIncrementalSimulator(
     // TODO: This taskNodes set is likely overkill, but useful for debugging. Get rid of it once we have confidence in the simulator.
     /** All task nodes allocated in the DAG */
     private val taskNodes: MutableSet<TaskNode> = mutableSetOf()
-    /** The number of branches ever created at this time. For correct operation, use only batchStart() times as keys. */
-    private val branches: TreeMap<SimulationTime, Int> = TreeMap()
+    // TODO: Find a way to prevent taskBranch from growing indefinitely as tasks are added and removed
+    /** The permanently-assigned branch number for each task. */
+    private val taskBranch: MutableMap<Task<*>, Int> = mutableMapOf()
     /** The work list of actions to resolve the DAG. */
     private val frontier: PriorityQueue<FrontierAction> = PriorityQueue(compareBy { it.time })
     /** Root task nodes corresponding to activities in the plan, recorded to facilitate revoking tasks. */
@@ -52,7 +52,7 @@ class KernelIncrementalSimulator(
         // Init happens before any tasks, at plan start.
         val cellAllocTime = SimulationTime(planStart, batch = -1)
         var initTime = cellAllocTime
-        var startTime = initTime + BATCH
+        var startTime = initTime.nextBatch()
         var lastReport: ReportNode<*>? = null
 
         val basicInitScope = object : BasicInitScope {
@@ -72,7 +72,8 @@ class KernelIncrementalSimulator(
 
             override fun <T> spawn(name: Name, step: PureTaskStep<T>) {
                 // Schedule the task on its own branch, as part of the first batch.
-                frontier += StartTask(RootTaskNode(nextAvailableBranch(startTime), Task.of(name, step)).also(taskNodes::add))
+                val task = Task.of(name, step)
+                frontier += StartTask(RootTaskNode(startTime.branchFor(task), task).also(taskNodes::add))
             }
 
             override fun <T> read(cell: Cell<T>): T {
@@ -101,10 +102,11 @@ class KernelIncrementalSimulator(
             require(activity.time < planEnd) {
                 "Cannot add activity $activity at or after plan ends at $planEnd"
             }
+            val task = Task.of(activity.name, activity.task)
             frontier += StartTask(
                 RootTaskNode(
-                    nextAvailableBranch(SimulationTime(activity.time)),
-                    Task.of(activity.name, activity.task),
+                    SimulationTime(activity.time).branchFor(task),
+                    task,
                 ).also {
                     taskNodes += it
                     planTaskNodes[activity] = it
@@ -141,214 +143,23 @@ class KernelIncrementalSimulator(
                 }
 
                 is ContinueTask -> {
-                    // TODO: Clean up lastTaskStepNode.time to just be action.time if we commit to using time = branch only
-                    // Expand this task node
-                    var lastTaskStepNode: TaskNode = action.node
-                    // Go find the root task, to look up root merge opportunities...
-                    // TODO: Key off of something easier to find...
-                    val rootTaskNode = generateSequence<TaskNode>(action.node) { it.prior }.first { it is RootTaskNode }
-                    val rootTask = (rootTaskNode as RootTaskNode).task
-                    var mergeOpportunity: RootTaskNode? = rootMergeOpportunities[rootTask]
-
-                    val basicTaskActions = object : Task.BasicTaskActions {
-                        override fun <V> read(cell: Cell<V>): V {
-                            // Look up the cell node
-                            val cellNode = getCellNode(cell, lastTaskStepNode.time)
-                            // Record this read in the graph
-                            lastTaskStepNode = ReadNode(
-                                lastTaskStepNode.time,
-                                lastTaskStepNode,
-                                cellNode,
-                            ).also {
-                                lastTaskStepNode.next = it
-                                cellNode.reads += it
-                                taskNodes += it
-                            }
-                            // Return the value
-                            return cellNode.value
-                        }
-
-                        override fun <V> emit(
-                            cell: Cell<V>,
-                            effect: Effect<V>
-                        ) {
-                            // Look up the cell node we're writing to
-                            val writeTime = lastTaskStepNode.time
-                            val priorCellNode = getCellNode(cell, writeTime)
-                            // Filter out the nodes causally after this write operation
-                            val it = priorCellNode.next.iterator()
-                            val nodesAfterWrite = mutableListOf<CellNode<V>>()
-                            while (it.hasNext()) {
-                                val next = it.next()
-                                if (next.time isCausallyAfter writeTime) {
-                                    it.remove()
-                                    nodesAfterWrite += next
-                                }
-                            }
-                            // Build this write node
-                            val writeNode = CellWriteNode(
-                                writeTime,
-                                effect(priorCellNode.value),
-                                priorCellNode,
-                                effect,
-                                next = nodesAfterWrite
-                            )
-                            // Add the edge from prior to this write node
-                            priorCellNode.next += writeNode
-                            // Fix the cell edges leaving from this write node
-                            for (nextCellNode in writeNode.next) {
-                                when (nextCellNode) {
-                                    is CellMergeNode<V> -> {
-                                        nextCellNode.prior.remove(priorCellNode)
-                                        nextCellNode.prior.add(writeNode)
-                                    }
-                                    is CellStepNode<V> -> {
-                                        nextCellNode.prior = writeNode
-                                    }
-                                    is CellWriteNode<V> -> {
-                                        nextCellNode.prior = writeNode
-                                    }
-                                }
-                                // Also schedule all of these nodes to be checked
-                                frontier += CheckCell(nextCellNode)
-                            }
-
-                            // Add the write node to the global cell map for quick lookups later.
-                            getCellNodes(cell)[writeNode.time] = writeNode
-
-                            // Schedule any reads that were disturbed by this write
-                            for (read in priorCellNode.reads) {
-                                if (read.time isCausallyAfter writeNode.time) {
-                                    // Our write intercedes between the read and the value it read.
-                                    // Presuming this task should now read a different value, it must be re-run.
-                                    frontier += RerunTask(read)
-                                }
-                            }
-
-                            for (awaiter in priorCellNode.awaiters) {
-                                awaiter.next?.takeIf { it.time isCausallyAfter writeTime }?.let {
-                                    // If the awaiter continues causally after this write, revoke that continuation.
-                                    // This will include clearing awaiter.next.
-                                    // TODO: Should this be a full revoke, or should we somehow permit re-merging?
-                                    fullyRevokeTask(it)
-                                }
-                                if (awaiter.next == null) {
-                                    // The awaiter is active (it had no next node, or the next node was revoked).
-                                    // Build a new await node and schedule it for the next batch
-                                    awaiter.next = AwaitNode(
-                                        nextAvailableBranch(writeNode.time + BATCH),
-                                        awaiter,
-                                        awaiter.condition,
-                                        continuation = awaiter.continuation,
-                                    ).also {
-                                        frontier += CheckCondition(it)
-                                        taskNodes += it
-                                    }
-                                }
-                            }
-
-                            // Having constructed the cell's write node, now construct the next step node for the task.
-                            lastTaskStepNode = WriteNode(
-                                writeTime,
-                                lastTaskStepNode,
-                                writeNode,
-                            ).also {
-                                // Also add the edges from the prior task step and from the cell write node to this.
-                                lastTaskStepNode.next = it
-                                writeNode.writer = it
-                                taskNodes += it
-                            }
-                        }
-
-                        override fun <V> report(value: V) {
-                            // Record this report in the task graph and issue it to the reportHandler
-                            lastTaskStepNode = ReportNode(
-                                lastTaskStepNode.time,
-                                lastTaskStepNode,
-                                value,
-                            ).also {
-                                lastTaskStepNode.next = it
-                                taskNodes += it
-                                reportHandler.report(it)
-                            }
-                        }
-                    }
-                    when (val result = action.node.continuation.runStep(basicTaskActions)) {
-                        is Task.TaskStepResult.Await<*> -> {
-                            // Create an await node and add it to the frontier, to be checked in the next batch.
-                            lastTaskStepNode = AwaitNode(
-                                nextAvailableBranch(lastTaskStepNode.time + BATCH),
-                                lastTaskStepNode,
-                                result.condition,
-                                continuation = result.continuation,
-                            ).also {
-                                // Having constructed the node, link it to chain of task step nodes
-                                lastTaskStepNode.next = it
-                                // Schedule the condition to be checked
-                                frontier += CheckCondition(it)
-                                // And mark the branch as occupied
-                                taskNodes += it
-                            }
-                        }
-                        is Task.TaskStepResult.Complete<*> -> {
-                            // Nothing to do.
-                            // Note that if there was a merge opportunity, there's also a scheduled FrontierAction
-                            // to revoke it. We'll let that frontierAction handle things.
-                        }
-                        is Task.TaskStepResult.Restart<*> -> {
-                            // Look at the mergeOpportunity - if it's the same branch as this, connect lastTaskStepNode to it.
-
-                            // TODO: Rewrite this case of the when statement
-
-                            // Add a new root task, from which we can restart the next task at any time.
-                            lastTaskStepNode = RootTaskNode(
-                                // Restarting does not yield to the engine, it's the next step of this task.
-                                lastTaskStepNode.time,
-                                result.continuation,
-                                lastTaskStepNode,
-                            ).also {
-                                lastTaskStepNode.next = it
-                                frontier += StartTask(it)
-                                taskNodes += it
-                            }
-                        }
-                        is Task.TaskStepResult.Spawn<*, *> -> {
-                            // Spawning is a yielding action, so add our continuation to the next batch.
-                            // Also add the child task to the next batch, as a root task node so it can be independently restarted.
-                            lastTaskStepNode = SpawnNode(
-                                nextAvailableBranch(lastTaskStepNode.time + BATCH),
-                                lastTaskStepNode,
-                                RootTaskNode(
-                                    nextAvailableBranch(lastTaskStepNode.time + BATCH),
-                                    result.child,
-                                ).also {
-                                    frontier += StartTask(it)
-                                    taskNodes += it
-                                },
-                                result.continuation,
-                            ).also {
-                                lastTaskStepNode.next = it
-                                it.child.prior = it
-                                frontier += ContinueTask(it)
-                                taskNodes += it
-                            }
-                        }
-                    }
+                    // The "basic" form of continuing a task, what we do for freshly-added tasks.
+                    action.node.continueWith(action.node.continuation::runStep)
                 }
 
-                is RevokeRootTask -> {
-                    // We use the RevokeRootTask frontier action instead of directly calling fullyRevokeTask
+                is RevokeMergeOpportunity -> {
+                    // We use the RevokeMergeOpportunity frontier action instead of directly calling fullyRevokeTask
                     // when we're doing incremental resimulation, hoping to merge an existing RootTaskNode
                     // with a re-simulated one.
                     // For example, the reporting task for a resource repeats, placing a new root exactly where the old
                     // root was, and that can be merged instead of re-done.
-                    // If we merge, we remove the RevokeRootTask action.
-                    // Hence if we run the RevokeRootTask action, we failed to merge this root.
+                    // If we merge, we remove the RevokeMergeOpportunity action.
+                    // Hence if we run the RevokeMergeOpportunity action, we failed to merge this root.
                     // Remove that root, but optimistically add its downstream repeat as a merge opportunity.
                     // Also schedule that repeat to be revoked if it isn't merged.
                     rootMergeOpportunities.remove(action.node.task)
                     revokeSingleTask(action.node)?.let {
-                        frontier += RevokeRootTask(it)
+                        frontier += RevokeMergeOpportunity(it)
                         rootMergeOpportunities[it.task] = it
                     }
                 }
@@ -357,22 +168,90 @@ class KernelIncrementalSimulator(
                     // Revoke the rest of this task, up to any repeat.
                     // If it repeats, add that repeat as a merge opportunity, and schedule it to be revoked if not merged.
                     revokeSingleTask(action.node)?.let {
-                        frontier += RevokeRootTask(it)
+                        frontier += RevokeMergeOpportunity(it)
                         rootMergeOpportunities[it.task] = it
                     }
                     val prior = checkNotNull(action.node.prior) {
-                        "Cannot rerun a root task node!"
+                        "Internal error! Cannot rerun the first node in a task chain."
                     }
                     // Find the root node from which to replay this task
-                    var root = prior
-                    while (root !is RootTaskNode) {
-                        root = checkNotNull(root.prior) {
-                            "Internal error! Task chain does not start at a root task node."
+                    val root = checkNotNull(generateSequence(prior) { it.prior }.firstOrNull { it is RootTaskNode }) {
+                        "Internal error! Task chain does not start at a root task node."
+                    } as RootTaskNode
+                    prior.continueWith { realActions ->
+                        // We replay the task by continuing from prior, but with a more complex continuation function.
+                        var next: TaskNode? = root.next
+                        // That continuation function will intercept all actions taken by the task,
+                        // matching them to the task nodes from root through prior.
+                        // Once we've exhausted the task nodes we want to replay, we defer to realActions.
+                        var stepResult: Task.TaskStepResult<*>
+                        while (true) {
+                            stepResult = root.task.runStep(object : Task.BasicTaskActions {
+                                override fun <V> read(cell: Cell<V>): V = if (next != null) {
+                                    check(next is ReadNode) {
+                                        "Internal error! Task replay (read) did not align with history (${next!!::class.simpleName}"
+                                    }
+                                    @Suppress("UNCHECKED_CAST")
+                                    // Replay the value we read last time, and advance next
+                                    val result = ((next as ReadNode).cell as CellNode<V>).value
+                                    next = next?.next
+                                    result
+                                } else {
+                                    realActions.read(cell)
+                                }
+
+                                override fun <V> emit(cell: Cell<V>, effect: Effect<V>) = if (next != null) {
+                                    check(next is WriteNode) {
+                                        "Internal error! Task replay (write) did not align with history (${next!!::class.simpleName}"
+                                    }
+                                    // Ignore the write and advance next
+                                    next = next?.next
+                                } else {
+                                    realActions.emit(cell, effect)
+                                }
+
+                                override fun <V> report(value: V) = if (next != null) {
+                                    check(next is ReportNode<*>) {
+                                        "Internal error! Task replay (report) did not align with history (${next!!::class.simpleName}"
+                                    }
+                                    // Ignore the report and advance next
+                                    next = next?.next
+                                } else {
+                                    realActions.report(value)
+                                }
+                            })
+                            // If we exhausted the replay doing that runStep, return this as our final result.
+                            if (next == null) break
+                            // Otherwise, match that result to the next node, advance next to skip the yielding action, and go again.
+                            when (stepResult) {
+                                is Task.TaskStepResult.Await<*> -> {
+                                    check(next is AwaitNode) {
+                                        "Internal error! Task replay (await) did not align with history (${next!!::class.simpleName}"
+                                    }
+                                    next = next?.next
+                                }
+                                is Task.TaskStepResult.Complete<*> -> {
+                                    check(false) {
+                                        "Internal error! Task replay (complete) did not align with history (${next!!::class.simpleName}"
+                                    }
+                                }
+                                is Task.TaskStepResult.Restart<*> -> {
+                                    // We only ever replay part of a single task.
+                                    // The task should never restart while replaying.
+                                    check(false) {
+                                        "Internal error! Task replay (restart) did not align with history (${next!!::class.simpleName}"
+                                    }
+                                }
+                                is Task.TaskStepResult.Spawn<*, *> -> {
+                                    check(next is SpawnNode) {
+                                        "Internal error! Task replay (spawn) did not align with history (${next!!::class.simpleName}"
+                                    }
+                                    next = next?.next
+                                }
+                            }
                         }
+                        stepResult
                     }
-                    // TODO: Replay from root to the removed node.
-                    // TODO: Schedule the end of the replay to continue?
-                    TODO("Rerun task")
                 }
 
                 is CheckCell -> {
@@ -398,7 +277,9 @@ class KernelIncrementalSimulator(
                             // If that time is in the future, find and occupy a branch in batch 0 then.
                             // If that time is now, run in the next step; this await already occupies a branch.
                             val satisfiedTime = if (result.time > ZERO) {
-                                nextAvailableBranch(SimulationTime(action.time.instant + result.time.toKotlinDuration()))
+                                SimulationTime(
+                                    action.time.instant + result.time.toKotlinDuration(),
+                                    branch = action.time.branch)
                             } else {
                                 action.time
                             }
@@ -420,7 +301,9 @@ class KernelIncrementalSimulator(
                             // If that time is now, run in the next step; this await already occupies a branch.
                             result.time?.let { t ->
                                 val recheckTime = if (t > ZERO) {
-                                    nextAvailableBranch(SimulationTime(action.time.instant + t.toKotlinDuration()))
+                                    SimulationTime(
+                                        action.time.instant + t.toKotlinDuration(),
+                                        branch = action.time.branch)
                                 } else {
                                     action.time
                                 }
@@ -445,13 +328,231 @@ class KernelIncrementalSimulator(
         }
     }
 
-    private fun nextAvailableBranch(time: SimulationTime): SimulationTime = when (val batch = time.batchStart()) {
-        is SimulationTime -> batch.copy(branch = branches.compute(batch) { _, n -> (n ?: 0) + 1 }!!)
+    // TODO: If we ever do cleanup on taskBranch to keep it from growing indefinitely,
+    //   update the branch assignment rule to account for that.
+    private fun SimulationTime.branchFor(task: Task<*>): SimulationTime =
+        copy(branch = taskBranch.computeIfAbsent(task) { taskBranch.size })
+
+    private interface ContinuationActions {
+        val basicTaskActions: Task.BasicTaskActions
+        val lastTaskStepNode: TaskNode
+        val mergeOpportunity: RootTaskNode?
     }
 
-    private fun SimulationTime.onBranch(target: SimulationTime): SimulationTime = when (this) {
-        is SimulationTime -> when (target) {
-            is SimulationTime -> copy(branch = target.branch)
+    /**
+     * Run [continuation], appending nodes after this [TaskNode] to record its actions.
+     * Mutates the simulator as needed to record all consequences of continuing this task.
+     */
+    private fun TaskNode.continueWith(continuation: (Task.BasicTaskActions) -> Task.TaskStepResult<*>) {
+        // TODO: Clean up lastTaskStepNode.time to just be time if we commit to using time = branch only
+        // Expand this task node
+        var lastTaskStepNode: TaskNode = this
+        // Go find the root task, to look up root merge opportunities...
+        // TODO: Key off of something easier to find...
+        val rootTaskNode = generateSequence(this) { it.prior }.first { it is RootTaskNode }
+        val rootTask = (rootTaskNode as RootTaskNode).task
+        // We can merge only if this action is happening at the same time as the merge opportunity.
+        val mergeOpportunity: RootTaskNode? = rootMergeOpportunities[rootTask]?.takeIf { it.time == time }
+        // If we might merge, link the merge opportunity to the currently-running branch,
+        // so we can detect if changes made by this branch trigger a re-run of the branch we're about to merge to.
+        mergeOpportunity?.let {
+            lastTaskStepNode.next = it
+            it.prior = lastTaskStepNode
+        }
+        val basicTaskActions = object : Task.BasicTaskActions {
+            override fun <V> read(cell: Cell<V>): V {
+                // Look up the cell node
+                val cellNode = getCellNode(cell, lastTaskStepNode.time)
+                // Record this read in the graph
+                lastTaskStepNode = ReadNode(
+                    lastTaskStepNode.time,
+                    lastTaskStepNode,
+                    cellNode,
+                    next = mergeOpportunity,
+                ).also {
+                    lastTaskStepNode.next = it
+                    mergeOpportunity?.prior = it
+                    cellNode.reads += it
+                    taskNodes += it
+                }
+                // Return the value
+                return cellNode.value
+            }
+
+            override fun <V> emit(cell: Cell<V>, effect: Effect<V>) {
+                // Look up the cell node we're writing to
+                val writeTime = lastTaskStepNode.time
+                val priorCellNode = getCellNode(cell, writeTime)
+                // Filter out the nodes causally after this write operation
+                val it = priorCellNode.next.iterator()
+                val nodesAfterWrite = mutableListOf<CellNode<V>>()
+                while (it.hasNext()) {
+                    val next = it.next()
+                    if (next.time isCausallyAfter writeTime) {
+                        it.remove()
+                        nodesAfterWrite += next
+                    }
+                }
+                // Build this write node
+                val writeNode = CellWriteNode(
+                    writeTime,
+                    effect(priorCellNode.value),
+                    priorCellNode,
+                    effect,
+                    next = nodesAfterWrite
+                )
+                // Add the edge from prior to this write node
+                priorCellNode.next += writeNode
+                // Fix the cell edges leaving from this write node
+                for (nextCellNode in writeNode.next) {
+                    when (nextCellNode) {
+                        is CellMergeNode<V> -> {
+                            nextCellNode.prior.remove(priorCellNode)
+                            nextCellNode.prior.add(writeNode)
+                        }
+                        is CellStepNode<V> -> {
+                            nextCellNode.prior = writeNode
+                        }
+                        is CellWriteNode<V> -> {
+                            nextCellNode.prior = writeNode
+                        }
+                    }
+                    // Also schedule all of these nodes to be checked
+                    frontier += CheckCell(nextCellNode)
+                }
+
+                // Add the write node to the global cell map for quick lookups later.
+                getCellNodes(cell)[writeNode.time] = writeNode
+
+                // Schedule any reads that were disturbed by this write
+                for (read in priorCellNode.reads) {
+                    if (read.time isCausallyAfter writeNode.time) {
+                        // Our write intercedes between the read and the value it read.
+                        // Presuming this task should now read a different value, it must be re-run.
+                        frontier += RerunTask(read)
+                    }
+                }
+
+                for (awaiter in priorCellNode.awaiters) {
+                    awaiter.next?.takeIf { it.time isCausallyAfter writeTime }?.let {
+                        // If the awaiter continues causally after this write, revoke that continuation.
+                        // This will include clearing awaiter.next.
+                        // TODO: Should this be a full revoke, or should we somehow permit re-merging?
+                        fullyRevokeTask(it)
+                    }
+                    if (awaiter.next == null) {
+                        // The awaiter is active (it had no next node, or the next node was revoked).
+                        // Build a new await node and schedule it for the next batch, on the awaiter's branch
+                        awaiter.next = AwaitNode(
+                            writeNode.time.nextBatch().copy(branch = awaiter.time.branch),
+                            awaiter,
+                            awaiter.condition,
+                            continuation = awaiter.continuation,
+                        ).also {
+                            frontier += CheckCondition(it)
+                            taskNodes += it
+                        }
+                    }
+                }
+
+                // Having constructed the cell's write node, now construct the next step node for the task.
+                lastTaskStepNode = WriteNode(
+                    writeTime,
+                    lastTaskStepNode,
+                    writeNode,
+                    next = mergeOpportunity,
+                ).also {
+                    // Also add the edges from the prior task step and from the cell write node to this.
+                    lastTaskStepNode.next = it
+                    mergeOpportunity?.prior = it
+                    writeNode.writer = it
+                    taskNodes += it
+                }
+            }
+
+            override fun <V> report(value: V) {
+                // Record this report in the task graph and issue it to the reportHandler
+                lastTaskStepNode = ReportNode(
+                    lastTaskStepNode.time,
+                    lastTaskStepNode,
+                    value,
+                    next = mergeOpportunity,
+                ).also {
+                    lastTaskStepNode.next = it
+                    mergeOpportunity?.prior = it
+                    taskNodes += it
+                    reportHandler.report(it)
+                }
+            }
+        }
+        when (val result = continuation(basicTaskActions)) {
+            is Task.TaskStepResult.Await<*> -> {
+                // Create an await node and add it to the frontier, to be checked in the next batch.
+                lastTaskStepNode = AwaitNode(
+                    lastTaskStepNode.time.nextBatch(),
+                    lastTaskStepNode,
+                    result.condition,
+                    continuation = result.continuation,
+                    next = mergeOpportunity,
+                ).also {
+                    // Having constructed the node, link it to chain of task step nodes
+                    lastTaskStepNode.next = it
+                    mergeOpportunity?.prior = it
+                    // Schedule the condition to be checked
+                    frontier += CheckCondition(it)
+                    // And mark the branch as occupied
+                    taskNodes += it
+                }
+            }
+            is Task.TaskStepResult.Complete<*> -> {
+                // Nothing to do.
+                // Note that if there was a merge opportunity, there's also a scheduled FrontierAction
+                // to revoke it. We'll let that frontierAction handle things.
+            }
+            is Task.TaskStepResult.Restart<*> -> {
+                if (mergeOpportunity != null) {
+                    // Accept the opportunity to merge instead of re-run, by
+                    // removing the scheduled action to revoke the merge opportunity.
+                    frontier -= RevokeMergeOpportunity(mergeOpportunity)
+                    // Throughout this ContinueTask action, we've kept mergeOpportunity connected to lastTaskStepNode.
+                    // Just leave those connections intact, and the graph should be correct.
+                } else {
+                    // Add a new root task, from which we can restart the next task at any time.
+                    lastTaskStepNode = RootTaskNode(
+                        // Restarting does not yield to the engine, it's the next step of this task.
+                        lastTaskStepNode.time,
+                        result.continuation,
+                        lastTaskStepNode,
+                    ).also {
+                        lastTaskStepNode.next = it
+                        frontier += StartTask(it)
+                        taskNodes += it
+                    }
+                }
+            }
+            is Task.TaskStepResult.Spawn<*, *> -> {
+                // Spawning is a yielding action, so add our continuation to the next batch.
+                // Also add the child task to the next batch, as a root task node so it can be independently restarted.
+                lastTaskStepNode = SpawnNode(
+                    lastTaskStepNode.time.nextBatch(),
+                    lastTaskStepNode,
+                    RootTaskNode(
+                        lastTaskStepNode.time.nextBatch().branchFor(result.child),
+                        result.child,
+                    ).also {
+                        frontier += StartTask(it)
+                        taskNodes += it
+                    },
+                    result.continuation,
+                    next = mergeOpportunity,
+                ).also {
+                    lastTaskStepNode.next = it
+                    mergeOpportunity?.prior = it
+                    it.child.prior = it
+                    frontier += ContinueTask(it)
+                    taskNodes += it
+                }
+            }
         }
     }
 
@@ -640,20 +741,7 @@ class KernelIncrementalSimulator(
         }
     }
 
-    enum class SimulationTimeIncrement {
-        BATCH,
-        BRANCH
-    }
-
-    /**
-     * Generally used as "+=", increments the time in the indicated field and resets later fields to 0.
-     */
-    private operator fun SimulationTime.plus(inc: SimulationTimeIncrement) = when (this) {
-        is SimulationTime -> when (inc) {
-            BATCH -> copy(batch = batch + 1, branch = 0)
-            BRANCH -> copy(branch = branch + 1)
-        }
-    }
+    private fun SimulationTime.nextBatch() = copy(batch = batch + 1)
 
     private fun SimulationTime.batchStart() = when (this) {
         is SimulationTime -> copy(branch = 0)
@@ -682,7 +770,7 @@ class KernelIncrementalSimulator(
         data class RerunTask(override val node: TaskNode) : FrontierAction
         data class CheckCell(override val node: CellNode<*>) : FrontierAction
         data class CheckCondition(override val node: AwaitNode) : FrontierAction
-        data class RevokeRootTask(override val node: RootTaskNode) : FrontierAction
+        data class RevokeMergeOpportunity(override val node: RootTaskNode) : FrontierAction
     }
 
     /**
