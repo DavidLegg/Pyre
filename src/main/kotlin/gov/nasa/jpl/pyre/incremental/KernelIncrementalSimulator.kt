@@ -16,6 +16,7 @@ import gov.nasa.jpl.pyre.kernel.Task
 import gov.nasa.jpl.pyre.kernel.UnsatisfiedUntil
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
+import gov.nasa.jpl.pyre.utilities.compose
 import gov.nasa.jpl.pyre.utilities.identity
 import java.io.File
 import java.util.PriorityQueue
@@ -258,31 +259,7 @@ class KernelIncrementalSimulator(
                 }
 
                 is CheckCell -> {
-                    when (action.node) {
-                        is CellMergeNode<*> -> {
-                            // We need to check our prior list (branches to merge).
-                            // I think we must have more than one prior, or we would have deleted this node instead of checking it.
-                            // Maybe that logic should be rolled into this step instead, though?
-                            // Roll up the net effect of each branch and apply the merge.
-                            // If that computed value is equal to this value, we're done.
-                            // Otherwise, re-run all readers and awaiters, and check all next cell nodes.
-                            TODO("check merge node")
-                        }
-                        is CellStepNode<*> -> {
-                            // Apply the step duration to the prior cell value.
-                            // If that computed value is equal to this value, we're done.
-                            // Otherwise, re-run all readers and awaiters, and check all next cell nodes.
-                            TODO("check step node")
-                        }
-                        is CellWriteNode<*> -> {
-                            // Apply the effect to the prior cell value.
-                            // If that computed value is equal to this value, we're done.
-                            // Otherwise, re-run all readers and awaiters, and check all next cell nodes.
-                            TODO("check write node")
-                        }
-                    }
-                    // TODO: After writing the logic for each kind of cell node individually,
-                    //   see if there's a nice way to refactor them to reduce duplication.
+                    checkCell(action.node)
                 }
 
                 is CheckCondition -> {
@@ -355,16 +332,47 @@ class KernelIncrementalSimulator(
         }
     }
 
+    private fun <T> checkCell(node: CellNode<T>) {
+        val computedValue = when (node) {
+            is CellMergeNode<T> -> {
+                // Roll up the net effect of each branch, and merge according to this cell's merge rule.
+                val netEffect = node.prior
+                    .map { it.branchNetEffect(node.batchStart) }
+                    .reduce(node.cell.mergeConcurrentEffects)
+                // Compute the value this node should have
+                netEffect(node.batchStart.value)
+            }
+            is CellStepNode<T> -> {
+                // Apply the step duration to the prior cell value.
+                node.cell.stepBy(node.prior.value, node.step)
+            }
+            is CellWriteNode<T> -> {
+                // Apply the effect to the prior cell value.
+                node.effect(checkNotNull(node.prior) {
+                    "Internal error! Cannot check initial write node."
+                }.value)
+            }
+        }
+        // If the value actually changed, re-run all readers and awaiters, and check all next cell nodes.
+        if (computedValue != node.value) {
+            node.value = computedValue
+            node.next.forEach { frontier += CheckCell(it) }
+            node.reads.forEach { frontier += RerunTask(it) }
+            node.awaiters.forEach { frontier += RerunTask(it) }
+        }
+    }
+
     // TODO: If we ever do cleanup on taskBranch to keep it from growing indefinitely,
     //   update the branch assignment rule to account for that.
     private fun SimulationTime.branchFor(task: Task<*>): SimulationTime =
         copy(branch = taskBranch.computeIfAbsent(task) { taskBranch.size })
 
-    private interface ContinuationActions {
-        val basicTaskActions: Task.BasicTaskActions
-        val lastTaskStepNode: TaskNode
-        val mergeOpportunity: RootTaskNode?
-    }
+    private fun <T> CellWriteNode<T>.branchNetEffect(batchStart: CellNode<T>) =
+        // The branch comprises all our prior write nodes until batchStart
+        generateSequence(this) { it.prior?.takeUnless { it === batchStart } as CellWriteNode<T>? }
+            .map { it.effect }
+            // Branch nodes are collected in reverse order, merge by compose instead of andThen
+            .reduce(Effect<T>::compose)
 
     /**
      * Run [continuation], appending nodes after this [TaskNode] to record its actions.
@@ -429,6 +437,8 @@ class KernelIncrementalSimulator(
                     effect,
                     next = nodesAfterWrite
                 )
+                // TODO: Write a test for concurrent writes to a cell
+                // TODO: Figure out when and how to construct a merge node
                 // Add the edge from prior to this write node
                 priorCellNode.next += writeNode
                 // Fix the cell edges leaving from this write node
@@ -642,19 +652,22 @@ class KernelIncrementalSimulator(
                     when (next) {
                         is CellWriteNode -> {
                             next.prior = cell.prior
+                            cell.prior?.next += next
                             frontier += CheckCell(next)
                         }
                         is CellStepNode -> {
                             next.prior = cell.prior!!
+                            cell.prior?.next += next
                             frontier += CheckCell(next)
                         }
                         is CellMergeNode -> {
-                            next.prior.remove(cell)
+                            next.prior -= cell
                             when (val prior = cell.prior!!) {
                                 is CellWriteNode -> {
                                     // We're shortening this branch without removing it.
                                     // Link the write before cell to next, then schedule next to be re-checked.
                                     next.prior += prior
+                                    prior.next += next
                                     frontier += CheckCell(next)
                                 }
                                 is CellStepNode, is CellMergeNode -> {
@@ -662,6 +675,9 @@ class KernelIncrementalSimulator(
                                     if (next.prior.size <= 1) {
                                         // If we removed the second-to-last branch, revoke the merge itself too.
                                         revokeCell(next)
+                                    } else {
+                                        // Otherwise, schedule the merge to be re-checked
+                                        frontier += CheckCell(next)
                                     }
                                 }
                             }
@@ -675,14 +691,19 @@ class KernelIncrementalSimulator(
                 val prior = checkNotNull(cell.prior.singleOrNull()) {
                     "Internal error! Only single-branch merge nodes can be revoked."
                 }
+                // Disconnect the branch from this merge
+                prior.next -= cell
+                // For each successor of this merge, connect it directly to the branch and schedule it to be rechecked.
                 for (next in cell.next) {
                     when (next) {
                         is CellWriteNode -> {
                             next.prior = prior
+                            prior.next += next
                             frontier += CheckCell(next)
                         }
                         is CellStepNode -> {
                             next.prior = prior
+                            prior.next += next
                             frontier += CheckCell(next)
                         }
                         is CellMergeNode -> {
@@ -694,6 +715,8 @@ class KernelIncrementalSimulator(
                 }
             }
         }
+        // Regardless of what kind of node we just revoked, any task referring to it is invalid.
+        // Schedule all such tasks to be re-run.
         cell.reads.forEach {
             frontier += RerunTask(it)
         }
@@ -783,6 +806,9 @@ class KernelIncrementalSimulator(
 
     infix fun SimulationTime.isConcurrentWith(other: SimulationTime): Boolean =
         instant == other.instant && batch == other.batch && branch != other.branch
+
+    // TODO: Check all instances of isCausallyBefore/isCausallyAfter
+    //   It's likely that these should be asking for a causal ordering on task nodes instead of (just) times.
 
     infix fun SimulationTime.isCausallyBefore(other: SimulationTime): Boolean =
         this < other && !(this isConcurrentWith other)

@@ -126,7 +126,7 @@ interface SimulationGraph {
 
     sealed interface CellNode<T> : SGNode {
         val cell: Cell<T>
-        val value: T
+        var value: T
         val reads: MutableSet<ReadNode>
         val awaiters: MutableSet<AwaitNode>
         val next: MutableList<CellNode<T>>
@@ -135,7 +135,7 @@ interface SimulationGraph {
     class CellWriteNode<T>(
         override val time: SimulationTime,
         override val cell: Cell<T>,
-        override val value: T,
+        override var value: T,
         var prior: CellNode<T>?,
         val effect: Effect<T>,
         // Writer is var and nullable to facilitate construction; it should never nominally be null when finalized.
@@ -148,7 +148,8 @@ interface SimulationGraph {
     class CellMergeNode<T>(
         override val time: SimulationTime,
         override val cell: Cell<T>,
-        override val value: T,
+        override var value: T,
+        var batchStart: CellNode<T>,
         var prior: MutableList<CellWriteNode<T>>,
         override val next: MutableList<CellNode<T>> = mutableListOf(),
         override val reads: MutableSet<ReadNode> = TreeSet(compareBy { it.time }),
@@ -158,7 +159,7 @@ interface SimulationGraph {
     class CellStepNode<T>(
         override val time: SimulationTime,
         override val cell: Cell<T>,
-        override val value: T,
+        override var value: T,
         var prior: CellNode<T>,
         val step: Duration,
         override val next: MutableList<CellNode<T>> = mutableListOf(),
