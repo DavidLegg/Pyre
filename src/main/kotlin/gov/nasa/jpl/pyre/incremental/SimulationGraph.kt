@@ -15,44 +15,45 @@ interface SimulationGraph {
     // The ordering of steps between two parallel jobs is meaningless, but we can impose an arbitrary order for sorting purposes.
     // Finally, within a job, there are a series of steps.
     // When doing incremental re-simulation, steps in a branch may be added and removed, but they cannot be re-ordered.
-    // Because of this, the step number is not recorded in the time field. Instead, we traverse the graph itself.
+    // Because of this, steps are recorded implicitly using "prior" links
+    // For efficiency (but not correctness!) prior links of a SimulationTime should only be set within a branch.
     data class SimulationTime(
         val instant: Instant,
         val batch: Int = 0,
         val branch: Int = 0,
+        var prior: SimulationTime? = null,
     ) : Comparable<SimulationTime> {
         override fun compareTo(other: SimulationTime): Int {
             var n = instant.compareTo(other.instant)
             if (n == 0) n = batch.compareTo(other.batch)
             if (n == 0) n = branch.compareTo(other.branch)
-            return n
+            if (n != 0) return n
+
+            // Walk back from this and other in lockstep, to keep comparison linear in distance between this and other.
+            var beforeThis = this.prior
+            var beforeOther = other.prior
+            while (beforeThis != null || beforeOther != null) {
+                if (beforeThis === other) return 1
+                if (beforeOther === this) return 1
+                beforeThis = beforeThis?.prior
+                beforeOther = beforeOther?.prior
+            }
+            throw IllegalStateException("Internal error! Disconnected times on the same branch.")
         }
 
-        override fun toString(): String = "$instant::$batch/$branch"
+        override fun toString(): String = "$instant::$batch/$branch/${stepNumber()}"
+
+        /** Ephemeral step number, the distance to the start of this branch */
+        private fun stepNumber(): Int = prior?.let { it.stepNumber() + 1 } ?: 0
     }
 
     sealed interface SGNode {
         val time: SimulationTime
     }
 
-    sealed interface TaskNode : SGNode, Comparable<TaskNode> {
+    sealed interface TaskNode : SGNode {
         val prior: TaskNode?
         var next: TaskNode?
-
-        override fun compareTo(other: TaskNode): Int {
-            val n = time.compareTo(other.time)
-            if (n != 0) return n
-
-            var thisAncestor = this.prior
-            var otherAncestor = other.prior
-            while (thisAncestor != null || otherAncestor != null) {
-                if (thisAncestor === other) return 1
-                if (otherAncestor === this) return -1
-                thisAncestor = thisAncestor?.prior?.takeIf { it.time == time }
-                otherAncestor = otherAncestor?.prior?.takeIf { it.time == time }
-            }
-            throw IllegalStateException("Internal error! Task nodes on the same branch are not connected by 'prior' edges.")
-        }
     }
 
     /**

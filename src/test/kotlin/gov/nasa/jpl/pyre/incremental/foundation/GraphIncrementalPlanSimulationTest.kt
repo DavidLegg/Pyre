@@ -117,6 +117,28 @@ class GraphIncrementalPlanSimulationTest {
     }
 
     @Test
+    fun `model with concurrent tasks`() {
+        test {
+            val x = discreteResource("x", 10).registered()
+            val p = polynomialResource("p", 0.0, 1e-3).registered()
+            val b = (p greaterThan map(x) { it.toDouble() }.asPolynomial()).named { "b" }.registered()
+            spawn("daemon 1", whenever(b) {
+                repeat(10) {
+                    x.increment()
+                    delay(5 * SECOND)
+                }
+            })
+            spawn("daemon 2", whenever(b) {
+                repeat(5) {
+                    x.increment()
+                    delay(10 * SECOND)
+                }
+            })
+            Triple(x, p, b)
+        }
+    }
+
+    @Test
     fun `standard test model with an empty initial plan`() {
         test()
     }
@@ -149,6 +171,17 @@ class GraphIncrementalPlanSimulationTest {
     }
 
     @Test
+    fun `initial plan with concurrent activities`() {
+        test(
+            IncrementStandaloneCounter(1) at 5 * MINUTE,
+            IncrementStandaloneCounter(2) at 5 * MINUTE,
+            SetStandaloneCounter(0) at 10 * MINUTE,
+            IncrementStandaloneCounter(10) at 20 * MINUTE,
+            IncrementStandaloneCounter(20) at 20 * MINUTE,
+        )
+    }
+
+    @Test
     fun `adding single effect activities`() {
         test().add(
             SetStandaloneCounter(1) at 5 * MINUTE,
@@ -172,6 +205,29 @@ class GraphIncrementalPlanSimulationTest {
             AddJob(10) at 5 * MINUTE,
             AddJob(20) at 10 * MINUTE,
             AddJob(30) at 20 * MINUTE,
+        )
+    }
+
+    @Test
+    fun `adding concurrent activities`() {
+        test().add(
+            IncrementStandaloneCounter(1) at 5 * MINUTE,
+            IncrementStandaloneCounter(2) at 5 * MINUTE,
+            IncrementStandaloneCounter(-3) at 10 * MINUTE,
+            IncrementStandaloneCounter(10) at 20 * MINUTE,
+            IncrementStandaloneCounter(20) at 20 * MINUTE,
+        )
+    }
+
+    @Test
+    fun `adding activities concurrent with initial activities`() {
+        test(
+            IncrementStandaloneCounter(1) at 5 * MINUTE,
+            SetStandaloneCounter(0) at 10 * MINUTE,
+            IncrementStandaloneCounter(10) at 20 * MINUTE,
+        ).add(
+            IncrementStandaloneCounter(2) at 5 * MINUTE,
+            IncrementStandaloneCounter(20) at 20 * MINUTE,
         )
     }
 
@@ -200,6 +256,16 @@ class GraphIncrementalPlanSimulationTest {
     }
 
     @Test
+    fun `removing concurrent activities`() {
+        val a1 = IncrementStandaloneCounter(1) at 5 * MINUTE;
+        val a2 = IncrementStandaloneCounter(2) at 5 * MINUTE;
+        val a3 = SetStandaloneCounter(0) at 10 * MINUTE;
+        val a4 = IncrementStandaloneCounter(10) at 20 * MINUTE;
+        val a5 = IncrementStandaloneCounter(20) at 20 * MINUTE;
+        test(a1, a2, a3, a4, a5).remove(a2, a4, a5)
+    }
+
+    @Test
     fun `editing single effect activities`() {
         val a1 = SetStandaloneCounter(1) at 5 * MINUTE
         val a2 = SetStandaloneCounter(2) at 10 * MINUTE
@@ -224,6 +290,19 @@ class GraphIncrementalPlanSimulationTest {
     }
 
     @Test
+    fun `editing concurrent activities`() {
+        val a1 = IncrementStandaloneCounter(1) at 5 * MINUTE;
+        val a2 = IncrementStandaloneCounter(2) at 5 * MINUTE;
+        val a3 = SetStandaloneCounter(0) at 10 * MINUTE;
+        val a4 = IncrementStandaloneCounter(10) at 20 * MINUTE;
+        val a5 = IncrementStandaloneCounter(20) at 20 * MINUTE;
+        test(a1, a2, a3, a4, a5).edit(
+            a2 to IncrementStandaloneCounter(10),
+            a4 to IncrementStandaloneCounter(-5),
+        )
+    }
+
+    @Test
     fun `moving single effect activities`() {
         val a1 = SetStandaloneCounter(1) at 5 * MINUTE
         val a2 = SetStandaloneCounter(2) at 10 * MINUTE
@@ -245,6 +324,19 @@ class GraphIncrementalPlanSimulationTest {
         val a2 = AddJob(20) at 10 * MINUTE
         val a3 = AddJob(30) at 20 * MINUTE
         test(a1, a2, a3).move(a2 to 12 * MINUTE)
+    }
+
+    @Test
+    fun `moving concurrent activities`() {
+        val a1 = IncrementStandaloneCounter(1) at 5 * MINUTE
+        val a2 = IncrementStandaloneCounter(2) at 5 * MINUTE
+        val a3 = SetStandaloneCounter(0) at 10 * MINUTE
+        val a4 = IncrementStandaloneCounter(10) at 18 * MINUTE
+        val a5 = IncrementStandaloneCounter(20) at 20 * MINUTE
+        test(a1, a2, a3, a4, a5).move(
+            a2 to 7 * MINUTE,
+            a4 to 20 * MINUTE,
+        )
     }
 
     // TODO: Find a way to bulk- / fuzz-test incremental edits.
@@ -376,6 +468,13 @@ class TestModel(scope: InitScope) {
         context(scope: TaskScope)
         override suspend fun effectModel(model: TestModel) {
             model.standaloneCounter.set(number)
+        }
+    }
+
+    class IncrementStandaloneCounter(val number: Int) : Activity<TestModel> {
+        context(scope: TaskScope)
+        override suspend fun effectModel(model: TestModel) {
+            model.standaloneCounter.increment(number)
         }
     }
 

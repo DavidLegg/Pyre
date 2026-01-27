@@ -25,6 +25,10 @@ import kotlin.collections.plusAssign
 import kotlin.reflect.KType
 import kotlin.time.Instant
 
+// TODO: Sweep through this entire file, looking for where to build a "next step" SimulationTime.
+
+// TODO: Look for opportunities to refactor node creation (e.g. an "insert after" operator that does the link modification).
+
 /**
  * Support for [GraphIncrementalPlanSimulation], which implements graph-based incremental simulation at the kernel level.
  */
@@ -35,6 +39,8 @@ class KernelIncrementalSimulator(
     private val reportHandler: IncrementalReportHandler
 ) {
     /** All cell nodes allocated in the DAG */
+    // TODO: cellNodes should not key off of time, or else time needs to be finer-grained.
+    //   There can be multiple cell nodes per time.
     private val cellNodes: MutableMap<Cell<*>, TreeMap<SimulationTime, CellNode<*>>> = mutableMapOf()
     // TODO: This taskNodes set is likely overkill, but useful for debugging. Get rid of it once we have confidence in the simulator.
     /** All task nodes allocated in the DAG */
@@ -87,7 +93,7 @@ class KernelIncrementalSimulator(
             }
 
             override fun <T> report(value: T) {
-                lastReport = ReportNode(initTime, lastReport, value).also { lastReport?.next = it }
+                lastReport = ReportNode(lastReport?.time?.nextStep() ?: initTime.nextStep(), lastReport, value).also { lastReport?.next = it }
                 reportHandler.report(lastReport)
             }
         }
@@ -418,49 +424,96 @@ class KernelIncrementalSimulator(
                 // Look up the cell node we're writing to
                 val writeTime = lastTaskStepNode.time
                 val priorCellNode = getCellNode(cell, writeTime)
-                // Filter out the nodes causally after this write operation
-                val it = priorCellNode.next.iterator()
-                val nodesAfterWrite = mutableListOf<CellNode<V>>()
-                while (it.hasNext()) {
-                    val next = it.next()
-                    if (next.time isCausallyAfter writeTime) {
-                        it.remove()
-                        nodesAfterWrite += next
-                    }
-                }
-                // Build this write node
                 val writeNode = CellWriteNode(
                     writeTime,
                     cell,
                     effect(priorCellNode.value),
                     priorCellNode,
                     effect,
-                    next = nodesAfterWrite
                 )
-                // TODO: Write a test for concurrent writes to a cell
-                // TODO: Figure out when and how to construct a merge node
-                // Add the edge from prior to this write node
-                priorCellNode.next += writeNode
-                // Fix the cell edges leaving from this write node
-                for (nextCellNode in writeNode.next) {
-                    when (nextCellNode) {
-                        is CellMergeNode<V> -> {
-                            nextCellNode.prior.remove(priorCellNode)
-                            nextCellNode.prior.add(writeNode)
-                        }
-                        is CellStepNode<V> -> {
-                            nextCellNode.prior = writeNode
-                        }
-                        is CellWriteNode<V> -> {
-                            nextCellNode.prior = writeNode
+                // TODO: Add methods to cell nodes to add/remove/replace next and prior nodes,
+                //   and/or write a helper method to inject a new node before or after a given node.
+                when (priorCellNode.next.size) {
+                    0 -> {
+                        // No additional links need to be changed, we're at the edge of the graph.
+                    }
+                    1 -> {
+                        val adjacentCellNode = priorCellNode.next.single()
+                        if (adjacentCellNode.time isConcurrentWith writeTime) {
+                            // There's exactly one branch, and it's concurrent with this write node.
+                            // Follow the concurrent branch to its tip
+                            val concurrentTip = generateSequence(adjacentCellNode) { it.next.singleOrNull() }
+                                .first { it.next.singleOrNull()?.let { it.time isCausallyAfter writeTime } ?: true }
+                            // Then build and insert a merge node at the tip of that branch
+                            val mergeNode = CellMergeNode(
+                                writeTime,
+                                cell,
+                                // Use the concurrent tip's value, which was the value observed at this time before this insertion.
+                                concurrentTip.value,
+                                priorCellNode,
+                                mutableListOf(),
+                            )
+                            cellNodes.getValue(cell)[writeTime] = mergeNode
+                            // If the concurrent branch tip has a next node, link that next node to the merge instead
+                            concurrentTip.next.singleOrNull()?.let { afterWrite ->
+                                concurrentTip.next -= afterWrite
+                                mergeNode.next += afterWrite
+                                when (afterWrite) {
+                                    is CellMergeNode<V> -> check (false) {
+                                        "Internal error! A single branch should not end with a merge node."
+                                    }
+                                    is CellStepNode<V> -> {
+                                        afterWrite.prior = mergeNode
+                                    }
+                                    is CellWriteNode<V> -> {
+                                        afterWrite.prior = mergeNode
+                                    }
+                                }
+                            }
+                            // Then, connect both this and the concurrent branch to the merge node
+                            concurrentTip.next += mergeNode
+                            mergeNode.prior += concurrentTip as CellWriteNode
+                            writeNode.next += mergeNode
+                            mergeNode.prior += writeNode
+                            // Finally, schedule mergeNode to be checked once this branch is done,
+                            // which will actually merge the branches' net effects.
+                            frontier += CheckCell(mergeNode)
+                        } else {
+                            // We're not adding a concurrent branch, so just insert the write directly.
+                            when (adjacentCellNode) {
+                                is CellMergeNode -> {
+                                    adjacentCellNode.prior -= priorCellNode as CellWriteNode
+                                    adjacentCellNode.prior += writeNode
+                                }
+                                is CellStepNode -> {
+                                    adjacentCellNode.prior = writeNode
+                                }
+                                is CellWriteNode -> {
+                                    adjacentCellNode.prior = writeNode
+                                }
+                            }
+                            priorCellNode.next -= adjacentCellNode
+                            writeNode.next += adjacentCellNode
+                            // Finally, add an action to re-check adjacent, as we've inserted a write node ahead of it.
+                            frontier += CheckCell(adjacentCellNode)
                         }
                     }
-                    // Also schedule all of these nodes to be checked
-                    frontier += CheckCell(nextCellNode)
+                    else -> {
+                        val merge = generateSequence(priorCellNode.next.first()) { it.next.single() }
+                            .first { it is CellMergeNode } as CellMergeNode
+                        // Link write in as a new branch of the merge node
+                        writeNode.next += merge
+                        merge.prior += writeNode
+                        // Then schedule the merge node to be re-checked
+                        frontier += CheckCell(merge)
+                    }
                 }
+                priorCellNode.next += writeNode
 
                 // Add the write node to the global cell map for quick lookups later.
                 getCellNodes(cell)[writeNode.time] = writeNode
+
+                // TODO: Read through the rest of this routine and update as needed
 
                 // Schedule any reads that were disturbed by this write
                 for (read in priorCellNode.reads) {
@@ -793,16 +846,15 @@ class KernelIncrementalSimulator(
         }
     }
 
-    private fun SimulationTime.nextBatch() = copy(batch = batch + 1)
+    private fun SimulationTime.nextStep() = copy(prior = this)
 
-    private fun SimulationTime.batchStart() = when (this) {
-        is SimulationTime -> copy(branch = 0)
-    }
+    private fun SimulationTime.nextBatch() = copy(batch = batch + 1, prior = null)
 
-    private fun SimulationTime.cellSteppingBatch() = when (this) {
+    private fun SimulationTime.batchStart() = copy(branch = 0, prior = null)
+
+    private fun SimulationTime.cellSteppingBatch() =
         // Conceptually, cells are stepped in a special "batch", before any tasks are run
-        is SimulationTime -> copy(batch = -1, branch = 0)
-    }
+        copy(batch = -1, branch = 0, prior = null)
 
     infix fun SimulationTime.isConcurrentWith(other: SimulationTime): Boolean =
         instant == other.instant && batch == other.batch && branch != other.branch
@@ -846,9 +898,9 @@ class KernelIncrementalSimulator(
         val cells = mutableMapOf<CellNode<*>, Cell<*>>()
         val ranks = TreeMap<SimulationTime, MutableList<SGNode>>()
         // The "rank" is just the time ignoring the branch
-        fun SimulationTime.rank() = when (this) { is SimulationTime -> copy(branch = 0) }
+        fun SimulationTime.rank() = copy(branch = 0)
         // The "file" is the horizontal position within the rank
-        fun SimulationTime.file() = when (this) { is SimulationTime -> branch }
+        fun SimulationTime.file() = branch
         fun collect(node: SGNode) = ranks.computeIfAbsent(node.time.rank()) { mutableListOf() }.add(node)
         val frontierModifier = frontier.groupBy { it.node }
             .mapValues { (_, actions) -> actions.joinToString(", ") { it::class.simpleName!! } }
