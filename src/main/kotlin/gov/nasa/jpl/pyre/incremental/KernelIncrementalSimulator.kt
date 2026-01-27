@@ -25,8 +25,6 @@ import kotlin.collections.plusAssign
 import kotlin.reflect.KType
 import kotlin.time.Instant
 
-// TODO: Sweep through this entire file, looking for where to build a "next step" SimulationTime.
-
 // TODO: Look for opportunities to refactor node creation (e.g. an "insert after" operator that does the link modification).
 
 /**
@@ -39,8 +37,6 @@ class KernelIncrementalSimulator(
     private val reportHandler: IncrementalReportHandler
 ) {
     /** All cell nodes allocated in the DAG */
-    // TODO: cellNodes should not key off of time, or else time needs to be finer-grained.
-    //   There can be multiple cell nodes per time.
     private val cellNodes: MutableMap<Cell<*>, TreeMap<SimulationTime, CellNode<*>>> = mutableMapOf()
     // TODO: This taskNodes set is likely overkill, but useful for debugging. Get rid of it once we have confidence in the simulator.
     /** All task nodes allocated in the DAG */
@@ -143,7 +139,7 @@ class KernelIncrementalSimulator(
                 is StartTask -> {
                     // Start the job in the next step. Roots are already assigned to their own branches.
                     action.node.next = StepBeginNode(
-                        action.time,
+                        action.time.nextStep(),
                         action.node,
                         action.node.task,
                     ).also {
@@ -291,7 +287,7 @@ class KernelIncrementalSimulator(
                                     action.time.instant + result.time.toKotlinDuration(),
                                     branch = action.time.branch)
                             } else {
-                                action.time
+                                action.time.nextStep()
                             }
                             if (satisfiedTime.instant < planEnd) {
                                 action.node.next = StepBeginNode(
@@ -315,7 +311,7 @@ class KernelIncrementalSimulator(
                                         action.time.instant + t.toKotlinDuration(),
                                         branch = action.time.branch)
                                 } else {
-                                    action.time
+                                    action.time.nextStep()
                                 }
                                 if (recheckTime.instant < planEnd) {
                                     action.node.next = AwaitNode(
@@ -392,8 +388,8 @@ class KernelIncrementalSimulator(
         // TODO: Key off of something easier to find...
         val rootTaskNode = generateSequence(this) { it.prior }.first { it is RootTaskNode }
         val rootTask = (rootTaskNode as RootTaskNode).task
-        // We can merge only if this action is happening at the same time as the merge opportunity.
-        val mergeOpportunity: RootTaskNode? = rootMergeOpportunities[rootTask]?.takeIf { it.time == time }
+        // We can merge only if this action is happening on the same branch as the merge opportunity.
+        val mergeOpportunity: RootTaskNode? = rootMergeOpportunities[rootTask]?.takeIf { it.time sameBranchAs time }
         // If we might merge, link the merge opportunity to the currently-running branch,
         // so we can detect if changes made by this branch trigger a re-run of the branch we're about to merge to.
         mergeOpportunity?.let {
@@ -406,7 +402,7 @@ class KernelIncrementalSimulator(
                 val cellNode = getCellNode(cell, lastTaskStepNode.time)
                 // Record this read in the graph
                 lastTaskStepNode = ReadNode(
-                    lastTaskStepNode.time,
+                    lastTaskStepNode.time.nextStep(),
                     lastTaskStepNode,
                     cellNode,
                     next = mergeOpportunity,
@@ -422,7 +418,7 @@ class KernelIncrementalSimulator(
 
             override fun <V> emit(cell: Cell<V>, effect: Effect<V>) {
                 // Look up the cell node we're writing to
-                val writeTime = lastTaskStepNode.time
+                val writeTime = lastTaskStepNode.time.nextStep()
                 val priorCellNode = getCellNode(cell, writeTime)
                 val writeNode = CellWriteNode(
                     writeTime,
@@ -446,14 +442,14 @@ class KernelIncrementalSimulator(
                                 .first { it.next.singleOrNull()?.let { it.time isCausallyAfter writeTime } ?: true }
                             // Then build and insert a merge node at the tip of that branch
                             val mergeNode = CellMergeNode(
-                                writeTime,
+                                writeTime.nextStep(),
                                 cell,
                                 // Use the concurrent tip's value, which was the value observed at this time before this insertion.
                                 concurrentTip.value,
                                 priorCellNode,
                                 mutableListOf(),
                             )
-                            cellNodes.getValue(cell)[writeTime] = mergeNode
+                            cellNodes.getValue(cell)[mergeNode.time] = mergeNode
                             // If the concurrent branch tip has a next node, link that next node to the merge instead
                             concurrentTip.next.singleOrNull()?.let { afterWrite ->
                                 concurrentTip.next -= afterWrite
@@ -564,7 +560,7 @@ class KernelIncrementalSimulator(
             override fun <V> report(value: V) {
                 // Record this report in the task graph and issue it to the reportHandler
                 lastTaskStepNode = ReportNode(
-                    lastTaskStepNode.time,
+                    lastTaskStepNode.time.nextStep(),
                     lastTaskStepNode,
                     value,
                     next = mergeOpportunity,
@@ -611,7 +607,7 @@ class KernelIncrementalSimulator(
                     // Add a new root task, from which we can restart the next task at any time.
                     lastTaskStepNode = RootTaskNode(
                         // Restarting does not yield to the engine, it's the next step of this task.
-                        lastTaskStepNode.time,
+                        lastTaskStepNode.time.nextStep(),
                         result.continuation,
                         lastTaskStepNode,
                     ).also {
@@ -792,7 +788,7 @@ class KernelIncrementalSimulator(
         // Get the most recent cell node.
         var (t, cellNode) = checkNotNull(thisCellsNodes.floorEntry(time))
         // This may have come from another task running in this batch though!
-        if ((t as SimulationTime).isConcurrentWith(time)) {
+        if (t isConcurrentWith time) {
             // If so, set the time to the first possible time of this batch,
             // and ask for the cell node before that. That'll get the last cell node
             // of the batch before this, which must be a merge or step or something.
@@ -867,6 +863,9 @@ class KernelIncrementalSimulator(
 
     infix fun SimulationTime.isCausallyAfter(other: SimulationTime): Boolean =
         this > other && !(this isConcurrentWith other)
+
+    infix fun SimulationTime.sameBranchAs(other: SimulationTime): Boolean =
+        instant == other.instant && batch == other.batch && branch == other.branch
 
     private sealed interface FrontierAction {
         val node: SGNode
