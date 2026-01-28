@@ -213,7 +213,7 @@ class GraphIncrementalPlanSimulation<M>(
         val metadata: ChannelMetadata<T>,
         // By using a TreeSet and sorting by report time, we maintain a fully-ordered list of reports on each channel,
         // but insertions and deletions remain O(log n) in the number of reports on this channel.
-        val data: TreeSet<ReportNode<ChannelData<T>>> = TreeSet(),
+        val data: TreeSet<ReportNode<ChannelData<T>>> = TreeSet(compareBy { it.time }),
     ) {
         fun toResourceResults(): ResourceResults<T> =
             ResourceResults(metadata, data.map { it.content })

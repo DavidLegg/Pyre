@@ -24,10 +24,15 @@ interface SimulationGraph {
         var prior: SimulationTime? = null,
     ) : Comparable<SimulationTime> {
         override fun compareTo(other: SimulationTime): Int {
+            if (this === other) return 0
+
             var n = instant.compareTo(other.instant)
             if (n == 0) n = batch.compareTo(other.batch)
             if (n == 0) n = branch.compareTo(other.branch)
             if (n != 0) return n
+
+            // Special case: branch starts can be constructed anew, and are value-equal
+            if (prior == null && other.prior == null) return 0
 
             // Walk back from this and other in lockstep, to keep comparison linear in distance between this and other.
             var beforeThis = this.prior
@@ -44,7 +49,7 @@ interface SimulationGraph {
         override fun toString(): String = "$instant::$batch/$branch/${stepNumber()}"
 
         /** Ephemeral step number, the distance to the start of this branch */
-        private fun stepNumber(): Int = prior?.let { it.stepNumber() + 1 } ?: 0
+        fun stepNumber(): Int = prior?.let { it.stepNumber() + 1 } ?: 0
     }
 
     sealed interface SGNode {
@@ -101,6 +106,7 @@ interface SimulationGraph {
         override var next: TaskNode? = null,
     ) : NonYieldingStepNode
 
+    // TODO: Add an interface IncrementalReport which only has (time, content)
     class ReportNode<T>(
         override val time: SimulationTime,
         override val prior: TaskNode?,

@@ -54,11 +54,12 @@ class KernelIncrementalSimulator(
     /** Root nodes with which we may merge restart requests, rather than re-running. */
     private val rootMergeOpportunities: MutableMap<Task<*>, RootTaskNode> = mutableMapOf()
 
+    private val DEBUG = true
+
     init {
         // Init happens before any tasks, at plan start.
         val cellAllocTime = SimulationTime(planStart, batch = -1)
-        var initTime = cellAllocTime
-        var startTime = initTime.nextBatch()
+        var startTime = cellAllocTime.nextBatch()
         var lastReport: ReportNode<*>? = null
 
         val basicInitScope = object : BasicInitScope {
@@ -72,7 +73,7 @@ class KernelIncrementalSimulator(
                 // Create an incremental cell, and add its initial value to the graph
                 IncrementalCellImpl(name, valueType, stepBy, mergeConcurrentEffects).also {
                     cellNodes[it] = TreeMap<SimulationTime, CellNode<*>>().apply {
-                        put(initTime, CellWriteNode(cellAllocTime, it, value, null, identity()))
+                        put(cellAllocTime, CellWriteNode(cellAllocTime, it, value, null, identity()))
                     }
                 }
 
@@ -89,11 +90,12 @@ class KernelIncrementalSimulator(
             }
 
             override fun <T> report(value: T) {
-                lastReport = ReportNode(lastReport?.time?.nextStep() ?: initTime.nextStep(), lastReport, value).also { lastReport?.next = it }
+                lastReport = ReportNode(lastReport?.time?.nextStep() ?: cellAllocTime.nextStep(), lastReport, value).also { lastReport?.next = it }
                 reportHandler.report(lastReport)
             }
         }
         val activities = constructPlan(basicInitScope)
+        if (DEBUG) File("/Users/dlegg/Code/Pyre/tmp/tmp-init.dot").writeText(dumpDot())
         run(KernelPlanEdits(additions = activities))
     }
 
@@ -127,8 +129,6 @@ class KernelIncrementalSimulator(
             if (DEBUG) File("/Users/dlegg/Code/Pyre/tmp/tmp-final.dot").writeText(dumpDot(checkIntegrity = false))
         }
     }
-
-    private val DEBUG = false
 
     private fun resolve() {
         var debugStep = 0
@@ -846,6 +846,8 @@ class KernelIncrementalSimulator(
 
     private fun SimulationTime.nextBatch() = copy(batch = batch + 1, prior = null)
 
+    // TODO: This is suspect, because it won't be in the DAG itself...
+    //   I wrote an exception to handle prior == null as value-equals, but this isn't a great answer.
     private fun SimulationTime.batchStart() = copy(branch = 0, prior = null)
 
     private fun SimulationTime.cellSteppingBatch() =
@@ -895,9 +897,11 @@ class KernelIncrementalSimulator(
         val cellDotId = mutableMapOf<CellNode<*>, String>()
         val taskDotId = mutableMapOf<TaskNode, String>()
         val cells = mutableMapOf<CellNode<*>, Cell<*>>()
-        val ranks = TreeMap<SimulationTime, MutableList<SGNode>>()
+        val ranks = TreeMap<Triple<Instant, Int, Int>, MutableList<SGNode>>(
+            compareBy({ it.first }, { it.second }, { it.third })
+        )
         // The "rank" is just the time ignoring the branch
-        fun SimulationTime.rank() = copy(branch = 0)
+        fun SimulationTime.rank() = Triple(instant, batch, stepNumber())
         // The "file" is the horizontal position within the rank
         fun SimulationTime.file() = branch
         fun collect(node: SGNode) = ranks.computeIfAbsent(node.time.rank()) { mutableListOf() }.add(node)
