@@ -80,7 +80,9 @@ class KernelIncrementalSimulator(
             override fun <T> spawn(name: Name, step: PureTaskStep<T>) {
                 // Schedule the task on its own branch, as part of the first batch.
                 val task = Task.of(name, step)
-                frontier += StartTask(RootTaskNode(startTime.branchFor(task), task).also(taskNodes::add))
+                frontier += StartTask(RootTaskNode(startTime.branchFor(task), task).also {
+                    taskNodes += it
+                })
             }
 
             override fun <T> read(cell: Cell<T>): T {
@@ -824,7 +826,7 @@ class KernelIncrementalSimulator(
             for (awaiter in cellNode.awaiters) {
                 // If the awaiter has no registered next node, or its next node is after this step,
                 // then this awaiter can read this step as well.
-                if (awaiter.next?.run { time isCausallyAfter stepNode.time } ?: true) {
+                if (awaiter.next?.let { it.time isCausallyAfter stepNode.time } ?: true) {
                     stepNode.awaiters += awaiter
                     // TODO: Think carefully about this edge. It violates causal order!
                     awaiter.reads += stepNode
@@ -957,7 +959,7 @@ class KernelIncrementalSimulator(
                             is ReportNode<*> -> "Report ${node.content}"
                             is WriteNode -> "Write '${node.cell.effect}'"
                             is RootTaskNode -> "Root ${node.task.id.name}"
-                            is AwaitNode -> "Await"
+                            is AwaitNode -> "Await ${node.condition}"
                             is SpawnNode -> "Spawn"
                             is StepBeginNode -> "Begin"
                         }
@@ -987,6 +989,8 @@ class KernelIncrementalSimulator(
                 .append("  }\n")
         }
 
+        var unknownNodeCounter = 0
+
         // Now fill in the edges
         for ((node, nodeId) in cellDotId) {
             for (next in node.next) {
@@ -1002,7 +1006,14 @@ class KernelIncrementalSimulator(
                 checkIntegrity(read.cell === node) { "Cell read" }
             }
             for (awaiter in node.awaiters) {
-                graphBuilder.append("  ", nodeId, " -> ", taskDotId.getValue(awaiter), "\n")
+                // TEMP
+                if (awaiter in taskDotId) {
+                    graphBuilder.append("  ", nodeId, " -> ", taskDotId.getValue(awaiter), "\n")
+                } else {
+                    graphBuilder
+                        .append("  A", unknownNodeCounter++, "\n")
+                        .append("  ", nodeId, " -> A", unknownNodeCounter, "\n")
+                }
                 checkIntegrity(node in awaiter.reads) { "Cell awaiter" }
             }
             when (node) {

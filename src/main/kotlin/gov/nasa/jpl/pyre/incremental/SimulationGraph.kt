@@ -38,8 +38,8 @@ interface SimulationGraph {
             var beforeThis = this.prior
             var beforeOther = other.prior
             while (beforeThis != null || beforeOther != null) {
-                if (beforeThis === other) return 1
-                if (beforeOther === this) return 1
+                if (other === beforeThis) return 1
+                if (this === beforeOther) return -1
                 beforeThis = beforeThis?.prior
                 beforeOther = beforeOther?.prior
             }

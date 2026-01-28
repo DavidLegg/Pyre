@@ -113,15 +113,8 @@ interface Task<T> {
         data class Spawn<S, T>(val child: Task<S>, val continuation: Task<T>) : TaskStepResult<T> {
             override fun toString() = "Spawn($child)"
         }
-        // NoOp's are stand-ins for steps without special handling by the engine, which can't be eliminated entirely.
-        // The motivating use case here is restarting a task that immediately awaits.
-        // When saving the awaiting task, we save the history for the task step before the await.
-        // If the restart is boiled out completely, that's the full history for the last iteration.
-        // If the restart instead becomes a NoOp, that NoOp can yield an empty history, keeping the fincon files clean.
-        // In particular, for any PlanSimulation, the activity loader immediately awaits the next activity to load.
-        // Without the NoOp, it always saves the last activity it loaded instead of saving an empty history.
         data class Restart<T>(val continuation: Task<T>) : TaskStepResult<T> {
-            override fun toString() = "NoOp"
+            override fun toString() = "Restart"
         }
     }
 
