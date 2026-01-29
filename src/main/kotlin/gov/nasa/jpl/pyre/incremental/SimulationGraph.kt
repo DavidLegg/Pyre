@@ -21,7 +21,7 @@ interface SimulationGraph {
         val instant: Instant,
         val batch: Int = 0,
         val branch: Int = 0,
-        var prior: SimulationTime? = null,
+        var step: Int = 0,
     ) : Comparable<SimulationTime> {
         override fun compareTo(other: SimulationTime): Int {
             if (this === other) return 0
@@ -29,27 +29,11 @@ interface SimulationGraph {
             var n = instant.compareTo(other.instant)
             if (n == 0) n = batch.compareTo(other.batch)
             if (n == 0) n = branch.compareTo(other.branch)
-            if (n != 0) return n
-
-            // Special case: branch starts can be constructed anew, and are value-equal
-            if (prior == null && other.prior == null) return 0
-
-            // Walk back from this and other in lockstep, to keep comparison linear in distance between this and other.
-            var beforeThis = this.prior
-            var beforeOther = other.prior
-            while (beforeThis != null || beforeOther != null) {
-                if (other === beforeThis) return 1
-                if (this === beforeOther) return -1
-                beforeThis = beforeThis?.prior
-                beforeOther = beforeOther?.prior
-            }
-            throw IllegalStateException("Internal error! Disconnected times on the same branch.")
+            if (n == 0) n = step.compareTo(other.step)
+            return n
         }
 
-        override fun toString(): String = "$instant::$batch/$branch/${stepNumber()}"
-
-        /** Ephemeral step number, the distance to the start of this branch */
-        fun stepNumber(): Int = prior?.let { it.stepNumber() + 1 } ?: 0
+        override fun toString(): String = "$instant::$batch/$branch/$step"
     }
 
     sealed interface SGNode {
