@@ -2,18 +2,20 @@ package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 
-sealed interface ConditionResult
+sealed interface ConditionResult {
+    val time: Duration?
+}
 
 /**
  * @param time Relative time from now when this condition will be satisfied.
  */
-data class SatisfiedAt(val time: Duration) : ConditionResult {
+data class SatisfiedAt(override val time: Duration) : ConditionResult {
     override fun toString(): String = "SatisfiedAt($time)"
 }
 /**
  * @param time Relative time from now when this condition may be satisfied, or null if it will never be satisfied.
  */
-data class UnsatisfiedUntil(val time: Duration?) : ConditionResult {
+data class UnsatisfiedUntil(override val time: Duration?) : ConditionResult {
     override fun toString(): String = "UnsatisfiedUntil(${time ?: "FOREVER"})"
 }
 

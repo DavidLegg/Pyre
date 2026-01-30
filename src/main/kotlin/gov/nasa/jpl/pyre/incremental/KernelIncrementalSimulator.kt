@@ -311,7 +311,27 @@ class KernelIncrementalSimulator(
                         }
                     }
                     // Schedule the next evaluation or the continuation, as appropriate
-                    when (val result = action.node.condition(readActions)) {
+                    val result = action.node.condition(readActions)
+                    // TODO: Think through how awaiting works when we have additional writes in the future.
+                    //   Right now, we're just ignoring any future writes, leading to incorrect incremental results.
+
+                    // If there's a write to a cell in the causal future of this await,
+                    // which is also before result.time (or result.time is null),
+                    // then we need to schedule a re-evaluation of the condition,
+                    // regardless of what kind of result we got.
+
+                    // We should also consider any existing step nodes...
+                    // These don't cause us to re-evaluate the condition, but they should be linked to the await node.
+                    // That way we'll propagate changes to the cell nodes as needed.
+
+                    // For an algorithm, we basically want to crawl forward through the cell nodes starting
+                    // from the one we read, until the first writes(s) (plural if there are parallel branches)
+                    // and/or merge (singular, because there must either be concurrent writes or a merge).
+                    // Schedule re-evaluation for all of those nodes.
+                    // Link reads for any steps found along the way.
+                    // Break early if we hit the result.time instead of a cell node.
+
+                    when (result) {
                         is SatisfiedAt -> {
                             // Schedule the continuation of the task for the time indicated
                             // If that time is in the future, find and occupy a branch in batch 0 then.
