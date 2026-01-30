@@ -54,7 +54,27 @@ class KernelIncrementalSimulator(
     /** Root nodes with which we may merge restart requests, rather than re-running. */
     private val rootMergeOpportunities: MutableMap<Task<*>, RootTaskNode> = mutableMapOf()
 
-    private val DEBUG = true
+    private enum class DebugLevel { NONE, MAJOR, MINOR, ALL }
+    private val DEBUG = DebugLevel.ALL
+    private var debugMajorStep = 0
+    private var debugMinorStep = 0
+    private fun dumpDotToFile(debugLevel: DebugLevel, highlightNode: SGNode?, checkIntegrity: Boolean = true) {
+        if (DEBUG >= debugLevel) {
+            if (debugLevel <= DebugLevel.MAJOR) {
+                ++debugMajorStep
+                debugMinorStep = 0
+            } else if (debugLevel <= DebugLevel.MINOR) {
+                ++debugMinorStep
+            }
+
+            File("/Users/dlegg/Code/Pyre/tmp/tmp" +
+                    debugMajorStep.toString().padStart(4, '0') +
+                    "." +
+                    debugMinorStep.toString().padStart(4, '0') +
+                    ".dot"
+            ).writeText(dumpDot(highlightNode = highlightNode, checkIntegrity = checkIntegrity))
+        }
+    }
 
     init {
         // Init happens before any tasks, at plan start.
@@ -97,7 +117,7 @@ class KernelIncrementalSimulator(
             }
         }
         val activities = constructPlan(basicInitScope)
-        if (DEBUG) File("/Users/dlegg/Code/Pyre/tmp/tmp-init.dot").writeText(dumpDot())
+        if (DEBUG >= DebugLevel.MAJOR) File("/Users/dlegg/Code/Pyre/tmp/tmp-init.dot").writeText(dumpDot())
         run(KernelPlanEdits(additions = activities))
     }
 
@@ -128,15 +148,14 @@ class KernelIncrementalSimulator(
         } finally {
             // DEBUG
             // Disable the integrity check on this run, so we can get a final graph even if it's invalid.
-            if (DEBUG) File("/Users/dlegg/Code/Pyre/tmp/tmp-final.dot").writeText(dumpDot(checkIntegrity = false))
+            if (DEBUG >= DebugLevel.MAJOR) File("/Users/dlegg/Code/Pyre/tmp/tmp-final.dot").writeText(dumpDot(checkIntegrity = false))
         }
     }
 
-    private var debugStep = 0
     private fun resolve() {
         while (true) {
             // DEBUG
-            if (DEBUG) File("/Users/dlegg/Code/Pyre/tmp/tmp${debugStep++.toString().padStart(6, '0')}.dot").writeText(dumpDot())
+            dumpDotToFile(DebugLevel.MAJOR, frontier.firstOrNull()?.node)
             when (val action = frontier.poll() ?: break) {
                 is StartTask -> {
                     // Start the job in the next step. Roots are already assigned to their own branches.
@@ -145,30 +164,28 @@ class KernelIncrementalSimulator(
                         action.node,
                         action.node.task,
                     ).also {
-                        frontier += ContinueTask(it)
+                        frontier += RunTask(it)
                         taskNodes += it
                     }
                 }
 
-                is ContinueTask -> {
-                    // The "basic" form of continuing a task, what we do for freshly-added tasks.
-                    action.node.continueWith(action.node.continuation::runStep)
-                }
+                is RunTask -> if (action.node is YieldingStepNode && action.node.continuation != null) {
+                    // We're resuming a task normally, with no "future" we need to revoke
+                    val continuation = action.node.continuation!!
+                    // Forget the continuation since we can only resume from this continuation once
+                    // Also search the prior task nodes, and delete any instances of the continuation there.
+                    // This happens when an Await node gets duplicated to check conditions.
+                    var n: TaskNode? = action.node
+                    while (n is YieldingStepNode) {
+                        if (n.continuation === continuation) n.continuation = null
+                        n = n.prior
+                    }
+                    // Then run the continuation directly
+                    action.node.continueWith(continuation::runStep)
+                } else {
+                    // We're re-running a task we've previously ran.
+                    // Do this by revoking the future, replaying the past, and then running the present normally.
 
-                is RevokeMergeOpportunity -> {
-                    // We use the RevokeMergeOpportunity frontier action instead of directly calling fullyRevokeTask
-                    // when we're doing incremental resimulation, hoping to merge an existing RootTaskNode
-                    // with a re-simulated one.
-                    // For example, the reporting task for a resource repeats, placing a new root exactly where the old
-                    // root was, and that can be merged instead of re-done.
-                    // If we merge, we remove the RevokeMergeOpportunity action.
-                    // Hence if we run the RevokeMergeOpportunity action, we failed to merge this root.
-                    // Remove that root, but optimistically add its downstream repeat as a merge opportunity.
-                    rootMergeOpportunities.remove(action.node.task)
-                    revokeWithMergeOpportunity(action.node)
-                }
-
-                is RerunTask -> {
                     // Revoke the rest of this task, up to any repeat.
                     // If it repeats, add that repeat as a merge opportunity.
                     revokeWithMergeOpportunity(action.node)
@@ -176,21 +193,25 @@ class KernelIncrementalSimulator(
                         "Internal error! Cannot rerun the first node in a task chain."
                     }
                     // Find the root node from which to replay this task
-                    val root = checkNotNull(generateSequence(prior) { it.prior }.firstOrNull { it is RootTaskNode }) {
-                        "Internal error! Task chain does not start at a root task node."
-                    } as RootTaskNode
+                    val root = generateSequence(prior) { it.prior }.first { it is RootTaskNode } as RootTaskNode
                     prior.continueWith { realActions ->
                         // We replay the task by continuing from prior, but with a more complex continuation function.
-                        var next: TaskNode? = root.next
                         // That continuation function will intercept all actions taken by the task,
                         // matching them to the task nodes from root through prior.
-                        // Once we've exhausted the task nodes we want to replay, we defer to realActions.
+                        // Once we've exhausted the task nodes we want to replay, we defer to realActions,
+                        // which switches us to just running normally.
+                        var next: TaskNode? = root.next
+                        // The first node after the root should be a "begin" node. Skip it.
+                        check(next is StepBeginNode) {
+                            "Internal error! Step following a root task node was not a ${StepBeginNode::class.simpleName}"
+                        }
+                        next = next.next
                         var stepResult: Task.TaskStepResult<*>
                         while (true) {
                             stepResult = root.task.runStep(object : Task.BasicTaskActions {
                                 override fun <V> read(cell: Cell<V>): V = if (next != null) {
                                     check(next is ReadNode) {
-                                        "Internal error! Task replay (read) did not align with history (${next!!::class.simpleName}"
+                                        "Internal error! Task replay (read) did not align with history (${next!!::class.simpleName})"
                                     }
                                     @Suppress("UNCHECKED_CAST")
                                     // Replay the value we read last time, and advance next
@@ -203,7 +224,7 @@ class KernelIncrementalSimulator(
 
                                 override fun <V> emit(cell: Cell<V>, effect: Effect<V>) = if (next != null) {
                                     check(next is WriteNode) {
-                                        "Internal error! Task replay (write) did not align with history (${next!!::class.simpleName}"
+                                        "Internal error! Task replay (write) did not align with history (${next!!::class.simpleName})"
                                     }
                                     // Ignore the write and advance next
                                     next = next?.next
@@ -213,7 +234,7 @@ class KernelIncrementalSimulator(
 
                                 override fun <V> report(value: V) = if (next != null) {
                                     check(next is ReportNode<*>) {
-                                        "Internal error! Task replay (report) did not align with history (${next!!::class.simpleName}"
+                                        "Internal error! Task replay (report) did not align with history (${next!!::class.simpleName})"
                                     }
                                     // Ignore the report and advance next
                                     next = next?.next
@@ -227,25 +248,30 @@ class KernelIncrementalSimulator(
                             when (stepResult) {
                                 is Task.TaskStepResult.Await<*> -> {
                                     check(next is AwaitNode) {
-                                        "Internal error! Task replay (await) did not align with history (${next!!::class.simpleName}"
+                                        "Internal error! Task replay (await) did not align with history (${next!!::class.simpleName})"
                                     }
-                                    next = next?.next
+                                    // Awaiting once can produce multiple Await nodes, as the condition is re-checked.
+                                    // Skip all of them.
+                                    while (next is AwaitNode) next = next?.next
                                 }
+
                                 is Task.TaskStepResult.Complete<*> -> {
                                     check(false) {
-                                        "Internal error! Task replay (complete) did not align with history (${next!!::class.simpleName}"
+                                        "Internal error! Task replay (complete) did not align with history (${next!!::class.simpleName})"
                                     }
                                 }
+
                                 is Task.TaskStepResult.Restart<*> -> {
                                     // We only ever replay part of a single task.
                                     // The task should never restart while replaying.
                                     check(false) {
-                                        "Internal error! Task replay (restart) did not align with history (${next!!::class.simpleName}"
+                                        "Internal error! Task replay (restart) did not align with history (${next!!::class.simpleName})"
                                     }
                                 }
+
                                 is Task.TaskStepResult.Spawn<*, *> -> {
                                     check(next is SpawnNode) {
-                                        "Internal error! Task replay (spawn) did not align with history (${next!!::class.simpleName}"
+                                        "Internal error! Task replay (spawn) did not align with history (${next!!::class.simpleName})"
                                     }
                                     next = next?.next
                                 }
@@ -253,6 +279,19 @@ class KernelIncrementalSimulator(
                         }
                         stepResult
                     }
+                }
+
+                is RevokeMergeOpportunity -> {
+                    // We use the RevokeMergeOpportunity frontier action instead of directly calling fullyRevokeTask
+                    // when we're doing incremental resimulation, hoping to merge an existing RootTaskNode
+                    // with a re-simulated one.
+                    // For example, the reporting task for a resource repeats, placing a new root exactly where the old
+                    // root was, and that can be merged instead of re-done.
+                    // If we merge, we remove the RevokeMergeOpportunity action.
+                    // Hence if we run the RevokeMergeOpportunity action, we failed to merge this root.
+                    // Remove that root, but optimistically add its downstream repeat as a merge opportunity.
+                    rootMergeOpportunities.remove(action.node.task)
+                    revokeWithMergeOpportunity(action.node)
                 }
 
                 is CheckCell -> {
@@ -290,7 +329,7 @@ class KernelIncrementalSimulator(
                                     action.node,
                                     action.node.continuation,
                                 ).also {
-                                    frontier += ContinueTask(it)
+                                    frontier += RunTask(it)
                                     taskNodes += it
                                 }
                             }
@@ -354,8 +393,8 @@ class KernelIncrementalSimulator(
         if (computedValue != node.value) {
             node.value = computedValue
             node.next.forEach { frontier += CheckCell(it) }
-            node.reads.forEach { frontier += RerunTask(it) }
-            node.awaiters.forEach { frontier += RerunTask(it) }
+            node.reads.forEach { frontier += RunTask(it) }
+            node.awaiters.forEach { frontier += RunTask(it) }
         }
     }
 
@@ -398,6 +437,7 @@ class KernelIncrementalSimulator(
                     cellNode.reads += it
                     taskNodes += it
                 }
+                dumpDotToFile(DebugLevel.MINOR, lastTaskStepNode)
                 // Return the value
                 return cellNode.value
             }
@@ -505,15 +545,11 @@ class KernelIncrementalSimulator(
                     if (read.time isCausallyAfter writeNode.time) {
                         // Our write intercedes between the read and the value it read.
                         // Presuming this task should now read a different value, it must be re-run.
-                        frontier += RerunTask(read)
+                        frontier += RunTask(read)
                     }
                 }
 
                 for (awaiter in priorCellNode.awaiters) {
-                    // TODO: There's a bug here with incrementalism.
-                    //   If the awaiter has already ran, we need to re-run it instead of resuming it.
-                    //   Maybe the task nodes should have a flag for "isActive", which we set to true when that continuation is valid?
-                    //   Or better yet, maybe the continuation itself is just set to null after we use it?
                     awaiter.next?.takeIf { it.time isCausallyAfter writeTime }?.let {
                         // If the awaiter continues causally after this write, revoke that continuation,
                         // with an opportunity to merge if the task repeats.
@@ -546,6 +582,7 @@ class KernelIncrementalSimulator(
                     writeNode.writer = it
                     taskNodes += it
                 }
+                dumpDotToFile(DebugLevel.MINOR, lastTaskStepNode)
             }
 
             override fun <V> report(value: V) {
@@ -559,6 +596,7 @@ class KernelIncrementalSimulator(
                     taskNodes += it
                     reportHandler.report(it)
                 }
+                dumpDotToFile(DebugLevel.MINOR, lastTaskStepNode)
             }
         }
         when (val result = continuation(basicTaskActions)) {
@@ -626,7 +664,7 @@ class KernelIncrementalSimulator(
                     lastTaskStepNode.next = it
                     mergeOpportunity?.prior = it
                     it.child.prior = it
-                    frontier += ContinueTask(it)
+                    frontier += RunTask(it)
                     taskNodes += it
                 }
             }
@@ -673,9 +711,8 @@ class KernelIncrementalSimulator(
         // Remove our record of this node
         taskNodes -= task
         // Remove any frontier action(s) related to this node
-        frontier -= RerunTask(task)
+        frontier -= RunTask(task)
         if (task is RootTaskNode) frontier -= StartTask(task)
-        if (task is YieldingStepNode) frontier -= ContinueTask(task)
         if (task is AwaitNode) frontier -= CheckCondition(task)
         // Unlink this node from its prior
         // The 'if' is in case we're unlinking a root node from a spawn.
@@ -696,6 +733,8 @@ class KernelIncrementalSimulator(
             is SpawnNode -> fullyRevokeTask(task.child)
             is StepBeginNode -> { /* Nothing to do */ }
         }
+        // Don't check integrity now, we're purposely breaking the integrity of the next node by removing this node.
+        dumpDotToFile(DebugLevel.MINOR, task.next, checkIntegrity = false)
         // Continue revoking the rest of this task
         return task.next?.let { it as? RootTaskNode ?: revokeSingleTask(it) }
     }
@@ -776,10 +815,10 @@ class KernelIncrementalSimulator(
         // Regardless of what kind of node we just revoked, any task referring to it is invalid.
         // Schedule all such tasks to be re-run.
         cell.reads.forEach {
-            frontier += RerunTask(it)
+            frontier += RunTask(it)
         }
         cell.awaiters.forEach {
-            frontier += RerunTask(it)
+            frontier += RunTask(it)
         }
     }
 
@@ -833,6 +872,7 @@ class KernelIncrementalSimulator(
             for (awaiter in cellNode.awaiters) {
                 // If the awaiter has no registered next node, or its next node is after this step,
                 // then this awaiter can read this step as well.
+                // TODO: I think there's something wrong with this filter, but I don't know what yet.
                 if (awaiter.next?.let { it.time isCausallyAfter stepNode.time } ?: true) {
                     stepNode.awaiters += awaiter
                     // TODO: Think carefully about this edge. It violates causal order!
@@ -889,8 +929,7 @@ class KernelIncrementalSimulator(
         val time: SimulationTime get() = node.time
 
         data class StartTask(override val node: RootTaskNode) : FrontierAction
-        data class ContinueTask(override val node: YieldingStepNode) : FrontierAction
-        data class RerunTask(override val node: TaskNode) : FrontierAction
+        data class RunTask(override val node: TaskNode) : FrontierAction
         data class CheckCell(override val node: CellNode<*>) : FrontierAction
         data class CheckCondition(override val node: AwaitNode) : FrontierAction
         data class RevokeMergeOpportunity(override val node: RootTaskNode) : FrontierAction
@@ -901,10 +940,12 @@ class KernelIncrementalSimulator(
      *
      * @param checkIntegrity Raise an [IllegalStateException] if the graph doesn't meet standard integrity checks.
      */
-    private fun dumpDot(checkIntegrity: Boolean = true): String {
-        val checkIntegrity: (Boolean, () -> String) -> Unit = if (checkIntegrity) { condition, lazyMessage ->
-            check(condition) { lazyMessage() + " integrity check failed" }
-        } else { c, l -> }
+    private fun dumpDot(
+        highlightNode: SGNode? = null,
+        checkIntegrity: Boolean = true,
+    ): String {
+        fun checkIntegrity(condition: Boolean, lazyMessage: () -> String) =
+            check (!checkIntegrity || condition) { lazyMessage() + " integrity check failed" }
 
         val graphBuilder = StringBuilder("digraph ${KernelIncrementalSimulator::class.simpleName} {\n")
         graphBuilder.append("  concentrate = true\n")
@@ -947,43 +988,42 @@ class KernelIncrementalSimulator(
 
             for ((j, node) in rank.sortedBy { it.time.file() }.withIndex()) {
                 // TODO: Clean up this node generation logic
-                val id = when (node) {
+                val fillColor = when {
+                    node === highlightNode -> "#69aa7c"
+                    node in frontierModifier -> "#50a0f4"
+                    else -> null
+                }
+                val styling = fillColor?.let { ", style = filled, fillcolor = \"$it\"" } ?: ""
+                val labelSuffix = frontierModifier[node]?.let{ "** $it\\l" } ?: ""
+                val label: String
+                val shape: String
+                val id: String
+                when (node) {
                     is CellNode<*> -> {
                         val cell = cells.getValue(node)
-                        val label = when (node) {
+                        label = when (node) {
                             is CellMergeNode<*> -> "Merge ${cell.name}"
                             is CellStepNode<*> -> "Step ${cell.name}"
                             is CellWriteNode<*> -> "Write ${cell.name}"
-                        }
-                        val id = cellDotId.getValue(node)
-                        if (node in frontierModifier)  {
-                            val fillColor = if (node === frontier.firstOrNull()?.node) "#69aa7c" else "#50a0f4"
-                            graphBuilder.append("    ", id, " [shape = ellipse, style = filled, fillcolor = \"$fillColor\", label = \"$label\\l${node.value}\\l${node.time}\\l** ${frontierModifier.getValue(node)}\\l\"]\n")
-                        } else {
-                            graphBuilder.append("    ", id, " [shape = ellipse, label = \"$label\\l${node.value}\\l${node.time}\\l\"]\n")
-                        }
-                        id
+                        } + "\\l${node.value}"
+                        shape = "ellipse"
+                        id = cellDotId.getValue(node)
                     }
                     is TaskNode -> {
-                        val label = when (node) {
-                            is ReadNode -> "Read"
+                        label = when (node) {
+                            is ReadNode -> "Read ${node.cell.cell.name}"
                             is ReportNode<*> -> "Report ${node.content}"
                             is WriteNode -> "Write '${node.cell.effect}'"
                             is RootTaskNode -> "Root ${node.task.id.name}"
-                            is AwaitNode -> "Await ${node.condition}"
-                            is SpawnNode -> "Spawn"
-                            is StepBeginNode -> "Begin"
+                            is AwaitNode -> "Await ${node.condition}" + (if (node.continuation != null) " ++" else "")
+                            is SpawnNode -> "Spawn" + (if (node.continuation != null) " ++" else "")
+                            is StepBeginNode -> "Begin" + (if (node.continuation != null) " ++" else "")
                         }
-                        val id = taskDotId.getValue(node)
-                        if (node in frontierModifier) {
-                            val fillColor = if (node === frontier.firstOrNull()?.node) "#69aa7c" else "#50a0f4"
-                            graphBuilder.append("    ", id, " [shape = box, style = filled, fillcolor = \"$fillColor\", label = \"$label\\l${node.time}\\l** ${frontierModifier.getValue(node)}\\l\"]\n")
-                        } else {
-                            graphBuilder.append("    ", id, " [shape = box, label = \"$label\\l${node.time}\\l\"]\n")
-                        }
-                        id
+                        shape = "box"
+                        id = taskDotId.getValue(node)
                     }
                 }
+                graphBuilder.append("    ", id, " [shape = $shape$styling, label = \"$label\\l${node.time}\\l$labelSuffix\"]\n")
                 if (j > 0) {
                     // Add an invisible edge between the last file and this node to enforce file order
                     graphBuilder.append("    f_", i, "_", j - 1, " -> ", id, " [style = invis]\n")
@@ -1000,8 +1040,6 @@ class KernelIncrementalSimulator(
                 .append("  }\n")
         }
 
-        var unknownNodeCounter = 0
-
         // Now fill in the edges
         for ((node, nodeId) in cellDotId) {
             for (next in node.next) {
@@ -1017,14 +1055,7 @@ class KernelIncrementalSimulator(
                 checkIntegrity(read.cell === node) { "Cell read" }
             }
             for (awaiter in node.awaiters) {
-                // TEMP
-                if (awaiter in taskDotId) {
-                    graphBuilder.append("  ", nodeId, " -> ", taskDotId.getValue(awaiter), "\n")
-                } else {
-                    graphBuilder
-                        .append("  A", unknownNodeCounter++, "\n")
-                        .append("  ", nodeId, " -> A", unknownNodeCounter, "\n")
-                }
+                graphBuilder.append("  ", nodeId, " -> ", taskDotId.getValue(awaiter), "\n")
                 checkIntegrity(node in awaiter.reads) { "Cell awaiter" }
             }
             when (node) {
@@ -1075,7 +1106,7 @@ class KernelIncrementalSimulator(
                 else -> Unit
             }
             node.prior?.let {
-                checkIntegrity(it in taskDotId || (node is RootTaskNode && RevokeMergeOpportunity(node) in frontier)) { "Task prior" }
+                checkIntegrity(it in taskDotId) { "Task prior" }
                 checkIntegrity(it.next === node || (it as? SpawnNode)?.child === node) { "Task prior" }
             }
         }

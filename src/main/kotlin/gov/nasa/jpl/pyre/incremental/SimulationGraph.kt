@@ -50,7 +50,8 @@ interface SimulationGraph {
      * These have an explicit continuation [Task] used to resume the rest of the task when appropriate.
      */
     sealed interface YieldingStepNode : TaskNode {
-        val continuation: Task<*>
+        /** The handle to continue running this task. Null after executing, since any task step may only be run once. */
+        var continuation: Task<*>?
     }
 
     /**
@@ -72,7 +73,7 @@ interface SimulationGraph {
     class StepBeginNode(
         override val time: SimulationTime,
         override val prior: TaskNode,
-        override val continuation: Task<*>,
+        override var continuation: Task<*>?,
         override var next: TaskNode? = null,
     ) : YieldingStepNode
 
@@ -102,7 +103,7 @@ interface SimulationGraph {
         override val time: SimulationTime,
         override val prior: TaskNode,
         val child: RootTaskNode,
-        override val continuation: Task<*>,
+        override var continuation: Task<*>?,
         override var next: TaskNode? = null,
     ) : YieldingStepNode
 
@@ -110,8 +111,8 @@ interface SimulationGraph {
         override val time: SimulationTime,
         override val prior: TaskNode,
         val condition: Condition,
-        val reads: MutableSet<CellNode<*>> = TreeSet(compareBy { it.time }),
-        override val continuation: Task<*>,
+        val reads: MutableSet<CellNode<*>> = mutableSetOf(),
+        override var continuation: Task<*>?,
         override var next: TaskNode? = null,
     ) : YieldingStepNode
 
@@ -132,8 +133,8 @@ interface SimulationGraph {
         // Writer is var and nullable to facilitate construction; it should never nominally be null when finalized.
         var writer: WriteNode? = null,
         override val next: MutableList<CellNode<T>> = mutableListOf(),
-        override val reads: MutableSet<ReadNode> = TreeSet(compareBy { it.time }),
-        override val awaiters: MutableSet<AwaitNode> = TreeSet(compareBy { it.time }),
+        override val reads: MutableSet<ReadNode> = mutableSetOf(),
+        override val awaiters: MutableSet<AwaitNode> = mutableSetOf(),
     ) : CellNode<T>
 
     class CellMergeNode<T>(
@@ -143,8 +144,8 @@ interface SimulationGraph {
         var batchStart: CellNode<T>,
         var prior: MutableList<CellWriteNode<T>>,
         override val next: MutableList<CellNode<T>> = mutableListOf(),
-        override val reads: MutableSet<ReadNode> = TreeSet(compareBy { it.time }),
-        override val awaiters: MutableSet<AwaitNode> = TreeSet(compareBy { it.time }),
+        override val reads: MutableSet<ReadNode> = mutableSetOf(),
+        override val awaiters: MutableSet<AwaitNode> = mutableSetOf(),
     ) : CellNode<T>
 
     class CellStepNode<T>(
@@ -154,7 +155,7 @@ interface SimulationGraph {
         var prior: CellNode<T>,
         val step: Duration,
         override val next: MutableList<CellNode<T>> = mutableListOf(),
-        override val reads: MutableSet<ReadNode> = TreeSet(compareBy { it.time }),
-        override val awaiters: MutableSet<AwaitNode> = TreeSet(compareBy { it.time }),
+        override val reads: MutableSet<ReadNode> = mutableSetOf(),
+        override val awaiters: MutableSet<AwaitNode> = mutableSetOf(),
     ) : CellNode<T>
 }
