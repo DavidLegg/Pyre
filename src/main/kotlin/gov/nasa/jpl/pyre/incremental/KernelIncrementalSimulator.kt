@@ -311,7 +311,21 @@ class KernelIncrementalSimulator(
                         }
                     }
                     // Schedule the next evaluation or the continuation, as appropriate
-                    val result = action.node.condition(readActions)
+                    var result = action.node.condition(readActions)
+                    var resultTime = result.time?.let {
+                        if (it > ZERO) {
+                            SimulationTime(
+                                action.time.instant + it.toKotlinDuration(),
+                                branch = action.time.branch)
+                                // Filter out results after the end of the plan
+                                .takeIf { it.instant < planEnd }
+                        } else {
+                            action.time.nextStep()
+                        }
+                    }
+                    fun SimulationTime.beforeResultTime(): Boolean =
+                        resultTime?.let { this isCausallyBefore it } ?: false
+
                     // TODO: Think through how awaiting works when we have additional writes in the future.
                     //   Right now, we're just ignoring any future writes, leading to incorrect incremental results.
 
@@ -331,19 +345,44 @@ class KernelIncrementalSimulator(
                     // Link reads for any steps found along the way.
                     // Break early if we hit the result.time instead of a cell node.
 
+                    // Find all the cell nodes we might read between now and result.time
+                    val frontierCellNodes = PriorityQueue<CellNode<*>>(compareBy { it.time })
+                    frontierCellNodes += action.node.reads
+                    while (true) {
+                        // Only explore until resultTime
+                        val node = frontierCellNodes.poll()?.takeIf { it.time.beforeResultTime() } ?: break
+                        when (node) {
+                            is CellStepNode -> {
+                                // If we find a step node, add it as read by this awaiter.
+                                action.node.reads += node
+                                node.awaiters += action.node
+                                // Also explore its next nodes
+                                frontierCellNodes += node.next
+                            }
+                            is CellMergeNode, is CellWriteNode -> {
+                                // TODO: This is a little janky, overwriting result
+                                //   Refactor to an "isSatisfied" boolean, perhaps?
+                                // If we find a write or merge, then the read cell changes while we're awaiting.
+                                // This would cancel the await on the result, causing re-evaluation in response to the write.
+                                // That's equivalent to just being unsatisfied until the time of this write
+                                result = UnsatisfiedUntil(null)
+                                // We're ignoring the time in result below, and using resultTime instead.
+                                // Set that to the tasks reacting to the cell node.
+                                // Note that if there are concurrent cell writes, all of them have the same
+                                // nextTaskBatch, so it suffices to find any one of them and stop.
+                                resultTime = node.time.nextTaskBatch()
+                            }
+                        }
+                    }
+
                     when (result) {
                         is SatisfiedAt -> {
                             // Schedule the continuation of the task for the time indicated
                             // If that time is in the future, find and occupy a branch in batch 0 then.
                             // If that time is now, run in the next step; this await already occupies a branch.
-                            val satisfiedTime = if (result.time > ZERO) {
-                                SimulationTime(
-                                    action.time.instant + result.time.toKotlinDuration(),
-                                    branch = action.time.branch)
-                            } else {
-                                action.time.nextStep()
-                            }
-                            if (satisfiedTime.instant < planEnd) {
+                            // Note that resultTime could be null if the indicated time was after planEnd.
+                            // In this case, don't schedule anything.
+                            resultTime?.let { satisfiedTime ->
                                 action.node.next = StepBeginNode(
                                     satisfiedTime,
                                     action.node,
@@ -353,20 +392,12 @@ class KernelIncrementalSimulator(
                                     taskNodes += it
                                 }
                             }
-                            // If satisfiedTime >= planEnd, don't schedule the node. It's the same as UnsatisfiedUntil(inf.)
                         }
                         is UnsatisfiedUntil -> {
                             // If we're unsatisfied only for a finite time, add and schedule an await for that time
                             // If that time is in the future, find and occupy a branch in batch 0 then.
                             // If that time is now, run in the next step; this await already occupies a branch.
-                            result.time?.let { t ->
-                                val recheckTime = if (t > ZERO) {
-                                    SimulationTime(
-                                        action.time.instant + t.toKotlinDuration(),
-                                        branch = action.time.branch)
-                                } else {
-                                    action.time.nextStep()
-                                }
+                            resultTime?.let { recheckTime ->
                                 if (recheckTime.instant < planEnd) {
                                     action.node.next = AwaitNode(
                                         recheckTime,
