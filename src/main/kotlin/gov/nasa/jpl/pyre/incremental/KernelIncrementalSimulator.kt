@@ -13,7 +13,6 @@ import gov.nasa.jpl.pyre.kernel.ReadActions
 import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.kernel.SatisfiedAt
 import gov.nasa.jpl.pyre.kernel.Task
-import gov.nasa.jpl.pyre.kernel.UnsatisfiedUntil
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.utilities.compose
@@ -201,6 +200,7 @@ class KernelIncrementalSimulator(
                         // Once we've exhausted the task nodes we want to replay, we defer to realActions,
                         // which switches us to just running normally.
                         var next: TaskNode? = root.next
+                        var nextTask: Task<*> = root.task
                         // The first node after the root should be a "begin" node. Skip it.
                         check(next is StepBeginNode) {
                             "Internal error! Step following a root task node was not a ${StepBeginNode::class.simpleName}"
@@ -208,7 +208,8 @@ class KernelIncrementalSimulator(
                         next = next.next
                         var stepResult: Task.TaskStepResult<*>
                         while (true) {
-                            stepResult = root.task.runStep(object : Task.BasicTaskActions {
+                            dumpDotToFile(DebugLevel.MINOR, next, checkIntegrity = false)
+                            stepResult = nextTask.runStep(object : Task.BasicTaskActions {
                                 override fun <V> read(cell: Cell<V>): V = if (next != null) {
                                     check(next is ReadNode) {
                                         "Internal error! Task replay (read) did not align with history (${next!!::class.simpleName})"
@@ -217,6 +218,7 @@ class KernelIncrementalSimulator(
                                     // Replay the value we read last time, and advance next
                                     val result = ((next as ReadNode).cell as CellNode<V>).value
                                     next = next?.next
+                                    dumpDotToFile(DebugLevel.MINOR, next, checkIntegrity = false)
                                     result
                                 } else {
                                     realActions.read(cell)
@@ -228,6 +230,7 @@ class KernelIncrementalSimulator(
                                     }
                                     // Ignore the write and advance next
                                     next = next?.next
+                                    dumpDotToFile(DebugLevel.MINOR, next, checkIntegrity = false)
                                 } else {
                                     realActions.emit(cell, effect)
                                 }
@@ -238,6 +241,7 @@ class KernelIncrementalSimulator(
                                     }
                                     // Ignore the report and advance next
                                     next = next?.next
+                                    dumpDotToFile(DebugLevel.MINOR, next, checkIntegrity = false)
                                 } else {
                                     realActions.report(value)
                                 }
@@ -253,6 +257,7 @@ class KernelIncrementalSimulator(
                                     // Awaiting once can produce multiple Await nodes, as the condition is re-checked.
                                     // Skip all of them.
                                     while (next is AwaitNode) next = next?.next
+                                    nextTask = stepResult.continuation
                                 }
 
                                 is Task.TaskStepResult.Complete<*> -> {
@@ -274,6 +279,7 @@ class KernelIncrementalSimulator(
                                         "Internal error! Task replay (spawn) did not align with history (${next!!::class.simpleName})"
                                     }
                                     next = next?.next
+                                    nextTask = stepResult.continuation
                                 }
                             }
                         }
@@ -299,13 +305,14 @@ class KernelIncrementalSimulator(
                 }
 
                 is CheckCondition -> {
+                    action.node.reads.clear()
                     val readActions = object : ReadActions {
                         override fun <V> read(cell: Cell<V>): V {
                             // Get the appropriate cell node to read:
                             val cellNode = getCellNode(cell, action.time)
                             // Record bidirectionally that this read happened:
                             cellNode.awaiters += action.node
-                            action.node.reads += cellNode
+                            action.node.reads[cellNode] = cellNode.value
                             // Finally, return the value we read
                             return cellNode.value
                         }
@@ -324,94 +331,68 @@ class KernelIncrementalSimulator(
                         }
                     }
                     fun SimulationTime.beforeResultTime(): Boolean =
-                        resultTime?.let { this isCausallyBefore it } ?: false
-
-                    // TODO: Think through how awaiting works when we have additional writes in the future.
-                    //   Right now, we're just ignoring any future writes, leading to incorrect incremental results.
-
-                    // If there's a write to a cell in the causal future of this await,
-                    // which is also before result.time (or result.time is null),
-                    // then we need to schedule a re-evaluation of the condition,
-                    // regardless of what kind of result we got.
-
-                    // We should also consider any existing step nodes...
-                    // These don't cause us to re-evaluate the condition, but they should be linked to the await node.
-                    // That way we'll propagate changes to the cell nodes as needed.
-
-                    // For an algorithm, we basically want to crawl forward through the cell nodes starting
-                    // from the one we read, until the first writes(s) (plural if there are parallel branches)
-                    // and/or merge (singular, because there must either be concurrent writes or a merge).
-                    // Schedule re-evaluation for all of those nodes.
-                    // Link reads for any steps found along the way.
-                    // Break early if we hit the result.time instead of a cell node.
+                        resultTime?.let { this isCausallyBefore it } ?: true
+                    var isSatisfied = result is SatisfiedAt
 
                     // Find all the cell nodes we might read between now and result.time
                     val frontierCellNodes = PriorityQueue<CellNode<*>>(compareBy { it.time })
-                    frontierCellNodes += action.node.reads
+                    // Start exploring all cell nodes after the read cell nodes.
+                    action.node.reads.keys.flatMapTo(frontierCellNodes) { it.next }
                     while (true) {
                         // Only explore until resultTime
                         val node = frontierCellNodes.poll()?.takeIf { it.time.beforeResultTime() } ?: break
                         when (node) {
                             is CellStepNode -> {
                                 // If we find a step node, add it as read by this awaiter.
-                                action.node.reads += node
+                                action.node.reads[node] = node.value
                                 node.awaiters += action.node
                                 // Also explore its next nodes
                                 frontierCellNodes += node.next
                             }
                             is CellMergeNode, is CellWriteNode -> {
-                                // TODO: This is a little janky, overwriting result
-                                //   Refactor to an "isSatisfied" boolean, perhaps?
                                 // If we find a write or merge, then the read cell changes while we're awaiting.
                                 // This would cancel the await on the result, causing re-evaluation in response to the write.
                                 // That's equivalent to just being unsatisfied until the time of this write
-                                result = UnsatisfiedUntil(null)
+                                isSatisfied = false
                                 // We're ignoring the time in result below, and using resultTime instead.
                                 // Set that to the tasks reacting to the cell node.
                                 // Note that if there are concurrent cell writes, all of them have the same
                                 // nextTaskBatch, so it suffices to find any one of them and stop.
-                                resultTime = node.time.nextTaskBatch()
+                                resultTime = node.time.nextTaskBatch().copy(branch = action.time.branch)
                             }
                         }
                     }
 
-                    when (result) {
-                        is SatisfiedAt -> {
-                            // Schedule the continuation of the task for the time indicated
-                            // If that time is in the future, find and occupy a branch in batch 0 then.
-                            // If that time is now, run in the next step; this await already occupies a branch.
-                            // Note that resultTime could be null if the indicated time was after planEnd.
-                            // In this case, don't schedule anything.
-                            resultTime?.let { satisfiedTime ->
-                                action.node.next = StepBeginNode(
-                                    satisfiedTime,
-                                    action.node,
-                                    action.node.continuation,
-                                ).also {
-                                    frontier += RunTask(it)
-                                    taskNodes += it
-                                }
-                            }
+                    action.node.next?.let {
+                        // If we have a next node, and we shouldn't, revoke it.
+                        val correctType = if (isSatisfied) it is StepBeginNode else it is AwaitNode
+                        if (resultTime == null || !correctType || it.time != resultTime) {
+                            revokeWithMergeOpportunity(it)
                         }
-                        is UnsatisfiedUntil -> {
-                            // If we're unsatisfied only for a finite time, add and schedule an await for that time
-                            // If that time is in the future, find and occupy a branch in batch 0 then.
-                            // If that time is now, run in the next step; this await already occupies a branch.
-                            resultTime?.let { recheckTime ->
-                                if (recheckTime.instant < planEnd) {
-                                    action.node.next = AwaitNode(
-                                        recheckTime,
-                                        action.node,
-                                        action.node.condition,
-                                        continuation = action.node.continuation,
-                                    ).also {
-                                        frontier += CheckCondition(it)
-                                        taskNodes += it
-                                    }
-                                }
+                    }
+
+                    // If we want a next node and still have one, it passed the filter above, so just re-use it.
+                    // Otherwise, if we want a next node but don't have one, build it.
+                    if (resultTime != null && action.node.next == null) {
+                        action.node.next = if (isSatisfied) {
+                            StepBeginNode(
+                                resultTime,
+                                action.node,
+                                action.node.continuation,
+                            ).also {
+                                frontier += RunTask(it)
+                                taskNodes += it
                             }
-                            // If we're unsatisfied indefinitely, nothing to do for now.
-                            // In either case, cell writes to any of the read cells will reschedule awaits as needed.
+                        } else {
+                            AwaitNode(
+                                resultTime,
+                                action.node,
+                                action.node.condition,
+                                continuation = action.node.continuation
+                            ).also {
+                                frontier += CheckCondition(it)
+                                taskNodes += it
+                            }
                         }
                     }
                 }
@@ -444,8 +425,21 @@ class KernelIncrementalSimulator(
         if (computedValue != node.value) {
             node.value = computedValue
             node.next.forEach { frontier += CheckCell(it) }
-            node.reads.forEach { frontier += RunTask(it) }
-            node.awaiters.forEach { frontier += RunTask(it) }
+        }
+        // Regardless of whether the value changed, check all reads and awaiters.
+        // If the value they last saw for this cell differs from the value it has now, run it.
+        for (read in node.reads) {
+            if (read.value != node.value) {
+                frontier += RunTask(read)
+            }
+        }
+        // Awaiters get a CheckCondition action instead of a RunTask action.
+        // That way, if the condition evaluates equivalently for the new cell value,
+        // we don't needlessly re-run a task.
+        for (awaiter in node.awaiters) {
+            if (awaiter.reads.getValue(node) != node.value) {
+                frontier += CheckCondition(awaiter)
+            }
         }
     }
 
@@ -483,6 +477,7 @@ class KernelIncrementalSimulator(
                     lastTaskStepNode.time.nextStep(),
                     lastTaskStepNode,
                     cellNode,
+                    cellNode.value
                 ).also {
                     lastTaskStepNode.next = it
                     cellNode.reads += it
@@ -494,6 +489,8 @@ class KernelIncrementalSimulator(
             }
 
             override fun <V> emit(cell: Cell<V>, effect: Effect<V>) {
+                // TODO: Need to rethink this method again, in light of new CheckCell semantics
+
                 // Look up the cell node we're writing to
                 val writeTime = lastTaskStepNode.time.nextStep()
                 val priorCellNode = getCellNode(cell, writeTime)
@@ -504,6 +501,30 @@ class KernelIncrementalSimulator(
                     priorCellNode,
                     effect,
                 )
+                for (read in priorCellNode.reads) {
+                    if (read.time isCausallyAfter writeNode.time) {
+                        // Switch the read over to this cell node
+                        writeNode.reads += read
+                        read.cell = writeNode
+                        // Preserve the read value when switching it over;
+                        // if the value the reader read disagrees with this write, it'll get re-checked by CheckCell.
+                    }
+                }
+                // Then remove from priorCellNode all the reads we moved to writeNode
+                priorCellNode.reads -= writeNode.reads
+                for (awaiter in priorCellNode.awaiters) {
+                    // TODO: This is wrong! Think more carefully about when to add awaiter to this write node
+                    if (awaiter.time isCausallyAfter writeNode.time) {
+                        // Switch the awaiter over to this cell node
+                        writeNode.awaiters += awaiter
+                        // Preserve the read value when switching it over;
+                        // if the value the awaiter read disagrees with this write, it'll get re-checked by CheckCell.
+                        awaiter.reads[writeNode] = awaiter.reads[priorCellNode]
+                    }
+                }
+                // TODO: Think through when to remove an awaiter from priorCellNode
+
+
                 // TODO: Add methods to cell nodes to add/remove/replace next and prior nodes,
                 //   and/or write a helper method to inject a new node before or after a given node.
                 when (priorCellNode.next.size) {
@@ -527,11 +548,12 @@ class KernelIncrementalSimulator(
                                 mutableListOf(),
                             )
                             cellNodes.getValue(cell)[mergeNode.time] = mergeNode
+                            newCellNodes += mergeNode
                             // If the concurrent branch tip has a next node, link that next node to the merge instead
                             // TODO: Is it possible for the concurrent branch tip to have multiple next nodes?
                             //    I think so, in the case of spawning a parallel child task...
-                            //    Reproduce this situation in a test, then change this logic below to a forEach call.
-                            concurrentTip.next.singleOrNull()?.let { afterWrite ->
+                            //    Reproduce this situation in a test.
+                            concurrentTip.next.forEach { afterWrite ->
                                 concurrentTip.next -= afterWrite
                                 mergeNode.next += afterWrite
                                 when (afterWrite) {
@@ -546,6 +568,8 @@ class KernelIncrementalSimulator(
                                     }
                                 }
                             }
+                            // TODO: Think through how readers and awaiters interact with merge nodes...
+                            //  Perhaps when building the merge, we should pull forward any readers and awaiters from any of its merged branches?
                             // Then, connect both this and the concurrent branch to the merge node
                             concurrentTip.next += mergeNode
                             mergeNode.prior += concurrentTip as CellWriteNode
@@ -589,7 +613,7 @@ class KernelIncrementalSimulator(
                 // Add the write node to the global cell map for quick lookups later.
                 getCellNodes(cell)[writeNode.time] = writeNode
 
-                // TODO: Read through the rest of this routine and update as needed
+                // TODO: Delete everything after this line switching to using CheckCell actions instead of directly scheduling
 
                 // Schedule any reads that were disturbed by this write
                 for (read in priorCellNode.reads) {
@@ -776,7 +800,7 @@ class KernelIncrementalSimulator(
             is ReportNode<*> -> reportHandler.revoke(task)
             is WriteNode -> revokeCell(task.cell)
             is RootTaskNode -> { /* Nothing to do */ }
-            is AwaitNode -> task.reads.forEach { it.awaiters -= task }
+            is AwaitNode -> task.reads.keys.forEach { it.awaiters -= task }
             // The child of a revoked parent can never be merged.
             // If the root of this parent wasn't merged, it's because this task and any candidate for merging
             // couldn't be proven to be in the same state. Since children (may) inherit state from their parents,
@@ -927,7 +951,7 @@ class KernelIncrementalSimulator(
                 if (awaiter.next?.let { it.time isCausallyAfter stepNode.time } ?: true) {
                     stepNode.awaiters += awaiter
                     // TODO: Think carefully about this edge. It violates causal order!
-                    awaiter.reads += stepNode
+                    awaiter.reads[stepNode] = stepNode.value
                 }
                 // Otherwise, the awaiter completed before this step happens, so don't connect it.
             }
@@ -960,11 +984,10 @@ class KernelIncrementalSimulator(
         // Conceptually, cells are stepped in a special "batch", before any tasks are run
         copy(batch = -1, branch = 0, step = 0)
 
+    // TODO: Consider cleaning up time comparisons with overloads that work on SGNode
+
     infix fun SimulationTime.isConcurrentWith(other: SimulationTime): Boolean =
         instant == other.instant && batch == other.batch && branch != other.branch
-
-    // TODO: Check all instances of isCausallyBefore/isCausallyAfter
-    //   It's likely that these should be asking for a causal ordering on task nodes instead of (just) times.
 
     infix fun SimulationTime.isCausallyBefore(other: SimulationTime): Boolean =
         this < other && !(this isConcurrentWith other)
@@ -1149,7 +1172,7 @@ class KernelIncrementalSimulator(
                     checkIntegrity(node in node.cell.reads) { "Task read" }
                 }
                 is AwaitNode -> {
-                    node.reads.forEach {
+                    node.reads.keys.forEach {
                         checkIntegrity(it in cellDotId) { "Task await" }
                         checkIntegrity(node in it.awaiters) { "Task await" }
                     }

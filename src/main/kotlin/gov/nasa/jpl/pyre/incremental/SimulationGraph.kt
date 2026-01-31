@@ -67,7 +67,9 @@ interface SimulationGraph {
         // prior is mutable so that spawn nodes can link them after making them
         override var prior: TaskNode? = null,
         override var next: TaskNode? = null,
-    ) : TaskNode
+    ) : TaskNode {
+        override fun toString(): String = "Root($task) @ $time"
+    }
 
     /** The first node in a task step, following a root or yielding step. Used to schedule the next task step. */
     class StepBeginNode(
@@ -75,21 +77,28 @@ interface SimulationGraph {
         override val prior: TaskNode,
         override var continuation: Task<*>?,
         override var next: TaskNode? = null,
-    ) : YieldingStepNode
+    ) : YieldingStepNode {
+        override fun toString(): String = "Begin($continuation) @ $time"
+    }
 
     class ReadNode(
         override val time: SimulationTime,
         override val prior: TaskNode,
-        val cell: CellNode<*>,
+        var cell: CellNode<*>,
+        var value: Any?,
         override var next: TaskNode? = null,
-    ) : NonYieldingStepNode
+    ) : NonYieldingStepNode {
+        override fun toString(): String = "Read(${cell.cell.name}) @ $time"
+    }
 
     class WriteNode(
         override val time: SimulationTime,
         override val prior: TaskNode,
         val cell: CellWriteNode<*>,
         override var next: TaskNode? = null,
-    ) : NonYieldingStepNode
+    ) : NonYieldingStepNode {
+        override fun toString(): String = "Write(${cell.effect}, ${cell.cell.name}) @ $time"
+    }
 
     // TODO: Add an interface IncrementalReport which only has (time, content)
     class ReportNode<T>(
@@ -97,7 +106,9 @@ interface SimulationGraph {
         override val prior: TaskNode?,
         val content: T,
         override var next: TaskNode? = null,
-    ) : NonYieldingStepNode
+    ) : NonYieldingStepNode {
+        override fun toString(): String = "Report($content) @ $time"
+    }
 
     class SpawnNode(
         override val time: SimulationTime,
@@ -105,16 +116,20 @@ interface SimulationGraph {
         val child: RootTaskNode,
         override var continuation: Task<*>?,
         override var next: TaskNode? = null,
-    ) : YieldingStepNode
+    ) : YieldingStepNode {
+        override fun toString(): String = "Spawn($child) @ $time"
+    }
 
     class AwaitNode(
         override val time: SimulationTime,
         override val prior: TaskNode,
         val condition: Condition,
-        val reads: MutableSet<CellNode<*>> = mutableSetOf(),
+        val reads: MutableMap<CellNode<*>, Any?> = mutableMapOf(),
         override var continuation: Task<*>?,
         override var next: TaskNode? = null,
-    ) : YieldingStepNode
+    ) : YieldingStepNode {
+        override fun toString(): String = "Await($condition) @ $time"
+    }
 
     sealed interface CellNode<T> : SGNode {
         val cell: Cell<T>
@@ -135,7 +150,9 @@ interface SimulationGraph {
         override val next: MutableList<CellNode<T>> = mutableListOf(),
         override val reads: MutableSet<ReadNode> = mutableSetOf(),
         override val awaiters: MutableSet<AwaitNode> = mutableSetOf(),
-    ) : CellNode<T>
+    ) : CellNode<T> {
+        override fun toString(): String = "CellWrite($effect, ${cell.name}) @ $time"
+    }
 
     class CellMergeNode<T>(
         override val time: SimulationTime,
@@ -146,7 +163,9 @@ interface SimulationGraph {
         override val next: MutableList<CellNode<T>> = mutableListOf(),
         override val reads: MutableSet<ReadNode> = mutableSetOf(),
         override val awaiters: MutableSet<AwaitNode> = mutableSetOf(),
-    ) : CellNode<T>
+    ) : CellNode<T> {
+        override fun toString(): String = "CellMerge(${cell.name}) @ $time"
+    }
 
     class CellStepNode<T>(
         override val time: SimulationTime,
@@ -157,5 +176,7 @@ interface SimulationGraph {
         override val next: MutableList<CellNode<T>> = mutableListOf(),
         override val reads: MutableSet<ReadNode> = mutableSetOf(),
         override val awaiters: MutableSet<AwaitNode> = mutableSetOf(),
-    ) : CellNode<T>
+    ) : CellNode<T> {
+        override fun toString(): String = "CellStep(${cell.name}) @ $time"
+    }
 }
