@@ -956,7 +956,6 @@ class KernelIncrementalSimulator(
             for (awaiter in cellNode.awaiters) {
                 // If the awaiter has no registered next node, or its next node is after this step,
                 // then this awaiter can read this step as well.
-                // TODO: I think there's something wrong with this filter, but I don't know what yet.
                 if (awaiter.next?.let { it.time isCausallyAfter stepNode.time } ?: true) {
                     stepNode.awaiters += awaiter
                     // TODO: Think carefully about this edge. It violates causal order!
@@ -985,8 +984,6 @@ class KernelIncrementalSimulator(
         // "Cell batches" are always odd, so add (batch mod 2) to correct if we're coming from an even batch number
         copy(batch = batch + 1 + (batch % 2), step = 0)
 
-    // TODO: This is suspect, because it won't be in the DAG itself...
-    //   I wrote an exception to handle prior == null as value-equals, but this isn't a great answer.
     private fun SimulationTime.batchStart() = copy(branch = 0, step = 0)
 
     private fun SimulationTime.cellSteppingBatch() =
@@ -1070,7 +1067,6 @@ class KernelIncrementalSimulator(
                 .append("    r", i, " [style = invis]\n")
 
             for ((j, node) in rank.sortedBy { it.time.file() }.withIndex()) {
-                // TODO: Clean up this node generation logic
                 val fillColor = when {
                     node === highlightNode -> "#69aa7c"
                     node in frontierModifier -> "#50a0f4"
