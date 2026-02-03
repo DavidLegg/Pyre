@@ -499,82 +499,24 @@ class KernelIncrementalSimulator(
                     priorCellNode,
                     effect,
                 )
-                // Any read to prior which is after write, should read write instead.
-                for (read in priorCellNode.reads) {
-                    if (read.time isCausallyAfter writeNode.time) {
-                        // Switch the read over to this cell node
-                        writeNode.reads += read
-                        read.cell = writeNode
-                        // Preserve the read value when switching it over;
-                        // if the value the reader read disagrees with this write, it'll get re-checked by CheckCell.
-                    }
-                }
-                // Then remove from priorCellNode all the reads we moved to writeNode
-                priorCellNode.reads -= writeNode.reads
-                // Similarly, any awaiter which first ran after writeNode should instead read from writeNode.
-                // In addition, any awaiter which first ran before writeNode, and is active at writeNode,
-                // should be re-checked in the task batch after writeNode.
-                for (awaiter in priorCellNode.awaiters) {
-                    if (awaiter.time isCausallyAfter writeNode.time) {
-                        // If awaiter is after write, replace prior with write as the cell node to read
-                        // Preserve the read value as we do so. CheckCell will re-evaluate the condition if needed.
-                        awaiter.reads[writeNode] = awaiter.reads.remove(priorCellNode)
-                        writeNode.awaiters += awaiter
-                        priorCellNode.awaiters -= awaiter
-                    } else if (awaiter.next?.let { it.time isCausallyAfter writeNode.time } ?: true) {
-                        // Awaiter is causally before or concurrent with write, since it's not causally after the write.
-                        // If the awaiter has a next causally after the write, or has no next,
-                        // then the awaiter is active when the write happens.
-                        // The condition needs to be re-evaluated in the next task batch after this write.
+                getCellNodes(cell)[writeNode.time] = writeNode
+                // Migrate any readers and awaiters that need it, from prior to write
+                migrateDependentTasks(priorCellNode, writeNode)
+                // Schedule the write node to be checked
+                frontier += CheckCell(writeNode)
 
-                        // If awaiter.next is such an await node, just swap out the read cell node for this cell.
-                        // Otherwise, build such an await node and schedule it to be checked.
-                        val recheckTime = writeNode.time.nextTaskBatch()
-                        if (awaiter.next?.let { it.time == recheckTime } ?: false) {
-                            (awaiter.next as? AwaitNode)?.let { n ->
-                                // Replace n's read of prior with a read of write, preserving the value read.
-                                // CheckCell will re-run the await node if needed.
-                                n.reads[writeNode] = n.reads.remove(priorCellNode)
-                                writeNode.awaiters += n
-                                priorCellNode.awaiters -= n
-                            }
-                            // If awaiter.next is not an AwaitNode, condition was satisfied concurrent with write.
-                            // In this edge case, write is not observed, and condition remains satisfied.
-                            // Nothing to do.
-                        } else {
-                            // The next step of the awaiter was originally after recheckTime, or does not exist.
-                            // Hence, write interrupts the wait that happened before, injecting a new await node.
-                            awaiter.next = AwaitNode(
-                                recheckTime,
-                                awaiter,
-                                awaiter.condition,
-                                continuation = awaiter.continuation,
-                                next = awaiter.next
-                            ).also {
-                                taskNodes += it
-                                frontier += CheckCondition(it)
-                            }
-                        }
-                        // TODO: Write a test case stress-testing dense writes to an awaited cell
-                    }
-                }
-
-                // TODO: Continue re-writing this method, basically just to build a merge node
-                //   and migrate readers/awaiters from writeNode and concurrentTip to merge
-
-                // TODO: Add methods to cell nodes to add/remove/replace next and prior nodes,
-                //   and/or write a helper method to inject a new node before or after a given node.
+                // Deal with any branching that may have happened.
                 when (priorCellNode.next.size) {
                     0 -> {
                         // No additional links need to be changed, we're at the edge of the graph.
                     }
                     1 -> {
                         val adjacentCellNode = priorCellNode.next.single()
-                        if (adjacentCellNode.time isConcurrentWith writeTime) {
+                        if (adjacentCellNode.time isConcurrentWith writeNode.time) {
                             // There's exactly one branch, and it's concurrent with this write node.
                             // Follow the concurrent branch to its tip
                             val concurrentTip = generateSequence(adjacentCellNode) { it.next.singleOrNull() }
-                                .first { it.next.singleOrNull()?.let { it.time isCausallyAfter writeTime } ?: true }
+                                .first { it.next.singleOrNull()?.let { it.time isCausallyAfter writeNode.time } ?: true }
                             // Then build and insert a merge node at the tip of that branch
                             val mergeNode = CellMergeNode(
                                 writeTime.nextCellBatch().copy(branch = 0),
@@ -585,7 +527,6 @@ class KernelIncrementalSimulator(
                                 mutableListOf(),
                             )
                             cellNodes.getValue(cell)[mergeNode.time] = mergeNode
-                            newCellNodes += mergeNode
                             // If the concurrent branch tip has a next node, link that next node to the merge instead
                             // TODO: Is it possible for the concurrent branch tip to have multiple next nodes?
                             //    I think so, in the case of spawning a parallel child task...
@@ -605,8 +546,9 @@ class KernelIncrementalSimulator(
                                     }
                                 }
                             }
-                            // TODO: Think through how readers and awaiters interact with merge nodes...
-                            //  Perhaps when building the merge, we should pull forward any readers and awaiters from any of its merged branches?
+                            // Migrate readers and awaiters from branch tips to the merge node, as needed
+                            migrateDependentTasks(concurrentTip, mergeNode)
+                            migrateDependentTasks(writeNode, mergeNode)
                             // Then, connect both this and the concurrent branch to the merge node
                             concurrentTip.next += mergeNode
                             mergeNode.prior += concurrentTip as CellWriteNode
@@ -646,42 +588,6 @@ class KernelIncrementalSimulator(
                     }
                 }
                 priorCellNode.next += writeNode
-
-                // Add the write node to the global cell map for quick lookups later.
-                getCellNodes(cell)[writeNode.time] = writeNode
-
-                // TODO: Delete everything after this line switching to using CheckCell actions instead of directly scheduling
-
-                // Schedule any reads that were disturbed by this write
-                for (read in priorCellNode.reads) {
-                    if (read.time isCausallyAfter writeNode.time) {
-                        // Our write intercedes between the read and the value it read.
-                        // Presuming this task should now read a different value, it must be re-run.
-                        frontier += RunTask(read)
-                    }
-                }
-
-                for (awaiter in priorCellNode.awaiters) {
-                    awaiter.next?.takeIf { it.time isCausallyAfter writeTime }?.let {
-                        // If the awaiter continues causally after this write, revoke that continuation,
-                        // with an opportunity to merge if the task repeats.
-                        // This will include clearing awaiter.next.
-                        revokeWithMergeOpportunity(it)
-                    }
-                    if (awaiter.next == null) {
-                        // The awaiter is active (it had no next node, or the next node was revoked).
-                        // Build a new await node and schedule it for the next batch, on the awaiter's branch
-                        awaiter.next = AwaitNode(
-                            writeNode.time.nextTaskBatch().copy(branch = awaiter.time.branch),
-                            awaiter,
-                            awaiter.condition,
-                            continuation = awaiter.continuation,
-                        ).also {
-                            frontier += CheckCondition(it)
-                            taskNodes += it
-                        }
-                    }
-                }
 
                 // Having constructed the cell's write node, now construct the next step node for the task.
                 lastTaskStepNode = WriteNode(
@@ -779,6 +685,72 @@ class KernelIncrementalSimulator(
                     frontier += RunTask(it)
                     taskNodes += it
                 }
+            }
+        }
+    }
+
+    /**
+     * Migrate dependent tasks (readers and awaiters) from a cell node to another (write or merge) cell node,
+     * which is being injected immediately after "from".
+     */
+    private fun <T> migrateDependentTasks(from: CellNode<T>, to: CellNode<T>) {
+        val readIterator = from.reads.iterator()
+        while (readIterator.hasNext()) {
+            val read = readIterator.next()
+            if (read.time isCausallyAfter to.time) {
+                // Switch the read over to this cell node
+                to.reads += read
+                read.cell = to
+                readIterator.remove()
+                // Preserve the read value when switching it over;
+                // if the value the reader read disagrees with this write, it'll get re-checked by CheckCell.
+            }
+        }
+
+        val awaiterIterator = from.awaiters.iterator()
+        while (awaiterIterator.hasNext()) {
+            val awaiter = awaiterIterator.next()
+            if (awaiter.time isCausallyAfter to.time) {
+                // If awaiter is after write, replace prior with write as the cell node to read
+                // Preserve the read value as we do so. CheckCell will re-evaluate the condition if needed.
+                awaiter.reads[to] = awaiter.reads.remove(from)
+                to.awaiters += awaiter
+                awaiterIterator.remove()
+            } else if (awaiter.next?.let { it.time isCausallyAfter to.time } ?: true) {
+                // Awaiter is causally before or concurrent with "to", since it's not causally after "to".
+                // If awaiter has a next causally after "to", or has no next,
+                // then the awaiter is active when "to" happens.
+                // The condition needs to be re-evaluated in the next task batch after this write.
+
+                // If awaiter.next is such an await node, just swap out the read cell node for this cell.
+                // Otherwise, build such an await node and schedule it to be checked.
+                val recheckTime = to.time.nextTaskBatch()
+                if (awaiter.next?.let { it.time == recheckTime } ?: false) {
+                    (awaiter.next as? AwaitNode)?.let { n ->
+                        // Replace n's read of prior with a read of write, preserving the value read.
+                        // CheckCell will re-run the await node if needed.
+                        n.reads[to] = n.reads.remove(from)
+                        to.awaiters += n
+                        awaiterIterator.remove()
+                    }
+                    // If awaiter.next is not an AwaitNode, condition was satisfied concurrent with write.
+                    // In this edge case, write is not observed, and condition remains satisfied.
+                    // Nothing to do.
+                } else {
+                    // The next step of the awaiter was originally after recheckTime, or does not exist.
+                    // Hence, write interrupts the wait that happened before, injecting a new await node.
+                    awaiter.next = AwaitNode(
+                        recheckTime,
+                        awaiter,
+                        awaiter.condition,
+                        continuation = awaiter.continuation,
+                        next = awaiter.next
+                    ).also {
+                        taskNodes += it
+                        frontier += CheckCondition(it)
+                    }
+                }
+                // TODO: Write a test case stress-testing dense writes to an awaited cell
             }
         }
     }
