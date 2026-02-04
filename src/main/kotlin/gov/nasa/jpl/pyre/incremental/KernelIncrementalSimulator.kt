@@ -829,29 +829,30 @@ class KernelIncrementalSimulator(
     }
 
     private fun <T> revokeCell(cell: CellNode<T>) {
+        val prior: CellNode<T>
         when (cell) {
             is CellWriteNode -> {
-                checkNotNull(cell.prior) {
+                prior = checkNotNull(cell.prior) {
                     "Cannot revoke initial cell write node!"
                 }
                 for (next in cell.next) {
                     when (next) {
                         is CellWriteNode -> {
-                            next.prior = cell.prior
-                            cell.prior?.next += next
+                            next.prior = prior
+                            prior.next += next
                             frontier += CheckCell(next)
                         }
                         is CellStepNode -> {
-                            next.prior = cell.prior!!
-                            cell.prior?.next += next
+                            next.prior = prior
+                            prior.next += next
                             frontier += CheckCell(next)
                         }
                         is CellMergeNode -> {
                             next.prior -= cell
-                            when (val prior = cell.prior!!) {
+                            when (prior) {
                                 is CellWriteNode -> {
                                     // We're shortening this branch without removing it.
-                                    // Link the write before cell to next, then schedule next to be re-checked.
+                                    // Link prior to next, then schedule next to be re-checked.
                                     next.prior += prior
                                     prior.next += next
                                     frontier += CheckCell(next)
@@ -874,7 +875,7 @@ class KernelIncrementalSimulator(
             }
             is CellStepNode -> TODO("Revoking cell step nodes")
             is CellMergeNode -> {
-                val prior = checkNotNull(cell.prior.singleOrNull()) {
+                prior = checkNotNull(cell.prior.singleOrNull()) {
                     "Internal error! Only single-branch merge nodes can be revoked."
                 }
                 // Disconnect the branch from this merge
@@ -901,14 +902,19 @@ class KernelIncrementalSimulator(
                 }
             }
         }
-        // Regardless of what kind of node we just revoked, any task referring to it is invalid.
-        // Schedule all such tasks to be re-run.
+        // Any reads on the revoked cell node should instead point at the prior cell node.
         cell.reads.forEach {
-            frontier += RunTask(it)
+            it.cell = prior
+            prior.reads += it
         }
+        // Anything awaiting this cell should instead await prior
+        // Preserve the read value when moving this link, to be checked by CheckCell.
         cell.awaiters.forEach {
-            frontier += RunTask(it)
+            it.reads[prior] = it.reads.remove(cell)
+            prior.awaiters += it
         }
+        // Finally, schedule the prior cell node to be re-checked, to check the reads and awaits we just re-assigned.
+        frontier += CheckCell(prior)
     }
 
     private class IncrementalCellImpl<T>(
