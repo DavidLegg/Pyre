@@ -41,7 +41,7 @@ interface SimulationGraph {
     }
 
     sealed interface TaskNode : SGNode {
-        val prior: TaskNode?
+        var prior: TaskNode?
         var next: TaskNode?
     }
 
@@ -74,7 +74,7 @@ interface SimulationGraph {
     /** The first node in a task step, following a root or yielding step. Used to schedule the next task step. */
     class StepBeginNode(
         override val time: SimulationTime,
-        override val prior: TaskNode,
+        override var prior: TaskNode?,
         override var continuation: Task<*>?,
         override var next: TaskNode? = null,
     ) : YieldingStepNode {
@@ -83,7 +83,7 @@ interface SimulationGraph {
 
     class ReadNode(
         override val time: SimulationTime,
-        override val prior: TaskNode,
+        override var prior: TaskNode?,
         var cell: CellNode<*>,
         var value: Any?,
         override var next: TaskNode? = null,
@@ -93,7 +93,7 @@ interface SimulationGraph {
 
     class WriteNode(
         override val time: SimulationTime,
-        override val prior: TaskNode,
+        override var prior: TaskNode?,
         val cell: CellWriteNode<*>,
         override var next: TaskNode? = null,
     ) : NonYieldingStepNode {
@@ -103,7 +103,7 @@ interface SimulationGraph {
     // TODO: Add an interface IncrementalReport which only has (time, content)
     class ReportNode<T>(
         override val time: SimulationTime,
-        override val prior: TaskNode?,
+        override var prior: TaskNode?,
         val content: T,
         override var next: TaskNode? = null,
     ) : NonYieldingStepNode {
@@ -112,7 +112,7 @@ interface SimulationGraph {
 
     class SpawnNode(
         override val time: SimulationTime,
-        override val prior: TaskNode,
+        override var prior: TaskNode?,
         val child: RootTaskNode,
         override var continuation: Task<*>?,
         override var next: TaskNode? = null,
@@ -122,7 +122,7 @@ interface SimulationGraph {
 
     class AwaitNode(
         override val time: SimulationTime,
-        override val prior: TaskNode,
+        override var prior: TaskNode?,
         val condition: Condition,
         val reads: MutableMap<CellNode<*>, Any?> = mutableMapOf(),
         override var continuation: Task<*>?,

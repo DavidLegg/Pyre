@@ -750,6 +750,7 @@ class KernelIncrementalSimulator(
                         continuation = awaiter.continuation,
                         next = awaiter.next
                     ).also {
+                        it.next?.prior = it
                         taskNodes += it
                         frontier += CheckCondition(it)
                     }
