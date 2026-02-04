@@ -532,7 +532,6 @@ class KernelIncrementalSimulator(
                             //    I think so, in the case of spawning a parallel child task...
                             //    Reproduce this situation in a test.
                             concurrentTip.next.forEach { afterWrite ->
-                                concurrentTip.next -= afterWrite
                                 mergeNode.next += afterWrite
                                 when (afterWrite) {
                                     is CellMergeNode<V> -> check (false) {
@@ -550,6 +549,7 @@ class KernelIncrementalSimulator(
                             migrateDependentTasks(concurrentTip, mergeNode)
                             migrateDependentTasks(writeNode, mergeNode)
                             // Then, connect both this and the concurrent branch to the merge node
+                            concurrentTip.next.clear()
                             concurrentTip.next += mergeNode
                             mergeNode.prior += concurrentTip as CellWriteNode
                             writeNode.next += mergeNode
@@ -724,7 +724,7 @@ class KernelIncrementalSimulator(
 
                 // If awaiter.next is such an await node, just swap out the read cell node for this cell.
                 // Otherwise, build such an await node and schedule it to be checked.
-                val recheckTime = to.time.nextTaskBatch()
+                val recheckTime = to.time.nextTaskBatch().copy(branch = awaiter.time.branch)
                 if (awaiter.next?.let { it.time == recheckTime } ?: false) {
                     (awaiter.next as? AwaitNode)?.let { n ->
                         // Replace n's read of prior with a read of write, preserving the value read.
