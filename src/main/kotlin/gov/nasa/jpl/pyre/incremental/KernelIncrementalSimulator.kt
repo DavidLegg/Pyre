@@ -707,15 +707,14 @@ class KernelIncrementalSimulator(
             }
         }
 
-        val awaiterIterator = from.awaiters.iterator()
-        while (awaiterIterator.hasNext()) {
-            val awaiter = awaiterIterator.next()
+        // Make a shallow copy of from.awaiters to iterate over, because we may remove more than just the current iterated element
+        for (awaiter in from.awaiters.toList()) {
             if (awaiter.time isCausallyAfter to.time) {
                 // If awaiter is after write, replace prior with write as the cell node to read
                 // Preserve the read value as we do so. CheckCell will re-evaluate the condition if needed.
                 awaiter.reads[to] = awaiter.reads.remove(from)
+                from.awaiters -= awaiter
                 to.awaiters += awaiter
-                awaiterIterator.remove()
             } else if (awaiter.next?.let { it.time isCausallyAfter to.time } ?: true) {
                 // Awaiter is causally before or concurrent with "to", since it's not causally after "to".
                 // If awaiter has a next causally after "to", or has no next,
@@ -730,8 +729,8 @@ class KernelIncrementalSimulator(
                         // Replace n's read of prior with a read of write, preserving the value read.
                         // CheckCell will re-run the await node if needed.
                         n.reads[to] = n.reads.remove(from)
+                        from.awaiters -= n
                         to.awaiters += n
-                        awaiterIterator.remove()
                     }
                     // If awaiter.next is not an AwaitNode, condition was satisfied concurrent with write.
                     // In this edge case, write is not observed, and condition remains satisfied.
