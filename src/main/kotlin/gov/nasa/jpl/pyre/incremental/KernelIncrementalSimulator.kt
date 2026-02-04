@@ -257,6 +257,11 @@ class KernelIncrementalSimulator(
                                     // Awaiting once can produce multiple Await nodes, as the condition is re-checked.
                                     // Skip all of them.
                                     while (next is AwaitNode) next = next?.next
+                                    // Then skip the begin node that follows an await-chain
+                                    check(next is StepBeginNode) {
+                                        "Internal error! Await-chain not followed by Begin node"
+                                    }
+                                    next = next?.next
                                     nextTask = stepResult.continuation
                                 }
 
