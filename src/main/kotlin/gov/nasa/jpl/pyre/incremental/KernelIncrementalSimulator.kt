@@ -20,6 +20,7 @@ import gov.nasa.jpl.pyre.utilities.identity
 import java.io.File
 import java.util.PriorityQueue
 import java.util.TreeMap
+import java.util.TreeSet
 import kotlin.collections.plusAssign
 import kotlin.reflect.KType
 import kotlin.time.Instant
@@ -43,11 +44,22 @@ class KernelIncrementalSimulator(
     // TODO: Find a way to prevent taskBranch from growing indefinitely as tasks are added and removed
     /** The permanently-assigned branch number for each task. */
     private val taskBranch: MutableMap<Task<*>, Int> = mutableMapOf()
-    // TODO: We may want to de-duplicate frontier actions, and/or sort them by type
-    //   Using a TreeSet with a "thenBy" that gets an integer sorting key for action type might accomplish this...
-    //   I should prove that before I make the code change, though.
     /** The work list of actions to resolve the DAG. */
-    private val frontier: PriorityQueue<FrontierAction> = PriorityQueue(compareBy { it.time })
+    private val frontier: TreeSet<FrontierAction> = TreeSet(
+            // Primarily sort frontier actions by time, as incremental re-work is most efficient when done in time order.
+        compareBy<FrontierAction>(FrontierAction::time)
+            // Secondarily assign an arbitrary "priority" to each kind of action, to allow multiple (different) actions on a single node,
+            // while de-duplicating instances of the same action on the same node.
+            .thenBy {
+                when (it) {
+                    is CheckCell -> 1
+                    is CheckCondition -> 2
+                    is StartTask -> 3
+                    is RunTask -> 4
+                    is RevokeMergeOpportunity -> 5
+                }
+            })
+
     /** Root task nodes corresponding to activities in the plan, recorded to facilitate revoking tasks. */
     private val planTaskNodes: MutableMap<KernelActivity, RootTaskNode> = mutableMapOf()
     /** Root nodes with which we may merge restart requests, rather than re-running. */
@@ -77,7 +89,10 @@ class KernelIncrementalSimulator(
 
     init {
         // Init happens before any tasks, at plan start.
-        val cellAllocTime = SimulationTime(planStart, batch = -1)
+        var cellAllocTime = SimulationTime(planStart).cellSteppingBatch()
+        // Put initial reports on a different branch from cell allocation.
+        // This shouldn't be strictly necessary, but it makes debugging easier by giving everything a unique time.
+        val firstReportTime = cellAllocTime.copy(branch = 1)
         var startTime = cellAllocTime.nextTaskBatch()
         var lastReport: ReportNode<*>? = null
 
@@ -93,6 +108,8 @@ class KernelIncrementalSimulator(
                 IncrementalCellImpl(name, valueType, stepBy, mergeConcurrentEffects).also {
                     cellNodes[it] = TreeMap<SimulationTime, CellNode<*>>().apply {
                         put(cellAllocTime, CellWriteNode(cellAllocTime, it, value, null, identity()))
+                        // Advance the cell allocation time so that each initial cell write node has a unique time
+                        cellAllocTime = cellAllocTime.nextStep()
                     }
                 }
 
@@ -111,7 +128,7 @@ class KernelIncrementalSimulator(
             }
 
             override fun <T> report(value: T) {
-                lastReport = ReportNode(lastReport?.time?.nextStep() ?: cellAllocTime.nextStep(), lastReport, value).also { lastReport?.next = it }
+                lastReport = ReportNode(lastReport?.time?.nextStep() ?: firstReportTime, lastReport, value).also { lastReport?.next = it }
                 reportHandler.report(lastReport)
             }
         }
@@ -155,7 +172,7 @@ class KernelIncrementalSimulator(
         while (true) {
             // DEBUG
             dumpDotToFile(DebugLevel.MAJOR, frontier.firstOrNull()?.node)
-            when (val action = frontier.poll() ?: break) {
+            when (val action = frontier.pollFirst() ?: break) {
                 is StartTask -> {
                     // Start the job in the next step. Roots are already assigned to their own branches.
                     action.node.next = StepBeginNode(
