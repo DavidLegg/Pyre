@@ -37,6 +37,7 @@ interface SimulationGraph {
     }
 
     sealed interface SGNode {
+        val serialId: Int
         val time: SimulationTime
     }
 
@@ -62,6 +63,7 @@ interface SimulationGraph {
 
     /** The root task, from which a task can be restarted or replayed. */
     class RootTaskNode(
+        override val serialId: Int,
         override val time: SimulationTime,
         val task: Task<*>,
         // prior is mutable so that spawn nodes can link them after making them
@@ -73,6 +75,7 @@ interface SimulationGraph {
 
     /** The first node in a task step, following a root or yielding step. Used to schedule the next task step. */
     class StepBeginNode(
+        override val serialId: Int,
         override val time: SimulationTime,
         override var prior: TaskNode?,
         override var continuation: Task<*>?,
@@ -82,6 +85,7 @@ interface SimulationGraph {
     }
 
     class ReadNode(
+        override val serialId: Int,
         override val time: SimulationTime,
         override var prior: TaskNode?,
         var cell: CellNode<*>,
@@ -92,6 +96,7 @@ interface SimulationGraph {
     }
 
     class WriteNode(
+        override val serialId: Int,
         override val time: SimulationTime,
         override var prior: TaskNode?,
         val cell: CellWriteNode<*>,
@@ -102,6 +107,7 @@ interface SimulationGraph {
 
     // TODO: Add an interface IncrementalReport which only has (time, content)
     class ReportNode<T>(
+        override val serialId: Int,
         override val time: SimulationTime,
         override var prior: TaskNode?,
         val content: T,
@@ -111,6 +117,7 @@ interface SimulationGraph {
     }
 
     class SpawnNode(
+        override val serialId: Int,
         override val time: SimulationTime,
         override var prior: TaskNode?,
         val child: RootTaskNode,
@@ -121,6 +128,7 @@ interface SimulationGraph {
     }
 
     class AwaitNode(
+        override val serialId: Int,
         override val time: SimulationTime,
         override var prior: TaskNode?,
         val condition: Condition,
@@ -140,6 +148,7 @@ interface SimulationGraph {
     }
 
     class CellWriteNode<T>(
+        override val serialId: Int,
         override val time: SimulationTime,
         override val cell: Cell<T>,
         override var value: T,
@@ -155,6 +164,7 @@ interface SimulationGraph {
     }
 
     class CellMergeNode<T>(
+        override val serialId: Int,
         override val time: SimulationTime,
         override val cell: Cell<T>,
         override var value: T,
@@ -168,6 +178,7 @@ interface SimulationGraph {
     }
 
     class CellStepNode<T>(
+        override val serialId: Int,
         override val time: SimulationTime,
         override val cell: Cell<T>,
         override var value: T,
