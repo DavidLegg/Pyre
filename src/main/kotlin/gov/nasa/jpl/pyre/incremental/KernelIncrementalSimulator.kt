@@ -838,7 +838,11 @@ class KernelIncrementalSimulator(
     }
 
     private fun <T> revokeCell(cell: CellNode<T>) {
+        // Remove the cell node from cellNodes
         getCellNodes(cell.cell) -= cell.time
+        // Remove any pending actions related to this node
+        frontier -= CheckCell(cell)
+        // Repair the DAG, connecting nodes before and after this cell node
         val prior: CellNode<T>
         when (cell) {
             is CellWriteNode -> {
@@ -919,6 +923,7 @@ class KernelIncrementalSimulator(
         // Anything awaiting this cell should instead await prior
         // Preserve the read value when moving this link, to be checked by CheckCell.
         cell.awaiters.forEach {
+            // TODO: When could we remove an await node, rather than just re-assign it?
             it.reads[prior] = it.reads.remove(cell)
             prior.awaiters += it
         }
