@@ -187,13 +187,22 @@ class KernelIncrementalSimulator(
 
                     // Revoke the rest of this task, up to any repeat.
                     // If it repeats, add that repeat as a merge opportunity.
-                    revokeWithMergeOpportunity(action.node)
-                    val prior = checkNotNull(action.node.prior) {
-                        "Internal error! Cannot rerun the first node in a task chain."
+                    val continueFrom: TaskNode
+                    if (action.node is StepBeginNode) {
+                        // StepBeginNodes are placed to indicate the end of a prior step, like an await, that "occupies time".
+                        // The task did not take an action at this time, it completed an action at a prior time.
+                        // They should not be revoked; doing so would require re-doing the prior step, which wasn't requested.
+                        action.node.next?.let { revokeWithMergeOpportunity(it) }
+                        continueFrom = action.node
+                    } else {
+                        revokeWithMergeOpportunity(action.node)
+                        continueFrom = checkNotNull(action.node.prior) {
+                            "Internal error! Cannot rerun the first node in a task chain."
+                        }
                     }
                     // Find the root node from which to replay this task
-                    val root = generateSequence(prior) { it.prior }.first { it is RootTaskNode } as RootTaskNode
-                    prior.continueWith { realActions ->
+                    val root = generateSequence(continueFrom) { it.prior }.first { it is RootTaskNode } as RootTaskNode
+                    continueFrom.continueWith { realActions ->
                         // We replay the task by continuing from prior, but with a more complex continuation function.
                         // That continuation function will intercept all actions taken by the task,
                         // matching them to the task nodes from root through prior.
@@ -829,12 +838,14 @@ class KernelIncrementalSimulator(
     }
 
     private fun <T> revokeCell(cell: CellNode<T>) {
+        getCellNodes(cell.cell) -= cell.time
         val prior: CellNode<T>
         when (cell) {
             is CellWriteNode -> {
                 prior = checkNotNull(cell.prior) {
                     "Cannot revoke initial cell write node!"
                 }
+                prior.next -= cell
                 for (next in cell.next) {
                     when (next) {
                         is CellWriteNode -> {
@@ -849,23 +860,21 @@ class KernelIncrementalSimulator(
                         }
                         is CellMergeNode -> {
                             next.prior -= cell
-                            when (prior) {
-                                is CellWriteNode -> {
+                            when {
+                                prior.time sameBranchAs cell.time -> {
                                     // We're shortening this branch without removing it.
                                     // Link prior to next, then schedule next to be re-checked.
-                                    next.prior += prior
+                                    next.prior += prior as CellWriteNode
                                     prior.next += next
                                     frontier += CheckCell(next)
                                 }
-                                is CellStepNode, is CellMergeNode -> {
-                                    // We've completely removed a branch.
-                                    if (next.prior.size <= 1) {
-                                        // If we removed the second-to-last branch, revoke the merge itself too.
-                                        revokeCell(next)
-                                    } else {
-                                        // Otherwise, schedule the merge to be re-checked
-                                        frontier += CheckCell(next)
-                                    }
+                                next.prior.size <= 1 -> {
+                                    // We've removed the second-to-last branch, revoke the merge itself too.
+                                    revokeCell(next)
+                                }
+                                else -> {
+                                    // We removed a branch, leaving at least two branches. Keep the merge.
+                                    frontier += CheckCell(next)
                                 }
                             }
                         }
