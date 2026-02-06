@@ -71,7 +71,7 @@ class KernelIncrementalSimulator(
     private val rootMergeOpportunities: MutableMap<Task<*>, RootTaskNode> = mutableMapOf()
 
     private enum class DebugLevel { NONE, MAJOR, MINOR, ALL }
-    private val DEBUG = DebugLevel.ALL
+    private val DEBUG = DebugLevel.NONE
     private var debugMajorStep = 0
     private var debugMinorStep = 0
     private fun dumpDotToFile(debugLevel: DebugLevel, highlightNode: SGNode?, checkIntegrity: Boolean = true) {
