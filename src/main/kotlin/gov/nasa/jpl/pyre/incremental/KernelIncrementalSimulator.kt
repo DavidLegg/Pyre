@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator.FrontierAction.*
-import gov.nasa.jpl.pyre.incremental.SimulationGraph.*
+import gov.nasa.jpl.pyre.incremental.SGNode.*
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Duration
@@ -10,7 +10,6 @@ import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.ReadActions
-import gov.nasa.jpl.pyre.kernel.ReportHandler
 import gov.nasa.jpl.pyre.kernel.SatisfiedAt
 import gov.nasa.jpl.pyre.kernel.Task
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
@@ -1254,13 +1253,4 @@ class KernelIncrementalSimulator(
         graphBuilder.append("}\n")
         return graphBuilder.toString()
     }
-}
-
-/**
- * A generalization of [ReportHandler] which allows the simulator to revoke a report it issued previously,
- * in response to incremental changes to the simulation.
- */
-interface IncrementalReportHandler {
-    fun report(report: ReportNode<*>)
-    fun revoke(report: ReportNode<*>)
 }

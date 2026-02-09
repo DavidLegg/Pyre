@@ -5,41 +5,11 @@ import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Task
-import java.util.TreeSet
-import kotlin.time.Instant
 
-interface SimulationGraph {
-    // Time within the simulator is primarily the Instant at which a task runs.
-    // Within a single instant, there's a series of job batches.
-    // All the jobs in a batch run in parallel.
-    // The ordering of steps between two parallel jobs is meaningless, but we can impose an arbitrary order for sorting purposes.
-    // Finally, within a job, there are a series of steps.
-    // When doing incremental re-simulation, steps in a branch may be added and removed, but they cannot be re-ordered.
-    // Because of this, steps are recorded implicitly using "prior" links
-    // For efficiency (but not correctness!) prior links of a SimulationTime should only be set within a branch.
-    data class SimulationTime(
-        val instant: Instant,
-        val batch: Int = 0,
-        val branch: Int = 0,
-        var step: Int = 0,
-    ) : Comparable<SimulationTime> {
-        override fun compareTo(other: SimulationTime): Int {
-            if (this === other) return 0
+sealed interface SGNode {
+    val serialId: Int
+    val time: SimulationTime
 
-            var n = instant.compareTo(other.instant)
-            if (n == 0) n = batch.compareTo(other.batch)
-            if (n == 0) n = branch.compareTo(other.branch)
-            if (n == 0) n = step.compareTo(other.step)
-            return n
-        }
-
-        override fun toString(): String = "$instant::$batch/$branch/$step"
-    }
-
-    sealed interface SGNode {
-        val serialId: Int
-        val time: SimulationTime
-    }
 
     sealed interface TaskNode : SGNode {
         var prior: TaskNode?
