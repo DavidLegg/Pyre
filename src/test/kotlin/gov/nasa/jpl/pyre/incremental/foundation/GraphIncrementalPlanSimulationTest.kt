@@ -4,6 +4,7 @@ import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.emit
@@ -11,8 +12,10 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperation
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableIntResource
 import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.resources.set
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
@@ -26,7 +29,13 @@ import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.isNot
 import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.pop
 import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.push
 import gov.nasa.jpl.pyre.general.resources.discrete.MutableListResource
+import gov.nasa.jpl.pyre.general.resources.polynomial.MutablePolynomialResource
+import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial.Companion.polynomial
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.clampedIntegral
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.constant
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.polynomialResource
 import gov.nasa.jpl.pyre.incremental.GraphIncrementalPlanSimulation
@@ -182,6 +191,18 @@ class GraphIncrementalPlanSimulationTest {
     }
 
     @Test
+    fun `initial plan provoking nontrivial dynamics`() {
+        test(
+            SetIntegrand(1.0) at 5 * MINUTE,
+            SetIntegrand(0.0) at 6 * MINUTE,
+            SetIntegrand(1.0) at 10 * MINUTE,
+            SetIntegrand(0.0) at 15 * MINUTE,
+            SetIntegrand(-1.0) at 20 * MINUTE,
+            SetIntegrand(0.0) at 25 * MINUTE,
+        )
+    }
+
+    @Test
     fun `adding single effect activities`() {
         test().add(
             SetStandaloneCounter(1) at 5 * MINUTE,
@@ -232,6 +253,19 @@ class GraphIncrementalPlanSimulationTest {
     }
 
     @Test
+    fun `adding activities to provoke nontrivial dynamics`() {
+        test(
+            SetIntegrand(1.0) at 5 * MINUTE,
+            SetIntegrand(0.0) at 6 * MINUTE,
+            SetIntegrand(-1.0) at 20 * MINUTE,
+            SetIntegrand(0.0) at 25 * MINUTE,
+        ).add(
+            SetIntegrand(1.0) at 10 * MINUTE,
+            SetIntegrand(0.0) at 15 * MINUTE,
+        )
+    }
+
+    @Test
     fun `removing single effect activities`() {
         val a1 = SetStandaloneCounter(1) at 5 * MINUTE
         val a2 = SetStandaloneCounter(2) at 10 * MINUTE
@@ -257,12 +291,23 @@ class GraphIncrementalPlanSimulationTest {
 
     @Test
     fun `removing concurrent activities`() {
-        val a1 = IncrementStandaloneCounter(1) at 5 * MINUTE;
-        val a2 = IncrementStandaloneCounter(2) at 5 * MINUTE;
-        val a3 = SetStandaloneCounter(0) at 10 * MINUTE;
-        val a4 = IncrementStandaloneCounter(10) at 20 * MINUTE;
-        val a5 = IncrementStandaloneCounter(20) at 20 * MINUTE;
+        val a1 = IncrementStandaloneCounter(1) at 5 * MINUTE
+        val a2 = IncrementStandaloneCounter(2) at 5 * MINUTE
+        val a3 = SetStandaloneCounter(0) at 10 * MINUTE
+        val a4 = IncrementStandaloneCounter(10) at 20 * MINUTE
+        val a5 = IncrementStandaloneCounter(20) at 20 * MINUTE
         test(a1, a2, a3, a4, a5).remove(a2, a4, a5)
+    }
+
+    @Test
+    fun `removing activities which provoke nontrivial dynamics`() {
+        val a1 = SetIntegrand(1.0) at 5 * MINUTE
+        val a2 = SetIntegrand(0.0) at 6 * MINUTE
+        val a3 = SetIntegrand(1.0) at 10 * MINUTE
+        val a4 = SetIntegrand(0.0) at 15 * MINUTE
+        val a5 = SetIntegrand(-1.0) at 20 * MINUTE
+        val a6 = SetIntegrand(0.0) at 25 * MINUTE
+        test(a1, a2, a3, a4, a5, a6).remove(a3, a4)
     }
 
     @Test
@@ -303,6 +348,20 @@ class GraphIncrementalPlanSimulationTest {
     }
 
     @Test
+    fun `editing activities which provoke nontrivial dynamics`() {
+        val a1 = SetIntegrand(1.0) at 5 * MINUTE
+        val a2 = SetIntegrand(0.0) at 6 * MINUTE
+        val a3 = SetIntegrand(1.0) at 10 * MINUTE
+        val a4 = SetIntegrand(0.0) at 15 * MINUTE
+        val a5 = SetIntegrand(-1.0) at 20 * MINUTE
+        val a6 = SetIntegrand(0.0) at 25 * MINUTE
+        test(a1, a2, a3, a4, a5, a6).edit(
+            a3 to SetIntegrand(-0.1),
+            a4 to SetIntegrand(0.1),
+        )
+    }
+
+    @Test
     fun `moving single effect activities`() {
         val a1 = SetStandaloneCounter(1) at 5 * MINUTE
         val a2 = SetStandaloneCounter(2) at 10 * MINUTE
@@ -336,6 +395,20 @@ class GraphIncrementalPlanSimulationTest {
         test(a1, a2, a3, a4, a5).move(
             a2 to 7 * MINUTE,
             a4 to 20 * MINUTE,
+        )
+    }
+
+    @Test
+    fun `moving activities which provoke nontrivial dynamics`() {
+        val a1 = SetIntegrand(1.0) at 5 * MINUTE
+        val a2 = SetIntegrand(0.0) at 6 * MINUTE
+        val a3 = SetIntegrand(1.0) at 10 * MINUTE
+        val a4 = SetIntegrand(0.0) at 15 * MINUTE
+        val a5 = SetIntegrand(-1.0) at 20 * MINUTE
+        val a6 = SetIntegrand(0.0) at 25 * MINUTE
+        test(a1, a2, a3, a4, a5, a6).move(
+            a3 to 15 * MINUTE,
+            a4 to 18 * MINUTE,
         )
     }
 
@@ -428,6 +501,10 @@ class TestModel(scope: InitScope) {
     val daemonTaskQueue: MutableListResource<Int>
     val longestCollatzFound: MutableDiscreteResource<Pair<Int, Int>>
 
+    // A resource that uses nontrivial dynamics, to demand that cell stepping works properly.
+    val integrand: MutableDoubleResource
+    val integral: PolynomialResource
+
     init {
         context(scope) {
             standaloneCounter = discreteResource("standaloneCounter", 0).registered()
@@ -461,6 +538,14 @@ class TestModel(scope: InitScope) {
                     )
                 })
             })
+
+            integrand = discreteResource("integrand", 0.0).registered()
+            integral = integrand.asPolynomial().clampedIntegral(
+                "integral",
+                constant(0.0),
+                constant(100.0),
+                0.0
+            ).integral.registered()
         }
     }
 
@@ -489,6 +574,13 @@ class TestModel(scope: InitScope) {
         context(scope: TaskScope)
         override suspend fun effectModel(model: TestModel) {
             model.daemonTaskQueue.push(seed)
+        }
+    }
+
+    class SetIntegrand(val number: Double) : Activity<TestModel> {
+        context(scope: TaskScope)
+        override suspend fun effectModel(model: TestModel) {
+            model.integrand.set(number)
         }
     }
 }
