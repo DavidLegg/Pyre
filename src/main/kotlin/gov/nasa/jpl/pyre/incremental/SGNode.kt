@@ -153,7 +153,6 @@ sealed interface SGNode {
         override val cell: Cell<T>,
         override var value: T,
         var prior: CellNode<T>,
-        val step: Duration,
         override val next: MutableList<CellNode<T>> = mutableListOf(),
         override val reads: MutableSet<ReadNode> = mutableSetOf(),
         override val awaiters: MutableSet<AwaitNode> = mutableSetOf(),

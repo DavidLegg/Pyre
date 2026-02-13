@@ -26,7 +26,10 @@ object ActivityActions {
         // The default serialization drops this extra detail.
         @Transient
         val activity: Activity<*>? = null,
-    )
+    ) {
+        override fun toString(): String =
+            "ActivityEvent(name='$name', type='$type', start=$start, end=$end, activity=${if (activity == null) "null" else "not null"})"
+    }
 
     context (scope: TaskScope)
     suspend fun <M> call(activity: FloatingActivity<M>, model: M) {

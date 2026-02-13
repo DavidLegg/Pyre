@@ -456,7 +456,7 @@ class KernelIncrementalSimulator(
             }
             is CellStepNode<T> -> {
                 // Apply the step duration to the prior cell value.
-                node.cell.stepBy(node.prior.value, node.step)
+                node.cell.stepBy(node.prior.value, (node.prior.time.instant - node.time.instant).toPyreDuration())
             }
             is CellWriteNode<T> -> {
                 // Apply the effect to the prior cell value.
@@ -1001,7 +1001,6 @@ class KernelIncrementalSimulator(
                 cell,
                 cell.stepBy(cellNode.value, stepSize),
                 cellNode,
-                stepSize,
                 cellNode.next.toMutableList(),
                 // Leave the reads as-is, they happen before the stepping
             )
