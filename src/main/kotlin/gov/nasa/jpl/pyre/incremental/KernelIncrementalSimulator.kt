@@ -342,7 +342,12 @@ class KernelIncrementalSimulator(
                 }
 
                 is CheckCondition -> {
+                    // Clear any read edges from a prior check
+                    for (read in action.node.reads.keys) {
+                        read.awaiters -= action.node
+                    }
                     action.node.reads.clear()
+                    // Then set up a ReadActions to record the new read edges
                     val readActions = object : ReadActions {
                         override fun <V> read(cell: Cell<V>): V {
                             // Get the appropriate cell node to read:
@@ -355,7 +360,7 @@ class KernelIncrementalSimulator(
                         }
                     }
                     // Schedule the next evaluation or the continuation, as appropriate
-                    var result = action.node.condition(readActions)
+                    val result = action.node.condition(readActions)
                     var resultTime = result.time?.let {
                         if (it > ZERO) {
                             SimulationTime(
