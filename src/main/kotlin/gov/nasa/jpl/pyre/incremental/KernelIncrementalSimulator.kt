@@ -760,53 +760,9 @@ class KernelIncrementalSimulator(
             }
         }
 
-        // Make a shallow copy of from.awaiters to iterate over, because we may remove more than just the current iterated element
-        for (awaiter in from.awaiters.toList()) {
-            if (awaiter.time isCausallyAfter to.time) {
-                // If awaiter is after write, replace prior with write as the cell node to read
-                // Preserve the read value as we do so. CheckCell will re-evaluate the condition if needed.
-                awaiter.reads[to] = awaiter.reads.remove(from)
-                from.awaiters -= awaiter
-                to.awaiters += awaiter
-            } else if (awaiter.next?.let { it.time isCausallyAfter to.time } ?: true) {
-                // Awaiter is causally before or concurrent with "to", since it's not causally after "to".
-                // If awaiter has a next causally after "to", or has no next,
-                // then the awaiter is active when "to" happens.
-                // The condition needs to be re-evaluated in the next task batch after this write.
-
-                // If awaiter.next is such an await node, just swap out the read cell node for this cell.
-                // Otherwise, build such an await node and schedule it to be checked.
-                val recheckTime = to.time.nextTaskBatch().copy(branch = awaiter.time.branch)
-                if (awaiter.next?.let { it.time == recheckTime } ?: false) {
-                    (awaiter.next as? AwaitNode)?.let { n ->
-                        // Replace n's read of prior with a read of write, preserving the value read.
-                        // CheckCell will re-run the await node if needed.
-                        n.reads[to] = n.reads.remove(from)
-                        from.awaiters -= n
-                        to.awaiters += n
-                    }
-                    // If awaiter.next is not an AwaitNode, condition was satisfied concurrent with write.
-                    // In this edge case, write is not observed, and condition remains satisfied.
-                    // Nothing to do.
-                } else {
-                    // The next step of the awaiter was originally after recheckTime, or does not exist.
-                    // Hence, write interrupts the wait that happened before, injecting a new await node.
-                    awaiter.next = AwaitNode(
-                        nextNodeId++,
-                        recheckTime,
-                        awaiter,
-                        awaiter.condition,
-                        continuation = awaiter.continuation,
-                        next = awaiter.next
-                    ).also {
-                        it.next?.prior = it
-                        taskNodes += it
-                        frontier += CheckCondition(it)
-                    }
-                }
-                // TODO: Write a test case stress-testing dense writes to an awaited cell
-            }
-        }
+        // Schedule all the awaiters on the from cell to be re-checked.
+        // TODO: Think through if we can safely *not* check some awaiters
+        from.awaiters.forEach { frontier += CheckCondition(it) }
     }
 
     private fun renumberSteps(task: TaskNode, stepNumber: Int) {
