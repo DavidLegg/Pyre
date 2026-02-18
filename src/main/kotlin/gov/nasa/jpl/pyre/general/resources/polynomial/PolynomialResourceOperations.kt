@@ -23,7 +23,6 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.await
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import gov.nasa.jpl.pyre.kernel.TRUE
 import kotlin.let
 import kotlin.math.max
 import kotlin.math.min
@@ -150,11 +149,7 @@ object PolynomialResourceOperations {
         }
 
         // Run once immediately to get the loop started.
-        var condition = TRUE
         spawn("Compute $name", repeatingTask {
-            // Perform the await at the start of the task, to minimize saved task history
-            await(condition)
-
             // Note we need to call dynamicsChange on each iteration because it depends on the resource's current value,
             // so *don't* factor these out of the loop.
             val someInputChanges = (dynamicsChange(integrand)
@@ -238,8 +233,18 @@ object PolynomialResourceOperations {
             overflow.emit { newOverflowDynamics }
             underflow.emit { newUnderflowDynamics }
 
-            // Update the condition to be awaited next iteration
-            condition = result.data.retryCondition
+            // Await the condition on which to re-calculate the clamped integral
+            await(result.data.rerunCondition)
+            // Note: It's tempting to stuff this condition in a mutable variable outside the task loop
+            //   and `await` it at the top of the task, so the task history is empty in fincons.
+            //   Doing this violates the contract of a repeating task, that every iteration is identical,
+            //   by supplying a different awaited condition to each iteration.
+            //   This causes a minor bug when restoring from incons: the clamped integral is re-calculated, unnecessarily,
+            //   since the condition is initialized to TRUE instead of the real condition.
+            //   Since calculating the clamped integral is an idempotent operation, this could be ignored.
+            //   It causes a major bug in incremental simulation, though. The simulator keeps iterations of the task
+            //   that should have changed or moved, since the await doesn't get re-run with the prior iteration that computed it.
+            // TODO: When I get around to writing a tutorial, include this lesson learned.
         })
 
         return ClampedIntegralResult(integral, overflow, underflow)
@@ -249,7 +254,7 @@ object PolynomialResourceOperations {
         val integral: Polynomial,
         val overflow: Polynomial,
         val underflow: Polynomial,
-        val retryCondition: Condition
+        val rerunCondition: Condition
     )
 
     data class ClampedIntegralResult(
