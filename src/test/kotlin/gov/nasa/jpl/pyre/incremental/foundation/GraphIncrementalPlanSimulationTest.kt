@@ -1,6 +1,8 @@
 package gov.nasa.jpl.pyre.incremental.foundation
 
 import gov.nasa.jpl.pyre.foundation.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
@@ -9,10 +11,12 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperation
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.emit
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.decrement
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableIntResource
+import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
@@ -39,6 +43,8 @@ import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.EPSILON
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.minus
+import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.utilities.named
@@ -196,6 +202,20 @@ class GraphIncrementalPlanSimulationTest {
     }
 
     @Test
+    fun `initial plan with activities that spawn children`() {
+        test(
+            // SpawnChildren reads the counter, so interleave activities to set the counter to interesting values.
+            IncrementStandaloneCounter(1) at 4 * MINUTE,
+            SpawnChildren("A") at 5 * MINUTE,
+            IncrementStandaloneCounter(2) at 9 * MINUTE,
+            SpawnChildren("B") at 10 * MINUTE,
+            IncrementStandaloneCounter(10) at 14 * MINUTE,
+            SpawnChildren("C") at 15 * MINUTE,
+            SpawnChildren("D") at 15 * MINUTE + 3 * SECOND,
+        )
+    }
+
+    @Test
     fun `adding single effect activities`() {
         test().add(
             SetStandaloneCounter(1) at 5 * MINUTE,
@@ -259,6 +279,21 @@ class GraphIncrementalPlanSimulationTest {
     }
 
     @Test
+    fun `adding activities that spawn children`() {
+        test(
+            // SpawnChildren reads the counter, so interleave activities to set the counter to interesting values.
+            IncrementStandaloneCounter(1) at 4 * MINUTE,
+            SpawnChildren("A") at 5 * MINUTE,
+            IncrementStandaloneCounter(10) at 14 * MINUTE,
+            SpawnChildren("C") at 15 * MINUTE,
+            SpawnChildren("D") at 15 * MINUTE + 3 * SECOND,
+        ).add(
+            IncrementStandaloneCounter(2) at 9 * MINUTE,
+            SpawnChildren("B") at 10 * MINUTE,
+        )
+    }
+
+    @Test
     fun `removing single effect activities`() {
         val a1 = SetStandaloneCounter(1) at 5 * MINUTE
         val a2 = SetStandaloneCounter(2) at 10 * MINUTE
@@ -301,6 +336,18 @@ class GraphIncrementalPlanSimulationTest {
         val a5 = SetIntegrand(-1.0) at 20 * MINUTE
         val a6 = SetIntegrand(0.0) at 25 * MINUTE
         test(a1, a2, a3, a4, a5, a6).remove(a3, a4)
+    }
+
+    @Test
+    fun `removing activities that spawn children`() {
+        val a1 = IncrementStandaloneCounter(1) at 4 * MINUTE
+        val a2 = SpawnChildren("A") at 5 * MINUTE
+        val a3 = IncrementStandaloneCounter(2) at 9 * MINUTE
+        val a4 = SpawnChildren("B") at 10 * MINUTE
+        val a5 = IncrementStandaloneCounter(10) at 14 * MINUTE
+        val a6 = SpawnChildren("C") at 15 * MINUTE
+        val a7 = SpawnChildren("D") at 15 * MINUTE + 3 * SECOND
+        test(a1, a2, a3, a4, a5, a6, a7).remove(a3, a4)
     }
 
     @Test
@@ -355,6 +402,21 @@ class GraphIncrementalPlanSimulationTest {
     }
 
     @Test
+    fun `editing activities that spawn children`() {
+        val a1 = IncrementStandaloneCounter(1) at 4 * MINUTE
+        val a2 = SpawnChildren("A") at 5 * MINUTE
+        val a3 = IncrementStandaloneCounter(2) at 9 * MINUTE
+        val a4 = SpawnChildren("B") at 10 * MINUTE
+        val a5 = IncrementStandaloneCounter(10) at 14 * MINUTE
+        val a6 = SpawnChildren("C") at 15 * MINUTE
+        val a7 = SpawnChildren("D") at 15 * MINUTE + 3 * SECOND
+        test(a1, a2, a3, a4, a5, a6, a7).edit(
+            a4 to SpawnChildren("X"),
+            a5 to IncrementStandaloneCounter(4)
+        )
+    }
+
+    @Test
     fun `moving single effect activities`() {
         val a1 = SetStandaloneCounter(1) at 5 * MINUTE
         val a2 = SetStandaloneCounter(2) at 10 * MINUTE
@@ -402,6 +464,21 @@ class GraphIncrementalPlanSimulationTest {
         test(a1, a2, a3, a4, a5, a6).move(
             a3 to 15 * MINUTE,
             a4 to 18 * MINUTE,
+        )
+    }
+
+    @Test
+    fun `moving activities that spawn children`() {
+        val a1 = IncrementStandaloneCounter(1) at 4 * MINUTE
+        val a2 = SpawnChildren("A") at 5 * MINUTE
+        val a3 = IncrementStandaloneCounter(2) at 9 * MINUTE
+        val a4 = SpawnChildren("B") at 10 * MINUTE
+        val a5 = IncrementStandaloneCounter(10) at 14 * MINUTE
+        val a6 = SpawnChildren("C") at 15 * MINUTE
+        val a7 = SpawnChildren("D") at 15 * MINUTE + 3 * SECOND
+        test(a1, a2, a3, a4, a5, a6, a7).move(
+            a2 to 4 * MINUTE + 10 * SECOND,
+            a4 to 15 * MINUTE - 3 * SECOND,
         )
     }
 
@@ -473,8 +550,7 @@ private class IncrementalSimulationTester<M>(
         }
         assertEquals(baseResults.resources.size, testResults.resources.size)
         // Activities:
-        for ((baseActivity, baseEvent) in baseResults.activities) {
-            val testEvent = testResults.activities[baseActivity]
+        for ((baseEvent, testEvent) in baseResults.activities zip testResults.activities) {
             assertEquals(baseEvent, testEvent)
         }
         assertEquals(baseResults.activities.size, testResults.activities.size)
@@ -542,38 +618,58 @@ class TestModel(scope: InitScope) {
         }
     }
 
-    class SetStandaloneCounter(val number: Int) : Activity<TestModel> {
+    // Use data classes for activities so equivalent activities are equal.
+    // This allows us to compare child activities spawned in different simulations.
+
+    data class SetStandaloneCounter(val number: Int) : Activity<TestModel> {
         context(scope: TaskScope)
         override suspend fun effectModel(model: TestModel) {
             model.standaloneCounter.set(number)
         }
     }
 
-    class IncrementStandaloneCounter(val number: Int) : Activity<TestModel> {
+    data class IncrementStandaloneCounter(val number: Int) : Activity<TestModel> {
         context(scope: TaskScope)
         override suspend fun effectModel(model: TestModel) {
             model.standaloneCounter.increment(number)
         }
     }
 
-    class SetDerivationSource(val number: Int) : Activity<TestModel> {
+    data class SetDerivationSource(val number: Int) : Activity<TestModel> {
         context(scope: TaskScope)
         override suspend fun effectModel(model: TestModel) {
             model.derivationSource.set(number)
         }
     }
 
-    class AddJob(val seed: Int) : Activity<TestModel> {
+    data class AddJob(val seed: Int) : Activity<TestModel> {
         context(scope: TaskScope)
         override suspend fun effectModel(model: TestModel) {
             model.daemonTaskQueue.push(seed)
         }
     }
 
-    class SetIntegrand(val number: Double) : Activity<TestModel> {
+    data class SetIntegrand(val number: Double) : Activity<TestModel> {
         context(scope: TaskScope)
         override suspend fun effectModel(model: TestModel) {
             model.integrand.set(number)
+        }
+    }
+
+    data class SpawnChildren(val id: String) : Activity<TestModel> {
+        context(scope: TaskScope)
+        override suspend fun effectModel(model: TestModel) {
+            // Wait for a short delay, so that other activities can interleave with the SpawnChildren call tree.
+            delay(5 * SECOND)
+            // Read and write a resource to inject some interesting dependencies into the graph
+            val counter = model.standaloneCounter.getValue()
+            if (counter > 1) {
+                stdout.report("SpawnChildren($id) - counter = $counter, taking path 1")
+                model.standaloneCounter.decrement()
+                spawn(SpawnChildren("$id.$counter"), model)
+            } else {
+                stdout.report("SpawnChildren($id) - counter = $counter, taking path 2")
+            }
         }
     }
 }
