@@ -18,6 +18,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+
+    testImplementation("org.junit.jupiter:junit-jupiter-params:6.0.3")
 }
 
 tasks.test {

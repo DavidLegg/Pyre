@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.incremental.foundation
 
 import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
@@ -48,11 +48,19 @@ import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.utilities.named
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
+import java.util.stream.IntStream
 import kotlin.math.PI
+import kotlin.random.Random
+import kotlin.random.nextInt
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.DurationUnit
 import kotlin.time.Instant
 
 class GraphIncrementalPlanSimulationTest {
@@ -64,7 +72,11 @@ class GraphIncrementalPlanSimulationTest {
 
     private fun test(
         vararg activities: GroundedActivity<TestModel>
-    ) = IncrementalSimulationTester(::TestModel, Plan(planStart, planEnd, activities.toList()), typeOf<TestModel>())
+    ) = test(activities.toList())
+
+    private fun test(
+        activities: List<GroundedActivity<TestModel>>
+    ) = IncrementalSimulationTester(::TestModel, Plan(planStart, planEnd, activities), typeOf<TestModel>())
 
     @Test
     fun `empty model`() {
@@ -482,13 +494,117 @@ class GraphIncrementalPlanSimulationTest {
         )
     }
 
-    // TODO: Find a way to bulk- / fuzz-test incremental edits.
+    /**
+     * Since incremental sim is complicated, and we have an "oracle" in the form of single-shot simulation,
+     * we can randomly generate plans and plan edits and see if incremental sim works on them.
+     * This is a good way to flush out edge cases we didn't consider above.
+     *
+     * Bugs identified by this test should be reproduced by hand in a dedicated test above,
+     * ideally with as much superfluous detail stripped out as possible.
+     * This prevents regression on unusual edge cases.
+     */
+    @ParameterizedTest
+    @MethodSource("fuzzingSeeds")
+    fun `random plan edits conform to fundamental incremental sim guarantee`(seed: Int) {
+        val rng = Random(seed)
+        val numberOfInitialActivities = Math.pow(10.0, rng.nextDouble(1.0, 3.0)).toInt()
+        val numberOfEdits = Math.pow(10.0, rng.nextDouble(1.0, 3.0)).toInt()
+
+        // Choose an initial plan
+        val activities = mutableListOf<GroundedActivity<TestModel>>()
+        repeat(numberOfInitialActivities) {
+            activities += GroundedActivity(
+                rng.nextInstant(planStart..planEnd),
+                rng.nextActivity())
+        }
+        // Verify the incremental simulator can handle that initial plan
+        val tester = test(activities)
+
+        // For as many edits as we've decided to do...
+        repeat(numberOfEdits) {
+            // Choose a number of activities to edit, up to the entire plan, with a bias towards small edits.
+            val numberOfActivitiesToEdit = Math.exp(rng.nextDouble(0.0, Math.log(activities.size.toDouble()))).toInt()
+            val additions = mutableListOf<GroundedActivity<TestModel>>()
+            val removals = mutableListOf<GroundedActivity<TestModel>>()
+            // Pick random edits to make. If we edit an activity, remove it from activities so it doesn't get edited twice.
+            repeat (numberOfActivitiesToEdit) {
+                when (rng.nextInt(1..4)) {
+                    1 -> {
+                        // Add an activity
+                        val activity = GroundedActivity(
+                            rng.nextInstant(planStart..planEnd),
+                            rng.nextActivity())
+                        additions += activity
+                    }
+                    2 -> {
+                        // Remove an activity
+                        val activity = activities.randomRemove(rng)
+                        removals += activity
+                    }
+                    3 -> {
+                        // Move an activity (by up to 10 minutes)
+                        val activity = activities.randomRemove(rng)
+                        removals += activity
+                        val newActivity = activity.copy(time =
+                            rng.nextInstant(activity.time - 10.minutes..activity.time + 10.minutes)
+                                .coerceIn(planStart..planEnd))
+                    }
+                    4 -> {
+                        // Edit an activity's arguments
+                        val activity = activities.randomRemove(rng)
+                        removals += activity
+                        val newActivity = GroundedActivity(activity.time, activity.activity.randomArgs(rng))
+                        additions += newActivity
+                    }
+                    else -> throw AssertionError("Code path should never run")
+                }
+            }
+            // Now run those randomly-chosen edits, asserting the single-shot and incremental simulators agree
+            tester.run(PlanEdits(additions, removals))
+        }
+    }
+
+    private fun Random.nextInstant(range: ClosedRange<Instant>): Instant =
+        range.start + nextDouble((range.endInclusive - range.start).toDouble(DurationUnit.SECONDS)).seconds
+
+    private fun Random.nextActivity(): Activity<TestModel> =
+        // Choose randomly among the activity types, then choose random arguments for them
+        when (nextInt(1..7)) {
+            1 -> SetStandaloneCounter(0)
+            2 -> IncrementStandaloneCounter(0)
+            3 -> SetDerivationSource(0)
+            4 -> AddJob(0)
+            5 -> SetIntegrand(0.0)
+            6 -> SpawnChildren("")
+            7 -> SpawnChild(SetStandaloneCounter(0))
+            else -> throw AssertionError("Code path should never run")
+        }.randomArgs(this)
+
+    private fun Activity<TestModel>.randomArgs(rng: Random): Activity<TestModel> = when (this) {
+        is SetStandaloneCounter -> copy(number = rng.nextInt(-10..100))
+        is IncrementStandaloneCounter -> copy(number = rng.nextInt(-10..10))
+        is SetDerivationSource -> copy(number = rng.nextInt(-10..10))
+        is AddJob -> copy(seed = rng.nextInt(2..30))
+        is SetIntegrand -> copy(number = rng.nextDouble(-1.0, 1.0))
+        is SpawnChildren -> copy(id = "SC-" + rng.nextInt(1000, 9999))
+        is SpawnChild -> copy(child = rng.nextActivity())
+        else -> throw AssertionError("Code path should never run")
+    }
+
+    private fun <T> MutableList<T>.randomRemove(rng: Random): T =
+        removeAt(rng.nextInt(0..<size))
+
+    companion object {
+        @JvmStatic
+        fun fuzzingSeeds(): IntStream = IntStream.range(0, 10) // TODO: Dial this limit up once fuzz-testing is working
+    }
 
     // Private test-ism to quickly and legibly write out a plan
     private infix fun <M> Activity<M>.at(time: Duration): GroundedActivity<M> =
         GroundedActivity(planStart + time.toKotlinDuration(), this)
 
-    // TODO: Something like this might actually be useful more generally, applied to an incremental simulator.
+    // TODO: Something like this might actually be useful more generally, applied to an incremental simulator / scheduler.
+    //   More generally, incremental sim should be powering a SchedulingSystem-like class with operations like this
     // Private test-ism to quickly and legibly make simple edits to a plan
     private fun <M> IncrementalSimulationTester<M>.add(vararg activities: GroundedActivity<M>) =
         run(PlanEdits(activities.toList(), emptyList()))
@@ -510,6 +626,22 @@ class GraphIncrementalPlanSimulationTest {
         )
 }
 
+/**
+ * The fundamental incremental simulation guarantee is that incrementally simulating edits
+ * yields the same results as single-shot simulating the edited plan.
+ *
+ * Put another way, the following square must commute:
+ * ```
+ *        Plan P   ----------- apply edits E ----------->   Plan P'
+ *          |                                                 |
+ *   simulate (incremental)                         simulate (single-shot)
+ *          |                                                 |
+ *          V                                                 V
+ *       Results R -- incrementally simulate edits E ---> Results R'
+ * ```
+ *
+ * This test class directly checks this guarantee, comparing results from the incremental and single-shot simulators.
+ */
 private class IncrementalSimulationTester<M>(
     constructModel: context (InitScope) () -> M,
     plan: Plan<M>,
@@ -670,6 +802,14 @@ class TestModel(scope: InitScope) {
             } else {
                 stdout.report("SpawnChildren($id) - counter = $counter, taking path 2")
             }
+        }
+    }
+
+    data class SpawnChild(val child: Activity<TestModel>) : Activity<TestModel> {
+        context(scope: TaskScope)
+        override suspend fun effectModel(model: TestModel) {
+            delay(model.standaloneCounter.getValue() * SECOND)
+            call(child, model)
         }
     }
 }
