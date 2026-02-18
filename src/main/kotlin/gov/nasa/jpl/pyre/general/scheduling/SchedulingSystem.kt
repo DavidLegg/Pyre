@@ -13,6 +13,7 @@ import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.decrement
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
@@ -28,6 +29,7 @@ import gov.nasa.jpl.pyre.general.results.ProfileOperations.computeProfile
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toMutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
+import gov.nasa.jpl.pyre.general.results.discrete.IntProfileOperations
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplayScope.Companion.replay
 import gov.nasa.jpl.pyre.general.units.Unit
 import gov.nasa.jpl.pyre.general.units.UnitAware
@@ -129,8 +131,16 @@ class SchedulingSystem<M, C> private constructor(
         addActivity(activity)
         // Do a regular run until the activity begins
         runUntil(activity.time)
+        // Keep track of activity events we don't need to check
+        var numberOfActivitiesSeen = results.activities.size
         // So long as we haven't recorded the end of this activity, keep asking the simulation to step forward.
-        while (results.activities[activity.activity]?.end == null && simulation.time() < Instant.DISTANT_FUTURE) {
+        while (
+            results.activities.takeLast(results.activities.size - numberOfActivitiesSeen)
+                .none { it.activity === activity.activity && it.end != null }
+            // Add a fallback condition to stop if the simulation hits the end of time without completing the activity
+            && simulation.time() < Instant.DISTANT_FUTURE
+        ) {
+            numberOfActivitiesSeen = results.activities.size
             // First, look for any activities we need to inject right now:
             val activitiesToRun = mutableListOf<GroundedActivity<M>>()
             while (futureActivities.peek()?.run { time == simulation.time() } ?: false) {
@@ -146,7 +156,7 @@ class SchedulingSystem<M, C> private constructor(
             simulation.stepTo(nextActivityTime)
         }
         results.endTime = time()
-        return results.activities[activity.activity]?.end ?: Instant.DISTANT_FUTURE
+        return results.activities.last { it.activity === activity.activity }.end ?: Instant.DISTANT_FUTURE
     }
 
     fun addActivity(activity: GroundedActivity<M>) {
@@ -230,11 +240,26 @@ class SchedulingSystem<M, C> private constructor(
                     .asProfile<D>(name, this@SchedulingSystem.time())
                     .asResource()
 
-            // TODO: Refactor this to reduce duplicated code
+            // TODO: Refactor this to reduce duplicated code w/ IntProfileOperations.countActivities
             context(_: InitScope)
             override fun countActivities(predicate: (ActivityEvent) -> Boolean): IntResource {
                 val counter = discreteResource("counted activities", 0)
-                results.activities.values
+                // TODO: Optimize; this is quadratic in number of activities
+                //   This filtering code on start and end events was written quickly when I realized there was a bug in the
+                //   prior way I was representing activity results using a map. It needs to be thought through carefully again.
+                // Remove start events that have a matching end event
+                val startEvents = mutableListOf<ActivityEvent>()
+                val endEvents = mutableListOf<ActivityEvent>()
+                for (event in results.activities) {
+                    if (event.end == null) {
+                        startEvents += event
+                    } else {
+                        endEvents += event
+                        // Remove the corresponding start event from startEvents
+                        startEvents.remove(event.copy(end = null))
+                    }
+                }
+                (startEvents + endEvents)
                     // Restrict to activities that haven't already ended and satisfy the predicate
                     .filter { (it.end?.let { it >= now() } ?: true) && predicate(it) }
                     .forEach {

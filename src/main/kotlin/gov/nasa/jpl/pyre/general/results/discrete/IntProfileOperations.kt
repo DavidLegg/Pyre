@@ -34,22 +34,38 @@ object IntProfileOperations {
     fun SimulationResults.countActivities(predicate: (ActivityEvent) -> Boolean = { true }): IntResource {
         // Run a simulation where we keep track of how many matching activities are running
         val counter = discreteResource("counted activities", 0)
-        activities.values
+        // TODO: Optimize; this is quadratic in number of activities
+        //   This filtering code on start and end events was written quickly when I realized there was a bug in the
+        //   prior way I was representing activity results using a map. It needs to be thought through carefully again.
+        // Remove start events that have a matching end event
+        val startEvents = mutableListOf<ActivityEvent>()
+        val endEvents = mutableListOf<ActivityEvent>()
+        for (event in activities) {
+            if (event.end == null) {
+                startEvents += event
+            } else {
+                endEvents += event
+                // Remove the corresponding start event from startEvents
+                startEvents.remove(event.copy(end = null))
+            }
+        }
+        (startEvents + endEvents)
             // Restrict to activities that haven't already ended and satisfy the predicate
             .filter { (it.end?.let { it >= now() } ?: true) && predicate(it) }
             .forEach {
-            // If the activity satisfies predicate, spawn a task for it
-            spawn(it.name, task {
-                // Increment when the activity starts
-                delayUntil(it.start)
-                counter.increment()
-                if (it.end != null) {
-                    // Decrement when it ends, if it ends
-                    delayUntil(it.end)
-                    counter.decrement()
-                }
-            })
-        }
+                // If the activity satisfies predicate, spawn a task for it
+                spawn(it.name, task {
+                    // Increment when the activity starts
+                    delayUntil(it.start)
+                    counter.increment()
+                    if (it.end != null) {
+                        // Decrement when it ends, if it ends
+                        delayUntil(it.end)
+                        counter.decrement()
+                    }
+                })
+            }
+
         return counter
     }
 

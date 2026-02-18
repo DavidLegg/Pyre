@@ -44,12 +44,15 @@ object SimulationResultsAssertions {
     }
 
     fun SimulationResults.checkActivities(block: ActivityChecker.() -> Unit) {
-        val unmatchedActivities = activities.values.toMutableList()
+        val unmatchedActivities = activities.toMutableList()
         block(object : ActivityChecker {
-            override fun finished(name: String, type: String, start: Instant, end: Instant) =
-                contains(name, type, start, end)
-            override fun unfinished(name: String, type: String, start: Instant) =
+            override fun finished(name: String, type: String, start: Instant, end: Instant) {
                 contains(name, type, start, null)
+                contains(name, type, start, end)
+            }
+            override fun unfinished(name: String, type: String, start: Instant) {
+                contains(name, type, start, null)
+            }
             private fun contains(name: String, type: String, start: Instant, end: Instant?) {
                 val matchingEventIndex = unmatchedActivities.indexOfFirst {
                     it.name == name && it.type == type && it.start == start && it.end == end

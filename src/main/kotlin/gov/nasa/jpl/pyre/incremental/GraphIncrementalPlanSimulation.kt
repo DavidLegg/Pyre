@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.incremental
 
-import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
@@ -48,13 +47,11 @@ class GraphIncrementalPlanSimulation<M>(
         plan.startTime,
         plan.endTime,
         resourceResults.mapValues { (_, inc) -> inc.toResourceResults() },
-        activityResults.mapValues { (_, progress) ->
-            checkNotNull(progress.end ?: progress.start).content.data
-        }
+        activityResults.map { it.content.data }
     )
 
     private val resourceResults: MutableMap<Name, MutableIncrementalResourceResults<*>> = mutableMapOf()
-    private val activityResults: MutableMap<Activity<*>, MutableActivityProgress> = mutableMapOf()
+    private val activityResults: TreeSet<ReportNode<ChannelData<ActivityEvent>>> = TreeSet(compareBy { it.time })
     private val simulationScope: SimulationScope
     private val model: M
     private val kernelSimulation: KernelIncrementalSimulator
@@ -67,38 +64,10 @@ class GraphIncrementalPlanSimulation<M>(
                     @Suppress("UNCHECKED_CAST")
                     object : IncrementalChannelHandler<ActivityEvent> {
                         override fun report(report: ReportNode<ChannelData<ActivityEvent>>) {
-                            // The event coming straight out of the simulator will have a non-null activity.
-                            // It's only when deserializing ActivityEvents that we lose the activity object reference.
-                            // Additionally, ActivityEvents are cumulative - we only want to keep the last one for any given activity.
-                            val progress = activityResults.computeIfAbsent(
-                                requireNotNull(report.content.data.activity)
-                            ) { MutableActivityProgress() }
-                            if (report.content.data.end == null) {
-                                // This is a start event
-                                progress.start = report
-                            } else {
-                                // This is an end event
-                                progress.end = report
-                            }
+                            activityResults += report
                         }
-
                         override fun revoke(report: ReportNode<ChannelData<ActivityEvent>>) {
-                            // The event coming straight out of the simulator will have a non-null activity.
-                            // It's only when deserializing ActivityEvents that we lose the activity object reference.
-                            activityResults.compute(requireNotNull(report.content.data.activity)) { _, progress ->
-                                checkNotNull(progress) {
-                                    "Internal error! Attempted to revoke an activity event with no matching activity entry."
-                                }
-                                // Clear whichever half of the entry was revoked
-                                when (report) {
-                                    progress.start -> progress.copy(start = null)
-                                    progress.end -> progress.copy(end = null)
-                                    else -> throw IllegalArgumentException("Internal error!")
-                                }.takeUnless {
-                                    // Delete the entry entirely if both start and end were revoked.
-                                    it.start == null && it.end == null
-                                }
-                            }
+                            activityResults -= report
                         }
                     } as IncrementalChannelHandler<T>
                 } else {
@@ -108,7 +77,6 @@ class GraphIncrementalPlanSimulation<M>(
                         override fun report(report: ReportNode<ChannelData<T>>) {
                             thisResourceResults.data.add(report)
                         }
-
                         override fun revoke(report: ReportNode<ChannelData<T>>) {
                             thisResourceResults.data.remove(report)
                         }
@@ -218,12 +186,5 @@ class GraphIncrementalPlanSimulation<M>(
         fun toResourceResults(): ResourceResults<T> =
             ResourceResults(metadata, data.map { it.content })
     }
-
-    private data class MutableActivityProgress(
-        // In order to keep the exact incremental report object, we have to store the full activity event for both start and end
-        // This is a bit wasteful, as the end event subsumes the start event by design.
-        var start: ReportNode<ChannelData<ActivityEvent>>? = null,
-        var end: ReportNode<ChannelData<ActivityEvent>>? = null,
-    )
 }
 
