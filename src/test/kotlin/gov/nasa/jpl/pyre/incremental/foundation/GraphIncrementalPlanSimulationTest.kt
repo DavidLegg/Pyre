@@ -4,7 +4,6 @@ import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.emit
@@ -15,7 +14,6 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableIntResource
 import gov.nasa.jpl.pyre.foundation.resources.named
-import gov.nasa.jpl.pyre.foundation.resources.set
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
@@ -23,16 +21,12 @@ import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stdout
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.isNotEmpty
 import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.pop
 import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.push
 import gov.nasa.jpl.pyre.general.resources.discrete.MutableListResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.MutablePolynomialResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial.Companion.polynomial
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.clampedIntegral
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.constant
@@ -51,7 +45,6 @@ import gov.nasa.jpl.pyre.utilities.named
 import kotlin.math.PI
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
