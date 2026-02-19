@@ -617,7 +617,7 @@ class GraphIncrementalPlanSimulationTest {
 
     companion object {
         @JvmStatic
-        fun fuzzingSeeds(): IntStream = IntStream.rangeClosed(1, 10) // TODO: Dial this limit up once fuzz-testing is working
+        fun fuzzingSeeds(): IntStream = IntStream.rangeClosed(1, 100)
     }
 
     // Private test-ism to quickly and legibly write out a plan
@@ -707,7 +707,9 @@ private class IncrementalSimulationTester<M>(
                 // Apply a 1 epsilon tolerance to the timing, because tiny numerical differences can
                 // shift the timing of conditions by an insignificant amount.
                 assert(abs((baselineReport.time - testReport.time).toPyreDuration()) <= EPSILON)
-                assert(dataComparator(baselineReport.data, testReport.data))
+                assert(dataComparator(baselineReport.data, testReport.data)) {
+                    "${baselineResource.metadata.channel} differs at ${baselineReport.time}: ${baselineReport.data} != ${testReport.data}"
+                }
             }
             assertEquals(baselineResource.data.size, testResource.data.size)
         }
