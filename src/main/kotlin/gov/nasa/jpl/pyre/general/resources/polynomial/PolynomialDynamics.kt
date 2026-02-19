@@ -41,6 +41,12 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
     fun degree() = coefficients.size - 1
     fun isConstant() = degree() == 0
     fun isNonFinite() = !coefficients.all(Double::isFinite)
+    /**
+     * Get the raw coefficients.
+     * Note that this copies the coefficients to a list, so is not very performant.
+     * Prefer other query methods where possible.
+     */
+    fun coefficients() = coefficients.toList()
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

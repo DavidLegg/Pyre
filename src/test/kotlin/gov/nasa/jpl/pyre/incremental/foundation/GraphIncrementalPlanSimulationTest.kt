@@ -30,6 +30,7 @@ import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.isNot
 import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.pop
 import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.push
 import gov.nasa.jpl.pyre.general.resources.discrete.MutableListResource
+import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.clampedIntegral
@@ -54,8 +55,10 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.until
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import java.util.Objects
 import java.util.stream.IntStream
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.random.Random
 import kotlin.random.nextInt
 import kotlin.random.nextLong
@@ -65,16 +68,24 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.DurationUnit
 import kotlin.time.Instant
 
 class GraphIncrementalPlanSimulationTest {
     private val planStart = Instant.parse("2025-01-01T00:00:00Z")
     private val planEnd = Instant.parse("2025-01-02T00:00:00Z")
+    private val dataComparators: Map<KType, (Any?, Any?) -> Boolean> = mapOf(
+        // Compare polynomials by coefficients, with a 10^-13 relative tolerance
+        typeOf<Polynomial>() to { p, q ->
+            p as Polynomial
+            q as Polynomial
+            (p.degree() == q.degree()) && (p.coefficients() zip q.coefficients()).all { (c_p, c_q) ->
+                abs(c_p - c_q) / (abs(c_p) + abs(c_q) + Double.MIN_VALUE) < 1e-13
+            }
+        }
+    )
     private inline fun <reified M> test(
         noinline constructModel: context (InitScope) () -> M
-    ) = IncrementalSimulationTester(constructModel, Plan(planStart, planEnd), typeOf<M>())
+    ) = IncrementalSimulationTester(constructModel, Plan(planStart, planEnd), typeOf<M>(), dataComparators)
 
     private fun test(
         vararg activities: GroundedActivity<TestModel>
@@ -82,7 +93,7 @@ class GraphIncrementalPlanSimulationTest {
 
     private fun test(
         activities: List<GroundedActivity<TestModel>>
-    ) = IncrementalSimulationTester(::TestModel, Plan(planStart, planEnd, activities), typeOf<TestModel>())
+    ) = IncrementalSimulationTester(::TestModel, Plan(planStart, planEnd, activities), typeOf<TestModel>(), dataComparators)
 
     @Test
     fun `empty model`() {
@@ -515,6 +526,7 @@ class GraphIncrementalPlanSimulationTest {
         val rng = Random(seed)
         val numberOfInitialActivities = Math.pow(10.0, rng.nextDouble(1.0, 3.0)).toInt()
         val numberOfEdits = Math.pow(10.0, rng.nextDouble(1.0, 3.0)).toInt()
+        println("Running $numberOfInitialActivities activities through $numberOfEdits rounds of edits...")
 
         // Choose an initial plan
         val activities = mutableListOf<GroundedActivity<TestModel>>()
@@ -525,9 +537,11 @@ class GraphIncrementalPlanSimulationTest {
         }
         // Verify the incremental simulator can handle that initial plan
         val tester = test(activities)
+        println("Initial simulation complete")
 
-        // For as many edits as we've decided to do...
-        repeat(numberOfEdits) {
+        // For as many rounds of edits as we've decided to do...
+        for (roundNumber in 1..numberOfEdits) {
+            println("Running round $roundNumber of edits...")
             // Choose a number of activities to edit, up to the entire plan, with a bias towards small edits.
             val numberOfActivitiesToEdit = if (activities.size <= 1) activities.size else
                 Math.exp(rng.nextDouble(0.0, Math.log(activities.size.toDouble()))).toInt()
@@ -653,6 +667,8 @@ private class IncrementalSimulationTester<M>(
     constructModel: context (InitScope) () -> M,
     plan: Plan<M>,
     modelClass: KType,
+    /** Map from data types to a comparator for that type. Used to apply tolerances to account for numerical precision losses. */
+    private val dataComparators: Map<KType, (Any?, Any?) -> Boolean> = mapOf(),
 ) {
     private val baselineSimulation = NonIncrementalPlanSimulation(constructModel, plan, modelClass)
     private val testSimulation = GraphIncrementalPlanSimulation(constructModel, plan, modelClass)
@@ -682,12 +698,16 @@ private class IncrementalSimulationTester<M>(
             assert(resourceName in testResults.resources)
             val testResource = testResults.resources.getValue(resourceName)
             assertEquals(baselineResource.metadata, testResource.metadata)
+            // Look up the "correct" way to compare data of this type
+            // By default, it's just the default equals, but sometimes we need to add a tolerance
+            // to account for numerical precision differences, e.g., when stepping up a polynomial.
+            val dataComparator = dataComparators.getOrDefault(baselineResource.metadata.dataType, Objects::equals)
             for ((baselineReport, testReport) in baselineResource.data zip testResource.data) {
                 assertEquals(baselineReport.channel, testReport.channel)
                 // Apply a 1 epsilon tolerance to the timing, because tiny numerical differences can
                 // shift the timing of conditions by an insignificant amount.
                 assert(abs((baselineReport.time - testReport.time).toPyreDuration()) <= EPSILON)
-                assertEquals(baselineReport.data, testReport.data)
+                assert(dataComparator(baselineReport.data, testReport.data))
             }
             assertEquals(baselineResource.data.size, testResource.data.size)
         }
