@@ -73,7 +73,7 @@ class KernelIncrementalSimulator(
     private val DEBUG = DebugLevel.NONE
     private var debugMajorStep = 0
     private var debugMinorStep = 0
-    private fun dumpDotToFile(debugLevel: DebugLevel, highlightNode: SGNode?, checkIntegrity: Boolean = true) {
+    private fun dumpDotToFile(debugLevel: DebugLevel, highlightNode: SGNode? = null, checkIntegrity: Boolean = true) {
         if (DEBUG >= debugLevel) {
             if (debugLevel <= DebugLevel.MAJOR) {
                 ++debugMajorStep
@@ -82,7 +82,7 @@ class KernelIncrementalSimulator(
                 ++debugMinorStep
             }
 
-            File("/Users/dlegg/Code/Pyre/tmp/tmp" +
+            File("inc-sim-debug/tmp" +
                     debugMajorStep.toString().padStart(4, '0') +
                     "." +
                     debugMinorStep.toString().padStart(4, '0') +
@@ -137,7 +137,7 @@ class KernelIncrementalSimulator(
             }
         }
         val activities = constructPlan(basicInitScope)
-        if (DEBUG >= DebugLevel.MAJOR) File("/Users/dlegg/Code/Pyre/tmp/tmp-init.dot").writeText(dumpDot())
+        dumpDotToFile(DebugLevel.MAJOR)
         run(KernelPlanEdits(additions = activities))
     }
 
@@ -167,9 +167,8 @@ class KernelIncrementalSimulator(
         try {
             resolve()
         } finally {
-            // DEBUG
             // Disable the integrity check on this run, so we can get a final graph even if it's invalid.
-            if (DEBUG >= DebugLevel.MAJOR) File("/Users/dlegg/Code/Pyre/tmp/tmp-final.dot").writeText(dumpDot(checkIntegrity = false))
+            dumpDotToFile(DebugLevel.MAJOR, checkIntegrity = false)
         }
     }
 

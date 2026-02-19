@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+
+from pathlib import Path
+import os
+import sys
+import time
+import re
+
+HERE = Path(__file__).parent
+
+def main():
+    dots = sorted(HERE.glob('*.dot'))
+    for i, dot in enumerate(dots):
+        print(f"Converting {dot} ({i + 1} / {len(dots)})")
+        convert(dot, i, dots[(i + 1) % len(dots)])
+
+def convert(dot, i, next_dot_file):
+    svg = dot.with_suffix('.svg')
+    status = os.system(f"dot -Tsvg '{dot}' -o '{svg}'")
+    if status != 0:
+        raise RuntimeError(f"dot returned status {status}")
+    svg_text = svg.read_text()
+    svg_text = re.sub(
+        r'(<svg[^>]*>)',
+        fr'\1<a href="{next_dot_file.with_suffix(".svg").name}">',
+        svg_text,
+        flags = re.MULTILINE,
+    )
+    svg_text = re.sub(r'(</svg>)', r'</a>\1', svg_text)
+    svg.write_text(svg_text)
+
+
+if __name__ == '__main__':
+    main()
+
