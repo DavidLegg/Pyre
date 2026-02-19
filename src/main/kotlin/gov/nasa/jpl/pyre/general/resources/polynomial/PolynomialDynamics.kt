@@ -48,9 +48,7 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
 
         other as Polynomial
 
-        if (!coefficients.contentEquals(other.coefficients)) return false
-
-        return true
+        return coefficients.contentEquals(other.coefficients)
     }
 
     override fun hashCode(): Int {

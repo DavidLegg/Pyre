@@ -455,8 +455,11 @@ class KernelIncrementalSimulator(
                 netEffect(node.batchStart.value)
             }
             is CellStepNode<T> -> {
-                // Apply the step duration to the prior cell value.
-                node.cell.stepBy(node.prior.value, (node.time.instant - node.prior.time.instant).toPyreDuration())
+                // Stepping many small increments can accrue numerical error in complex dynamics.
+                // Walk back to our first non-step-node ancestor and step from there instead.
+                var baseNode = node.prior
+                while (baseNode is CellStepNode) baseNode = baseNode.prior
+                node.cell.stepBy(baseNode.value, (node.time.instant - baseNode.time.instant).toPyreDuration())
             }
             is CellWriteNode<T> -> {
                 // Apply the effect to the prior cell value.
@@ -949,13 +952,17 @@ class KernelIncrementalSimulator(
         }
         // Now, check if we need to step up this cell node to the requested time
         if (cellNode.time.instant < time.instant) {
-            val stepSize = (time.instant - cellNode.time.instant).toPyreDuration()
+            // Stepping many small increments can accrue numerical error in complex dynamics.
+            // Walk back to our first non-step-node ancestor and step from there instead.
+            var baseNode = cellNode
+            while (baseNode is CellStepNode) baseNode = baseNode.prior
+            val stepSize = (time.instant - baseNode.time.instant).toPyreDuration()
             // Build the new step node
             val stepNode = CellStepNode(
                 nextNodeId++,
                 time.cellSteppingBatch(),
                 cell,
-                cell.stepBy(cellNode.value, stepSize),
+                cell.stepBy(baseNode.value, stepSize),
                 cellNode,
                 cellNode.next.toMutableList(),
                 // Leave the reads as-is, they happen before the stepping

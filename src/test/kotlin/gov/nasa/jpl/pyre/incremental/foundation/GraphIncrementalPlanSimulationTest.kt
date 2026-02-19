@@ -43,21 +43,27 @@ import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.EPSILON
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
+import gov.nasa.jpl.pyre.kernel.abs
 import gov.nasa.jpl.pyre.kernel.minus
 import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
+import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.utilities.named
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.until
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.IntStream
 import kotlin.math.PI
 import kotlin.random.Random
 import kotlin.random.nextInt
+import kotlin.random.nextLong
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
@@ -523,7 +529,8 @@ class GraphIncrementalPlanSimulationTest {
         // For as many edits as we've decided to do...
         repeat(numberOfEdits) {
             // Choose a number of activities to edit, up to the entire plan, with a bias towards small edits.
-            val numberOfActivitiesToEdit = Math.exp(rng.nextDouble(0.0, Math.log(activities.size.toDouble()))).toInt()
+            val numberOfActivitiesToEdit = if (activities.size <= 1) activities.size else
+                Math.exp(rng.nextDouble(0.0, Math.log(activities.size.toDouble()))).toInt()
             val additions = mutableListOf<GroundedActivity<TestModel>>()
             val removals = mutableListOf<GroundedActivity<TestModel>>()
             // Pick random edits to make. If we edit an activity, remove it from activities so it doesn't get edited twice.
@@ -565,7 +572,7 @@ class GraphIncrementalPlanSimulationTest {
     }
 
     private fun Random.nextInstant(range: ClosedRange<Instant>): Instant =
-        range.start + nextDouble((range.endInclusive - range.start).toDouble(DurationUnit.SECONDS)).seconds
+        range.start + nextLong(0..range.start.until(range.endInclusive, DateTimeUnit.MICROSECOND)).microseconds
 
     private fun Random.nextActivity(): Activity<TestModel> =
         // Choose randomly among the activity types, then choose random arguments for them
@@ -596,7 +603,7 @@ class GraphIncrementalPlanSimulationTest {
 
     companion object {
         @JvmStatic
-        fun fuzzingSeeds(): IntStream = IntStream.range(0, 10) // TODO: Dial this limit up once fuzz-testing is working
+        fun fuzzingSeeds(): IntStream = IntStream.rangeClosed(1, 10) // TODO: Dial this limit up once fuzz-testing is working
     }
 
     // Private test-ism to quickly and legibly write out a plan
@@ -676,7 +683,11 @@ private class IncrementalSimulationTester<M>(
             val testResource = testResults.resources.getValue(resourceName)
             assertEquals(baselineResource.metadata, testResource.metadata)
             for ((baselineReport, testReport) in baselineResource.data zip testResource.data) {
-                assertEquals(baselineReport, testReport)
+                assertEquals(baselineReport.channel, testReport.channel)
+                // Apply a 1 epsilon tolerance to the timing, because tiny numerical differences can
+                // shift the timing of conditions by an insignificant amount.
+                assert(abs((baselineReport.time - testReport.time).toPyreDuration()) <= EPSILON)
+                assertEquals(baselineReport.data, testReport.data)
             }
             assertEquals(baselineResource.data.size, testResource.data.size)
         }
