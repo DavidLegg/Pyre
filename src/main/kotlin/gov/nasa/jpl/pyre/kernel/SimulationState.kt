@@ -62,6 +62,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
             valueType,
             stepBy,
             mergeConcurrentEffects,
+            lastWrittenTime = time,
         ).also { cells += it }
 
         override fun <T> read(cell: Cell<T>): T = (cell as CellImpl<T>).value
@@ -134,16 +135,17 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
                 require(stepTime >= time) {
                     "Requested step time $stepTime is earlier than current time $time"
                 }
-                for (cell in cells) {
-                    cell.stepBy(stepTime - time)
-                }
                 time = stepTime
+                cells.forEach { it.stepUp() }
             }
         }
     }
 
-    private fun <T> Cell<T>.stepBy(time: Duration) {
-        (this as CellImpl<T>).value = stepBy(value, time)
+    private fun <T> Cell<T>.stepUp() {
+        (this as CellImpl<T>).value = stepBy(lastWrittenValue, time - lastWrittenTime)
+        // Stepping is *not* writing. Preserve lastWrittenValue and lastWrittenTime
+        // If we step up again without an intervening write, we'll step up from lastWrittenValue.
+        // This avoids accumulating numerical precision errors for complex dynamics when stepping up repeatedly.
     }
 
     private fun runTaskBatch(tasks: MutableSet<Task<*>>) {
@@ -154,6 +156,10 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
         fun <T> Cell<T>.applyTrunkNetEffect() {
             (this as CellImpl<T>).value = trunkNetEffect!!.value ?: trunkNetEffect!!.effect(value)
             trunkNetEffect = null
+            // Record the merged value as the last-written value to step up from later
+            lastWrittenValue = value
+            // No need to update lastWrittenTime - we're merging at least one branch at this time,
+            // those would have set lastWrittenTime already
         }
 
         // Join the tasks' effects by applying the net effect on every modified cell.
@@ -187,6 +193,9 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
                 cell.value = effect(cell.value)
                 // Record the new net effect of this branch, composing with prior effects if present
                 cell.branchNetEffect = cell.branchNetEffect?.andThen(effect) ?: effect
+                // Record that this is the last written value, and when it was written
+                cell.lastWrittenValue = cell.value
+                cell.lastWrittenTime = time
                 // Record that we modified this cell, so we can revert it back to trunk state later
                 cellsModifiedByThisTask += cell
                 // We mark the cell as modified, instead of directly adding listeners, to keep the simulation deterministic.

@@ -73,19 +73,9 @@ import kotlin.time.Instant
 class GraphIncrementalPlanSimulationTest {
     private val planStart = Instant.parse("2025-01-01T00:00:00Z")
     private val planEnd = Instant.parse("2025-01-02T00:00:00Z")
-    private val dataComparators: Map<KType, (Any?, Any?) -> Boolean> = mapOf(
-        // Compare polynomials by coefficients, with a 10^-13 relative tolerance
-        typeOf<Polynomial>() to { p, q ->
-            p as Polynomial
-            q as Polynomial
-            (p.degree() == q.degree()) && (p.coefficients() zip q.coefficients()).all { (c_p, c_q) ->
-                abs(c_p - c_q) / (abs(c_p) + abs(c_q) + Double.MIN_VALUE) < 1e-13
-            }
-        }
-    )
     private inline fun <reified M> test(
         noinline constructModel: context (InitScope) () -> M
-    ) = IncrementalSimulationTester(constructModel, Plan(planStart, planEnd), typeOf<M>(), dataComparators)
+    ) = IncrementalSimulationTester(constructModel, Plan(planStart, planEnd), typeOf<M>())
 
     private fun test(
         vararg activities: GroundedActivity<TestModel>
@@ -93,7 +83,7 @@ class GraphIncrementalPlanSimulationTest {
 
     private fun test(
         activities: List<GroundedActivity<TestModel>>
-    ) = IncrementalSimulationTester(::TestModel, Plan(planStart, planEnd, activities), typeOf<TestModel>(), dataComparators)
+    ) = IncrementalSimulationTester(::TestModel, Plan(planStart, planEnd, activities), typeOf<TestModel>())
 
     @Test
     fun `empty model`() {
@@ -511,16 +501,6 @@ class GraphIncrementalPlanSimulationTest {
         )
     }
 
-    @Test
-    fun temp() {
-        `random plan edits conform to fundamental incremental sim guarantee`(46)
-    }
-
-    // TODO: Fuzz testing is failing occasionally due to numerical instability when stepping up a cell.
-    //   The incremental simulator is now pretty good at stepping from the original value in one shot.
-    //   The single-shot simulator appears to be stepping cells up repeatedly in small increments.
-    //   Go find how the single-shot stepping works, and see if we can get it to step from last write instead.
-
     /**
      * Since incremental sim is complicated, and we have an "oracle" in the form of single-shot simulation,
      * we can randomly generate plans and plan edits and see if incremental sim works on them.
@@ -677,8 +657,6 @@ private class IncrementalSimulationTester<M>(
     constructModel: context (InitScope) () -> M,
     plan: Plan<M>,
     modelClass: KType,
-    /** Map from data types to a comparator for that type. Used to apply tolerances to account for numerical precision losses. */
-    private val dataComparators: Map<KType, (Any?, Any?) -> Boolean> = mapOf(),
 ) {
     private val baselineSimulation = NonIncrementalPlanSimulation(constructModel, plan, modelClass)
     private val testSimulation = GraphIncrementalPlanSimulation(constructModel, plan, modelClass)
@@ -711,15 +689,8 @@ private class IncrementalSimulationTester<M>(
             // Look up the "correct" way to compare data of this type
             // By default, it's just the default equals, but sometimes we need to add a tolerance
             // to account for numerical precision differences, e.g., when stepping up a polynomial.
-            val dataComparator = dataComparators.getOrDefault(baselineResource.metadata.dataType, Objects::equals)
             for ((baselineReport, testReport) in baselineResource.data zip testResource.data) {
-                assertEquals(baselineReport.channel, testReport.channel)
-                // Apply a 1 epsilon tolerance to the timing, because tiny numerical differences can
-                // shift the timing of conditions by an insignificant amount.
-                assert(abs((baselineReport.time - testReport.time).toPyreDuration()) <= EPSILON)
-                assert(dataComparator(baselineReport.data, testReport.data)) {
-                    "${baselineResource.metadata.channel} differs at ${baselineReport.time}: ${baselineReport.data} != ${testReport.data}"
-                }
+                assertEquals(baselineReport, testReport)
             }
             assertEquals(baselineResource.data.size, testResource.data.size)
         }
