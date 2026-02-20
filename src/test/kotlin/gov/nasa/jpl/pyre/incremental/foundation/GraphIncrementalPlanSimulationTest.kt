@@ -685,9 +685,6 @@ private class IncrementalSimulationTester<M>(
             assert(resourceName in testResults.resources)
             val testResource = testResults.resources.getValue(resourceName)
             assertEquals(baselineResource.metadata, testResource.metadata)
-            // Look up the "correct" way to compare data of this type
-            // By default, it's just the default equals, but sometimes we need to add a tolerance
-            // to account for numerical precision differences, e.g., when stepping up a polynomial.
             for ((baselineReport, testReport) in baselineResource.data zip testResource.data) {
                 assertEquals(baselineReport, testReport)
             }
