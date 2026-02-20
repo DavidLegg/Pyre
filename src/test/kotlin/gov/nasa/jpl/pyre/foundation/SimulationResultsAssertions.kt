@@ -39,15 +39,15 @@ object SimulationResultsAssertions {
         reports(timeString, Discrete(value))
 
     interface ActivityChecker {
-        fun finished(name: String, type: String, start: Instant, end: Instant = start)
+        fun finished(name: String, type: String, start: Instant, end: Instant = start, includeStart: Boolean = true)
         fun unfinished(name: String, type: String, start: Instant)
     }
 
     fun SimulationResults.checkActivities(block: ActivityChecker.() -> Unit) {
         val unmatchedActivities = activities.toMutableList()
         block(object : ActivityChecker {
-            override fun finished(name: String, type: String, start: Instant, end: Instant) {
-                contains(name, type, start, null)
+            override fun finished(name: String, type: String, start: Instant, end: Instant, includeStart: Boolean) {
+                if (includeStart) contains(name, type, start, null)
                 contains(name, type, start, end)
             }
             override fun unfinished(name: String, type: String, start: Instant) {
@@ -64,11 +64,11 @@ object SimulationResultsAssertions {
         assert(unmatchedActivities.isEmpty())
     }
 
-    fun ActivityChecker.finished(name: String, type: String, start: String, end: String) =
-        finished(name, type, Instant.parse(start), Instant.parse(end))
+    fun ActivityChecker.finished(name: String, type: String, start: String, end: String, includeStart: Boolean = true) =
+        finished(name, type, Instant.parse(start), Instant.parse(end), includeStart)
 
-    fun ActivityChecker.finished(name: String, start: String, end: String = start) =
-        finished(name, name, start, end)
+    fun ActivityChecker.finished(name: String, start: String, end: String = start, includeStart: Boolean = true) =
+        finished(name, name, start, end, includeStart)
 
     fun ActivityChecker.unfinished(name: String, type: String, start: String) =
         unfinished(name, type, Instant.parse(start))

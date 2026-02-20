@@ -433,7 +433,7 @@ class PlanSimulationTest {
 
         with (reports2.toSimulationResults()) {
             checkActivities {
-                finished("DeviceActivate", "2020-01-01T00:10:00Z", "2020-01-01T01:10:00Z")
+                finished("DeviceActivate", "2020-01-01T00:10:00Z", "2020-01-01T01:10:00Z", false)
                 finished("DeviceShutdown", "2020-01-01T01:20:00Z", "2020-01-01T01:25:00Z")
                 unfinished("DeviceActivate", "2020-01-01T01:58:00Z")
                 unfinished("DeviceBoot", "2020-01-01T01:58:00Z")
@@ -451,8 +451,8 @@ class PlanSimulationTest {
         simulation3.runUntil(Instant.parse("2020-01-01T03:00:00Z"))
         with(reports3.toSimulationResults()) {
             checkActivities {
-                finished("DeviceBoot", "2020-01-01T01:58:00Z", "2020-01-01T02:03:00Z")
-                finished("DeviceActivate", "2020-01-01T01:58:00Z", "2020-01-01T02:23:00Z")
+                finished("DeviceBoot", "2020-01-01T01:58:00Z", "2020-01-01T02:03:00Z", false)
+                finished("DeviceActivate", "2020-01-01T01:58:00Z", "2020-01-01T02:23:00Z", false)
             }
         }
     }
