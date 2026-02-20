@@ -511,6 +511,16 @@ class GraphIncrementalPlanSimulationTest {
         )
     }
 
+    @Test
+    fun temp() {
+        `random plan edits conform to fundamental incremental sim guarantee`(46)
+    }
+
+    // TODO: Fuzz testing is failing occasionally due to numerical instability when stepping up a cell.
+    //   The incremental simulator is now pretty good at stepping from the original value in one shot.
+    //   The single-shot simulator appears to be stepping cells up repeatedly in small increments.
+    //   Go find how the single-shot stepping works, and see if we can get it to step from last write instead.
+
     /**
      * Since incremental sim is complicated, and we have an "oracle" in the form of single-shot simulation,
      * we can randomly generate plans and plan edits and see if incremental sim works on them.
