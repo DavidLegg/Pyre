@@ -30,7 +30,6 @@ import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.isNot
 import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.pop
 import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.push
 import gov.nasa.jpl.pyre.general.resources.discrete.MutableListResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.clampedIntegral
@@ -44,21 +43,17 @@ import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.EPSILON
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
 import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.abs
 import gov.nasa.jpl.pyre.kernel.minus
 import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.kernel.toKotlinDuration
-import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.utilities.named
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.until
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import java.util.Objects
 import java.util.stream.IntStream
 import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.random.Random
 import kotlin.random.nextInt
 import kotlin.random.nextLong
@@ -515,8 +510,8 @@ class GraphIncrementalPlanSimulationTest {
     fun `random plan edits conform to fundamental incremental sim guarantee`(seed: Int) {
         val rng = Random(seed)
         val numberOfInitialActivities = Math.pow(10.0, rng.nextDouble(1.0, 3.0)).toInt()
-        val numberOfEdits = Math.pow(10.0, rng.nextDouble(1.0, 3.0)).toInt()
-        println("Running $numberOfInitialActivities activities through $numberOfEdits rounds of edits...")
+        val roundsOfEdits = 1000
+        println("Running $numberOfInitialActivities activities through $roundsOfEdits rounds of edits...")
 
         // Choose an initial plan
         val activities = mutableListOf<GroundedActivity<TestModel>>()
@@ -530,15 +525,15 @@ class GraphIncrementalPlanSimulationTest {
         println("Initial simulation complete")
 
         // For as many rounds of edits as we've decided to do...
-        for (roundNumber in 1..numberOfEdits) {
+        for (roundNumber in 1..roundsOfEdits) {
             println("Running round $roundNumber of edits...")
             // Choose a number of activities to edit, up to the entire plan, with a bias towards small edits.
-            val numberOfActivitiesToEdit = if (activities.size <= 1) activities.size else
+            val numberOfEdits = if (activities.size <= 1) activities.size else
                 Math.exp(rng.nextDouble(0.0, Math.log(activities.size.toDouble()))).toInt()
             val additions = mutableListOf<GroundedActivity<TestModel>>()
             val removals = mutableListOf<GroundedActivity<TestModel>>()
             // Pick random edits to make. If we edit an activity, remove it from activities so it doesn't get edited twice.
-            repeat (numberOfActivitiesToEdit) {
+            repeat (numberOfEdits) {
                 when (rng.nextInt(1..4)) {
                     1 -> {
                         // Add an activity
@@ -558,7 +553,8 @@ class GraphIncrementalPlanSimulationTest {
                         removals += activity
                         val newActivity = activity.copy(time =
                             rng.nextInstant(activity.time - 10.minutes..activity.time + 10.minutes)
-                                .coerceIn(planStart..planEnd))
+                                .coerceIn(planStart..planEnd - 1.microseconds))
+                        additions += newActivity
                     }
                     4 -> {
                         // Edit an activity's arguments
@@ -681,6 +677,9 @@ private class IncrementalSimulationTester<M>(
         // Plan bounds:
         assertEquals(baseResults.startTime, testResults.startTime)
         assertEquals(baseResults.endTime, testResults.endTime)
+        // TODO: We have some false test failures during fuzzing due to order of simultaneous messages.
+        //   Write a batch-and-match algorithm for messages on stdout, stderr, and activities
+        //   so that messages at the same time can be out-of-order without failing the test.
         // Resources:
         for ((resourceName, baselineResource) in baseResults.resources) {
             assert(resourceName in testResults.resources)
