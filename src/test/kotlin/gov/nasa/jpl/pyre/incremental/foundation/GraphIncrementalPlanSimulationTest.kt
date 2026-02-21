@@ -230,6 +230,17 @@ class GraphIncrementalPlanSimulationTest {
     }
 
     @Test
+    fun `initial plan with concurrent read and write at plan start`() {
+        // TODO: The incremental simulator gets the correct answer here,
+        //   while the single-shot simulator gets it wrong!
+        //   The single-shot issues a report with value 1!
+        test(
+            IncrementStandaloneCounter(1) at 0 * MINUTE,
+            ReportStandaloneCounter("A") at 0 * MINUTE,
+        )
+    }
+
+    @Test
     fun `adding single effect activities`() {
         test().add(
             SetStandaloneCounter(1) at 5 * MINUTE,
@@ -576,20 +587,22 @@ class GraphIncrementalPlanSimulationTest {
 
     private fun Random.nextActivity(): Activity<TestModel> =
         // Choose randomly among the activity types, then choose random arguments for them
-        when (nextInt(1..7)) {
+        when (nextInt(1..8)) {
             1 -> SetStandaloneCounter(0)
             2 -> IncrementStandaloneCounter(0)
-            3 -> SetDerivationSource(0)
-            4 -> AddJob(0)
-            5 -> SetIntegrand(0.0)
-            6 -> SpawnChildren("")
-            7 -> SpawnChild(SetStandaloneCounter(0))
+            3 -> ReportStandaloneCounter("")
+            4 -> SetDerivationSource(0)
+            5 -> AddJob(0)
+            6 -> SetIntegrand(0.0)
+            7 -> SpawnChildren("")
+            8 -> SpawnChild(SetStandaloneCounter(0))
             else -> throw AssertionError("Code path should never run")
         }.randomArgs(this)
 
     private fun Activity<TestModel>.randomArgs(rng: Random): Activity<TestModel> = when (this) {
         is SetStandaloneCounter -> copy(number = rng.nextInt(-10..100))
         is IncrementStandaloneCounter -> copy(number = rng.nextInt(-10..10))
+        is ReportStandaloneCounter -> copy(id = rng.nextInt(1000..9999).toString())
         is SetDerivationSource -> copy(number = rng.nextInt(-10..10))
         is AddJob -> copy(seed = rng.nextInt(2..30))
         is SetIntegrand -> copy(number = rng.nextDouble(-1.0, 1.0))
@@ -777,6 +790,13 @@ class TestModel(scope: InitScope) {
         context(scope: TaskScope)
         override suspend fun effectModel(model: TestModel) {
             model.standaloneCounter.increment(number)
+        }
+    }
+
+    data class ReportStandaloneCounter(val id: String) : Activity<TestModel> {
+        context(scope: TaskScope)
+        override suspend fun effectModel(model: TestModel) {
+            stdout.report("RSC($id): standaloneCounter = ${model.standaloneCounter.getValue()}")
         }
     }
 
