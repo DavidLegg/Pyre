@@ -692,10 +692,13 @@ private class IncrementalSimulationTester<M>(
         }
         assertEquals(baseResults.resources.size, testResults.resources.size)
         // Activities:
-        for ((baseEvent, testEvent) in baseResults.activities zip testResults.activities) {
-            assertEquals(baseEvent, testEvent)
+        // Treat activity events as unordered.
+        // TODO: Refine this assertion to instead only treat concurrent reports as unordered.
+        val remainingTestActivities = testResults.activities.toMutableList()
+        for (baseActivity in baseResults.activities) {
+            assert(remainingTestActivities.remove(baseActivity))
         }
-        assertEquals(baseResults.activities.size, testResults.activities.size)
+        assert(remainingTestActivities.isEmpty())
     }
 }
 
