@@ -38,6 +38,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stdout
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.task
@@ -277,6 +278,14 @@ class PlanSimulationTest {
         }
 
         @Serializable
+        class ReportDeviceState : Activity<TestModel> {
+            context(scope: TaskScope)
+            override suspend fun effectModel(model: TestModel) {
+                stdout.report("RDS: deviceState = ${model.deviceState.getValue()}")
+            }
+        }
+
+        @Serializable
         class AddMiscPower(val amount: Double) : Activity<TestModel> {
             context(scope: TaskScope)
             override suspend fun effectModel(model: TestModel) {
@@ -294,6 +303,7 @@ class PlanSimulationTest {
                         activity(DeviceBoot::class)
                         activity(DeviceActivate::class)
                         activity(DeviceShutdown::class)
+                        activity(ReportDeviceState::class)
                         activity(AddMiscPower::class)
                     }
                 }
@@ -453,6 +463,50 @@ class PlanSimulationTest {
             checkActivities {
                 finished("DeviceBoot", "2020-01-01T01:58:00Z", "2020-01-01T02:03:00Z", false)
                 finished("DeviceActivate", "2020-01-01T01:58:00Z", "2020-01-01T02:23:00Z", false)
+            }
+        }
+    }
+
+    @Test
+    fun `concurrent activities do not observe each other`() {
+        val reports = MutableSimulationResults()
+        val epoch = Instant.parse("2020-01-01T00:00:00Z")
+        val simulation = PlanSimulation(
+            reportHandler = reports.reportHandler(),
+            start = epoch,
+            constructModel = ::TestModel,
+        )
+        simulation.runPlan(
+            Plan(
+                epoch,
+                epoch + (2 * HOUR + 5 * MINUTE).toKotlinDuration(),
+                listOf(
+                    GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), DeviceBoot()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:30:00Z"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:30:00Z"), DeviceShutdown()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:30:00Z"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), DeviceBoot()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), DeviceShutdown()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), ReportDeviceState()),
+                ),
+            )
+        )
+        with (reports.toSimulationResults()) {
+            checkChannel("stdout") {
+                // Both ReportDeviceStates should see the value of deviceState prior to the change by the concurrent activity.
+                reports("2020-01-01T00:00:00Z", "RDS: deviceState = OFF")
+                reports("2020-01-01T00:00:00Z", "RDS: deviceState = OFF")
+                reports("2020-01-01T00:30:00Z", "RDS: deviceState = STANDBY")
+                reports("2020-01-01T00:30:00Z", "RDS: deviceState = STANDBY")
+                reports("2020-01-01T01:00:00Z", "RDS: deviceState = OFF")
+                reports("2020-01-01T01:00:00Z", "RDS: deviceState = OFF")
+                reports("2020-01-01T01:30:00Z", "RDS: deviceState = STANDBY")
+                reports("2020-01-01T01:30:00Z", "RDS: deviceState = STANDBY")
             }
         }
     }
