@@ -519,6 +519,7 @@ class GraphIncrementalPlanSimulationTest {
     @ParameterizedTest
     @MethodSource("fuzzingSeeds")
     fun `random plan edits conform to fundamental incremental sim guarantee`(seed: Int) {
+        // TODO - bias the randomization slightly towards plan bounds and concurrency
         val rng = Random(seed)
         val numberOfInitialActivities = Math.pow(10.0, rng.nextDouble(1.0, 3.0)).toInt()
         val roundsOfEdits = 1000
