@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.*
+import gov.nasa.jpl.pyre.foundation.plans.InstantSerializer
 import gov.nasa.jpl.pyre.utilities.andThen
 import gov.nasa.jpl.pyre.kernel.SimpleSimulation.SimulationSetup
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.allocate
@@ -16,6 +17,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.modules.SerializersModule
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import kotlin.math.abs
@@ -35,6 +37,12 @@ class SimulationTest {
         val fincon: JsonElement?,
     )
 
+    private val jsonFormat: Json = Json {
+        serializersModule = SerializersModule {
+            contextual(Instant::class, InstantSerializer())
+        }
+    }
+
     private fun runSimulation(
         duration: Duration,
         incon: JsonElement? = null,
@@ -44,18 +52,19 @@ class SimulationTest {
         assertDoesNotThrow {
             // Build a simulation that'll write reports to memory
             val reports = mutableListOf<Any?>()
-            val inconProvider = incon?.let { Json.decodeFromJsonElement<Snapshot>(it) }
+            val inconProvider = incon?.let { jsonFormat.decodeFromJsonElement<Snapshot>(it) }
             val startTime = inconProvider?.provide<Instant>("simulation", "time") ?: Instant.parse("2000-01-01T00:00:00Z")
             val simulation = SimpleSimulation(SimulationSetup(
                 reportHandler = reports::add,
                 inconProvider = inconProvider,
                 initialize = initialize,
+                startTime = startTime,
             ))
             // Run the simulation to the end
             simulation.runUntil(startTime + duration)
             // Cut a fincon, if requested
             val fincon = if (takeFincon) {
-                Json.encodeToJsonElement(simulation.save())
+                jsonFormat.encodeToJsonElement(simulation.save())
             } else null
             // Return all results, and let the simulation itself be garbage collected
             return SimulationResult(reports, fincon)
@@ -552,9 +561,7 @@ class SimulationTest {
     fun empty_simulation_can_be_saved() {
         val results = runSimulation(1.minutes, takeFincon = true) {}
         with (results.fincon!!) {
-            within("simulation") {
-                assertEquals("00:01:00.000000", string("time", "$"))
-            }
+            assertEquals("2000-01-01T00:01:00Z", string("simulation", "time", "$"))
         }
     }
 
@@ -567,9 +574,7 @@ class SimulationTest {
         }
         val results = runSimulation(1.minutes, takeFincon = true) { initialize() }
         with (results.fincon!!) {
-            within("simulation") {
-                assertEquals("00:01:00.000000", string("time", "$"))
-            }
+            assertEquals("2000-01-01T00:01:00Z", string("simulation", "time", "$"))
             within("cells") {
                 within("x", "$") {
                     assertNearlyEquals(70.0, double("value")!!)
@@ -627,9 +632,7 @@ class SimulationTest {
         val results = runSimulation(1.minutes, takeFincon = true) { initialize() }
 
         with (results.fincon!!) {
-            within("simulation") {
-                assertEquals("00:01:00.000000", string("time", "$"))
-            }
+            assertEquals("2000-01-01T00:01:00Z", string("simulation", "time", "$"))
             within("cells") {
                 within("x", "$") {
                     assertNearlyEquals(70.0, double("value")!!)
@@ -744,11 +747,11 @@ class SimulationTest {
         }
 
         assertEquals(listOf(
-            "x = 1 at 00:10:00.000000",
-            "x = 2 at 00:20:00.000000",
-            "x = 3 at 00:30:00.000000",
-            "x = 4 at 00:40:00.000000",
-            "x = 5 at 00:50:00.000000",
+            "x = 1 at 10m",
+            "x = 2 at 20m",
+            "x = 3 at 30m",
+            "x = 4 at 40m",
+            "x = 5 at 50m",
         ), results.reports)
     }
 
@@ -768,24 +771,22 @@ class SimulationTest {
             }
         }
         with (results.fincon!!) {
-            within("simulation") {
-                assertEquals("00:59:00.000000", string("time", "$"))
-            }
+            assertEquals("2000-01-01T00:59:00Z", string("simulation", "time", "$"))
             within("cells") {
                 assertEquals(5, int("x", "$"))
-                assertEquals("00:59:00.000000", string("clock", "$"))
+                assertEquals("PT59M", string("clock", "$"))
             }
             within("tasks", "Repeater") {
                 within("$") {
                     array {
                         element {
                             assertEquals("read", string("type"))
-                            assertEquals("00:50:00.000000", string("value"))
+                            assertEquals("PT50M", string("value"))
                         }
                         assert(atEnd())
                     }
                 }
-                assertEquals("00:59:00.000000", string("time", "$"))
+                assertEquals("2000-01-01T00:59:00Z", string("time", "$"))
             }
         }
     }
@@ -816,7 +817,7 @@ class SimulationTest {
         assertEquals(6, plays)
         plays = 0
 
-        runSimulation(1.hours + 5.minutes, incon = results.fincon) { initialize() }
+        runSimulation(6.minutes, incon = results.fincon) { initialize() }
         // 1 play during the "restore" phase, to get the task re-initialized
         // 1 play during actual simulation, at time = 1 hour
         assertEquals(2, plays)
@@ -950,9 +951,7 @@ class SimulationTest {
             }
         }
         with (results.fincon!!) {
-            within("simulation") {
-                assertEquals("01:00:00.000000", string("time", "$"))
-            }
+            assertEquals("2000-01-01T01:00:00Z", string("simulation", "time", "$"))
             within("tasks") {
                 within("P") {
                     within("children", "$") {
@@ -970,7 +969,7 @@ class SimulationTest {
                             }
                             element {
                                 assertEquals("read", string("type"))
-                                assertEquals("00:00:00.000000", string("value"))
+                                assertEquals("PT0S", string("value"))
                             }
                             element { assertEquals("await", string("type")) }
                             element {
@@ -979,12 +978,12 @@ class SimulationTest {
                             }
                             element {
                                 assertEquals("read", string("type"))
-                                assertEquals("00:30:00.000000", string("value"))
+                                assertEquals("PT30M", string("value"))
                             }
                             assert(atEnd())
                         }
                     }
-                    assertEquals("01:00:00.000000", string("time", "$"))
+                    assertEquals("2000-01-01T01:00:00Z", string("time", "$"))
                 }
 
                 within("D") {
@@ -996,7 +995,7 @@ class SimulationTest {
                             }
                             element {
                                 assertEquals("read", string("type"))
-                                assertEquals("00:00:00.000000", string("value"))
+                                assertEquals("PT0S", string("value"))
                             }
                             element { assertEquals("await", string("type")) }
                             element {
@@ -1005,12 +1004,12 @@ class SimulationTest {
                             }
                             element {
                                 assertEquals("read", string("type"))
-                                assertEquals("00:30:00.000000", string("value"))
+                                assertEquals("PT30M", string("value"))
                             }
                             assert(atEnd())
                         }
                     }
-                    assertEquals("01:00:00.000000", string("time", "$"))
+                    assertEquals("2000-01-01T01:00:00Z", string("time", "$"))
                 }
             }
         }
@@ -1095,29 +1094,29 @@ class SimulationTest {
         val results = runSimulation(58.minutes, takeFincon = true) { initialize() }
 
         assertEquals(listOf(
-            "Child 1 start at 00:10:00.000000",
-            "Child 2 start at 00:20:00.000000",
-            "Child 3 start at 00:30:00.000000",
-            "Child 4 start at 00:40:00.000000",
-            "Child 5 start at 00:50:00.000000",
-            "Child 1 end at 00:55:00.000000",
+            "Child 1 start at 10m",
+            "Child 2 start at 20m",
+            "Child 3 start at 30m",
+            "Child 4 start at 40m",
+            "Child 5 start at 50m",
+            "Child 1 end at 55m",
         ), results.reports)
 
-        val nextResults = runSimulation(2.hours, incon = results.fincon) { initialize() }
+        val nextResults = runSimulation(2.hours - 58.minutes, incon = results.fincon) { initialize() }
 
         assertEquals(listOf(
-            "Child 6 start at 01:00:00.000000",
-            "Child 2 end at 01:05:00.000000",
-            "Child 7 start at 01:10:00.000000",
-            "Child 3 end at 01:15:00.000000",
-            "Child 8 start at 01:20:00.000000",
-            "Child 4 end at 01:25:00.000000",
-            "Child 9 start at 01:30:00.000000",
-            "Child 5 end at 01:35:00.000000",
-            "Child 10 start at 01:40:00.000000",
-            "Child 6 end at 01:45:00.000000",
-            "Child 11 start at 01:50:00.000000",
-            "Child 7 end at 01:55:00.000000",
+            "Child 6 start at 1h",
+            "Child 2 end at 1h 5m",
+            "Child 7 start at 1h 10m",
+            "Child 3 end at 1h 15m",
+            "Child 8 start at 1h 20m",
+            "Child 4 end at 1h 25m",
+            "Child 9 start at 1h 30m",
+            "Child 5 end at 1h 35m",
+            "Child 10 start at 1h 40m",
+            "Child 6 end at 1h 45m",
+            "Child 11 start at 1h 50m",
+            "Child 7 end at 1h 55m",
         ), nextResults.reports)
     }
 
@@ -1148,22 +1147,22 @@ class SimulationTest {
         val results = runSimulation(1.hours, takeFincon = true) { initialize() }
 
         assertEquals(listOf(
-            "Iteration 1 at 00:15:00.000000",
-            "Iteration 2 at 00:25:00.000000",
-            "Iteration 3 at 00:35:00.000000",
-            "Iteration 4 at 00:45:00.000000",
-            "Iteration 5 at 00:55:00.000000",
+            "Iteration 1 at 15m",
+            "Iteration 2 at 25m",
+            "Iteration 3 at 35m",
+            "Iteration 4 at 45m",
+            "Iteration 5 at 55m",
         ), results.reports)
 
-        val nextResults = runSimulation(2.hours, incon = results.fincon) { initialize() }
+        val nextResults = runSimulation(1.hours, incon = results.fincon) { initialize() }
 
         assertEquals(listOf(
-            "Iteration 6 at 01:05:00.000000",
-            "Iteration 7 at 01:15:00.000000",
-            "Iteration 8 at 01:25:00.000000",
-            "Iteration 9 at 01:35:00.000000",
-            "Iteration 10 at 01:45:00.000000",
-            "Iteration 11 at 01:55:00.000000",
+            "Iteration 6 at 1h 5m",
+            "Iteration 7 at 1h 15m",
+            "Iteration 8 at 1h 25m",
+            "Iteration 9 at 1h 35m",
+            "Iteration 10 at 1h 45m",
+            "Iteration 11 at 1h 55m",
         ), nextResults.reports)
     }
 

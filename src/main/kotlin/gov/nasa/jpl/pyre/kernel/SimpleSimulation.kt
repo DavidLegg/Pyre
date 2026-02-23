@@ -1,7 +1,5 @@
 package gov.nasa.jpl.pyre.kernel
 
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Instant
 
 /**
@@ -13,7 +11,7 @@ class SimpleSimulation(setup: SimulationSetup) {
     data class SimulationSetup(
         val reportHandler: ReportHandler,
         val inconProvider: Snapshot? = null,
-        val startingTime: Duration = ZERO,
+        val startTime: Instant? = null,
         val initialize: context (BasicInitScope) () -> Unit,
     )
 
@@ -21,7 +19,7 @@ class SimpleSimulation(setup: SimulationSetup) {
 
     init {
         with (setup) {
-            state = SimulationState(reportHandler, inconProvider)
+            state = SimulationState(reportHandler, inconProvider, startTime = startTime)
             initialize(state.initScope)
         }
     }
