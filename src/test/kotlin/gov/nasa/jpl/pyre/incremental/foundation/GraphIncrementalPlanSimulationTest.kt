@@ -522,7 +522,7 @@ class GraphIncrementalPlanSimulationTest {
         // TODO - bias the randomization slightly towards plan bounds and concurrency
         val rng = Random(seed)
         val numberOfInitialActivities = Math.pow(10.0, rng.nextDouble(1.0, 3.0)).toInt()
-        val roundsOfEdits = 1000
+        val roundsOfEdits = 100
         println("Running $numberOfInitialActivities activities through $roundsOfEdits rounds of edits...")
 
         // Choose an initial plan
@@ -617,7 +617,7 @@ class GraphIncrementalPlanSimulationTest {
 
     companion object {
         @JvmStatic
-        fun fuzzingSeeds(): IntStream = IntStream.rangeClosed(1, 100)
+        fun fuzzingSeeds(): IntStream = IntStream.rangeClosed(1, 1000)
     }
 
     // Private test-ism to quickly and legibly write out a plan
