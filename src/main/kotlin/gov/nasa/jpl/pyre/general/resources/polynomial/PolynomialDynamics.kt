@@ -7,6 +7,7 @@ import gov.nasa.jpl.pyre.foundation.resources.ExpiringMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
+import gov.nasa.jpl.pyre.kernel.Durations.MAX_PRECISE_DURATION
 import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -225,7 +226,7 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
         var rangeSize: Duration = EPSILON * (if (initialTestResult) -1 else 1)
         var testPoint: Duration = root + rangeSize
         var testResult: Boolean = expires(testPoint)
-        while (testPoint >= ZERO && testResult == initialTestResult) {
+        while (testPoint <= MAX_PRECISE_DURATION && testResult == initialTestResult) {
             rangeSize *= 2
             testPoint = root + rangeSize
             testResult = expires(testPoint)
@@ -233,8 +234,8 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
         // TODO: There's an unhandled edge case here, where timePredicate is satisfied in a period we jumped over.
         //   Maybe try to use the precision of the arguments and the finer resolution polynomial "this"
         //   to do a more thorough but still efficient search?
-        if (testPoint < ZERO && testResult == initialTestResult) {
-            // We searched all the way back to zero, or all the way forward and wrapped around to zero,
+        if (testPoint > MAX_PRECISE_DURATION && testResult == initialTestResult) {
+            // We searched all the way to the longest precise duration
             // without finding where the result changes. Search failed, no expiry.
             return NEVER
         }
