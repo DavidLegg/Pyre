@@ -84,7 +84,7 @@ class PlanSimulation<M>(
             }
         }
 
-        state = SimulationState(reportHandler, inconProvider)
+        state = SimulationState(reportHandler, inconProvider, startTime = start)
         simulationScope = object : InitScope {
             override fun <T : Any> allocate(
                 name: Name,
