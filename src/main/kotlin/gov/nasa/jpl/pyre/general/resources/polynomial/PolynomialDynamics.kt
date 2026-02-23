@@ -2,14 +2,12 @@ package gov.nasa.jpl.pyre.general.resources.polynomial
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.kernel.*
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.EPSILON
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.foundation.resources.*
 import gov.nasa.jpl.pyre.foundation.resources.ExpiringMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
+import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.DoubleArraySerializer
@@ -20,6 +18,9 @@ import kotlin.Double.Companion.NaN
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.ZERO
+import kotlin.time.Duration.Companion.seconds
 
 
 typealias PolynomialResource = Resource<Polynomial>
@@ -36,7 +37,7 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
     override fun value(): Double = coefficients[0]
 
     override fun step(t: Duration): Polynomial =
-        if (t == ZERO) this else _polynomial(shift(coefficients, t ratioOver SECOND))
+        if (t == ZERO) this else _polynomial(shift(coefficients, t / 1.seconds))
 
     fun degree() = coefficients.size - 1
     fun isConstant() = degree() == 0
@@ -277,8 +278,8 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
         // If the polynomial is linear, solve it analytically for performance
         if (this.degree() <= 1) {
             val t: Double = -this[0] / this[1]
-            return if (t >= -ABSOLUTE_ACCURACY_FOR_DURATIONS / 2 && t <= MAX_SECONDS_FOR_DURATION)
-                sequenceOf(t roundTimes SECOND)
+            return if (t >= -ABSOLUTE_ACCURACY_FOR_DURATIONS / 2)
+                sequenceOf(t.seconds)
             else
                 emptySequence()
         }
@@ -293,15 +294,14 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
             .solveAllComplex(conditionedCoefficients, 0.0)
         return solutions.filter { abs(it.imaginary) < epsilon }
             .map { it.real }
-            .filter { it >= -ABSOLUTE_ACCURACY_FOR_DURATIONS / 2 && it <= MAX_SECONDS_FOR_DURATION }
+            .filter { it >= -ABSOLUTE_ACCURACY_FOR_DURATIONS / 2 }
             .sorted()
-            .map { it roundTimes SECOND }
+            .map { it.seconds }
             .asSequence()
     }
 
     companion object {
-        private val ABSOLUTE_ACCURACY_FOR_DURATIONS: Double = EPSILON ratioOver SECOND
-        private val MAX_SECONDS_FOR_DURATION: Double = Duration.MAX_VALUE ratioOver SECOND
+        private val ABSOLUTE_ACCURACY_FOR_DURATIONS: Double = EPSILON / 1.seconds
 
         fun polynomial(vararg coefficients: Double): Polynomial {
             return _polynomial(coefficients, false)

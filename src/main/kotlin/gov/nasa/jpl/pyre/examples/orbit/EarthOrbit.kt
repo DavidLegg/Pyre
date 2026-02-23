@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.examples.orbit
 
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
 import gov.nasa.jpl.pyre.foundation.plans.InstantSerializer
 import gov.nasa.jpl.pyre.foundation.plans.activities
@@ -11,6 +10,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
 class EarthOrbit(
@@ -37,7 +37,7 @@ class EarthOrbit(
             orbitalSimulation = OrbitalSimulation(
                 subContext("Earth Orbit"),
                 listOf(earth, moon),
-                HOUR,
+                1.hours,
             )
 
             earthPosition = orbitalSimulation.bodyPositions.getValue(earth)

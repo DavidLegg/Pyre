@@ -1,7 +1,5 @@
 package gov.nasa.jpl.pyre.examples.sequencing.sequence_engine
 
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MILLISECOND
-import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
 import gov.nasa.jpl.pyre.examples.sequencing.fsw.FswModel.GlobalIntVarName
 import gov.nasa.jpl.pyre.examples.sequencing.primeness.SideIndicator.PRIME
@@ -13,6 +11,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlin.collections.map
 import kotlin.ranges.IntRange
+import kotlin.time.Duration.Companion.milliseconds
 
 class SequencingModel(
     val commandHandlers: Map<String, CommandBehavior>,
@@ -84,6 +83,6 @@ class SequencingModel(
                 ),
             )
         )
-        val DISPATCH_PERIOD = 125 * MILLISECOND
+        val DISPATCH_PERIOD = 125.milliseconds
     }
 }

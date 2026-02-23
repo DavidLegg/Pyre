@@ -13,7 +13,6 @@ import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.decrement
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
@@ -29,13 +28,10 @@ import gov.nasa.jpl.pyre.general.results.ProfileOperations.computeProfile
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toMutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
-import gov.nasa.jpl.pyre.general.results.discrete.IntProfileOperations
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplayScope.Companion.replay
 import gov.nasa.jpl.pyre.general.units.Unit
 import gov.nasa.jpl.pyre.general.units.UnitAware
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
-import gov.nasa.jpl.pyre.kernel.MutableSnapshot
-import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.kernel.Name
 import java.util.PriorityQueue
 import kotlin.reflect.KType
@@ -191,7 +187,7 @@ class SchedulingSystem<M, C> private constructor(
         val name = model!!.selector().name
         @Suppress("UNCHECKED_CAST")
         val report = results.resources.getValue(name).data.last() as ChannelData<D>
-        return report.data.step((time() - report.time).toPyreDuration()).value()
+        return report.data.step(time() - report.time).value()
     }
 
     /** Get the last value of a registered resource, selected by the resource object itself. */
@@ -202,7 +198,7 @@ class SchedulingSystem<M, C> private constructor(
         val report = resourceResults.data.last() as ChannelData<D>
         val unit = resourceResults.metadata.metadata.getValue("unit").value as Unit
         return UnitAware(
-            report.data.step((time() - report.time).toPyreDuration()).value(),
+            report.data.step(time() - report.time).value(),
             unit,
         )
     }

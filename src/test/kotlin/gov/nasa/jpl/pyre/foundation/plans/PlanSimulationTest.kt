@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.foundation.plans
 
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.checkActivities
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.checkChannel
@@ -9,12 +8,6 @@ import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.reports
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.reportsDiscrete
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.unfinished
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
-import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.kernel.times
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.ModelWithResources.DummyActivity
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.PowerState.*
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.TestModel.*
@@ -45,8 +38,8 @@ import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
-import gov.nasa.jpl.pyre.kernel.MutableSnapshot
 import gov.nasa.jpl.pyre.kernel.Snapshot
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -56,6 +49,9 @@ import kotlinx.serialization.modules.SerializersModule
 import org.junit.jupiter.api.Assertions.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 class PlanSimulationTest {
@@ -187,7 +183,7 @@ class PlanSimulationTest {
         simulation.runPlan(
             Plan(
                 epoch,
-                epoch + HOUR.toKotlinDuration(),
+                epoch + 1.hours,
                 listOf(
                     GroundedActivity(Instant.parse("2020-01-01T00:05:00Z"), DummyActivity(), "Type A", "Activity 1"),
                     GroundedActivity(Instant.parse("2020-01-01T00:15:00Z"), DummyActivity(), "Type B", "Activity 2"),
@@ -245,7 +241,7 @@ class PlanSimulationTest {
                 when (model.deviceState.getValue()) {
                     OFF, WARMUP -> {
                         model.deviceState.set(WARMUP)
-                        delay(5 * MINUTE)
+                        delay(5.minutes)
                         model.deviceState.set(STANDBY)
                     }
                     else -> model.deviceState.set(STANDBY)
@@ -272,7 +268,7 @@ class PlanSimulationTest {
             context(scope: TaskScope)
             override suspend fun effectModel(model: TestModel) {
                 model.deviceState.set(SHUTDOWN)
-                delay(5 * MINUTE)
+                delay(5.minutes)
                 model.deviceState.set(OFF)
             }
         }
@@ -323,14 +319,14 @@ class PlanSimulationTest {
         simulation.runPlan(
             Plan(
                 epoch,
-                epoch + (2 * HOUR + 5 * MINUTE).toKotlinDuration(),
+                epoch + 2.hours + 5.minutes,
                 listOf(
                     GroundedActivity(Instant.parse("2020-01-01T00:05:00Z"), DeviceBoot()),
-                    GroundedActivity(Instant.parse("2020-01-01T00:15:00Z"), DeviceActivate(10 * MINUTE), name = "Observation 1"),
+                    GroundedActivity(Instant.parse("2020-01-01T00:15:00Z"), DeviceActivate(10.minutes), name = "Observation 1"),
                     GroundedActivity(Instant.parse("2020-01-01T00:26:00Z"), DeviceShutdown()),
-                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), DeviceActivate(20 * MINUTE), name = "Observation 2"),
+                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), DeviceActivate(20.minutes), name = "Observation 2"),
                     GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), DeviceShutdown()),
-                    GroundedActivity(Instant.parse("2020-01-01T01:40:00Z"), DeviceActivate(60 * MINUTE), name = "Observation 3"),
+                    GroundedActivity(Instant.parse("2020-01-01T01:40:00Z"), DeviceActivate(60.minutes), name = "Observation 3"),
                     GroundedActivity(Instant.parse("2020-01-01T01:50:00Z"), AddMiscPower(3.0)),
                     GroundedActivity(Instant.parse("2020-01-01T01:55:00Z"), AddMiscPower(3.0)),
                 ),
@@ -415,7 +411,7 @@ class PlanSimulationTest {
         simulation1.addActivities(
             listOf(
                 GroundedActivity(Instant.parse("2020-01-01T00:03:00Z"), DeviceBoot()),
-                GroundedActivity(Instant.parse("2020-01-01T00:10:00Z"), DeviceActivate(60 * MINUTE)),
+                GroundedActivity(Instant.parse("2020-01-01T00:10:00Z"), DeviceActivate(60.minutes)),
                 GroundedActivity(Instant.parse("2020-01-01T01:20:00Z"), DeviceShutdown()),
             )
         )
@@ -437,7 +433,7 @@ class PlanSimulationTest {
         )
         // Add an activity which will spawn a child, which will be active during the next fincon cycle
         simulation2.addActivities(listOf(
-            GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), DeviceActivate(20 * MINUTE))
+            GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), DeviceActivate(20.minutes))
         ))
         simulation2.runUntil(Instant.parse("2020-01-01T02:00:00Z"))
 
@@ -479,7 +475,7 @@ class PlanSimulationTest {
         simulation.runPlan(
             Plan(
                 epoch,
-                epoch + (2 * HOUR + 5 * MINUTE).toKotlinDuration(),
+                epoch + 2.hours + 5.minutes,
                 listOf(
                     GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), ReportDeviceState()),
                     GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), DeviceBoot()),

@@ -1,13 +1,6 @@
 package gov.nasa.jpl.pyre.foundation.resources.timer
 
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.EPSILON
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.kernel.abs
-import gov.nasa.jpl.pyre.kernel.div
-import gov.nasa.jpl.pyre.kernel.minus
-import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.foundation.resources.Expiring
 import gov.nasa.jpl.pyre.foundation.resources.Expiry
 import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
@@ -25,79 +18,83 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
 import gov.nasa.jpl.pyre.foundation.resources.emit
 import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.resources.resource
+import gov.nasa.jpl.pyre.foundation.resources.timer.TimerOperations.minus
+import gov.nasa.jpl.pyre.foundation.resources.timer.TimerOperations.plus
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
 import gov.nasa.jpl.pyre.kernel.Name
-import kotlin.math.abs
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.ZERO
 
 object TimerResourceOperations {
     context (scope: InitScope)
-    fun timer(name: String, initialTime: Duration = ZERO, initialRate: Int = 1) =
+    fun timer(name: String, initialTime: Duration = ZERO, initialRate: Double = 1.0) =
         resource(name, Timer(initialTime, initialRate))
 
     /**
-     * Reset this timer to time, not running.
+     * Reset this timer to [time], not running.
      */
     context (scope: TaskScope)
     fun MutableResource<Timer>.reset(time: Duration = ZERO) =
-        this.emit({ t: Timer -> Timer(time, 0) } named { "Reset $this" })
+        this.emit({ t: Timer -> Timer(time, 0.0) }.named { "Reset $this" })
 
     /**
-     * Reset this timer to time, running forward.
+     * Reset this timer to [time], running forward.
      */
     context (scope: TaskScope)
     fun MutableResource<Timer>.restart(time: Duration = ZERO) =
-        this.emit({ t: Timer -> Timer(time, 1) } named { "Restart $this" })
+        this.emit({ t: Timer -> Timer(time, 1.0) }.named { "Restart $this" })
 
     /**
-     * Reset this timer to time, running backward.
+     * Reset this timer to [time], running backward.
      */
     context (scope: TaskScope)
     fun MutableResource<Timer>.restartCountdown(time: Duration) =
-        this.emit({ t: Timer -> Timer(time, -1) } named { "Restart countdown on $this" })
+        this.emit({ t: Timer -> Timer(time, -1.0) }.named { "Restart countdown on $this" })
 
     /**
      * Pause this timer, but preserve the recorded time.
      */
     context (scope: TaskScope)
     fun MutableResource<Timer>.pause() =
-        this.emit({ t: Timer -> Timer(t.time, 0) } named { "Pause $this" })
+        this.emit({ t: Timer -> Timer(t.time, 0.0) }.named { "Pause $this" })
 
     /**
      * Resume this timer, running forward from the current time.
      */
     context (scope: TaskScope)
     fun MutableResource<Timer>.resume() =
-        this.emit({ t: Timer -> Timer(t.time, 1) } named { "Resume $this" })
+        this.emit({ t: Timer -> Timer(t.time, 1.0) }.named { "Resume $this" })
 
     /**
      * Resume this timer, running backward from the current time.
      */
     context (scope: TaskScope)
     fun MutableResource<Timer>.resumeCountdown() =
-        this.emit({ t: Timer -> Timer(t.time, -1) } named { "Resume countdown on $this" })
+        this.emit({ t: Timer -> Timer(t.time, -1.0) }.named { "Resume countdown on $this" })
 
     operator fun Resource<Timer>.plus(other: Resource<Timer>): Resource<Timer> =
-        map(this, other, Timer::plus).fullyNamed { Name("($this) + ($other)") }
+        map(this, other) { t, o -> t + o }.fullyNamed { Name("($this) + ($other)") }
     operator fun Resource<Timer>.plus(other: Duration): Resource<Timer> = this + constant(other)
     operator fun Duration.plus(other: Resource<Timer>): Resource<Timer> = constant(this) + other
     operator fun Resource<Timer>.minus(other: Resource<Timer>): Resource<Timer> =
-        map(this, other, Timer::minus).fullyNamed { Name("($this) - ($other)") }
+        map(this, other) { t, o -> t - o }.fullyNamed { Name("($this) - ($other)") }
     operator fun Resource<Timer>.minus(other: Duration): Resource<Timer> = this - constant(other)
     operator fun Duration.minus(other: Resource<Timer>): Resource<Timer> = constant(this) - other
 
     // Writing actual operator overloads for DiscreteResource<Duration> causes platform declaration clash,
     // because the outer type is just Resource. Instead, offer the asTimer() conversion.
     fun DiscreteResource<Duration>.asTimer(): Resource<Timer> =
-        map(this) { t -> Timer(t.value, 0) }.fullyNamed { name }
+        map(this) { t -> Timer(t.value, 0.0) }.fullyNamed { name }
     fun constant(time: Duration): Resource<Timer> =
-        ResourceMonad.pure(Timer(time, 0)).fullyNamed { Name(time.toString()) }
+        ResourceMonad.pure(Timer(time, 0.0)).fullyNamed { Name(time.toString()) }
 
     fun Resource<Timer>.compareTo(other: Resource<Timer>): IntResource {
         return bind(this - other) { delta ->
             val expiry =
                 // If the delta isn't changing, comparison never changes
-                if (delta.rate == 0) NEVER
+                if (delta.rate == 0.0) NEVER
                 // If delta is exactly zero and changing, it changes "immediately"
                 else if (delta.time == ZERO) Expiry(EPSILON)
                 // If delta is moving away from zero, it never changes sign
@@ -110,12 +107,15 @@ object TimerResourceOperations {
                     // which we correct with a +EPSILON.
                     // Otherwise, the -EPSILON doesn't change the quotient floor(|time| / rate),
                     // so the +EPSILON corrects it up to ceil(|time| / rate).
-                    Expiry(((abs(delta.time) - EPSILON) / abs(delta.rate).toLong()) + EPSILON)
+                    // Expiry(((delta.time.absoluteValue - EPSILON) / abs(delta.rate).toLong()) + EPSILON)
+                    // TODO: Review this change.
+                    //   I've switched from integer rate scaling and careful math to double rate scaling and not-so-careful math.
+                    //   I'm likely to have introduced a bug.
+                    Expiry((delta.time / delta.rate).absoluteValue)
                 }
-            ThinResourceMonad.pure(Expiring(Discrete(delta.time.ticks.compareTo(0)), expiry))
+            ThinResourceMonad.pure(Expiring(Discrete(delta.time.compareTo(ZERO)), expiry))
         }.fullyNamed { Name("($this).compareTo($other)") }
     }
-    fun Resource<Timer>.compareTo(other: Duration): IntResource = compareTo(constant(other))
 
     infix fun Resource<Timer>.lessThan(other: Resource<Timer>): BooleanResource =
         DiscreteResourceMonad.map(this.compareTo(other)) { it < 0 }.fullyNamed { Name("($this) < ($other)") }

@@ -1,12 +1,6 @@
 package gov.nasa.jpl.pyre.examples.lander.models.heatprobe
 
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
@@ -17,9 +11,11 @@ import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.integral
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 
 class HeatProbeModel(
@@ -105,21 +101,21 @@ class HeatProbeModel(
 
     companion object {
         private val defaultParameters: Map<HeatProbeParameter, Duration> = mapOf(
-            HeatProbeParameter.PARAM_HeatProbe_MON_TEMP_DURATION to 5 * MINUTE,
-            HeatProbeParameter.PARAM_HeatProbe_MON_WAIT_DURATION to 55 * MINUTE,
-            HeatProbeParameter.PARAM_HeatProbe_SINGLEPEN_COOL_DURATION to 3 * HOUR,
-            HeatProbeParameter.PARAM_HeatProbe_SINGLEPEN_TEMA_DURATION to 1 * HOUR,
-            HeatProbeParameter.PARAM_HeatProbe_HAMMER_TIMEOUT to 4 * HOUR,
-            HeatProbeParameter.PARAM_HeatProbe_CO_TEMP_DURATION to 10 * MINUTE,
-            HeatProbeParameter.PARAM_HeatProbe_CO_TEMA_DURATION to 12 * MINUTE,
-            HeatProbeParameter.PARAM_HeatProbe_CO_STATIL_TLM_DURATION to 14 * MINUTE,
-            HeatProbeParameter.PARAM_RAD_HEATUP_DURATION to 15 * MINUTE,
-            HeatProbeParameter.PARAM_RAD_MEAS_DURATION to 20 * MINUTE,
-            HeatProbeParameter.PARAM_RAD_HOURLY_WAIT_DURATION to 56 * MINUTE + 4 * SECOND,
-            HeatProbeParameter.PARAM_RAD_STD_WAIT_DURATION_SHORT to 2 * HOUR + 4 * MINUTE + 58 * SECOND,
-            HeatProbeParameter.PARAM_RAD_STD_WAIT_DURATION_LONG to 8 * HOUR + 14 * MINUTE + 52 * SECOND,
-            HeatProbeParameter.PARAM_RAD_SINGLEMEAS_DURATION to 15 * MINUTE,
-            HeatProbeParameter.PARAM_RAD_CAL_MEAS_DURATION to 5 * MINUTE,
+            HeatProbeParameter.PARAM_HeatProbe_MON_TEMP_DURATION to 5.minutes,
+            HeatProbeParameter.PARAM_HeatProbe_MON_WAIT_DURATION to 55.minutes,
+            HeatProbeParameter.PARAM_HeatProbe_SINGLEPEN_COOL_DURATION to 3.hours,
+            HeatProbeParameter.PARAM_HeatProbe_SINGLEPEN_TEMA_DURATION to 1.hours,
+            HeatProbeParameter.PARAM_HeatProbe_HAMMER_TIMEOUT to 4.hours,
+            HeatProbeParameter.PARAM_HeatProbe_CO_TEMP_DURATION to 10.minutes,
+            HeatProbeParameter.PARAM_HeatProbe_CO_TEMA_DURATION to 12.minutes,
+            HeatProbeParameter.PARAM_HeatProbe_CO_STATIL_TLM_DURATION to 14.minutes,
+            HeatProbeParameter.PARAM_RAD_HEATUP_DURATION to 15.minutes,
+            HeatProbeParameter.PARAM_RAD_MEAS_DURATION to 20.minutes,
+            HeatProbeParameter.PARAM_RAD_HOURLY_WAIT_DURATION to 56.minutes+ 4.seconds,
+            HeatProbeParameter.PARAM_RAD_STD_WAIT_DURATION_SHORT to 2.hours + 4.minutes+ 58.seconds,
+            HeatProbeParameter.PARAM_RAD_STD_WAIT_DURATION_LONG to 8.hours + 14.minutes + 52.seconds,
+            HeatProbeParameter.PARAM_RAD_SINGLEMEAS_DURATION to 15.minutes,
+            HeatProbeParameter.PARAM_RAD_CAL_MEAS_DURATION to 5.minutes
         )
     }
 }

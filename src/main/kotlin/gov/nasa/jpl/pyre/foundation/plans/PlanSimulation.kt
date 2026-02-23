@@ -6,12 +6,10 @@ import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
+import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.clock
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Snapshot
 import gov.nasa.jpl.pyre.kernel.SimulationState
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
-import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
@@ -42,6 +40,7 @@ import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.reflect.KType
 import kotlin.reflect.full.withNullability
 import kotlin.reflect.typeOf
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 /**
@@ -71,23 +70,17 @@ class PlanSimulation<M>(
     private val activityResource: MutableDiscreteResource<GroundedActivity<M>?>
 
     init {
-        val epoch: Instant
-        val startDuration: Duration
+        val simStart: Instant
         if (inconProvider == null) {
-            epoch = requireNotNull(start) {
+            simStart = requireNotNull(start) {
                 "If inconProvider is null, start must be provided."
             }
-            startDuration = Duration.ZERO
         } else {
-            epoch = requireNotNull(inconProvider.provide<Instant>("simulation", "epoch")) {
-                "Incon must provide simulation.epoch"
-            }
-            startDuration = requireNotNull(inconProvider.provide<Duration>("simulation", "time")) {
+            simStart = requireNotNull(inconProvider.provide<Instant>("simulation", "time")) {
                 "Incon must provide simulation.time"
             }
-            val inconStart = epoch + startDuration.toKotlinDuration()
-            require(start == null || start == inconStart) {
-                "start time $start must be null or match incon start time $inconStart"
+            require(start == null || start == simStart) {
+                "start time $start must be null or match incon start time $simStart"
             }
         }
 
@@ -126,8 +119,7 @@ class PlanSimulation<M>(
             override val contextName: Name? = null
             override fun toString() = ""
 
-            override val simulationClock = resource("simulation_clock", Timer(startDuration, 1))
-            override val simulationEpoch = epoch
+            override val simulationClock = clock("simulation_clock", simStart)
 
             override val activities = channel<ActivityEvent>(Name("activities"))
             override val stdout = channel<String>(Name("stdout"))
@@ -153,7 +145,7 @@ class PlanSimulation<M>(
         }
     }
 
-    fun time() = simulationScope.simulationEpoch + state.time().toKotlinDuration()
+    fun time() = state.time()
 
     /**
      * Run the simulation until [endTime].
@@ -162,11 +154,10 @@ class PlanSimulation<M>(
      * without advancing in time, an exception is thrown to avoid infinite loops.
      */
     fun runUntil(endTime: Instant) {
-        val endDuration = (endTime - simulationScope.simulationEpoch).toPyreDuration()
-        require(endDuration >= state.time()) {
-            "Simulation time is currently ${simulationScope.simulationEpoch + state.time().toKotlinDuration()}, cannot step backwards to $endTime"
+        require(endTime >= state.time()) {
+            "Simulation time is currently ${state.time()}, cannot step backwards to $endTime"
         }
-        while (state.time() < endDuration) stepTo(endTime)
+        while (state.time() < endTime) stepTo(endTime)
     }
 
     private var stepsWithoutAdvancingTime = 0
@@ -178,9 +169,8 @@ class PlanSimulation<M>(
      * without advancing in time, an exception is thrown to avoid infinite loops.
      */
     fun stepTo(endTime: Instant) {
-        val endDuration = (endTime - simulationScope.simulationEpoch).toPyreDuration()
         val timeBeforeStep = state.time()
-        state.stepTo(endDuration)
+        state.stepTo(endTime)
         if (state.time() > timeBeforeStep) {
             stepsWithoutAdvancingTime = 0
         } else if (++stepsWithoutAdvancingTime > SIMULATION_STALL_LIMIT) {
@@ -189,10 +179,7 @@ class PlanSimulation<M>(
         }
     }
 
-    fun save(finconCollector: MutableSnapshot) {
-        state.save(finconCollector)
-        finconCollector.within("simulation", "epoch").report(simulationScope.simulationEpoch)
-    }
+    fun save(finconCollector: MutableSnapshot) = state.save(finconCollector)
 
     fun addActivities(activities: List<GroundedActivity<M>>) {
         // TODO: Consider formalizing this as a way to "safely" ingest info into the sim.
@@ -228,9 +215,8 @@ class PlanSimulation<M>(
     }
 
     fun runPlan(plan: Plan<M>) {
-        val absoluteSimulationTime = simulationScope.simulationEpoch + state.time().toKotlinDuration()
-        require(plan.startTime == absoluteSimulationTime) {
-            "Cannot run plan starting at ${plan.startTime}. Simulation is at $absoluteSimulationTime"
+        require(plan.startTime == state.time()) {
+            "Cannot run plan starting at ${plan.startTime}. Simulation is at ${state.time()}"
         }
         addActivities(plan.activities)
         runUntil(plan.endTime)

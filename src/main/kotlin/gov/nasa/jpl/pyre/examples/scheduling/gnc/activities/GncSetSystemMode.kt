@@ -1,7 +1,5 @@
 package gov.nasa.jpl.pyre.examples.scheduling.gnc.activities
 
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.GncSystemMode
 import gov.nasa.jpl.pyre.foundation.plans.Activity
@@ -10,6 +8,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration.Companion.seconds
 
 @Serializable
 @SerialName("GncSetSystemMode")
@@ -19,6 +18,6 @@ class GncSetSystemMode(
     context(scope: TaskScope)
     override suspend fun effectModel(model: GncModel) {
         model.systemMode.set(mode)
-        delay(1 * SECOND)
+        delay(1.seconds)
     }
 }

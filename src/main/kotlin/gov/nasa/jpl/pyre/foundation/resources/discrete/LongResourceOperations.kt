@@ -41,11 +41,11 @@ object LongResourceOperations {
 
     context(scope: TaskScope)
     fun MutableLongResource.increment(amount: Long = 1) {
-        emit({ n: Long -> n + amount } named { "Increase $this by $amount" })
+        emit({ n: Long -> n + amount }.named { "Increase $this by $amount" })
     }
 
     context(scope: TaskScope)
     fun MutableLongResource.decrement(amount: Long = 1) {
-        emit({ n: Long -> n - amount } named { "Decrease $this by $amount" })
+        emit({ n: Long -> n - amount }.named { "Decrease $this by $amount" })
     }
 }

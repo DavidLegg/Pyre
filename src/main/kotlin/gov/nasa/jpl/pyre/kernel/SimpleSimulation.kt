@@ -1,6 +1,8 @@
 package gov.nasa.jpl.pyre.kernel
 
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.ZERO
+import kotlin.time.Instant
 
 /**
  * The minimal type of simulation, in which the entire simulation is set up "at the start".
@@ -24,7 +26,7 @@ class SimpleSimulation(setup: SimulationSetup) {
         }
     }
 
-    fun runUntil(time: Duration) {
+    fun runUntil(time: Instant) {
         require(time >= state.time()) {
             "Simulation time is currently ${state.time()}, cannot step backwards to $time"
         }

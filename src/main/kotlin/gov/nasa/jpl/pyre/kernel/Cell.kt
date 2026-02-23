@@ -1,6 +1,8 @@
 package gov.nasa.jpl.pyre.kernel
 
 import kotlin.reflect.KType
+import kotlin.time.Duration
+import kotlin.time.Instant
 
 typealias Effect<T> = (T) -> T
 
@@ -21,7 +23,7 @@ class CellImpl<T> internal constructor(
     /** Internal bookkeeping: the value this cell had the last time it was written to */
     internal var lastWrittenValue: T = value,
     /** Internal bookkeeping: the absolute time this cell was last written to */
-    internal var lastWrittenTime: Duration,
+    internal var lastWrittenTime: Instant,
     /** Internal bookkeeping: the value this cell had before being modified on this branch */
     internal var trunkValue: T? = null,
     /** Internal bookkeeping: the net effect of all branches in this batch */

@@ -1,16 +1,16 @@
 package gov.nasa.jpl.pyre.foundation.plans
 
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
+import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 object ActivityActions {
@@ -59,17 +59,16 @@ object ActivityActions {
         call(FloatingActivity(activity), model)
 
     context (scope: TaskScope)
-    suspend fun <M> defer(time: Duration, activity: FloatingActivity<M>, model: M) {
+    suspend fun <M> defer(time: Duration, activity: FloatingActivity<M>, model: M) =
+        deferUntil(now() + time, activity, model)
+
+    context (scope: TaskScope)
+    suspend fun <M> deferUntil(time: Instant, activity: FloatingActivity<M>, model: M) {
         spawn(activity.name, task {
-            delay(time)
+            delayUntil(time)
             call(activity, model)
         })
     }
-
-
-    context(scope: TaskScope)
-    suspend fun <M> deferUntil(time: Instant, activity: FloatingActivity<M>, model: M) =
-        defer((time - now()).toPyreDuration(), activity, model)
 
     context(scope: TaskScope)
     suspend fun <M> spawn(activity: GroundedActivity<M>, model: M) =

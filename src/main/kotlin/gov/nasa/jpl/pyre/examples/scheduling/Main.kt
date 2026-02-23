@@ -2,12 +2,6 @@ package gov.nasa.jpl.pyre.examples.scheduling
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.utilities.Serialization.encodeToFile
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
-import gov.nasa.jpl.pyre.kernel.times
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
-import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.DataModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget
@@ -60,7 +54,7 @@ import gov.nasa.jpl.pyre.general.results.discrete.BooleanProfile
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.Companion.compute
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplayScope.Companion.countActivities
 import gov.nasa.jpl.pyre.general.units.Unit.Companion.SCALAR
-import gov.nasa.jpl.pyre.general.units.quantity.QuantityOperations.div
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.builtins.DoubleArraySerializer
 import kotlinx.serialization.builtins.serializer
@@ -78,16 +72,18 @@ import kotlin.io.path.deleteRecursively
 import kotlin.io.path.div
 import kotlin.io.path.exists
 import kotlin.io.path.inputStream
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlin.time.TimeSource
 
 // From our knowledge of this particular model, we know that a GncTurn never takes more than 45 minutes.
 // We'll use this to make our scheduling procedure highly efficient.
-private val GNC_TURN_MAX_DURATION = 60 * MINUTE
+private val GNC_TURN_MAX_DURATION = 60.minutes
 
 private val STANDARD_CONFIG = SystemModel.Config(
-    GeometryModel.Config(1 * HOUR),
-    GncModel.Config(1 * HOUR, 1 * MINUTE, 0.5 * DEGREE),
+    GeometryModel.Config(1.hours),
+    GncModel.Config(1.hours, 1.minutes, 0.5 * DEGREE),
     TelecomModel.Config(),
     DataModel.Config(32.0 * GIGABYTE),
     PowerModel.Config(300.0 * WATT, 2.2 * KILOWATT_HOUR),
@@ -231,7 +227,7 @@ fun schedulingMain(args: Array<String>) {
 
         // Add in some fixed setup activities, akin to configuring the craft after launch:
         layer1Scheduler += GroundedActivity(
-            planStart + (10 * MINUTE).toKotlinDuration(),
+            planStart + 10.minutes,
             GncActivity(GncSetSystemMode(GncModel.GncSystemMode.ACTIVE))
         )
 
@@ -264,7 +260,7 @@ fun schedulingMain(args: Array<String>) {
         scienceOps.filter { it.critical }.forEach {
             print(".")
             // Advance the scheduler to the earliest time the turn may start, to minimize re-simulation.
-            layer2Scheduler.runUntil(it.start - GNC_TURN_MAX_DURATION.toKotlinDuration())
+            layer2Scheduler.runUntil(it.start - GNC_TURN_MAX_DURATION)
             layer2Scheduler.scheduleScienceOpTurns(it, gncInputProfiles)
         }
         println()
@@ -320,7 +316,7 @@ fun schedulingMain(args: Array<String>) {
 
         // For each event, build the window of interest around it.
         val scienceOpWindows =
-            scienceOps.map { it to (it.start - GNC_TURN_MAX_DURATION.toKotlinDuration() to it.end + GNC_TURN_MAX_DURATION.toKotlinDuration()) }
+            scienceOps.map { it to (it.start - GNC_TURN_MAX_DURATION to it.end + GNC_TURN_MAX_DURATION) }
         val commWindows = commPasses.map { it to (it.start to it.end) }
 
         val gncInputProfiles2 = GncInputProfiles(layer2Scheduler)
@@ -406,7 +402,7 @@ fun commPassActivity(pass: CommPass) = GroundedActivity(
     pass.start,
     TelecomActivity(
         TelecomPass(
-            (pass.end - pass.start).toPyreDuration(),
+            pass.end - pass.start,
             pass.downlinkRate,
         )
     ),
@@ -416,7 +412,7 @@ fun commPassActivity(pass: CommPass) = GroundedActivity(
 fun scienceOpActivity(it: ScienceOp) = GroundedActivity(
     it.start,
     ImagerActivity(ImagerDoObservation(
-        (it.end - it.start).toPyreDuration(),
+        it.end - it.start,
     )),
     name = ImagerDoObservation::class.simpleName!!,
 )

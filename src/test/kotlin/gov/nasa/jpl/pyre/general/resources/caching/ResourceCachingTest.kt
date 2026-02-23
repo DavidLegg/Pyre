@@ -1,12 +1,6 @@
 package gov.nasa.jpl.pyre.general.resources.caching
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
-import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
@@ -31,6 +25,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import gov.nasa.jpl.pyre.utilities.invoke
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -48,6 +43,9 @@ import kotlin.io.path.outputStream
 import kotlin.io.path.readLines
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class ResourceCachingTest {
@@ -67,7 +65,7 @@ class ResourceCachingTest {
                 resourceA = discreteResource("resourceA", 0).registered()
                 resourceB = discreteResource("resourceB", "Initial string").registered()
 
-                spawn("Decay $resourceA", every(30 * SECOND) {
+                spawn("Decay $resourceA", every(30.seconds) {
                     val n = resourceA.getValue()
                     if (n > 0) resourceA.decrement()
                     else if (n < 0) resourceA.increment()
@@ -151,12 +149,12 @@ class ResourceCachingTest {
 
             simulation.runPlan(Plan(
                 epoch,
-                epoch + HOUR,
+                epoch + 1.hours,
                 listOf(
-                    GroundedActivity(epoch + 5 * MINUTE, ChangeA(delta = 10)),
-                    GroundedActivity(epoch + 15 * MINUTE, ChangeB("Second string")),
-                    GroundedActivity(epoch + 20 * MINUTE, ChangeA(delta = -10)),
-                    GroundedActivity(epoch + 30 * MINUTE, ChangeB("Third string")),
+                    GroundedActivity(epoch + 5.minutes, ChangeA(delta = 10)),
+                    GroundedActivity(epoch + 15.minutes, ChangeB("Second string")),
+                    GroundedActivity(epoch + 20.minutes, ChangeA(delta = -10)),
+                    GroundedActivity(epoch + 30.minutes, ChangeB("Third string")),
                 )
             ))
         }
@@ -174,7 +172,7 @@ class ResourceCachingTest {
             )
 
             // The full profile is read out of outputFile1 - there's no activities nor daemons in this version.
-            simulation.runUntil(epoch + HOUR)
+            simulation.runUntil(epoch + 1.hours)
         }
 
         // At this point, we should have written the file-backed resources back to outputFile2, just for the sake of testing.
@@ -214,18 +212,18 @@ class ResourceCachingTest {
 
             simulation.runPlan(Plan(
                 epoch,
-                epoch + HOUR,
+                epoch + 1.hours,
                 listOf(
-                    GroundedActivity(epoch + 5 * MINUTE, ChangeA(delta = 10)),
-                    GroundedActivity(epoch + 15 * MINUTE, ChangeB("Second string")),
-                    GroundedActivity(epoch + 20 * MINUTE, ChangeA(delta = -10)),
-                    GroundedActivity(epoch + 30 * MINUTE, ChangeB("Third string")),
+                    GroundedActivity(epoch + 5.minutes, ChangeA(delta = 10)),
+                    GroundedActivity(epoch + 15.minutes, ChangeB("Second string")),
+                    GroundedActivity(epoch + 20.minutes, ChangeA(delta = -10)),
+                    GroundedActivity(epoch + 30.minutes, ChangeB("Third string")),
                 )
             ))
         }
 
         val outputFile2 = createTempFile(suffix="output2.jsonl")
-        val sim2start = epoch + 20 * MINUTE + 10 * SECOND
+        val sim2start = epoch + 20.minutes + 10.seconds
         outputFile2.outputStream().use { out ->
             val simulation = PlanSimulation(
                 jsonlReportHandler(out, jsonFormat),
@@ -234,7 +232,7 @@ class ResourceCachingTest {
             )
 
             // The full profile is read out of outputFile1 - there's no activities nor daemons in this version.
-            simulation.runUntil(epoch + HOUR)
+            simulation.runUntil(epoch + 1.hours)
         }
 
         // Now, since we're starting the replay at ~epoch + 20 min, the output should be identical

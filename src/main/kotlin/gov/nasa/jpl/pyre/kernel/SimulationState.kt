@@ -3,7 +3,6 @@ package gov.nasa.jpl.pyre.kernel
 import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.report
 import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.within
 import gov.nasa.jpl.pyre.kernel.Task.TaskStepResult.*
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
 import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.within
 import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
@@ -13,25 +12,38 @@ import kotlinx.serialization.SerializationException
 import java.util.Comparator.comparing
 import java.util.PriorityQueue
 import kotlin.reflect.KType
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.ZERO
+import kotlin.time.Instant
 
 typealias ReportHandler = (Any?) -> Unit
 
-class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot? = null) {
+class SimulationState(
+    private val reportHandler: ReportHandler,
+    incon: Snapshot? = null,
+    startTime: Instant? = null,
+    ) {
     // Use a class, not a data class, for performance.
     // Adding and removing entries from the task queue is faster when the entry uses object identity
     // rather than deep equality.
-    private class TaskEntry(val time: Duration, val task: Task<*>) {
+    private class TaskEntry(val time: Instant, val task: Task<*>) {
         operator fun component1() = time
         operator fun component2() = task
         override fun toString(): String = "$task @ $time"
     }
 
-    private var time: Duration = if (incon != null) {
-        requireNotNull(incon.provide("simulation", "time")) {
-            "Incon must specify a ${Duration::class.simpleName} at simulation.time"
+    private var time: Instant = if (incon != null) {
+        val inconTime: Instant = requireNotNull(incon.provide("simulation", "time")) {
+            "Incon must specify a ${Instant::class.simpleName} at simulation.time"
         }
+        require(startTime == null || startTime == inconTime) {
+            "Specified start time $startTime does not agree with incon time $inconTime"
+        }
+        inconTime
     } else {
-        ZERO
+        requireNotNull(startTime) {
+            "Either a start time or an incon must be specified"
+        }
     }
     private var cells: MutableList<Cell<*>> = mutableListOf()
     private val rootTaskNames: MutableList<Name> = mutableListOf()
@@ -104,7 +116,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
 
     private fun restoreTask(rootTask: Task<*>, inconProvider: Snapshot): TaskEntry? =
         rootTask.restore(inconProvider)?.let { restoredTask ->
-            val restoredTime = requireNotNull(inconProvider.within("time").provide<Duration>())
+            val restoredTime = requireNotNull(inconProvider.within("time").provide<Instant>())
             TaskEntry(restoredTime, restoredTask)
         }
 
@@ -117,11 +129,11 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
      * 1) A fincon without this task will nevertheless restore the simulation adequately, or
      * 2) This task will run to completion before a fincon is taken.
      */
-    fun <T> addEphemeralTask(name: Name, step: PureTaskStep<T>, time: Duration = time()) {
+    fun <T> addEphemeralTask(name: Name, step: PureTaskStep<T>, time: Instant = time()) {
         tasks += TaskEntry(time, Task.of(name, step))
     }
 
-    fun stepTo(endTime: Duration) {
+    fun stepTo(endTime: Instant) {
         val batchTime = tasks.peek()?.time
         if (batchTime != null && batchTime == time && batchTime <= endTime) {
             // Collect a batch of tasks, prior to running any of those tasks,
@@ -345,7 +357,7 @@ class SimulationState(private val reportHandler: ReportHandler, incon: Snapshot?
             taskCollector.within(task.id.name.asSequence())
                 .also(task::save)
                 .within("time")
-                .report<Duration>(time)
+                .report<Instant>(time)
         }
         val tasksByRootTaskName = tasksToSave.groupBy { it.task.id.rootTaskName }
         // Report the running children for every root task.

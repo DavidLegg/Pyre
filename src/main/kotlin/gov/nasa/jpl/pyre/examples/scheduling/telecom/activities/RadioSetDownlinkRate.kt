@@ -1,7 +1,5 @@
 package gov.nasa.jpl.pyre.examples.scheduling.telecom.activities
 
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.BITS_PER_SECOND
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
@@ -12,6 +10,7 @@ import gov.nasa.jpl.pyre.general.units.discrete_unit_aware_resource.UnitAwareDis
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration.Companion.seconds
 
 @Serializable
 @SerialName("RadioSetDownlinkRate")
@@ -22,7 +21,7 @@ class RadioSetDownlinkRate(
     override suspend fun effectModel(model: TelecomModel) {
         unitAware {
             model.commandedDataRate.set(downlinkRate_bps * BITS_PER_SECOND)
-            delay(1 * SECOND)
+            delay(1.seconds)
         }
     }
 }

@@ -4,16 +4,12 @@ import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator.FrontierAction.*
 import gov.nasa.jpl.pyre.incremental.SGNode.*
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.ReadActions
 import gov.nasa.jpl.pyre.kernel.SatisfiedAt
 import gov.nasa.jpl.pyre.kernel.Task
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
-import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.utilities.compose
 import gov.nasa.jpl.pyre.utilities.identity
 import java.io.File
@@ -22,6 +18,8 @@ import java.util.TreeMap
 import java.util.TreeSet
 import kotlin.collections.plusAssign
 import kotlin.reflect.KType
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Instant
 
 // TODO: Look for opportunities to refactor node creation (e.g. an "insert after" operator that does the link modification).
@@ -363,7 +361,7 @@ class KernelIncrementalSimulator(
                     var resultTime = result.time?.let {
                         if (it > ZERO) {
                             SimulationTime(
-                                action.time.instant + it.toKotlinDuration(),
+                                action.time.instant + it,
                                 branch = action.time.branch)
                                 // Filter out results after the end of the plan
                                 .takeIf { it.instant < planEnd }
@@ -458,7 +456,7 @@ class KernelIncrementalSimulator(
                 // Walk back to our first non-step-node ancestor and step from there instead.
                 var baseNode = node.prior
                 while (baseNode is CellStepNode) baseNode = baseNode.prior
-                node.cell.stepBy(baseNode.value, (node.time.instant - baseNode.time.instant).toPyreDuration())
+                node.cell.stepBy(baseNode.value, node.time.instant - baseNode.time.instant)
             }
             is CellWriteNode<T> -> {
                 // Apply the effect to the prior cell value.
@@ -955,7 +953,7 @@ class KernelIncrementalSimulator(
             // Walk back to our first non-step-node ancestor and step from there instead.
             var baseNode = cellNode
             while (baseNode is CellStepNode) baseNode = baseNode.prior
-            val stepSize = (time.instant - baseNode.time.instant).toPyreDuration()
+            val stepSize = time.instant - baseNode.time.instant
             // Build the new step node
             val stepNode = CellStepNode(
                 nextNodeId++,

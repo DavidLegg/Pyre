@@ -1,18 +1,17 @@
 package gov.nasa.jpl.pyre.examples.lander.activities.apss
 
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.lander.Mission
 import gov.nasa.jpl.pyre.examples.lander.models.apss.APSSModel
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 
 @Serializable
 class APSSContinuousConfigFileUpdate(
-    val duration: Duration = 20 * MINUTE,
+    val duration: Duration = 20.minutes,
     val componentInRates: Map<APSSModel.Component, APSSModel.ComponentRate> = mapOf(),
     val componentOutRates: Map<APSSModel.Component, APSSModel.ComponentRate> = mapOf(),
     val transferCoef: Double = 0.2088, // Mbit/s

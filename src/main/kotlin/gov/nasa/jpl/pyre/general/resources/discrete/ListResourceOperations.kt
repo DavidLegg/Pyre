@@ -17,7 +17,7 @@ typealias MutableListResource<E> = MutableDiscreteResource<List<E>>
 object ListResourceOperations {
     context (scope: TaskScope)
     fun <E> MutableListResource<E>.push(element: E) =
-        emit({ it: List<E> -> it + element } named { "Push $element onto $this" })
+        emit({ it: List<E> -> it + element }.named { "Push $element onto $this" })
 
     context (scope: TaskScope)
     operator fun <E> MutableListResource<E>.plusAssign(element: E) = this.push(element)
@@ -31,7 +31,7 @@ object ListResourceOperations {
             require(it.isNotEmpty()) { "Concurrent effects on list resource conflict with pop effect" }
             require(it.first() == poppedElement) { "Concurrent effects on list resource conflict with pop" }
             it.subList(1, it.size)
-        } named { "Pop $poppedElement off of $this" })
+        }.named { "Pop first element $poppedElement off of $this" })
         return poppedElement
     }
 
@@ -44,7 +44,7 @@ object ListResourceOperations {
             require(it.isNotEmpty()) { "Concurrent effects on list resource conflict with pop effect" }
             require(it.last() == poppedElement) { "Concurrent effects on list resource conflict with pop" }
             it.subList(0, it.size - 1)
-        } named { "Pop $poppedElement off of $this" })
+        }.named { "Pop last element $poppedElement off of $this" })
         return poppedElement
     }
 

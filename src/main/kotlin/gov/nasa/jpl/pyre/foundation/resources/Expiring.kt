@@ -2,19 +2,20 @@ package gov.nasa.jpl.pyre.foundation.resources
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.utilities.curry
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.*
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.nullable
+import kotlinx.serialization.builtins.serializer
+import kotlin.time.Duration
 
 @Serializable
 data class Expiring<T>(val data: T, val expiry: Expiry)
 
 fun <D : Dynamics<*, D>> Expiring<D>.step(time: Duration) = Expiring(data.step(time), expiry - time)
 
+// TODO: kotlin.time.Duration includes support for infinity. Remove Expiry and just use that.
 @Serializable(with = ExpirySerializer::class)
 data class Expiry(val time: Duration?): Comparable<Expiry> {
     override fun compareTo(other: Expiry): Int {

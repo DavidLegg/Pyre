@@ -7,7 +7,6 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
-import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.general.units.StandardUnits
 import gov.nasa.jpl.pyre.general.units.UnitAware
@@ -15,9 +14,9 @@ import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.general.units.quantity.Quantity
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.ratioOver
-import gov.nasa.jpl.pyre.kernel.roundTimes
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.DurationUnit
 
 typealias QuantityResource = UnitAware<DoubleResource>
 typealias MutableQuantityResource = UnitAware<MutableDoubleResource>
@@ -45,8 +44,8 @@ object QuantityResourceOperations {
 
     // Do the unit-awareness conversions at the resource level, so dimension checking happens only once
     fun DiscreteResource<Duration>.asQuantity(): QuantityResource =
-        (map(this) { it ratioOver Duration.SECOND }.fullyNamed { name }) * StandardUnits.SECOND
+        (map(this) { it.toDouble(DurationUnit.SECONDS) }.fullyNamed { name }) * StandardUnits.SECOND
     fun QuantityResource.asDuration(): DiscreteResource<Duration> = context (DoubleResourceField) {
-        map(this.valueIn(StandardUnits.SECOND)) { it roundTimes Duration.SECOND }.fullyNamed { name }
+        map(this.valueIn(StandardUnits.SECOND)) { it.seconds }.fullyNamed { name }
     }
 }

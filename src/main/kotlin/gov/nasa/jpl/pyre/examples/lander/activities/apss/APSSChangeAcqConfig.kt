@@ -1,9 +1,5 @@
 package gov.nasa.jpl.pyre.examples.lander.activities.apss
 
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.lander.Mission
 import gov.nasa.jpl.pyre.examples.lander.models.apss.APSSModel
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel.PelItem
@@ -16,6 +12,8 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.Serializable
 import kotlin.collections.getValue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 
 
 /**
@@ -109,7 +107,7 @@ class APSSChangeAcqConfig(
     }
 
     companion object {
-        private val DEFAULT_DURATION: Duration = 10 * MINUTE
+        private val DEFAULT_DURATION: Duration = 10.minutes
         private const val DEFAULT_PAE_ON: Boolean = true
         private const val DEFAULT_TWINS_PY_ON: Boolean = false
         private const val DEFAULT_TWINS_MY_ON: Boolean = true

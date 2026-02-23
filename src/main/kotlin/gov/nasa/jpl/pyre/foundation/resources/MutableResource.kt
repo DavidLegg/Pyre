@@ -24,10 +24,10 @@ typealias MergeResourceEffect<D> = (ResourceEffect<D>, ResourceEffect<D>) -> Res
 context (scope: TaskScope)
 fun <D> MutableResource<D>.emit(effect: (D) -> D) = this.emit({ it: FullDynamics<D> ->
     Expiring(effect(it.data), NEVER)
-} named effect::toString)
+}.named(effect::toString))
 
 context (scope: TaskScope)
-fun <D> MutableResource<D>.set(newDynamics: D) = emit({ d: D -> newDynamics } named { "Set $this to $newDynamics" })
+fun <D> MutableResource<D>.set(newDynamics: D) = emit({ d: D -> newDynamics }.named { "Set $this to $newDynamics" })
 
 context (scope: InitScope)
 inline fun <V, reified D : Dynamics<V, D>> resource(

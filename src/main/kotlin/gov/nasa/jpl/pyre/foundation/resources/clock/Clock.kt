@@ -1,0 +1,20 @@
+package gov.nasa.jpl.pyre.foundation.resources.clock
+
+import gov.nasa.jpl.pyre.foundation.resources.Dynamics
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.Serializable
+import kotlin.time.Duration
+import kotlin.time.Instant
+
+/**
+ * An [Instant] which changes linearly with respect to simulation time.
+ */
+@Serializable
+data class Clock(
+    @Contextual
+    val time: Instant,
+    val rate: Double,
+) : Dynamics<Instant, Clock> {
+    override fun value(): Instant = time
+    override fun step(t: Duration): Clock = copy(time = time + t * rate)
+}

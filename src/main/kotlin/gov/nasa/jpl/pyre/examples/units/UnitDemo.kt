@@ -1,11 +1,6 @@
 package gov.nasa.jpl.pyre.examples.units
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
-import gov.nasa.jpl.pyre.kernel.times
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.examples.units.DeviceIndicator.*
 import gov.nasa.jpl.pyre.examples.units.DeviceState.*
 import gov.nasa.jpl.pyre.foundation.plans.Activity
@@ -42,11 +37,14 @@ import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQu
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 // Recommended practice: Derive all the named units you're going to use in this file once, up front.
@@ -72,36 +70,36 @@ fun main(args: Array<String>) {
 
             simulation.addActivities(listOf(
                 GroundedActivity(
-                    epoch + (10 * MINUTE).toKotlinDuration(),
+                    epoch + 10.minutes,
                     SwitchDevice(HEATER_A, ON)
                 ),
                 GroundedActivity(
-                    epoch + (20 * MINUTE).toKotlinDuration(),
+                    epoch + 20.minutes,
                     SwitchDevice(HEATER_B, STANDBY)
                 ),
                 GroundedActivity(
-                    epoch + (30 * MINUTE).toKotlinDuration(),
+                    epoch + 30.minutes,
                     SwitchDevice(CAMERA, STANDBY)
                 ),
                 GroundedActivity(
-                    epoch + (40 * MINUTE).toKotlinDuration(),
+                    epoch + 40.minutes,
                     SwitchDevice(CAMERA, ON)
                 ),
                 GroundedActivity(
-                    epoch + (45 * MINUTE).toKotlinDuration(),
+                    epoch + 45.minutes,
                     SwitchDevice(CAMERA, OFF)
                 ),
                 GroundedActivity(
-                    epoch + (50 * MINUTE).toKotlinDuration(),
+                    epoch + 50.minutes,
                     SwitchDevice(HEATER_A, STANDBY)
                 ),
                 GroundedActivity(
-                    epoch + (55 * MINUTE).toKotlinDuration(),
+                    epoch + 55.minutes,
                     SwitchDevice(HEATER_B, OFF)
                 ),
             ))
 
-            simulation.runUntil(epoch + (2 * Duration.HOUR).toKotlinDuration())
+            simulation.runUntil(epoch + 2.hours)
         }
     }
 }

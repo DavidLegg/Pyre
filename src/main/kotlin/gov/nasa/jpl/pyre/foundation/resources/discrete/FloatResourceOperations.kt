@@ -41,11 +41,11 @@ object FloatResourceOperations {
 
     context(scope: TaskScope)
     fun MutableFloatResource.increase(amount: Float) {
-        emit({ n: Float -> n + amount } named { "Increase $this by $amount" })
+        emit({ n: Float -> n + amount }.named { "Increase $this by $amount" })
     }
 
     context(scope: TaskScope)
     fun MutableFloatResource.decrease(amount: Float) {
-        emit({ n: Float -> n - amount } named { "Decrease $this by $amount" })
+        emit({ n: Float -> n - amount }.named { "Decrease $this by $amount" })
     }
 }

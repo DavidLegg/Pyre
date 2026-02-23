@@ -7,8 +7,8 @@ import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.*
 import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.resources.resource
-import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
+import gov.nasa.jpl.pyre.foundation.resources.clock.Clock
+import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.clock
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.channel
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
@@ -23,15 +23,13 @@ import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.incremental.SGNode.*
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import java.util.TreeSet
 import kotlin.reflect.KType
-import kotlin.time.Instant
+import kotlin.time.Duration
 
 /**
  * Implements [IncrementalPlanSimulation] using an in-memory directed acyclic graph of the events that took place.
@@ -131,8 +129,7 @@ class GraphIncrementalPlanSimulation<M>(
                     override val contextName: Name? = null
                     override fun toString() = ""
 
-                    override val simulationClock: Resource<Timer> = resource("simulation_clock", Timer(ZERO, 1))
-                    override val simulationEpoch: Instant = plan.startTime
+                    override val simulationClock: Resource<Clock> = clock("simulation_clock", plan.startTime)
 
                     override val activities: Channel<ActivityEvent> = channel(Name("activities"))
                     override val stdout: Channel<String> = channel(Name("stdout"))

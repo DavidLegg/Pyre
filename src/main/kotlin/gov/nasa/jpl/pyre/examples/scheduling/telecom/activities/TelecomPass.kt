@@ -1,10 +1,5 @@
 package gov.nasa.jpl.pyre.examples.scheduling.telecom.activities
 
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.minus
-import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
@@ -14,6 +9,8 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 @Serializable
 @SerialName("TelecomPass")
@@ -26,7 +23,7 @@ class TelecomPass(
         val startTime = simulationClock.getValue()
         call(RadioPowerOn(), model)
         call(RadioSetDownlinkRate(downlinkRate_bps), model)
-        delayUntil(startTime + duration - 6 * SECOND)
+        delayUntil(startTime + duration - 6.seconds)
         call(RadioSetDownlinkRate(10.0), model)
         call(RadioPowerOff(), model)
     }

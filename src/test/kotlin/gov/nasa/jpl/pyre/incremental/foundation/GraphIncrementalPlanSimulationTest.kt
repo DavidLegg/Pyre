@@ -39,14 +39,7 @@ import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperatio
 import gov.nasa.jpl.pyre.incremental.GraphIncrementalPlanSimulation
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.EPSILON
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.minus
-import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.kernel.times
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
+import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
 import gov.nasa.jpl.pyre.utilities.named
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.until
@@ -61,8 +54,10 @@ import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class GraphIncrementalPlanSimulationTest {
@@ -128,7 +123,7 @@ class GraphIncrementalPlanSimulationTest {
                 TaskScope.spawn("daemon child", task {
                     repeat(10) {
                         x.increment()
-                        delay(5 * SECOND)
+                        delay(5.seconds)
                     }
                 })
                 // Delay epsilon so the child task can bump x up, avoiding an infinite loop in the parent
@@ -147,13 +142,13 @@ class GraphIncrementalPlanSimulationTest {
             spawn("daemon 1", whenever(b) {
                 repeat(10) {
                     x.increment()
-                    delay(5 * SECOND)
+                    delay(5.seconds)
                 }
             })
             spawn("daemon 2", whenever(b) {
                 repeat(5) {
                     x.increment()
-                    delay(10 * SECOND)
+                    delay(10.seconds)
                 }
             })
             Triple(x, p, b)
@@ -168,50 +163,50 @@ class GraphIncrementalPlanSimulationTest {
     @Test
     fun `initial plan with single effect activities`() {
         test(
-            SetStandaloneCounter(1) at 5 * MINUTE,
-            SetStandaloneCounter(2) at 10 * MINUTE,
-            SetStandaloneCounter(0) at 20 * MINUTE,
+            SetStandaloneCounter(1) at 5.minutes,
+            SetStandaloneCounter(2) at 10.minutes,
+            SetStandaloneCounter(0) at 20.minutes,
         )
     }
 
     @Test
     fun `initial plan with multi-effect activities`() {
         test(
-            SetDerivationSource(1) at 5 * MINUTE,
-            SetDerivationSource(2) at 10 * MINUTE,
-            SetDerivationSource(0) at 20 * MINUTE,
+            SetDerivationSource(1) at 5.minutes,
+            SetDerivationSource(2) at 10.minutes,
+            SetDerivationSource(0) at 20.minutes,
         )
     }
 
     @Test
     fun `initial plan with activities that trigger non-trivial daemons`() {
         test(
-            AddJob(10) at 5 * MINUTE,
-            AddJob(20) at 10 * MINUTE,
-            AddJob(30) at 20 * MINUTE,
+            AddJob(10) at 5.minutes,
+            AddJob(20) at 10.minutes,
+            AddJob(30) at 20.minutes,
         )
     }
 
     @Test
     fun `initial plan with concurrent activities`() {
         test(
-            IncrementStandaloneCounter(1) at 5 * MINUTE,
-            IncrementStandaloneCounter(2) at 5 * MINUTE,
-            SetStandaloneCounter(0) at 10 * MINUTE,
-            IncrementStandaloneCounter(10) at 20 * MINUTE,
-            IncrementStandaloneCounter(20) at 20 * MINUTE,
+            IncrementStandaloneCounter(1) at 5.minutes,
+            IncrementStandaloneCounter(2) at 5.minutes,
+            SetStandaloneCounter(0) at 10.minutes,
+            IncrementStandaloneCounter(10) at 20.minutes,
+            IncrementStandaloneCounter(20) at 20.minutes,
         )
     }
 
     @Test
     fun `initial plan provoking nontrivial dynamics`() {
         test(
-            SetIntegrand(1.0) at 5 * MINUTE,
-            SetIntegrand(0.0) at 6 * MINUTE,
-            SetIntegrand(1.0) at 10 * MINUTE,
-            SetIntegrand(0.0) at 15 * MINUTE,
-            SetIntegrand(-1.0) at 20 * MINUTE,
-            SetIntegrand(0.0) at 25 * MINUTE,
+            SetIntegrand(1.0) at 5.minutes,
+            SetIntegrand(0.0) at 6.minutes,
+            SetIntegrand(1.0) at 10.minutes,
+            SetIntegrand(0.0) at 15.minutes,
+            SetIntegrand(-1.0) at 20.minutes,
+            SetIntegrand(0.0) at 25.minutes,
         )
     }
 
@@ -219,13 +214,13 @@ class GraphIncrementalPlanSimulationTest {
     fun `initial plan with activities that spawn children`() {
         test(
             // SpawnChildren reads the counter, so interleave activities to set the counter to interesting values.
-            IncrementStandaloneCounter(1) at 4 * MINUTE,
-            SpawnChildren("A") at 5 * MINUTE,
-            IncrementStandaloneCounter(2) at 9 * MINUTE,
-            SpawnChildren("B") at 10 * MINUTE,
-            IncrementStandaloneCounter(10) at 14 * MINUTE,
-            SpawnChildren("C") at 15 * MINUTE,
-            SpawnChildren("D") at 15 * MINUTE + 3 * SECOND,
+            IncrementStandaloneCounter(1) at 4.minutes,
+            SpawnChildren("A") at 5.minutes,
+            IncrementStandaloneCounter(2) at 9.minutes,
+            SpawnChildren("B") at 10.minutes,
+            IncrementStandaloneCounter(10) at 14.minutes,
+            SpawnChildren("C") at 15.minutes,
+            SpawnChildren("D") at 15.minutes + 3.seconds,
         )
     }
 
@@ -235,71 +230,71 @@ class GraphIncrementalPlanSimulationTest {
         //   while the single-shot simulator gets it wrong!
         //   The single-shot issues a report with value 1!
         test(
-            IncrementStandaloneCounter(1) at 0 * MINUTE,
-            ReportStandaloneCounter("A") at 0 * MINUTE,
+            IncrementStandaloneCounter(1) at 0.minutes,
+            ReportStandaloneCounter("A") at 0.minutes,
         )
     }
 
     @Test
     fun `adding single effect activities`() {
         test().add(
-            SetStandaloneCounter(1) at 5 * MINUTE,
-            SetStandaloneCounter(2) at 10 * MINUTE,
-            SetStandaloneCounter(0) at 20 * MINUTE,
+            SetStandaloneCounter(1) at 5.minutes,
+            SetStandaloneCounter(2) at 10.minutes,
+            SetStandaloneCounter(0) at 20.minutes,
         )
     }
 
     @Test
     fun `adding multi effect activities`() {
         test().add(
-            SetDerivationSource(1) at 5 * MINUTE,
-            SetDerivationSource(2) at 10 * MINUTE,
-            SetDerivationSource(0) at 20 * MINUTE,
+            SetDerivationSource(1) at 5.minutes,
+            SetDerivationSource(2) at 10.minutes,
+            SetDerivationSource(0) at 20.minutes,
         )
     }
 
     @Test
     fun `adding activities that trigger non-trivial daemons`() {
         test().add(
-            AddJob(10) at 5 * MINUTE,
-            AddJob(20) at 10 * MINUTE,
-            AddJob(30) at 20 * MINUTE,
+            AddJob(10) at 5.minutes,
+            AddJob(20) at 10.minutes,
+            AddJob(30) at 20.minutes,
         )
     }
 
     @Test
     fun `adding concurrent activities`() {
         test().add(
-            IncrementStandaloneCounter(1) at 5 * MINUTE,
-            IncrementStandaloneCounter(2) at 5 * MINUTE,
-            IncrementStandaloneCounter(-3) at 10 * MINUTE,
-            IncrementStandaloneCounter(10) at 20 * MINUTE,
-            IncrementStandaloneCounter(20) at 20 * MINUTE,
+            IncrementStandaloneCounter(1) at 5.minutes,
+            IncrementStandaloneCounter(2) at 5.minutes,
+            IncrementStandaloneCounter(-3) at 10.minutes,
+            IncrementStandaloneCounter(10) at 20.minutes,
+            IncrementStandaloneCounter(20) at 20.minutes,
         )
     }
 
     @Test
     fun `adding activities concurrent with initial activities`() {
         test(
-            IncrementStandaloneCounter(1) at 5 * MINUTE,
-            SetStandaloneCounter(0) at 10 * MINUTE,
-            IncrementStandaloneCounter(10) at 20 * MINUTE,
+            IncrementStandaloneCounter(1) at 5.minutes,
+            SetStandaloneCounter(0) at 10.minutes,
+            IncrementStandaloneCounter(10) at 20.minutes,
         ).add(
-            IncrementStandaloneCounter(2) at 5 * MINUTE,
-            IncrementStandaloneCounter(20) at 20 * MINUTE,
+            IncrementStandaloneCounter(2) at 5.minutes,
+            IncrementStandaloneCounter(20) at 20.minutes,
         )
     }
 
     @Test
     fun `adding activities to provoke nontrivial dynamics`() {
         test(
-            SetIntegrand(1.0) at 5 * MINUTE,
-            SetIntegrand(0.0) at 6 * MINUTE,
-            SetIntegrand(-1.0) at 20 * MINUTE,
-            SetIntegrand(0.0) at 25 * MINUTE,
+            SetIntegrand(1.0) at 5.minutes,
+            SetIntegrand(0.0) at 6.minutes,
+            SetIntegrand(-1.0) at 20.minutes,
+            SetIntegrand(0.0) at 25.minutes,
         ).add(
-            SetIntegrand(1.0) at 10 * MINUTE,
-            SetIntegrand(0.0) at 15 * MINUTE,
+            SetIntegrand(1.0) at 10.minutes,
+            SetIntegrand(0.0) at 15.minutes,
         )
     }
 
@@ -307,105 +302,105 @@ class GraphIncrementalPlanSimulationTest {
     fun `adding activities that spawn children`() {
         test(
             // SpawnChildren reads the counter, so interleave activities to set the counter to interesting values.
-            IncrementStandaloneCounter(1) at 4 * MINUTE,
-            SpawnChildren("A") at 5 * MINUTE,
-            IncrementStandaloneCounter(10) at 14 * MINUTE,
-            SpawnChildren("C") at 15 * MINUTE,
-            SpawnChildren("D") at 15 * MINUTE + 3 * SECOND,
+            IncrementStandaloneCounter(1) at 4.minutes,
+            SpawnChildren("A") at 5.minutes,
+            IncrementStandaloneCounter(10) at 14.minutes,
+            SpawnChildren("C") at 15.minutes,
+            SpawnChildren("D") at 15.minutes + 3.seconds,
         ).add(
-            IncrementStandaloneCounter(2) at 9 * MINUTE,
-            SpawnChildren("B") at 10 * MINUTE,
+            IncrementStandaloneCounter(2) at 9.minutes,
+            SpawnChildren("B") at 10.minutes,
         )
     }
 
     @Test
     fun `removing single effect activities`() {
-        val a1 = SetStandaloneCounter(1) at 5 * MINUTE
-        val a2 = SetStandaloneCounter(2) at 10 * MINUTE
-        val a3 = SetStandaloneCounter(0) at 20 * MINUTE
+        val a1 = SetStandaloneCounter(1) at 5.minutes
+        val a2 = SetStandaloneCounter(2) at 10.minutes
+        val a3 = SetStandaloneCounter(0) at 20.minutes
         test(a1, a2, a3).remove(a2)
     }
 
     @Test
     fun `removing multi effect activities`() {
-        val a1 = SetDerivationSource(1) at 5 * MINUTE
-        val a2 = SetDerivationSource(2) at 10 * MINUTE
-        val a3 = SetDerivationSource(0) at 20 * MINUTE
+        val a1 = SetDerivationSource(1) at 5.minutes
+        val a2 = SetDerivationSource(2) at 10.minutes
+        val a3 = SetDerivationSource(0) at 20.minutes
         test(a1, a2, a3).remove(a2)
     }
 
     @Test
     fun `removing activities that trigger non-trivial daemons`() {
-        val a1 = AddJob(10) at 5 * MINUTE
-        val a2 = AddJob(20) at 10 * MINUTE
-        val a3 = AddJob(30) at 20 * MINUTE
+        val a1 = AddJob(10) at 5.minutes
+        val a2 = AddJob(20) at 10.minutes
+        val a3 = AddJob(30) at 20.minutes
         test(a1, a2, a3).remove(a2)
     }
 
     @Test
     fun `removing concurrent activities`() {
-        val a1 = IncrementStandaloneCounter(1) at 5 * MINUTE
-        val a2 = IncrementStandaloneCounter(2) at 5 * MINUTE
-        val a3 = SetStandaloneCounter(0) at 10 * MINUTE
-        val a4 = IncrementStandaloneCounter(10) at 20 * MINUTE
-        val a5 = IncrementStandaloneCounter(20) at 20 * MINUTE
+        val a1 = IncrementStandaloneCounter(1) at 5.minutes
+        val a2 = IncrementStandaloneCounter(2) at 5.minutes
+        val a3 = SetStandaloneCounter(0) at 10.minutes
+        val a4 = IncrementStandaloneCounter(10) at 20.minutes
+        val a5 = IncrementStandaloneCounter(20) at 20.minutes
         test(a1, a2, a3, a4, a5).remove(a2, a4, a5)
     }
 
     @Test
     fun `removing activities which provoke nontrivial dynamics`() {
-        val a1 = SetIntegrand(1.0) at 5 * MINUTE
-        val a2 = SetIntegrand(0.0) at 6 * MINUTE
-        val a3 = SetIntegrand(1.0) at 10 * MINUTE
-        val a4 = SetIntegrand(0.0) at 15 * MINUTE
-        val a5 = SetIntegrand(-1.0) at 20 * MINUTE
-        val a6 = SetIntegrand(0.0) at 25 * MINUTE
+        val a1 = SetIntegrand(1.0) at 5.minutes
+        val a2 = SetIntegrand(0.0) at 6.minutes
+        val a3 = SetIntegrand(1.0) at 10.minutes
+        val a4 = SetIntegrand(0.0) at 15.minutes
+        val a5 = SetIntegrand(-1.0) at 20.minutes
+        val a6 = SetIntegrand(0.0) at 25.minutes
         test(a1, a2, a3, a4, a5, a6).remove(a3, a4)
     }
 
     @Test
     fun `removing activities that spawn children`() {
-        val a1 = IncrementStandaloneCounter(1) at 4 * MINUTE
-        val a2 = SpawnChildren("A") at 5 * MINUTE
-        val a3 = IncrementStandaloneCounter(2) at 9 * MINUTE
-        val a4 = SpawnChildren("B") at 10 * MINUTE
-        val a5 = IncrementStandaloneCounter(10) at 14 * MINUTE
-        val a6 = SpawnChildren("C") at 15 * MINUTE
-        val a7 = SpawnChildren("D") at 15 * MINUTE + 3 * SECOND
+        val a1 = IncrementStandaloneCounter(1) at 4.minutes
+        val a2 = SpawnChildren("A") at 5.minutes
+        val a3 = IncrementStandaloneCounter(2) at 9.minutes
+        val a4 = SpawnChildren("B") at 10.minutes
+        val a5 = IncrementStandaloneCounter(10) at 14.minutes
+        val a6 = SpawnChildren("C") at 15.minutes
+        val a7 = SpawnChildren("D") at 15.minutes + 3.seconds
         test(a1, a2, a3, a4, a5, a6, a7).remove(a3, a4)
     }
 
     @Test
     fun `editing single effect activities`() {
-        val a1 = SetStandaloneCounter(1) at 5 * MINUTE
-        val a2 = SetStandaloneCounter(2) at 10 * MINUTE
-        val a3 = SetStandaloneCounter(0) at 20 * MINUTE
+        val a1 = SetStandaloneCounter(1) at 5.minutes
+        val a2 = SetStandaloneCounter(2) at 10.minutes
+        val a3 = SetStandaloneCounter(0) at 20.minutes
         test(a1, a2, a3).edit(a2 to SetStandaloneCounter(100))
     }
 
     @Test
     fun `editing multi effect activities`() {
-        val a1 = SetDerivationSource(1) at 5 * MINUTE
-        val a2 = SetDerivationSource(2) at 10 * MINUTE
-        val a3 = SetDerivationSource(0) at 20 * MINUTE
+        val a1 = SetDerivationSource(1) at 5.minutes
+        val a2 = SetDerivationSource(2) at 10.minutes
+        val a3 = SetDerivationSource(0) at 20.minutes
         test(a1, a2, a3).edit(a2 to SetDerivationSource(100))
     }
 
     @Test
     fun `editing activities that trigger non-trivial daemons`() {
-        val a1 = AddJob(10) at 5 * MINUTE
-        val a2 = AddJob(20) at 10 * MINUTE
-        val a3 = AddJob(30) at 20 * MINUTE
+        val a1 = AddJob(10) at 5.minutes
+        val a2 = AddJob(20) at 10.minutes
+        val a3 = AddJob(30) at 20.minutes
         test(a1, a2, a3).edit(a2 to AddJob(15))
     }
 
     @Test
     fun `editing concurrent activities`() {
-        val a1 = IncrementStandaloneCounter(1) at 5 * MINUTE;
-        val a2 = IncrementStandaloneCounter(2) at 5 * MINUTE;
-        val a3 = SetStandaloneCounter(0) at 10 * MINUTE;
-        val a4 = IncrementStandaloneCounter(10) at 20 * MINUTE;
-        val a5 = IncrementStandaloneCounter(20) at 20 * MINUTE;
+        val a1 = IncrementStandaloneCounter(1) at 5.minutes
+        val a2 = IncrementStandaloneCounter(2) at 5.minutes
+        val a3 = SetStandaloneCounter(0) at 10.minutes
+        val a4 = IncrementStandaloneCounter(10) at 20.minutes
+        val a5 = IncrementStandaloneCounter(20) at 20.minutes
         test(a1, a2, a3, a4, a5).edit(
             a2 to IncrementStandaloneCounter(10),
             a4 to IncrementStandaloneCounter(-5),
@@ -414,12 +409,12 @@ class GraphIncrementalPlanSimulationTest {
 
     @Test
     fun `editing activities which provoke nontrivial dynamics`() {
-        val a1 = SetIntegrand(1.0) at 5 * MINUTE
-        val a2 = SetIntegrand(0.0) at 6 * MINUTE
-        val a3 = SetIntegrand(1.0) at 10 * MINUTE
-        val a4 = SetIntegrand(0.0) at 15 * MINUTE
-        val a5 = SetIntegrand(-1.0) at 20 * MINUTE
-        val a6 = SetIntegrand(0.0) at 25 * MINUTE
+        val a1 = SetIntegrand(1.0) at 5.minutes
+        val a2 = SetIntegrand(0.0) at 6.minutes
+        val a3 = SetIntegrand(1.0) at 10.minutes
+        val a4 = SetIntegrand(0.0) at 15.minutes
+        val a5 = SetIntegrand(-1.0) at 20.minutes
+        val a6 = SetIntegrand(0.0) at 25.minutes
         test(a1, a2, a3, a4, a5, a6).edit(
             a3 to SetIntegrand(-0.1),
             a4 to SetIntegrand(0.1),
@@ -428,13 +423,13 @@ class GraphIncrementalPlanSimulationTest {
 
     @Test
     fun `editing activities that spawn children`() {
-        val a1 = IncrementStandaloneCounter(1) at 4 * MINUTE
-        val a2 = SpawnChildren("A") at 5 * MINUTE
-        val a3 = IncrementStandaloneCounter(2) at 9 * MINUTE
-        val a4 = SpawnChildren("B") at 10 * MINUTE
-        val a5 = IncrementStandaloneCounter(10) at 14 * MINUTE
-        val a6 = SpawnChildren("C") at 15 * MINUTE
-        val a7 = SpawnChildren("D") at 15 * MINUTE + 3 * SECOND
+        val a1 = IncrementStandaloneCounter(1) at 4.minutes
+        val a2 = SpawnChildren("A") at 5.minutes
+        val a3 = IncrementStandaloneCounter(2) at 9.minutes
+        val a4 = SpawnChildren("B") at 10.minutes
+        val a5 = IncrementStandaloneCounter(10) at 14.minutes
+        val a6 = SpawnChildren("C") at 15.minutes
+        val a7 = SpawnChildren("D") at 15.minutes + 3.seconds
         test(a1, a2, a3, a4, a5, a6, a7).edit(
             a4 to SpawnChildren("X"),
             a5 to IncrementStandaloneCounter(4)
@@ -443,67 +438,67 @@ class GraphIncrementalPlanSimulationTest {
 
     @Test
     fun `moving single effect activities`() {
-        val a1 = SetStandaloneCounter(1) at 5 * MINUTE
-        val a2 = SetStandaloneCounter(2) at 10 * MINUTE
-        val a3 = SetStandaloneCounter(0) at 20 * MINUTE
-        test(a1, a2, a3).move(a2 to 12 * MINUTE)
+        val a1 = SetStandaloneCounter(1) at 5.minutes
+        val a2 = SetStandaloneCounter(2) at 10.minutes
+        val a3 = SetStandaloneCounter(0) at 20.minutes
+        test(a1, a2, a3).move(a2 to 12.minutes)
     }
 
     @Test
     fun `moving multi effect activities`() {
-        val a1 = SetDerivationSource(1) at 5 * MINUTE
-        val a2 = SetDerivationSource(2) at 10 * MINUTE
-        val a3 = SetDerivationSource(0) at 20 * MINUTE
-        test(a1, a2, a3).move(a2 to 12 * MINUTE)
+        val a1 = SetDerivationSource(1) at 5.minutes
+        val a2 = SetDerivationSource(2) at 10.minutes
+        val a3 = SetDerivationSource(0) at 20.minutes
+        test(a1, a2, a3).move(a2 to 12.minutes)
     }
 
     @Test
     fun `moving activities that trigger non-trivial daemons`() {
-        val a1 = AddJob(10) at 5 * MINUTE
-        val a2 = AddJob(20) at 10 * MINUTE
-        val a3 = AddJob(30) at 20 * MINUTE
-        test(a1, a2, a3).move(a2 to 12 * MINUTE)
+        val a1 = AddJob(10) at 5.minutes
+        val a2 = AddJob(20) at 10.minutes
+        val a3 = AddJob(30) at 20.minutes
+        test(a1, a2, a3).move(a2 to 12.minutes)
     }
 
     @Test
     fun `moving concurrent activities`() {
-        val a1 = IncrementStandaloneCounter(1) at 5 * MINUTE
-        val a2 = IncrementStandaloneCounter(2) at 5 * MINUTE
-        val a3 = SetStandaloneCounter(0) at 10 * MINUTE
-        val a4 = IncrementStandaloneCounter(10) at 18 * MINUTE
-        val a5 = IncrementStandaloneCounter(20) at 20 * MINUTE
+        val a1 = IncrementStandaloneCounter(1) at 5.minutes
+        val a2 = IncrementStandaloneCounter(2) at 5.minutes
+        val a3 = SetStandaloneCounter(0) at 10.minutes
+        val a4 = IncrementStandaloneCounter(10) at 18.minutes
+        val a5 = IncrementStandaloneCounter(20) at 20.minutes
         test(a1, a2, a3, a4, a5).move(
-            a2 to 7 * MINUTE,
-            a4 to 20 * MINUTE,
+            a2 to 7.minutes,
+            a4 to 20.minutes,
         )
     }
 
     @Test
     fun `moving activities which provoke nontrivial dynamics`() {
-        val a1 = SetIntegrand(1.0) at 5 * MINUTE
-        val a2 = SetIntegrand(0.0) at 6 * MINUTE
-        val a3 = SetIntegrand(1.0) at 10 * MINUTE
-        val a4 = SetIntegrand(0.0) at 15 * MINUTE
-        val a5 = SetIntegrand(-1.0) at 20 * MINUTE
-        val a6 = SetIntegrand(0.0) at 25 * MINUTE
+        val a1 = SetIntegrand(1.0) at 5.minutes
+        val a2 = SetIntegrand(0.0) at 6.minutes
+        val a3 = SetIntegrand(1.0) at 10.minutes
+        val a4 = SetIntegrand(0.0) at 15.minutes
+        val a5 = SetIntegrand(-1.0) at 20.minutes
+        val a6 = SetIntegrand(0.0) at 25.minutes
         test(a1, a2, a3, a4, a5, a6).move(
-            a3 to 15 * MINUTE,
-            a4 to 18 * MINUTE,
+            a3 to 15.minutes,
+            a4 to 18.minutes,
         )
     }
 
     @Test
     fun `moving activities that spawn children`() {
-        val a1 = IncrementStandaloneCounter(1) at 4 * MINUTE
-        val a2 = SpawnChildren("A") at 5 * MINUTE
-        val a3 = IncrementStandaloneCounter(2) at 9 * MINUTE
-        val a4 = SpawnChildren("B") at 10 * MINUTE
-        val a5 = IncrementStandaloneCounter(10) at 14 * MINUTE
-        val a6 = SpawnChildren("C") at 15 * MINUTE
-        val a7 = SpawnChildren("D") at 15 * MINUTE + 3 * SECOND
+        val a1 = IncrementStandaloneCounter(1) at 4.minutes
+        val a2 = SpawnChildren("A") at 5.minutes
+        val a3 = IncrementStandaloneCounter(2) at 9.minutes
+        val a4 = SpawnChildren("B") at 10.minutes
+        val a5 = IncrementStandaloneCounter(10) at 14.minutes
+        val a6 = SpawnChildren("C") at 15.minutes
+        val a7 = SpawnChildren("D") at 15.minutes + 3.seconds
         test(a1, a2, a3, a4, a5, a6, a7).move(
-            a2 to 4 * MINUTE + 10 * SECOND,
-            a4 to 15 * MINUTE - 3 * SECOND,
+            a2 to 4.minutes + 10.seconds,
+            a4 to 15.minutes - 3.seconds,
         )
     }
 
@@ -622,7 +617,7 @@ class GraphIncrementalPlanSimulationTest {
 
     // Private test-ism to quickly and legibly write out a plan
     private infix fun <M> Activity<M>.at(time: Duration): GroundedActivity<M> =
-        GroundedActivity(planStart + time.toKotlinDuration(), this)
+        GroundedActivity(planStart + time, this)
 
     // TODO: Something like this might actually be useful more generally, applied to an incremental simulator / scheduler.
     //   More generally, incremental sim should be powering a SchedulingSystem-like class with operations like this
@@ -641,7 +636,7 @@ class GraphIncrementalPlanSimulationTest {
     private fun <M> IncrementalSimulationTester<M>.move(vararg activities: Pair<GroundedActivity<M>, Duration>) =
         run(
             PlanEdits(
-                activities.map { GroundedActivity(planStart + it.second.toKotlinDuration(), it.first.activity) },
+                activities.map { GroundedActivity(planStart + it.second, it.first.activity) },
                 activities.map { it.first },
             )
         )
@@ -755,14 +750,14 @@ class TestModel(scope: InitScope) {
                         stdout.report("$name - n = $n")
                         n = if (n % 2 == 0) n / 2 else 3 * n + 1
                         steps++
-                        delay(1 * SECOND)
+                        delay(1.seconds)
                     }
                     stdout.report("$name - completed in $steps steps")
                     longestCollatzFound.emit(
                         { (lcfSeed, lcfLength): Pair<Int, Int> ->
                             if (steps > lcfLength) seed to steps
                             else lcfSeed to lcfLength
-                        } named { "Update LCF for ($seed, $steps)" }
+                        }.named { "Update LCF for ($seed, $steps)" }
                     )
                 })
             })
@@ -826,7 +821,7 @@ class TestModel(scope: InitScope) {
         context(scope: TaskScope)
         override suspend fun effectModel(model: TestModel) {
             // Wait for a short delay, so that other activities can interleave with the SpawnChildren call tree.
-            delay(5 * SECOND)
+            delay(5.seconds)
             // Read and write a resource to inject some interesting dependencies into the graph
             val counter = model.standaloneCounter.getValue()
             if (counter > 1) {
@@ -842,7 +837,7 @@ class TestModel(scope: InitScope) {
     data class SpawnChild(val child: Activity<TestModel>) : Activity<TestModel> {
         context(scope: TaskScope)
         override suspend fun effectModel(model: TestModel) {
-            delay(model.standaloneCounter.getValue() * SECOND)
+            delay(model.standaloneCounter.getValue().seconds)
             call(child, model)
         }
     }

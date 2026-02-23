@@ -15,9 +15,6 @@ import kotlinx.serialization.serializer
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
-// TODO: Use these types to replace incremental reporting and providing,
-//   which should collapse FinconCollectingContext into FinconCollector and simiarly for incons.
-
 /**
  * Collects each step of a task history as an individual report, for saving to [MutableSnapshot].
  * Implementations of this type are stateful and are mutated by [report].

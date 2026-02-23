@@ -4,7 +4,6 @@ import gov.nasa.jpl.pyre.utilities.Closeable
 import gov.nasa.jpl.pyre.utilities.Closeable.Companion.closesWith
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromJsonElement
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.Expiring
@@ -52,7 +51,7 @@ object ResourceCaching {
             .named { "$cache is out of date" }
         spawn("Update $name", whenever(cacheIsOutOfDate) {
             val d = this.getDynamics().data
-            cache.emit({ _: FullDynamics<D> -> Expiring(d, NEVER) } named { "Update cache to $d" })
+            cache.emit({ _: FullDynamics<D> -> Expiring(d, NEVER) }.named { "Update cache to $d" })
         })
         return cache
     }
@@ -100,7 +99,7 @@ object ResourceCaching {
         return ThinResource {
             val now = now()
             while (nextPoint != null && nextPoint!!.time <= now) advance()
-            Expiring(currentPoint.data, Expiry(nextPoint?.time?.let { (it - now).toPyreDuration() }))
+            Expiring(currentPoint.data, Expiry(nextPoint?.time?.let { it - now }))
         }.fullyNamed { Name(name) }
     }
 

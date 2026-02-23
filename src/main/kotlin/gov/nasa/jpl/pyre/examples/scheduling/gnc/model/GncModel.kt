@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.examples.scheduling.gnc.model
 
-import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget.*
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.BodyAxis.*
@@ -50,6 +49,7 @@ import kotlinx.serialization.Serializable
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation
 import org.apache.commons.math3.geometry.euclidean.threed.RotationConvention
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D
+import kotlin.time.Duration
 
 val MRAD = Unit.derived("mrad", 1e-3 * RADIAN)
 val MRAD_PER_SECOND = Unit.derived("mrad s^-1", MRAD / SECOND)

@@ -1,25 +1,21 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.resources.clock.Clock
 import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Condition
-import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.contracts.ExperimentalContracts
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
-import kotlin.time.Instant
+import kotlin.time.Duration
 
 /**
  * A context for all the "global" conveniences offered by foundation during simulation.
@@ -35,12 +31,7 @@ interface SimulationScope {
     /**
      * Primary simulation clock. Simulation time should be derived from this clock.
      */
-    val simulationClock: Resource<Timer>
-
-    /**
-     * Absolute epoch time. [simulationClock] is relative to this time.
-     */
-    val simulationEpoch: Instant
+    val simulationClock: Resource<Clock>
 
     /**
      * Standard channel for reporting [ActivityEvent]s for all activities.
@@ -60,9 +51,6 @@ interface SimulationScope {
     companion object {
         context (scope: SimulationScope)
         val simulationClock get() = scope.simulationClock
-
-        context (scope: SimulationScope)
-        val simulationEpoch get() = scope.simulationEpoch
 
         context (scope: SimulationScope)
         val activities get() = scope.activities
@@ -85,7 +73,7 @@ interface ResourceScope : SimulationScope {
 
     companion object {
         context (scope: ResourceScope)
-        fun now() = simulationEpoch + simulationClock.getValue().toKotlinDuration()
+        fun now() = simulationClock.getValue()
     }
 }
 

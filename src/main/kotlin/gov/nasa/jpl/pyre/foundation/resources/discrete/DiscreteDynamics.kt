@@ -2,8 +2,6 @@ package gov.nasa.jpl.pyre.foundation.resources.discrete
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.utilities.curry
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.DynamicsMonad
 import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
@@ -11,10 +9,11 @@ import gov.nasa.jpl.pyre.foundation.resources.MutableResource
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
 import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
-import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration
 
 @Serializable(with = Discrete.DiscreteSerializer::class)
 data class Discrete<A>(val value: A) : Dynamics<A, Discrete<A>> {

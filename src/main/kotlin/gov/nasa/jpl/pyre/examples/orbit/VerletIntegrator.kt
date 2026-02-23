@@ -1,8 +1,5 @@
 package gov.nasa.jpl.pyre.examples.orbit
 
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.ratioOver
 import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
@@ -13,6 +10,8 @@ import gov.nasa.jpl.pyre.foundation.tasks.Reactions.every
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 class VerletIntegrator(
     context: InitScope,
@@ -32,7 +31,7 @@ class VerletIntegrator(
             position = discreteResource("position", initialPosition)
             // This calculation of prior position ignores acceleration, introducing a small error.
             // That's good enough for now.
-            val delta_t = stepSize.ratioOver(SECOND)
+            val delta_t = stepSize / 1.seconds
             val initialPriorPosition = DoubleArray(initialPosition.size)
             for (i in initialPosition.indices) {
                 initialPriorPosition[i] = initialPosition[i] - initialVelocity[i] * delta_t

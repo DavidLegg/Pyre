@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.kernel
 
 import kotlin.reflect.KType
+import kotlin.time.Duration
 
 /**
  * These are the actions allowed during "initialization", before the simulation starts running.

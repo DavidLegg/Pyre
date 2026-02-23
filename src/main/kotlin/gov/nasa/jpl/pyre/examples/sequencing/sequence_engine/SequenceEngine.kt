@@ -1,14 +1,12 @@
 package gov.nasa.jpl.pyre.examples.sequencing.sequence_engine
 
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.Absolute
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.CommandComplete
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.TimeTag.Relative
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.channel
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
@@ -24,7 +22,6 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableIntResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.StringResource
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.resources.named
-import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
@@ -32,11 +29,11 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 class SequenceEngine(
@@ -180,7 +177,7 @@ class SequenceEngine(
 
     context (scope: TaskScope)
     private fun after(time: Instant): BooleanResource =
-        simulationClock greaterThanOrEquals (time - simulationEpoch).toPyreDuration()
+        simulationClock greaterThanOrEquals time
 
     context (scope: TaskScope)
     private suspend fun dispatch(command: Command) {

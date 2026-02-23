@@ -33,5 +33,5 @@ object BooleanResourceOperations {
         ResourceMonad.bind(this) { if (it.value()) ifCase else elseCase }.fullyNamed { Name("if ($this) then ($ifCase) else ($elseCase)") }
 
     context(scope: TaskScope)
-    fun MutableBooleanResource.toggle() = this.emit({ b: Boolean -> !b } named { "Toggle $this" })
+    fun MutableBooleanResource.toggle() = this.emit({ b: Boolean -> !b }.named { "Toggle $this" })
 }

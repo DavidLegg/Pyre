@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.kernel
 
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.ZERO
 
 sealed interface ConditionResult {
     val time: Duration?
@@ -15,6 +16,7 @@ data class SatisfiedAt(override val time: Duration) : ConditionResult {
 /**
  * @param time Relative time from now when this condition may be satisfied, or null if it will never be satisfied.
  */
+// TODO: kotlin.time.Duration includes support for infinity. Remove null and just use that.
 data class UnsatisfiedUntil(override val time: Duration?) : ConditionResult {
     override fun toString(): String = "UnsatisfiedUntil(${time ?: "FOREVER"})"
 }

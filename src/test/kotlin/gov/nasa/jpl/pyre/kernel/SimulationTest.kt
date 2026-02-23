@@ -3,14 +3,11 @@ package gov.nasa.jpl.pyre.kernel
 import gov.nasa.jpl.pyre.*
 import gov.nasa.jpl.pyre.utilities.andThen
 import gov.nasa.jpl.pyre.kernel.SimpleSimulation.SimulationSetup
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.allocate
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.read
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.kernel.SimpleSimulation.Companion.save
+import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
 import gov.nasa.jpl.pyre.kernel.Task.PureStepResult.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -25,6 +22,12 @@ import kotlin.math.abs
 import kotlin.reflect.typeOf
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.ZERO
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 class SimulationTest {
     private data class SimulationResult(
@@ -33,7 +36,7 @@ class SimulationTest {
     )
 
     private fun runSimulation(
-        endTime: Duration,
+        duration: Duration,
         incon: JsonElement? = null,
         takeFincon: Boolean = false,
         initialize: context (BasicInitScope) () -> Unit,
@@ -41,13 +44,15 @@ class SimulationTest {
         assertDoesNotThrow {
             // Build a simulation that'll write reports to memory
             val reports = mutableListOf<Any?>()
+            val inconProvider = incon?.let { Json.decodeFromJsonElement<Snapshot>(it) }
+            val startTime = inconProvider?.provide<Instant>("simulation", "time") ?: Instant.parse("2000-01-01T00:00:00Z")
             val simulation = SimpleSimulation(SimulationSetup(
                 reportHandler = reports::add,
-                inconProvider = incon?.let { Json.decodeFromJsonElement<Snapshot>(it) },
+                inconProvider = inconProvider,
                 initialize = initialize,
             ))
             // Run the simulation to the end
-            simulation.runUntil(endTime)
+            simulation.runUntil(startTime + duration)
             // Cut a fincon, if requested
             val fincon = if (takeFincon) {
                 Json.encodeToJsonElement(simulation.save())
@@ -68,7 +73,7 @@ class SimulationTest {
 
     @Serializable
     private data class LinearDynamics(val value: Double, val rate: Double)
-    private fun linearDynamicsStep(d: LinearDynamics, t: Duration) = LinearDynamics(d.value + d.rate * (t ratioOver SECOND), d.rate)
+    private fun linearDynamicsStep(d: LinearDynamics, t: Duration) = LinearDynamics(d.value + d.rate * (t / 1.seconds), d.rate)
     context (scope: BasicInitScope)
     private fun allocateLinearCell(name: String, value: Double, rate: Double) = allocate(
         Name(name),
@@ -98,12 +103,12 @@ class SimulationTest {
 
     @Test
     fun empty_simulation_is_valid() {
-        runSimulation(HOUR) {}
+        runSimulation(1.hours) {}
     }
 
     @Test
     fun task_can_report_result() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             spawn(Name("report result")) {
                 it.report("result")
                 Complete(Unit)
@@ -114,14 +119,14 @@ class SimulationTest {
 
     @Test
     fun task_can_allocate_cell() {
-        runSimulation(HOUR) {
+        runSimulation(1.hours) {
             allocateIntCounterCell("x", 42)
         }
     }
 
     @Test
     fun task_can_read_cell() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             val x = allocateIntCounterCell("x", 42)
             spawn(Name("read cell")) {
                 val xVal = it.read(x)
@@ -134,7 +139,7 @@ class SimulationTest {
 
     @Test
     fun task_can_read_cell_during_init() {
-        runSimulation(HOUR) {
+        runSimulation(1.hours) {
             val x = allocateIntCounterCell("x", 42)
             assertEquals(42, read(x))
         }
@@ -142,7 +147,7 @@ class SimulationTest {
 
     @Test
     fun task_can_emit_effect() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             val x = allocateIntCounterCell("x", 42)
             spawn(Name("emit effect")) {
                 it.emit(x) { it + 13 }
@@ -160,10 +165,10 @@ class SimulationTest {
     // then come back and test that more complicated styles of awaiting also work.
     @Test
     fun task_can_delay() {
-        runSimulation(HOUR) {
+        runSimulation(1.hours) {
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("delay")) {
-                it.Delay(30 * MINUTE, clock) {
+                it.Delay(30.minutes, clock) {
                     Complete(Unit)
                 }
             }
@@ -172,16 +177,16 @@ class SimulationTest {
 
     @Test
     fun cells_can_step() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             // This is *not* a good way to implement stepping, since multiple steps, each < 1 minute,
             // will not change the value, but a single >1 minute step would.
             // It's fine for this test, though.
-            val x = allocate(Name("x"), 0, typeOf<Int>(), { x, t -> x + (t / MINUTE).toInt() }, { l, r -> l andThen r })
+            val x = allocate(Name("x"), 0, typeOf<Int>(), { x, t -> x + (t / 1.minutes).toInt() }, { l, r -> l andThen r })
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("step cell")) {
                 val xVal = it.read(x)
                 it.report("now x = $xVal")
-                it.Delay(30 * MINUTE, clock) {
+                it.Delay(30.minutes, clock) {
                     val xVal = it.read(x)
                     it.report("later x = $xVal")
                     Complete(Unit)
@@ -193,7 +198,7 @@ class SimulationTest {
 
     @Test
     fun parallel_tasks_do_not_observe_each_other() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             val x = allocateIntCounterCell("x", 10)
             spawn(Name("Task A")) {
                 it.emit(x) { it + 5 }
@@ -227,7 +232,7 @@ class SimulationTest {
 
     @Test
     fun parallel_tasks_join_effects_at_each_delay() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             val x = allocateIntCounterCell("x", 10)
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Task A")) {
@@ -257,7 +262,7 @@ class SimulationTest {
 
     @Test
     fun concurrent_effects_are_joined_using_effect_trait() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             // Note: This is *not* a correct effect trait, but it's simple and lets us observe what's happening better.
             val x = allocate(Name("x"), 10, typeOf<Int>(), { x, _ -> x }, { l, r -> { 100 + r(l(it)) } })
             val clock = allocateClockCell("clock", ZERO)
@@ -292,7 +297,7 @@ class SimulationTest {
 
     @Test
     fun task_can_await_condition() {
-        runSimulation(HOUR) {
+        runSimulation(1.hours) {
             spawn(Name("Await condition")) {
                 Await({ SatisfiedAt(ZERO) }) {
                     Complete(Unit)
@@ -303,7 +308,7 @@ class SimulationTest {
 
     @Test
     fun await_trivial_condition_runs_task_in_next_batch() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             val x = allocateIntCounterCell("x", 10)
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Awaiter")) {
@@ -329,7 +334,7 @@ class SimulationTest {
 
     @Test
     fun await_never_condition_does_not_run_task() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             spawn(Name("Awaiter")) {
                 Await({ UnsatisfiedUntil(null) }) {
                     it.report("Awaiter ran!")
@@ -342,7 +347,7 @@ class SimulationTest {
 
     @Test
     fun await_nontrivial_condition_runs_task_in_first_batch_after_condition_is_satisfied() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             val x = allocateIntCounterCell("x", 10)
             val y = allocateIntCounterCell("y", 12)
             val clock = allocateClockCell("clock", ZERO)
@@ -375,7 +380,7 @@ class SimulationTest {
 
     @Test
     fun await_nonzero_condition_waits_specified_time() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             val x = allocateLinearCell("x", 10.0, 1.0)
             spawn(Name("Awaiter")) {
                 Await({
@@ -384,7 +389,7 @@ class SimulationTest {
                         when {
                             value >= 20 -> SatisfiedAt(ZERO)
                             rate <= 0 -> UnsatisfiedUntil(null)
-                            else -> SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
+                            else -> SatisfiedAt(((20 - value) / rate).seconds)
                         }
                     }
                 }) {
@@ -401,7 +406,7 @@ class SimulationTest {
 
     @Test
     fun await_nonzero_condition_can_be_interrupted() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             val x = allocateLinearCell("x", 10.0, 1.0)
             val y = allocateIntCounterCell("y", 0)
             val clock = allocateClockCell("clock", ZERO)
@@ -412,7 +417,7 @@ class SimulationTest {
                         when {
                             value >= 20 -> SatisfiedAt(ZERO)
                             rate <= 0 -> UnsatisfiedUntil(null)
-                            else -> SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
+                            else -> SatisfiedAt(((20 - value) / rate).seconds)
                         }
                     }
                 }) {
@@ -425,10 +430,10 @@ class SimulationTest {
             }
             spawn(Name("Interrupter")) {
                 it.emit(y) { it + 1 }
-                it.Delay(6 * SECOND, clock) {
+                it.Delay(6.seconds, clock) {
                     it.emit(y) { it + 1 }
                     it.emit(x) { LinearDynamics(19.0, -0.5) }
-                    it.Delay(20 * MINUTE, clock) {
+                    it.Delay(20.minutes, clock) {
                         it.emit(y) { it + 1 }
                         it.emit(x) { LinearDynamics(35.0, 0.0) }
                         Complete(Unit)
@@ -446,7 +451,7 @@ class SimulationTest {
 
     @Test
     fun await_nonzero_condition_can_wait_after_interruption() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             val x = allocateLinearCell("x", 10.0, 1.0)
             val y = allocateIntCounterCell("y", 0)
             val clock = allocateClockCell("clock", ZERO)
@@ -457,7 +462,7 @@ class SimulationTest {
                         when {
                             value >= 20 -> SatisfiedAt(ZERO)
                             rate <= 0 -> UnsatisfiedUntil(null)
-                            else -> SatisfiedAt(((20 - value) / rate) ceilTimes SECOND)
+                            else -> SatisfiedAt(((20 - value) / rate).seconds)
                         }
                     }
                 }) {
@@ -470,10 +475,10 @@ class SimulationTest {
             }
             spawn(Name("Interrupter")) {
                 it.emit(y) { it + 1 }
-                it.Delay(6 * SECOND, clock) {
+                it.Delay(6.seconds, clock) {
                     it.emit(y) { it + 1 }
                     it.emit(x) { LinearDynamics(19.0, -0.5) }
-                    it.Delay(20 * MINUTE, clock) {
+                    it.Delay(20.minutes, clock) {
                         it.emit(y) { it + 1 }
                         it.emit(x) { LinearDynamics(19.0, 0.1) }
                         Complete(Unit)
@@ -491,12 +496,12 @@ class SimulationTest {
 
     @Test
     fun unsatisfied_condition_will_be_reevaluated() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             val x = allocateLinearCell("x", 10.0, 1.0)
             spawn(Name("Awaiter")) {
                 Await({
                     if (it.read(x).value >= 15) SatisfiedAt(ZERO)
-                    else UnsatisfiedUntil(2 * SECOND)
+                    else UnsatisfiedUntil(2.seconds)
                 }) {
                     val xVal = it.read(x)
                     it.report(xVal)
@@ -513,13 +518,13 @@ class SimulationTest {
 
     @Test
     fun unsatisfied_condition_reevaluation_can_be_interrupted() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             val x = allocateLinearCell("x", 10.0, 1.0)
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Awaiter")) {
                 Await({
                     if (it.read(x).value >= 15) SatisfiedAt(ZERO)
-                    else UnsatisfiedUntil(MINUTE)
+                    else UnsatisfiedUntil(1.minutes)
                 }) {
                     val xVal = it.read(x)
                     it.report(xVal)
@@ -528,7 +533,7 @@ class SimulationTest {
             }
 
             spawn(Name("Interrupter")) {
-                it.Delay(5 * SECOND, clock) {
+                it.Delay(5.seconds, clock) {
                     it.emit(x) { LinearDynamics(20.0, 0.0) }
                     Complete(Unit)
                 }
@@ -545,7 +550,7 @@ class SimulationTest {
 
     @Test
     fun empty_simulation_can_be_saved() {
-        val results = runSimulation(MINUTE, takeFincon = true) {}
+        val results = runSimulation(1.minutes, takeFincon = true) {}
         with (results.fincon!!) {
             within("simulation") {
                 assertEquals("00:01:00.000000", string("time", "$"))
@@ -560,7 +565,7 @@ class SimulationTest {
             val x = allocateLinearCell("x", 10.0, 1.0)
             val y = allocateLinearCell("y", 10.0, -0.1)
         }
-        val results = runSimulation(MINUTE, takeFincon = true) { initialize() }
+        val results = runSimulation(1.minutes, takeFincon = true) { initialize() }
         with (results.fincon!!) {
             within("simulation") {
                 assertEquals("00:01:00.000000", string("time", "$"))
@@ -585,8 +590,8 @@ class SimulationTest {
             val x = allocateLinearCell("x", 10.0, 1.0)
             val y = allocateLinearCell("y", 10.0, -0.1)
         }
-        val results = runSimulation(MINUTE, takeFincon = true) { initialize() }
-        runSimulation(2 * MINUTE, incon=results.fincon) { initialize() }
+        val results = runSimulation(1.minutes, takeFincon = true) { initialize() }
+        runSimulation(2.minutes, incon=results.fincon) { initialize() }
     }
 
     @Test
@@ -610,7 +615,7 @@ class SimulationTest {
                 val xDynamics = it.read(x)
                 val yDynamics = it.read(y)
                 it.report(mapOf("tag" to "Multi Batch Task - 1", "x" to xDynamics, "y" to yDynamics))
-                it.Delay(90 * SECOND, clock) {
+                it.Delay(90.seconds, clock) {
                     val xDynamics = it.read(x)
                     val yDynamics = it.read(y)
                     it.report(mapOf("tag" to "Multi Batch Task - 2", "x" to xDynamics, "y" to yDynamics))
@@ -619,7 +624,7 @@ class SimulationTest {
             }
         }
 
-        val results = runSimulation(MINUTE, takeFincon = true) { initialize() }
+        val results = runSimulation(1.minutes, takeFincon = true) { initialize() }
 
         with (results.fincon!!) {
             within("simulation") {
@@ -684,7 +689,7 @@ class SimulationTest {
                 it.report(mapOf("tag" to "Multi Batch Task - 1", "x" to xDynamics, "y" to yDynamics))
                 // Since this delay spans a fincon boundary, do the delay correctly by reading a clock.
                 // Abusing Await like I've done elsewhere, directly returning the time, causes buggy behavior with fincons.
-                it.Delay(90 * SECOND, clock) {
+                it.Delay(90.seconds, clock) {
                     val xDynamics = it.read(x)
                     val yDynamics = it.read(y)
                     it.report(mapOf("tag" to "Multi Batch Task - 2", "x" to xDynamics, "y" to yDynamics))
@@ -693,7 +698,7 @@ class SimulationTest {
             }
         }
 
-        val results = runSimulation(MINUTE, takeFincon = true) { initialize() }
+        val results = runSimulation(1.minutes, takeFincon = true) { initialize() }
 
         assertEquals(2, results.reports.size)
         assertEquals("Multi Batch Task - 1", (results.reports[0] as Map<*, *>)["tag"])
@@ -708,7 +713,7 @@ class SimulationTest {
         assertNearlyEquals(-0.1, ((results.reports[1] as Map<*, *>)["y"] as LinearDynamics).rate)
         // No report for Multi Batch Task - 2, because the simulation ended during its delay
 
-        val nextResults = runSimulation(2 * MINUTE, incon = results.fincon) { initialize() }
+        val nextResults = runSimulation(2.minutes, incon = results.fincon) { initialize() }
 
         // There should be no reports for Single Batch or the first part of Multi Batch,
         // because those tasks have already run.
@@ -724,11 +729,11 @@ class SimulationTest {
 
     @Test
     fun restart_tasks_can_run_indefinitely() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             val x = allocateIntCounterCell("x", 0)
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Repeater")) {
-                it.Delay(10 * MINUTE, clock) {
+                it.Delay(10.minutes, clock) {
                     it.emit(x) { it + 1 }
                     val time = it.read(clock)
                     val xVal = it.read(x)
@@ -749,11 +754,11 @@ class SimulationTest {
 
     @Test
     fun restart_tasks_save_fincon_data_since_last_restart_only() {
-        val results = runSimulation(59 * MINUTE, takeFincon = true) {
+        val results = runSimulation(59.minutes, takeFincon = true) {
             val x = allocateIntCounterCell("x", 0)
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Repeater")) {
-                it.Delay(10 * MINUTE, clock) {
+                it.Delay(10.minutes, clock) {
                     it.emit(x) { it + 1 }
                     val time = it.read(clock)
                     val xVal = it.read(x)
@@ -797,7 +802,7 @@ class SimulationTest {
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("Repeater")) {
                 plays++
-                it.Delay(10 * MINUTE, clock) {
+                it.Delay(10.minutes, clock) {
                     it.emit(x) { it + 1 }
                     val time = it.read(clock)
                     val xVal = it.read(x)
@@ -807,11 +812,11 @@ class SimulationTest {
             }
         }
 
-        val results = runSimulation(59 * MINUTE, takeFincon = true) { initialize() }
+        val results = runSimulation(59.minutes, takeFincon = true) { initialize() }
         assertEquals(6, plays)
         plays = 0
 
-        runSimulation(HOUR + 5 * MINUTE, incon = results.fincon) { initialize() }
+        runSimulation(1.hours + 5.minutes, incon = results.fincon) { initialize() }
         // 1 play during the "restore" phase, to get the task re-initialized
         // 1 play during actual simulation, at time = 1 hour
         assertEquals(2, plays)
@@ -819,7 +824,7 @@ class SimulationTest {
 
     @Test
     fun tasks_can_spawn_children() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             spawn(Name("Parent")) {
                 it.report("Parent's report")
                 Spawn(Name("Child"), {
@@ -835,7 +840,7 @@ class SimulationTest {
 
     @Test
     fun child_tasks_run_in_parallel_with_parent_and_each_other() {
-        val results = runSimulation(HOUR) {
+        val results = runSimulation(1.hours) {
             var x = allocateIntCounterCell("x", 0)
             val clock = allocateClockCell("clock", ZERO)
 
@@ -911,30 +916,30 @@ class SimulationTest {
 
     @Test
     fun child_tasks_can_be_saved() {
-        val results = runSimulation(HOUR, takeFincon = true) {
+        val results = runSimulation(1.hours, takeFincon = true) {
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("P")) {
                 it.report("P -- 1")
                 Spawn(Name("C"), {
                     it.report("C -- 1")
-                    it.Delay(45 * MINUTE, clock) {
+                    it.Delay(45.minutes, clock) {
                         // 00:45:00
                         it.report("C -- 2")
                         Complete(Unit)
                     }
                 }) {
-                    it.Delay(30 * MINUTE, clock) {
+                    it.Delay(30.minutes, clock) {
                         // 00:30:00
                         it.report("P -- 2")
                         Spawn(Name("D"), {
                             it.report("D -- 1")
-                            it.Delay(45 * MINUTE, clock) {
+                            it.Delay(45.minutes, clock) {
                                 // 01:15:00
                                 it.report("D -- 2")
                                 Complete(Unit)
                             }
                         }) {
-                            it.Delay(HOUR, clock) {
+                            it.Delay(1.hours, clock) {
                                 // 01:30:00
                                 it.report("P -- 3")
                                 Complete(Unit)
@@ -1020,24 +1025,24 @@ class SimulationTest {
                 it.report("P -- 1")
                 Spawn(Name("C"), {
                     it.report("C -- 1")
-                    it.Delay(45 * MINUTE, clock) {
+                    it.Delay(45.minutes, clock) {
                         // 00:45:00
                         it.report("C -- 2")
                         Complete(Unit)
                     }
                 }) {
-                    it.Delay(30 * MINUTE, clock) {
+                    it.Delay(30.minutes, clock) {
                         // 00:30:00
                         it.report("P -- 2")
                         Spawn(Name("D"), {
                             it.report("D -- 1")
-                            it.Delay(45 * MINUTE, clock) {
+                            it.Delay(45.minutes, clock) {
                                 // 01:15:00
                                 it.report("D -- 2")
                                 Complete(Unit)
                             }
                         }) {
-                            it.Delay(HOUR, clock) {
+                            it.Delay(1.hours, clock) {
                                 // 01:30:00
                                 it.report("P -- 3")
                                 Complete(Unit)
@@ -1047,7 +1052,7 @@ class SimulationTest {
                 }
             }
         }
-        val results = runSimulation(HOUR, takeFincon = true) { initialize() }
+        val results = runSimulation(1.hours, takeFincon = true) { initialize() }
 
         assertEquals(listOf(
             "P -- 1",
@@ -1057,7 +1062,7 @@ class SimulationTest {
             "C -- 2",
         ), results.reports)
 
-        val nextResults = runSimulation(2 * HOUR, incon = results.fincon) { initialize() }
+        val nextResults = runSimulation(2.hours, incon = results.fincon) { initialize() }
 
         assertEquals(listOf("D -- 2", "P -- 3"), nextResults.reports)
     }
@@ -1070,12 +1075,12 @@ class SimulationTest {
             val clock = allocateClockCell("clock", ZERO)
 
             spawn(Name("Repeater")) {
-                it.Delay(10 * MINUTE, clock) {
+                it.Delay(10.minutes, clock) {
                     val nValue = it.read(n)
                     Spawn(Name("Child $nValue"), {
                         val time = it.read(clock)
                         it.report("Child $nValue start at $time")
-                        it.Delay(45 * MINUTE, clock) {
+                        it.Delay(45.minutes, clock) {
                             val time = it.read(clock)
                             it.report("Child $nValue end at $time")
                             Complete(Unit)
@@ -1087,7 +1092,7 @@ class SimulationTest {
                 }
             }
         }
-        val results = runSimulation(58 * MINUTE, takeFincon = true) { initialize() }
+        val results = runSimulation(58.minutes, takeFincon = true) { initialize() }
 
         assertEquals(listOf(
             "Child 1 start at 00:10:00.000000",
@@ -1098,7 +1103,7 @@ class SimulationTest {
             "Child 1 end at 00:55:00.000000",
         ), results.reports)
 
-        val nextResults = runSimulation(2 * HOUR, incon = results.fincon) { initialize() }
+        val nextResults = runSimulation(2.hours, incon = results.fincon) { initialize() }
 
         assertEquals(listOf(
             "Child 6 start at 01:00:00.000000",
@@ -1124,9 +1129,9 @@ class SimulationTest {
             val clock = allocateClockCell("clock", ZERO)
 
             spawn(Name("Parent")) {
-                it.Delay(5 * MINUTE, clock) {
+                it.Delay(5.minutes, clock) {
                     Spawn(Name("Repeater"), {
-                        it.Delay(10 * MINUTE, clock) {
+                        it.Delay(10.minutes, clock) {
                             val time = it.read(clock)
                             val nVal = it.read(n)
                             it.report("Iteration $nVal at $time")
@@ -1140,7 +1145,7 @@ class SimulationTest {
             }
         }
 
-        val results = runSimulation(HOUR, takeFincon = true) { initialize() }
+        val results = runSimulation(1.hours, takeFincon = true) { initialize() }
 
         assertEquals(listOf(
             "Iteration 1 at 00:15:00.000000",
@@ -1150,7 +1155,7 @@ class SimulationTest {
             "Iteration 5 at 00:55:00.000000",
         ), results.reports)
 
-        val nextResults = runSimulation(2 * HOUR, incon = results.fincon) { initialize() }
+        val nextResults = runSimulation(2.hours, incon = results.fincon) { initialize() }
 
         assertEquals(listOf(
             "Iteration 6 at 01:05:00.000000",
@@ -1173,7 +1178,7 @@ class SimulationTest {
                     it.report("C -- 1")
                     Spawn(Name("GC"), {
                         it.report("GC -- 1")
-                        it.Delay(90 * MINUTE, clock) {
+                        it.Delay(90.minutes, clock) {
                             it.report("GC -- 2")
                             Complete(Unit)
                         }
@@ -1188,7 +1193,7 @@ class SimulationTest {
             }
         }
 
-        val results = runSimulation(HOUR, takeFincon = true) { initialize() }
+        val results = runSimulation(1.hours, takeFincon = true) { initialize() }
 
         assertEquals(listOf(
             "P -- 1",
@@ -1198,7 +1203,7 @@ class SimulationTest {
             "GC -- 1",
         ), results.reports)
 
-        val nextResults = runSimulation(2 * HOUR, incon = results.fincon) { initialize() }
+        val nextResults = runSimulation(2.hours, incon = results.fincon) { initialize() }
 
         assertEquals(listOf("GC -- 2"), nextResults.reports)
     }
@@ -1214,9 +1219,9 @@ class SimulationTest {
                 // Case A - Task delays directly to fincon time
                 spawn(Name("A$i")) {
                     it.report("A$i -- 1")
-                    it.Delay(MINUTE, clock) {
+                    it.Delay(1.minutes, clock) {
                         it.report("A$i -- 2")
-                        it.Delay(10 * SECOND, clock) {
+                        it.Delay(10.seconds, clock) {
                             it.report("A$i -- 3")
                             Complete(Unit)
                         }
@@ -1228,10 +1233,10 @@ class SimulationTest {
                 //   are added to the queue, this hopes to provoke those effects.
                 spawn(Name("B$i")) {
                     it.report("B$i -- 1")
-                    it.Delay(30 * SECOND, clock) {
-                        it.Delay(30 * SECOND, clock) {
+                    it.Delay(30.seconds, clock) {
+                        it.Delay(30.seconds, clock) {
                             it.report("B$i -- 2")
-                            it.Delay(10 * SECOND, clock) {
+                            it.Delay(10.seconds, clock) {
                                 it.report("B$i -- 3")
                                 Complete(Unit)
                             }
@@ -1242,15 +1247,15 @@ class SimulationTest {
                 // Case C - Children spawned at fincon time
                 spawn(Name("C$i")) {
                     it.report("C$i -- 1")
-                    it.Delay(MINUTE, clock) {
+                    it.Delay(1.minutes, clock) {
                         Spawn(Name("C${i}_child"), {
                             it.report("C$i -- 2")
-                            it.Delay(10 * SECOND, clock) {
+                            it.Delay(10.seconds, clock) {
                                 it.report("C$i -- 3")
                                 Complete(Unit)
                             }
                         }) {
-                            it.Delay(10 * SECOND, clock) {
+                            it.Delay(10.seconds, clock) {
                                 Complete(Unit)
                             }
                         }
@@ -1258,8 +1263,8 @@ class SimulationTest {
                 }
             }
         }
-        val results = runSimulation(MINUTE, takeFincon = true) { initialize() }
-        val nextResults = runSimulation(2 * MINUTE, incon = results.fincon) { initialize() }
+        val results = runSimulation(1.minutes, takeFincon = true) { initialize() }
+        val nextResults = runSimulation(2.minutes, incon = results.fincon) { initialize() }
 
         // For every task, assert that it was properly saved and restored by seeing the 3rd report from it.
         for (i in 1..100) {

@@ -41,11 +41,11 @@ object DoubleResourceOperations {
 
     context(scope: TaskScope)
     fun MutableDoubleResource.increase(amount: Double) =
-        emit({ n: Double -> n + amount } named { "Increase $this by $amount" })
+        emit({ n: Double -> n + amount }.named { "Increase $this by $amount" })
 
     context(scope: TaskScope)
     fun MutableDoubleResource.decrease(amount: Double) =
-        emit({ n: Double -> n - amount } named { "Decrease $this by $amount" })
+        emit({ n: Double -> n - amount }.named { "Decrease $this by $amount" })
 
     context (scope: TaskScope)
     operator fun MutableDoubleResource.plusAssign(amount: Double) = increase(amount)

@@ -1,9 +1,6 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.kernel.minus
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.foundation.resources.*
@@ -15,6 +12,8 @@ import gov.nasa.jpl.pyre.kernel.ConditionResult
 import gov.nasa.jpl.pyre.kernel.ReadActions
 import gov.nasa.jpl.pyre.kernel.SatisfiedAt
 import gov.nasa.jpl.pyre.kernel.UnsatisfiedUntil
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.ZERO
 
 // Conditions are isomorphic to boolean discrete resources.
 // Realize this isomorphism through the whenTrue function, and apply it implicitly by overloading await.
@@ -27,7 +26,7 @@ object Reactions {
         with (resource.getDynamics()) {
             if (data.value) SatisfiedAt(ZERO) else UnsatisfiedUntil(expiry.time)
         }
-    } named resource::toString
+    }.named(resource::toString)
 
     context (scope: TaskScope)
     suspend fun await(condition: BooleanResource) = await(whenTrue(condition))
@@ -68,7 +67,7 @@ object Reactions {
             val time2 = simulationClock.getValue()
             if (dynamics1.data.step(time2 - time1) != dynamics2.data) SatisfiedAt(ZERO)
             else dynamics2.expiry.time?.let(::SatisfiedAt) ?: UnsatisfiedUntil(null)
-        } named { "When dynamics change for ($resource)" }
+        }.named { "When dynamics change for ($resource)" }
     }
 
     /**
@@ -83,7 +82,7 @@ object Reactions {
         // We must take the minimum-time result. If it's a satisfaction, we're satisfied then.
         // If it's an unsatisfied-until, we need to reevaluate then anyways.
         if (r1.expiry() < r2.expiry()) r1 else r2
-    } named { "($this) or ($other)" }
+    }.named { "($this) or ($other)" }
 
     /**
      * Specialized Condition conjunction operator.
@@ -101,7 +100,7 @@ object Reactions {
 
         if (r1 is SatisfiedAt && r2 is SatisfiedAt && r1.time == r2.time) r1
         else UnsatisfiedUntil(maxOf(r1.expiry(), r2.expiry()).time)
-    } named { "($this) or ($other)" }
+    }.named { "($this) or ($other)" }
 
     private fun ConditionResult.expiry() = when(this) {
         is SatisfiedAt -> Expiry(time)

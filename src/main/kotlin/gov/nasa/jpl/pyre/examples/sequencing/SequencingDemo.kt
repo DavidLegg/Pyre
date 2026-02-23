@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.examples.sequencing
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.examples.sequencing.activities.ActivateSequence
 import gov.nasa.jpl.pyre.examples.sequencing.activities.LoadSequence
 import gov.nasa.jpl.pyre.examples.sequencing.activities.UnloadSequence
@@ -12,6 +11,7 @@ import gov.nasa.jpl.pyre.examples.sequencing.telecom.TelecomModel
 import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule

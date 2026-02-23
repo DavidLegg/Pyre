@@ -33,7 +33,7 @@ object MutableResourceLens {
             override fun emit(effect: ResourceEffect<E>) {
                 this@view.emit({ d: FullDynamics<D> ->
                     DynamicsMonad.map(effect(DynamicsMonad.map(d, lens)), lens.inverse)
-                } named { effect.toString() })
+                }.named(effect::toString))
             }
         }
 }

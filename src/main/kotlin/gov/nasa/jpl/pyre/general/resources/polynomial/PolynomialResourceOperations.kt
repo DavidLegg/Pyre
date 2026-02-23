@@ -1,16 +1,15 @@
 package gov.nasa.jpl.pyre.general.resources.polynomial
 
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial.Companion.polynomial
 import gov.nasa.jpl.pyre.foundation.resources.*
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.bind
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.pure
+import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
-import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.foundation.tasks.*
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
@@ -84,7 +83,7 @@ object PolynomialResourceOperations {
             context(scope: TaskScope)
             override suspend fun set(amount: Double) = integral.emit({ p: Polynomial ->
                 p.setCoefficient(0, amount)
-            } named { "Set value of $this to $amount" })
+            }.named { "Set value of $this to $amount" })
         } named { name }
     }
 
@@ -308,9 +307,9 @@ object PolynomialResourceOperations {
         min(max(this, lowerBound), upperBound).fullyNamed { Name("$this.clamp($lowerBound, $upperBound)") }
 
     context(scope: TaskScope)
-    suspend fun MutablePolynomialResource.increase(amount: Double) = emit({ p: Polynomial -> p + amount } named { "Increase $this by $amount" })
+    suspend fun MutablePolynomialResource.increase(amount: Double) = emit({ p: Polynomial -> p + amount }.named { "Increase $this by $amount" })
     context(scope: TaskScope)
-    suspend fun MutablePolynomialResource.decrease(amount: Double) = emit({ p: Polynomial -> p - amount } named { "Decrease $this by $amount" })
+    suspend fun MutablePolynomialResource.decrease(amount: Double) = emit({ p: Polynomial -> p - amount }.named { "Decrease $this by $amount" })
 
     context(scope: TaskScope)
     suspend operator fun MutablePolynomialResource.plusAssign(amount: Double) = increase(amount)
