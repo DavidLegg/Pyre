@@ -3,13 +3,16 @@ package gov.nasa.jpl.pyre.incremental
 import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator.FrontierAction.*
 import gov.nasa.jpl.pyre.incremental.SGNode.*
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
+import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.PureTaskStep
+import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.ReadActions
 import gov.nasa.jpl.pyre.kernel.SatisfiedAt
-import gov.nasa.jpl.pyre.kernel.Task
+import gov.nasa.jpl.pyre.kernel.tasks.PureTask
+import gov.nasa.jpl.pyre.kernel.tasks.Task
+import gov.nasa.jpl.pyre.kernel.tasks.TaskStepResult
 import gov.nasa.jpl.pyre.utilities.compose
 import gov.nasa.jpl.pyre.utilities.identity
 import java.io.File
@@ -41,7 +44,7 @@ class KernelIncrementalSimulator(
     private val taskNodes: MutableSet<TaskNode> = mutableSetOf()
     // TODO: Find a way to prevent taskBranch from growing indefinitely as tasks are added and removed
     /** The permanently-assigned branch number for each task. */
-    private val taskBranch: MutableMap<Task<*>, Int> = mutableMapOf()
+    private val taskBranch: MutableMap<Task, Int> = mutableMapOf()
     /** The work list of actions to resolve the DAG. */
     private val frontier: TreeSet<FrontierAction> = TreeSet(
             // Primarily sort frontier actions by time, as incremental re-work is most efficient when done in time order.
@@ -65,7 +68,7 @@ class KernelIncrementalSimulator(
     /** Root task nodes corresponding to activities in the plan, recorded to facilitate revoking tasks. */
     private val planTaskNodes: MutableMap<KernelActivity, RootTaskNode> = mutableMapOf()
     /** Root nodes with which we may merge restart requests, rather than re-running. */
-    private val rootMergeOpportunities: MutableMap<Task<*>, RootTaskNode> = mutableMapOf()
+    private val rootMergeOpportunities: MutableMap<Task, RootTaskNode> = mutableMapOf()
 
     private enum class DebugLevel { NONE, MAJOR, MINOR, ALL }
     private val DEBUG = DebugLevel.NONE
@@ -115,9 +118,9 @@ class KernelIncrementalSimulator(
                     }
                 }
 
-            override fun <T> spawn(name: Name, step: PureTaskStep<T>) {
+            override fun spawn(name: Name, step: PureTaskStep) {
                 // Schedule the task on its own branch, as part of the first batch.
-                val task = Task.of(name, step)
+                val task = PureTask(name, step)
                 frontier += StartTask(RootTaskNode(nextNodeId++, startTime.branchFor(task), task).also {
                     taskNodes += it
                 })
@@ -150,7 +153,7 @@ class KernelIncrementalSimulator(
             require(activity.time < planEnd) {
                 "Cannot add activity $activity at or after plan ends at $planEnd"
             }
-            val task = Task.of(activity.name, activity.task)
+            val task = PureTask(activity.name, activity.task)
             frontier += StartTask(
                 RootTaskNode(
                     nextNodeId++,
@@ -229,16 +232,16 @@ class KernelIncrementalSimulator(
                         // Once we've exhausted the task nodes we want to replay, we defer to realActions,
                         // which switches us to just running normally.
                         var next: TaskNode? = root.next
-                        var nextTask: Task<*> = root.task
+                        var nextTask: Task = root.task
                         // The first node after the root should be a "begin" node. Skip it.
                         check(next is StepBeginNode) {
                             "Internal error! Step following a root task node was not a ${StepBeginNode::class.simpleName}"
                         }
                         next = next.next
-                        var stepResult: Task.TaskStepResult<*>
+                        var stepResult: TaskStepResult
                         while (true) {
                             dumpDotToFile(DebugLevel.MINOR, next, checkIntegrity = false)
-                            stepResult = nextTask.runStep(object : Task.BasicTaskActions {
+                            stepResult = nextTask.runStep(object : BasicTaskActions {
                                 override fun <V> read(cell: Cell<V>): V = if (next != null) {
                                     check(next is ReadNode) {
                                         "Internal error! Task replay (read) did not align with history (${next!!::class.simpleName})"
@@ -279,7 +282,7 @@ class KernelIncrementalSimulator(
                             if (next == null) break
                             // Otherwise, match that result to the next node, advance next to skip the yielding action, and go again.
                             when (stepResult) {
-                                is Task.TaskStepResult.Await<*> -> {
+                                is TaskStepResult.Await -> {
                                     check(next is AwaitNode) {
                                         "Internal error! Task replay (await) did not align with history (${next!!::class.simpleName})"
                                     }
@@ -294,13 +297,13 @@ class KernelIncrementalSimulator(
                                     nextTask = stepResult.continuation
                                 }
 
-                                is Task.TaskStepResult.Complete<*> -> {
+                                is TaskStepResult.Complete -> {
                                     check(false) {
                                         "Internal error! Task replay (complete) did not align with history (${next!!::class.simpleName})"
                                     }
                                 }
 
-                                is Task.TaskStepResult.Restart<*> -> {
+                                is TaskStepResult.Restart -> {
                                     // We only ever replay part of a single task.
                                     // The task should never restart while replaying.
                                     check(false) {
@@ -308,7 +311,7 @@ class KernelIncrementalSimulator(
                                     }
                                 }
 
-                                is Task.TaskStepResult.Spawn<*, *> -> {
+                                is TaskStepResult.Spawn -> {
                                     check(next is SpawnNode) {
                                         "Internal error! Task replay (spawn) did not align with history (${next!!::class.simpleName})"
                                     }
@@ -489,7 +492,7 @@ class KernelIncrementalSimulator(
 
     // TODO: If we ever do cleanup on taskBranch to keep it from growing indefinitely,
     //   update the branch assignment rule to account for that.
-    private fun SimulationTime.branchFor(task: Task<*>): SimulationTime =
+    private fun SimulationTime.branchFor(task: Task): SimulationTime =
         copy(branch = taskBranch.computeIfAbsent(task) { taskBranch.size })
 
     private fun <T> CellWriteNode<T>.branchNetEffect(batchStart: CellNode<T>) =
@@ -503,7 +506,7 @@ class KernelIncrementalSimulator(
      * Run [continuation], appending nodes after this [TaskNode] to record its actions.
      * Mutates the simulator as needed to record all consequences of continuing this task.
      */
-    private fun TaskNode.continueWith(continuation: (Task.BasicTaskActions) -> Task.TaskStepResult<*>) {
+    private fun TaskNode.continueWith(continuation: (BasicTaskActions) -> TaskStepResult) {
         // Expand this task node
         var lastTaskStepNode: TaskNode = this
         // Go find the root task, to look up root merge opportunities...
@@ -512,7 +515,7 @@ class KernelIncrementalSimulator(
         val rootTask = (rootTaskNode as RootTaskNode).task
         // We can merge only if this action is happening on the same branch as the merge opportunity.
         val mergeOpportunity: RootTaskNode? = rootMergeOpportunities[rootTask]?.takeIf { it.time sameBranchAs time }
-        val basicTaskActions = object : Task.BasicTaskActions {
+        val basicTaskActions = object : BasicTaskActions {
             override fun <V> read(cell: Cell<V>): V {
                 // Look up the cell node
                 val cellNode = getCellNode(cell, lastTaskStepNode.time)
@@ -667,7 +670,7 @@ class KernelIncrementalSimulator(
             }
         }
         when (val result = continuation(basicTaskActions)) {
-            is Task.TaskStepResult.Await<*> -> {
+            is TaskStepResult.Await -> {
                 // Create an await node and add it to the frontier, to be checked in the next batch.
                 lastTaskStepNode = AwaitNode(
                     nextNodeId++,
@@ -684,12 +687,12 @@ class KernelIncrementalSimulator(
                     taskNodes += it
                 }
             }
-            is Task.TaskStepResult.Complete<*> -> {
+            is TaskStepResult.Complete -> {
                 // Nothing to do.
                 // Note that if there was a merge opportunity, there's also a scheduled FrontierAction
                 // to revoke it. We'll let that frontierAction handle things.
             }
-            is Task.TaskStepResult.Restart<*> -> {
+            is TaskStepResult.Restart -> {
                 if (mergeOpportunity != null) {
                     // Accept the opportunity to merge instead of re-run, by
                     // removing the scheduled action to revoke the merge opportunity.
@@ -714,7 +717,7 @@ class KernelIncrementalSimulator(
                     }
                 }
             }
-            is Task.TaskStepResult.Spawn<*, *> -> {
+            is TaskStepResult.Spawn -> {
                 // Spawning is a yielding action, so add our continuation to the next batch.
                 // Also add the child task to the next batch, as a root task node so it can be independently restarted.
                 lastTaskStepNode = SpawnNode(
@@ -1118,7 +1121,7 @@ class KernelIncrementalSimulator(
                             is ReadNode -> "Read ${node.cell.cell.name}"
                             is ReportNode<*> -> "Report ${node.content}"
                             is WriteNode -> "Write '${node.cell.effect}'"
-                            is RootTaskNode -> "Root ${node.task.id.name}"
+                            is RootTaskNode -> "Root ${node.task.name}"
                             is AwaitNode -> "Await ${node.condition}" + (if (node.continuation != null) " ++" else "")
                             is SpawnNode -> "Spawn" + (if (node.continuation != null) " ++" else "")
                             is StepBeginNode -> "Begin" + (if (node.continuation != null) " ++" else "")

@@ -68,36 +68,36 @@ fun main(args: Array<String>) {
                 constructModel = ::UnitDemo,
             )
 
-            simulation.addActivities(listOf(
-                GroundedActivity(
+            simulation.apply {
+                addActivity(GroundedActivity(
                     epoch + 10.minutes,
                     SwitchDevice(HEATER_A, ON)
-                ),
-                GroundedActivity(
+                ))
+                addActivity(GroundedActivity(
                     epoch + 20.minutes,
                     SwitchDevice(HEATER_B, STANDBY)
-                ),
-                GroundedActivity(
+                ))
+                addActivity(GroundedActivity(
                     epoch + 30.minutes,
                     SwitchDevice(CAMERA, STANDBY)
-                ),
-                GroundedActivity(
+                ))
+                addActivity(GroundedActivity(
                     epoch + 40.minutes,
                     SwitchDevice(CAMERA, ON)
-                ),
-                GroundedActivity(
+                ))
+                addActivity(GroundedActivity(
                     epoch + 45.minutes,
                     SwitchDevice(CAMERA, OFF)
-                ),
-                GroundedActivity(
+                ))
+                addActivity(GroundedActivity(
                     epoch + 50.minutes,
                     SwitchDevice(HEATER_A, STANDBY)
-                ),
-                GroundedActivity(
+                ))
+                addActivity(GroundedActivity(
                     epoch + 55.minutes,
                     SwitchDevice(HEATER_B, OFF)
-                ),
-            ))
+                ))
+            }
 
             simulation.runUntil(epoch + 2.hours)
         }

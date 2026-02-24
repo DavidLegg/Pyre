@@ -1,12 +1,11 @@
 package gov.nasa.jpl.pyre.general.scheduling
 
-import gov.nasa.jpl.pyre.kernel.Snapshot
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation.Companion.save
+import gov.nasa.jpl.pyre.foundation.plans.Snapshot
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
@@ -57,12 +56,11 @@ import kotlin.time.Instant
  *
  * @see SchedulingAlgorithms
  */
-class SchedulingSystem<M, C> private constructor(
+class SchedulingSystem<M : Any, C> private constructor(
     startTime: Instant?,
     val config: C,
     private val constructModel: context (InitScope) (C) -> M,
-    private val modelClass: KType,
-    incon: Snapshot?,
+    incon: Snapshot<M>?,
     /** Activities not yet part of the simulation */
     private val futureActivities: PriorityQueue<GroundedActivity<M>>,
     /** Activities which have been incorporated into the simulation. */
@@ -75,7 +73,6 @@ class SchedulingSystem<M, C> private constructor(
         startTime,
         incon,
         { constructModel(config).also { model = it } },
-        modelClass,
     )
     init {
         // Get the start time from the simulation, regardless of how the simulation was initialized, to keep the two in sync.
@@ -85,16 +82,14 @@ class SchedulingSystem<M, C> private constructor(
     val startTime: Instant get() = results.startTime
 
     constructor(
-        startTime: Instant?,
         config: C,
         constructModel: context (InitScope) (C) -> M,
-        modelClass: KType,
-        incon: Snapshot?,
+        startTime: Instant? = null,
+        incon: Snapshot<M>? = null,
     ) : this(
         startTime,
         config,
         constructModel,
-        modelClass,
         incon,
         PriorityQueue(compareBy { it.time }),
         mutableListOf(),
@@ -106,12 +101,11 @@ class SchedulingSystem<M, C> private constructor(
     fun runUntil(endTime: Instant) {
         // Inject only the activities that we're about to run.
         // This way, we can adjust the plan that's still in the future when we're done.
-        val activitiesToRun = mutableListOf<GroundedActivity<M>>()
         while (futureActivities.peek()?.run { time < endTime } ?: false) {
-            activitiesToRun += futureActivities.remove()
+            val activity = futureActivities.remove()
+            simulation.addActivity(activity)
+            pastActivities += activity
         }
-        simulation.addActivities(activitiesToRun)
-        pastActivities += activitiesToRun
         simulation.runUntil(endTime)
         results.endTime = time()
     }
@@ -138,13 +132,10 @@ class SchedulingSystem<M, C> private constructor(
         ) {
             numberOfActivitiesSeen = results.activities.size
             // First, look for any activities we need to inject right now:
-            val activitiesToRun = mutableListOf<GroundedActivity<M>>()
             while (futureActivities.peek()?.run { time == simulation.time() } ?: false) {
-                activitiesToRun += futureActivities.remove()
+                simulation.addActivity(activity)
+                pastActivities += activity
             }
-            // Inject them into the simulation
-            simulation.addActivities(activitiesToRun)
-            pastActivities += activitiesToRun
             // Look for when we would next need to inject activities, which is the latest we can safely advance:
             val nextActivityTime = futureActivities.minOfOrNull { it.time } ?: Instant.DISTANT_FUTURE
             // Finally, step the simulation to (at most) that time
@@ -289,7 +280,6 @@ class SchedulingSystem<M, C> private constructor(
         time(),
         newConfig,
         constructModel,
-        modelClass,
         fincon(),
         // Copy over all the other bookkeeping data
         futureActivities = PriorityQueue(futureActivities),
@@ -303,17 +293,10 @@ class SchedulingSystem<M, C> private constructor(
          *
          * Access a registered resource through the model and call [replay] to use it in the derivation.
          */
-        inline fun <V, reified D: Dynamics<V, D>, M> SchedulingSystem<M, *>.compute(
+        inline fun <V, reified D: Dynamics<V, D>, M : Any> SchedulingSystem<M, *>.compute(
             start: Instant = startTime,
             end: Instant = time(),
             noinline derivation: context (InitScope, SchedulingReplayScope) M.() -> Resource<D>,
         ) = compute(start, end, derivation, typeOf<D>())
     }
 }
-
-inline fun <reified M, C> SchedulingSystem(
-    config: C,
-    noinline constructModel: context (InitScope) (C) -> M,
-    startTime: Instant? = null,
-    incon: Snapshot? = null,
-) = SchedulingSystem(startTime, config, constructModel, typeOf<M>(), incon)

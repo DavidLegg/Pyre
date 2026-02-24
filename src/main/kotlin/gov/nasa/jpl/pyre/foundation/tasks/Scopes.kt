@@ -91,17 +91,17 @@ interface ConditionScope : ResourceScope
 interface TaskScope : ResourceScope, ReportScope {
     fun <V> emit(cell: Cell<V>, effect: Effect<V>)
     suspend fun await(condition: Condition)
-    suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>)
+    suspend fun spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult)
 
     companion object {
         context (scope: TaskScope)
         suspend fun await(condition: Condition) = scope.await(condition)
 
         context (scope: TaskScope)
-        suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>) = scope.spawn(childName, child)
+        suspend fun spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult) = scope.spawn(childName, child)
 
         context (scope: TaskScope)
-        suspend fun <S> spawn(childName: String, child: suspend context (TaskScope) () -> TaskScopeResult<S>) = spawn(Name(childName), child)
+        suspend fun spawn(childName: String, child: suspend context (TaskScope) () -> TaskScopeResult) = spawn(Name(childName), child)
     }
 }
 
@@ -120,7 +120,7 @@ interface InitScope : SimulationScope, ResourceScope, ReportScope {
     /**
      * Spawn a regular task, which will run when the simulation starts
      */
-    fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>)
+    fun spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult)
 
     fun <T> channel(name: Name, metadata: Map<String, ChannelReport.Metadatum>, valueType: KType): Channel<T>
 
@@ -135,10 +135,10 @@ interface InitScope : SimulationScope, ResourceScope, ReportScope {
         ): Cell<T> = scope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
 
         context (scope: InitScope)
-        fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) = scope.spawn(name, block)
+        fun spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult) = scope.spawn(name, block)
 
         context (scope: InitScope)
-        fun <T> spawn(name: String, block: suspend context (TaskScope) () -> TaskScopeResult<T>) = spawn(Name(name), block)
+        fun spawn(name: String, block: suspend context (TaskScope) () -> TaskScopeResult) = spawn(Name(name), block)
 
         /**
          * Adds [contextName] to the naming context, adding it as a level in the namespace of all resources and tasks
@@ -156,7 +156,7 @@ interface InitScope : SimulationScope, ResourceScope, ReportScope {
                 mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
             ): Cell<T> = scope.allocate(Name(contextName) / name, value, valueType, stepBy, mergeConcurrentEffects)
 
-            override fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) =
+            override fun spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult) =
                 scope.spawn(Name(contextName) / name, block)
         }
 

@@ -15,10 +15,9 @@ import kotlin.reflect.KType
  * Not-actually-incremental implementation of [gov.nasa.jpl.pyre.incremental.IncrementalPlanSimulation].
  * This is the baseline correct behavior for an incremental simulator, without the complexity of actually being incremental.
  */
-class NonIncrementalPlanSimulation<M>(
+class NonIncrementalPlanSimulation<M : Any>(
     private val constructModel: context (InitScope) () -> M,
     plan: Plan<M>,
-    private val modelClass: KType,
 ) : IncrementalPlanSimulation<M> {
     override var plan: Plan<M> = plan
         private set
@@ -39,7 +38,6 @@ class NonIncrementalPlanSimulation<M>(
             newResults.reportHandler(),
             plan.startTime,
             constructModel = constructModel,
-            modelClass = modelClass
         )
         simulation.runPlan(plan)
         return newResults.toSimulationResults()

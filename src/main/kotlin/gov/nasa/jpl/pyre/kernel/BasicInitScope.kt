@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.kernel
 
+import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import kotlin.reflect.KType
 import kotlin.time.Duration
 
@@ -15,7 +16,7 @@ interface BasicInitScope {
         stepBy: (T, Duration) -> T,
         mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>,
     ): Cell<T>
-    fun <T> spawn(name: Name, step: PureTaskStep<T>)
+    fun spawn(name: Name, step: PureTaskStep)
     fun <T> read(cell: Cell<T>): T
     fun <T> report(value: T)
 
@@ -30,7 +31,7 @@ interface BasicInitScope {
         ): Cell<T> = scope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
 
         context (scope: BasicInitScope)
-        fun <T> spawn(name: Name, step: PureTaskStep<T>) = scope.spawn(name, step)
+        fun spawn(name: Name, step: PureTaskStep) = scope.spawn(name, step)
 
         context (scope: BasicInitScope)
         fun <T> read(cell: Cell<T>): T = scope.read(cell)

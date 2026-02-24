@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.kernel
+package gov.nasa.jpl.pyre.kernel.tasks
 
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromJsonElement
 import kotlinx.serialization.KSerializer
@@ -15,8 +15,22 @@ import kotlinx.serialization.serializer
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
+/*
+ * Why is this file so complicated?
+ *
+ * Basically the same reason that Snapshot is so complicated.
+ * When copying task history in memory, we don't want to serialize, not even to JsonElements.
+ * To support this, I have MemoryTaskHistory.
+ *
+ * If I do serialize, I don't know what type each read value in the history is until I restore the task.
+ * To defer deserializing those values until I restore the task, I have JsonTaskHistory.
+ *
+ * To hide all of this ugliness, I have the (Mutable)TaskHistory interfaces.
+ * The Task just asks for the appropriate history, oblivious to how and when (de)serialization happens.
+ */
+
 /**
- * Collects each step of a task history as an individual report, for saving to [MutableSnapshot].
+ * Collects each step of a task history as an individual report, for saving to [gov.nasa.jpl.pyre.kernel.KernelSnapshot].
  * Implementations of this type are stateful and are mutated by [report].
  */
 interface TaskHistoryCollector {
@@ -28,7 +42,7 @@ interface TaskHistoryCollector {
 }
 
 /**
- * Provides reports indicating what steps a task has taken, usually from [MutableSnapshot].
+ * Provides reports indicating what steps a task has taken, usually from [gov.nasa.jpl.pyre.kernel.KernelSnapshot].
  * Implementations of this type are stateful and are mutated by [provide], like an Iterator would be.
  */
 interface TaskHistoryProvider {
@@ -77,7 +91,6 @@ sealed interface TaskHistory {
                 .deserialize(decoder)
             return SerializedTaskHistory(steps, (decoder as JsonDecoder).json)
         }
-
     }
 
     private class MemoryTaskHistory(
@@ -102,7 +115,7 @@ sealed interface TaskHistory {
     ) : TaskHistory {
         override fun provider() = object : TaskHistoryProvider {
             private var i = 0
-            override fun hasNext(): Boolean = i <= steps.size
+            override fun hasNext(): Boolean = i < steps.size
 
             @Suppress("UNCHECKED_CAST")
             override fun <T> provide(type: KType): T? =

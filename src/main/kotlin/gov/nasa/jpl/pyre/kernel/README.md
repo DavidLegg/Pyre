@@ -15,7 +15,7 @@ Fundamentally, a simulation comprises:
 - State information, stored in cells,
 - Tasks, which act on those cells,
 - Conditions, which monitor the cells to trigger tasks,
-- and Results, arbitrary JSON objects reported out of the simulation.
+- and Results, arbitrary objects reported out of the simulation.
 
 ### Simulation Process
 
@@ -56,14 +56,10 @@ Each step returns one of several results:
 - Read - indicating a cell should be read, and the resultant value given to the next step.
 - Emit - indicating an effect should be emitted against a cell.
 - Report - indicating a JSON value should be reported as a result of this simulation.
-- Delay - indicating the next step should be run only after a fixed Duration has elapsed.
 - Await - indicating the next step should be run when a Condition is satisfied.
 - Spawn - indicating a child task should be started in parallel.
 - Complete - indicating this task is finished, with no steps left to run.
-- Restart* - indicating this task should be restarted from the beginning.
-
-*Restart is a special kind of task step, which gets removed during task construction.
-It exists to facilitate long-running looping tasks, which can be restored with a small fraction of their overall history.
+- Restart - indicating this task should be restarted from the beginning.
 
 ### Conditions
 
@@ -106,7 +102,6 @@ the root task up to the point it was saved.
 Cell reads are "faked" using the history instead of the real cell, to ensure the task takes exactly the same execution path.
 
 Child tasks are handled identically, saving a full history including a history for their parent until the spawn step.
-Additionally, child tasks save information to the parent task indicating which children need to be restored.
 To restore a child, the parent task replays using the child's history, and at some point switches to the "child" branch
 of a spawn step, then continues replaying the child task.
 This extends to grandchildren, great-grandchildren, etc.; each simply saves a history from the start of the root task

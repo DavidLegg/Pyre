@@ -1,29 +1,22 @@
 package gov.nasa.jpl.pyre.kernel
 
-import gov.nasa.jpl.pyre.*
-import gov.nasa.jpl.pyre.foundation.plans.InstantSerializer
-import gov.nasa.jpl.pyre.utilities.andThen
-import gov.nasa.jpl.pyre.kernel.SimpleSimulation.SimulationSetup
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.allocate
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.read
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
-import gov.nasa.jpl.pyre.kernel.SimpleSimulation.Companion.save
-import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
-import gov.nasa.jpl.pyre.kernel.Task.PureStepResult.*
+import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.get
+import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
+import gov.nasa.jpl.pyre.kernel.tasks.PureStepResult.*
+import gov.nasa.jpl.pyre.kernel.tasks.PureTask.TaskHistoryStep
+import gov.nasa.jpl.pyre.kernel.tasks.PureTask.TaskHistoryStep.*
+import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
+import gov.nasa.jpl.pyre.kernel.tasks.TaskHistoryProvider.Companion.provide
+import gov.nasa.jpl.pyre.utilities.andThen
+import gov.nasa.jpl.pyre.utilities.named
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.decodeFromJsonElement
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.modules.SerializersModule
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertDoesNotThrow
 import kotlin.math.abs
 import kotlin.reflect.typeOf
-import kotlin.test.assertContains
-import kotlin.test.assertEquals
+import kotlin.test.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Duration.Companion.hours
@@ -34,41 +27,32 @@ import kotlin.time.Instant
 class SimulationTest {
     private data class SimulationResult(
         val reports: List<Any?>,
-        val fincon: JsonElement?,
+        val fincon: KernelSnapshot?,
     )
-
-    private val jsonFormat: Json = Json {
-        serializersModule = SerializersModule {
-            contextual(Instant::class, InstantSerializer())
-        }
-    }
 
     private fun runSimulation(
         duration: Duration,
-        incon: JsonElement? = null,
+        incon: KernelSnapshot? = null,
         takeFincon: Boolean = false,
         initialize: context (BasicInitScope) () -> Unit,
     ): SimulationResult {
-        assertDoesNotThrow {
-            // Build a simulation that'll write reports to memory
-            val reports = mutableListOf<Any?>()
-            val inconProvider = incon?.let { jsonFormat.decodeFromJsonElement<Snapshot>(it) }
-            val startTime = inconProvider?.provide<Instant>("simulation", "time") ?: Instant.parse("2000-01-01T00:00:00Z")
-            val simulation = SimpleSimulation(SimulationSetup(
-                reportHandler = reports::add,
-                inconProvider = inconProvider,
-                initialize = initialize,
-                startTime = startTime,
-            ))
-            // Run the simulation to the end
-            simulation.runUntil(startTime + duration)
-            // Cut a fincon, if requested
-            val fincon = if (takeFincon) {
-                jsonFormat.encodeToJsonElement(simulation.save())
-            } else null
-            // Return all results, and let the simulation itself be garbage collected
-            return SimulationResult(reports, fincon)
-        }
+        // Build a simulation that'll write reports to memory
+        val reports = mutableListOf<Any?>()
+        val startTime = incon?.time ?: Instant.parse("2000-01-01T00:00:00Z")
+        val simulation = KernelSimulator(
+            reports::add,
+            initialize,
+            incon,
+            startTime,
+        )
+        // Run the simulation to the end
+        // More advanced simulators might apply some checks against a "stalled" simulation here.
+        val endTime = startTime + duration
+        while (simulation.time() < endTime) simulation.stepTo(endTime)
+        // Cut a fincon, if requested
+        val fincon = if (takeFincon) simulation.save() else null
+        // Return all results, and let the simulation itself be garbage collected
+        return SimulationResult(reports, fincon)
     }
 
     context (scope: BasicInitScope)
@@ -105,9 +89,12 @@ class SimulationTest {
      * "Patch" test-ism - I removed the Delay task step type in favor of using Await.
      * Rather than rewrite a bunch of tests, I'm re-building Delay in terms of Await.
      */
-    private fun <T> Task.BasicTaskActions.Delay(time: Duration, clock: Cell<Duration>, block: PureTaskStep<T>): Await<T> {
+    private fun BasicTaskActions.Delay(time: Duration, clock: Cell<Duration>, block: PureTaskStep): Await {
         val endTime = read(clock) + time
-        return Await({ SatisfiedAt(endTime - it.read(clock)) }, block)
+        return Await(
+            { actions: ReadActions -> SatisfiedAt(endTime - actions.read(clock)) }
+                .named { "Delay until $endTime" },
+            block)
     }
 
     @Test
@@ -120,7 +107,7 @@ class SimulationTest {
         val results = runSimulation(1.hours) {
             spawn(Name("report result")) {
                 it.report("result")
-                Complete(Unit)
+                Complete
             }
         }
         assertEquals(listOf("result"), results.reports)
@@ -140,7 +127,7 @@ class SimulationTest {
             spawn(Name("read cell")) {
                 val xVal = it.read(x)
                 it.report("x = $xVal")
-                Complete(Unit)
+                Complete
             }
         }
         assertEquals(listOf("x = 42"), results.reports)
@@ -162,7 +149,7 @@ class SimulationTest {
                 it.emit(x) { it + 13 }
                 val xVal = it.read(x)
                 it.report("x = $xVal")
-                Complete(Unit)
+                Complete
             }
         }
         assertEquals(listOf("x = 55"), results.reports)
@@ -178,7 +165,7 @@ class SimulationTest {
             val clock = allocateClockCell("clock", ZERO)
             spawn(Name("delay")) {
                 it.Delay(30.minutes, clock) {
-                    Complete(Unit)
+                    Complete
                 }
             }
         }
@@ -198,7 +185,7 @@ class SimulationTest {
                 it.Delay(30.minutes, clock) {
                     val xVal = it.read(x)
                     it.report("later x = $xVal")
-                    Complete(Unit)
+                    Complete
                 }
             }
         }
@@ -213,20 +200,20 @@ class SimulationTest {
                 it.emit(x) { it + 5 }
                 val xVal = it.read(x)
                 it.report("A says: x = $xVal")
-                Complete(Unit)
+                Complete
             }
             spawn(Name("Task B")) {
                 it.emit(x) { it + 3 }
                 val xVal = it.read(x)
                 it.report("B says: x = $xVal")
-                Complete(Unit)
+                Complete
             }
             spawn(Name("Task C")) {
                 val xVal = it.read(x)
                 it.report("C says: x = $xVal")
                 val xVal2 = it.read(x)
                 it.report("C still says: x = $xVal2")
-                Complete(Unit)
+                Complete
             }
         }
         with (results) {
@@ -248,7 +235,7 @@ class SimulationTest {
                 it.emit(x) { it + 5 }
                 val xVal = it.read(x)
                 it.report("A says: x = $xVal")
-                Complete(Unit)
+                Complete
             }
             spawn(Name("Task B")) {
                 val xVal = it.read(x)
@@ -256,7 +243,7 @@ class SimulationTest {
                 it.Delay(ZERO, clock) {
                     val xVal = it.read(x)
                     it.report("B next says: x = $xVal")
-                    Complete(Unit)
+                    Complete
                 }
             }
         }
@@ -279,19 +266,19 @@ class SimulationTest {
                 it.emit(x) { it + 5 }
                 val xVal = it.read(x)
                 it.report("A says: x = $xVal")
-                Complete(Unit)
+                Complete
             }
             spawn(Name("Task B")) {
                 it.emit(x) { it + 3 }
                 val xVal = it.read(x)
                 it.report("B says: x = $xVal")
-                Complete(Unit)
+                Complete
             }
             spawn(Name("Task C")) {
                 it.Delay(ZERO, clock) {
                     val xVal = it.read(x)
                     it.report("C says: x = $xVal")
-                    Complete(Unit)
+                    Complete
                 }
             }
         }
@@ -309,7 +296,7 @@ class SimulationTest {
         runSimulation(1.hours) {
             spawn(Name("Await condition")) {
                 Await({ SatisfiedAt(ZERO) }) {
-                    Complete(Unit)
+                    Complete
                 }
             }
         }
@@ -324,7 +311,7 @@ class SimulationTest {
                 Await({ SatisfiedAt(ZERO) }) {
                     val xVal = it.read(x)
                     it.report("Awaiter says: x = $xVal")
-                    Complete(Unit)
+                    Complete
                 }
             }
             spawn(Name("Counter")) {
@@ -333,7 +320,7 @@ class SimulationTest {
                     it.emit(x) { it + 1 }
                     it.Delay(ZERO, clock) {
                         it.emit(x) { it + 1 }
-                        Complete(Unit)
+                        Complete
                     }
                 }
             }
@@ -347,7 +334,7 @@ class SimulationTest {
             spawn(Name("Awaiter")) {
                 Await({ UnsatisfiedUntil(null) }) {
                     it.report("Awaiter ran!")
-                    Complete(Unit)
+                    Complete
                 }
             }
         }
@@ -370,7 +357,7 @@ class SimulationTest {
                     it.report("Awaiter says: x = $xVal")
                     val yVal = it.read(y)
                     it.report("Awaiter says: y = $yVal")
-                    Complete(Unit)
+                    Complete
                 }
             }
             spawn(Name("Counter")) {
@@ -379,7 +366,7 @@ class SimulationTest {
                     it.emit(y) { it - 1 }
                     it.Delay(ZERO, clock) {
                         it.emit(x) { it + 1 }
-                        Complete(Unit)
+                        Complete
                     }
                 }
             }
@@ -404,7 +391,7 @@ class SimulationTest {
                 }) {
                     val xVal = it.read(x)
                     it.report(xVal)
-                    Complete(Unit)
+                    Complete
                 }
             }
         }
@@ -434,7 +421,7 @@ class SimulationTest {
                     it.report(xVal)
                     val yVal = it.read(y)
                     it.report("Awaiter says: y = $yVal")
-                    Complete(Unit)
+                    Complete
                 }
             }
             spawn(Name("Interrupter")) {
@@ -445,7 +432,7 @@ class SimulationTest {
                     it.Delay(20.minutes, clock) {
                         it.emit(y) { it + 1 }
                         it.emit(x) { LinearDynamics(35.0, 0.0) }
-                        Complete(Unit)
+                        Complete
                     }
                 }
             }
@@ -479,7 +466,7 @@ class SimulationTest {
                     it.report(xVal)
                     val yVal = it.read(y)
                     it.report("Awaiter says: y = $yVal")
-                    Complete(Unit)
+                    Complete
                 }
             }
             spawn(Name("Interrupter")) {
@@ -490,7 +477,7 @@ class SimulationTest {
                     it.Delay(20.minutes, clock) {
                         it.emit(y) { it + 1 }
                         it.emit(x) { LinearDynamics(19.0, 0.1) }
-                        Complete(Unit)
+                        Complete
                     }
                 }
             }
@@ -514,7 +501,7 @@ class SimulationTest {
                 }) {
                     val xVal = it.read(x)
                     it.report(xVal)
-                    Complete(Unit)
+                    Complete
                 }
             }
         }
@@ -537,14 +524,14 @@ class SimulationTest {
                 }) {
                     val xVal = it.read(x)
                     it.report(xVal)
-                    Complete(Unit)
+                    Complete
                 }
             }
 
             spawn(Name("Interrupter")) {
                 it.Delay(5.seconds, clock) {
                     it.emit(x) { LinearDynamics(20.0, 0.0) }
-                    Complete(Unit)
+                    Complete
                 }
             }
         }
@@ -561,7 +548,7 @@ class SimulationTest {
     fun empty_simulation_can_be_saved() {
         val results = runSimulation(1.minutes, takeFincon = true) {}
         with (results.fincon!!) {
-            assertEquals("2000-01-01T00:01:00Z", string("simulation", "time", "$"))
+            assertEquals(Instant.parse("2000-01-01T00:01:00Z"), time)
         }
     }
 
@@ -574,16 +561,14 @@ class SimulationTest {
         }
         val results = runSimulation(1.minutes, takeFincon = true) { initialize() }
         with (results.fincon!!) {
-            assertEquals("2000-01-01T00:01:00Z", string("simulation", "time", "$"))
-            within("cells") {
-                within("x", "$") {
-                    assertNearlyEquals(70.0, double("value")!!)
-                    assertNearlyEquals(1.0, double("rate")!!)
-                }
-                within("y", "$") {
-                    assertNearlyEquals(4.0, double("value")!!)
-                    assertNearlyEquals(-0.1, double("rate")!!)
-                }
+            assertEquals(Instant.parse("2000-01-01T00:01:00Z"), time)
+            with (assertNotNull(cells.get<LinearDynamics>(Name("x")))) {
+                assertNearlyEquals(70.0, value)
+                assertNearlyEquals(1.0, rate)
+            }
+            with (assertNotNull(cells.get<LinearDynamics>(Name("y")))) {
+                assertNearlyEquals(4.0, value)
+                assertNearlyEquals(-0.1, rate)
             }
         }
     }
@@ -608,13 +593,13 @@ class SimulationTest {
             val clock = allocateClockCell("clock", ZERO)
 
             spawn(Name("Complete Immediately")) {
-                Complete(Unit)
+                Complete
             }
             spawn(Name("Single Batch Task")) {
                 val xDynamics = it.read(x)
                 val yDynamics = it.read(y)
                 it.report(mapOf("tag" to "Single Batch Task", "x" to xDynamics, "y" to yDynamics))
-                Complete(Unit)
+                Complete
             }
             spawn(Name("Multi Batch Task")) {
                 val xDynamics = it.read(x)
@@ -624,7 +609,7 @@ class SimulationTest {
                     val xDynamics = it.read(x)
                     val yDynamics = it.read(y)
                     it.report(mapOf("tag" to "Multi Batch Task - 2", "x" to xDynamics, "y" to yDynamics))
-                    Complete(Unit)
+                    Complete
                 }
             }
         }
@@ -632,36 +617,44 @@ class SimulationTest {
         val results = runSimulation(1.minutes, takeFincon = true) { initialize() }
 
         with (results.fincon!!) {
-            assertEquals("2000-01-01T00:01:00Z", string("simulation", "time", "$"))
-            within("cells") {
-                within("x", "$") {
-                    assertNearlyEquals(70.0, double("value")!!)
-                    assertNearlyEquals(1.0, double("rate")!!)
-                }
-                within("y", "$") {
-                    assertNearlyEquals(4.0, double("value")!!)
-                    assertNearlyEquals(-0.1, double("rate")!!)
-                }
+            assertEquals(Instant.parse("2000-01-01T00:01:00Z"), time)
+            with (assertNotNull(cells.get<LinearDynamics>(Name("x")))) {
+                assertNearlyEquals(70.0, value)
+                assertNearlyEquals(1.0, rate)
             }
-            within("tasks") {
-                within("Multi Batch Task", "$") {
-                    array {
-                        element {
-                            assertEquals("read", string("type"))
-                            within("value") {
-                                assertNearlyEquals(10.0, double("value")!!)
-                                assertNearlyEquals(1.0, double("rate")!!)
-                            }
-                        }
-                        element {
-                            assertEquals("read", string("type"))
-                            within("value") {
-                                assertNearlyEquals(10.0, double("value")!!)
-                                assertNearlyEquals(-0.1, double("rate")!!)
-                            }
-                        }
-                    }
+            with (assertNotNull(cells.get<LinearDynamics>(Name("y")))) {
+                assertNearlyEquals(4.0, value)
+                assertNearlyEquals(-0.1, rate)
+            }
+            assertEquals(3, tasks.size)
+            with (tasks.get(0)) {
+                assertEquals(Name("Complete Immediately"), name)
+                assertEquals(Name("Complete Immediately"), root)
+                assertNull(time)
+                assertNull(history)
+            }
+            with (tasks.get(1)) {
+                assertEquals(Name("Multi Batch Task"), name)
+                assertEquals(Name("Multi Batch Task"), root)
+                assertEquals(Instant.parse("2000-01-01T00:01:00Z"), time)
+                val historyProvider = assertNotNull(history).provider()
+                with (assertNotNull(historyProvider.provide<ReadMarker<LinearDynamics>>(ReadMarker.concreteType(typeOf<LinearDynamics>()))).value) {
+                    assertNearlyEquals(10.0, value)
+                    assertNearlyEquals(1.0, rate)
                 }
+                with (assertNotNull(historyProvider.provide<ReadMarker<LinearDynamics>>(ReadMarker.concreteType(typeOf<LinearDynamics>()))).value) {
+                    assertNearlyEquals(10.0, value)
+                    assertNearlyEquals(-0.1, rate)
+                }
+                // Implicit read of the current time to do Delay
+                assertEquals(ReadMarker(0.seconds), historyProvider.provide<ReadMarker<Duration>>(ReadMarker.concreteType(typeOf<Duration>())))
+                assertFalse(historyProvider.hasNext())
+            }
+            with (tasks.get(2)) {
+                assertEquals(Name("Single Batch Task"), name)
+                assertEquals(Name("Single Batch Task"), root)
+                assertNull(time)
+                assertNull(history)
             }
         }
     }
@@ -675,7 +668,7 @@ class SimulationTest {
             val clock = allocateClockCell("clock", ZERO)
 
             spawn(Name("Complete Immediately")) {
-                Complete(Unit)
+                Complete
             }
             spawn(Name("Single Batch Task")) {
                 val xDynamics = it.read(x)
@@ -683,7 +676,7 @@ class SimulationTest {
                 // Add a delay 0 to make the report order deterministic, for easier verification
                 it.Delay(ZERO, clock) {
                     it.report(mapOf("tag" to "Single Batch Task", "x" to xDynamics, "y" to yDynamics))
-                    Complete(Unit)
+                    Complete
                 }
             }
             spawn(Name("Multi Batch Task")) {
@@ -696,7 +689,7 @@ class SimulationTest {
                     val xDynamics = it.read(x)
                     val yDynamics = it.read(y)
                     it.report(mapOf("tag" to "Multi Batch Task - 2", "x" to xDynamics, "y" to yDynamics))
-                    Complete(Unit)
+                    Complete
                 }
             }
         }
@@ -741,7 +734,7 @@ class SimulationTest {
                     val time = it.read(clock)
                     val xVal = it.read(x)
                     it.report("x = $xVal at $time")
-                    Restart<Unit>()
+                    Restart
                 }
             }
         }
@@ -766,27 +759,21 @@ class SimulationTest {
                     val time = it.read(clock)
                     val xVal = it.read(x)
                     it.report("x = $xVal at $time")
-                    Restart<Unit>()
+                    Restart
                 }
             }
         }
         with (results.fincon!!) {
-            assertEquals("2000-01-01T00:59:00Z", string("simulation", "time", "$"))
-            within("cells") {
-                assertEquals(5, int("x", "$"))
-                assertEquals("PT59M", string("clock", "$"))
-            }
-            within("tasks", "Repeater") {
-                within("$") {
-                    array {
-                        element {
-                            assertEquals("read", string("type"))
-                            assertEquals("PT50M", string("value"))
-                        }
-                        assert(atEnd())
-                    }
-                }
-                assertEquals("2000-01-01T00:59:00Z", string("time", "$"))
+            assertEquals(Instant.parse("2000-01-01T00:59:00Z"), time)
+            assertEquals(5, cells.get<Int>(Name("x")))
+            assertEquals(59.minutes, cells.get<Duration>(Name("clock")))
+            with (tasks.single()) {
+                assertEquals(Instant.parse("2000-01-01T00:59:00Z"), time)
+                assertEquals(Name("Repeater"), name)
+                assertEquals(Name("Repeater"), root)
+                val historyProvider = assertNotNull(history).provider()
+                assertEquals(50.minutes, historyProvider.provide<ReadMarker<Duration>>(ReadMarker.concreteType(typeOf<Duration>()))?.value)
+                assertFalse(historyProvider.hasNext())
             }
         }
     }
@@ -808,7 +795,7 @@ class SimulationTest {
                     val time = it.read(clock)
                     val xVal = it.read(x)
                     it.report("x = $xVal at $time")
-                    Restart<Unit>()
+                    Restart
                 }
             }
         }
@@ -830,9 +817,9 @@ class SimulationTest {
                 it.report("Parent's report")
                 Spawn(Name("Child"), {
                     it.report("Child's report")
-                    Complete(Unit)
+                    Complete
                 }) {
-                    Complete(Unit)
+                    Complete
                 }
             }
         }
@@ -853,7 +840,7 @@ class SimulationTest {
                         it.emit(x) { it + 1 }
                         it.Delay(ZERO, clock) {
                             it.emit(x) { it + 1 }
-                            Complete(Unit)
+                            Complete
                         }
                     }
                 }
@@ -868,7 +855,7 @@ class SimulationTest {
                     it.Delay(ZERO, clock) {
                         val xVal = it.read(x)
                         it.report("Tick 2: C1 says: x = $xVal")
-                        Complete(Unit)
+                        Complete
                     }
                 }) {
                     Spawn(Name("C2"), {
@@ -877,7 +864,7 @@ class SimulationTest {
                         it.Delay(ZERO, clock) {
                             val xVal = it.read(x)
                             it.report("Tick 2: C2 says: x = $xVal")
-                            Complete(Unit)
+                            Complete
                         }
                     }) {
                         it.Delay(ZERO, clock) {
@@ -886,7 +873,7 @@ class SimulationTest {
                             it.Delay(ZERO, clock) {
                                 val xVal = it.read(x)
                                 it.report("Tick 2: P says: x = $xVal")
-                                Complete(Unit)
+                                Complete
                             }
                         }
                     }
@@ -926,7 +913,7 @@ class SimulationTest {
                     it.Delay(45.minutes, clock) {
                         // 00:45:00
                         it.report("C -- 2")
-                        Complete(Unit)
+                        Complete
                     }
                 }) {
                     it.Delay(30.minutes, clock) {
@@ -937,13 +924,13 @@ class SimulationTest {
                             it.Delay(45.minutes, clock) {
                                 // 01:15:00
                                 it.report("D -- 2")
-                                Complete(Unit)
+                                Complete
                             }
                         }) {
                             it.Delay(1.hours, clock) {
                                 // 01:30:00
                                 it.report("P -- 3")
-                                Complete(Unit)
+                                Complete
                             }
                         }
                     }
@@ -951,66 +938,31 @@ class SimulationTest {
             }
         }
         with (results.fincon!!) {
-            assertEquals("2000-01-01T01:00:00Z", string("simulation", "time", "$"))
-            within("tasks") {
-                within("P") {
-                    within("children", "$") {
-                        assert((this as JsonArray).size == 2)
-                        assert(JsonArray(listOf(JsonPrimitive("P"))) in this)
-                        // Note: The child id is now independent of the parent ID, at least in theory.
-                        assert(JsonArray(listOf(JsonPrimitive("D"))) in this)
-                    }
-
-                    within("$") {
-                        array {
-                            element {
-                                assertEquals("spawn", string("type"))
-                                assertEquals("parent", string("branch"))
-                            }
-                            element {
-                                assertEquals("read", string("type"))
-                                assertEquals("PT0S", string("value"))
-                            }
-                            element { assertEquals("await", string("type")) }
-                            element {
-                                assertEquals("spawn", string("type"))
-                                assertEquals("parent", string("branch"))
-                            }
-                            element {
-                                assertEquals("read", string("type"))
-                                assertEquals("PT30M", string("value"))
-                            }
-                            assert(atEnd())
-                        }
-                    }
-                    assertEquals("2000-01-01T01:00:00Z", string("time", "$"))
-                }
-
-                within("D") {
-                    within("$") {
-                        array {
-                            element {
-                                assertEquals("spawn", string("type"))
-                                assertEquals("parent", string("branch"))
-                            }
-                            element {
-                                assertEquals("read", string("type"))
-                                assertEquals("PT0S", string("value"))
-                            }
-                            element { assertEquals("await", string("type")) }
-                            element {
-                                assertEquals("spawn", string("type"))
-                                assertEquals("child", string("branch"))
-                            }
-                            element {
-                                assertEquals("read", string("type"))
-                                assertEquals("PT30M", string("value"))
-                            }
-                            assert(atEnd())
-                        }
-                    }
-                    assertEquals("2000-01-01T01:00:00Z", string("time", "$"))
-                }
+            assertEquals(Instant.parse("2000-01-01T01:00:00Z"), time)
+            assertEquals(2, tasks.size)
+            with (tasks[0]) {
+                assertEquals(Name("D"), name)
+                assertEquals(Name("P"), root)
+                assertEquals(Instant.parse("2000-01-01T01:00:00Z"), time)
+                val historyProvider = assertNotNull(history).provider()
+                assertEquals(SpawnMarker(SpawnMarkerBranch.Parent), historyProvider.provide<TaskHistoryStep>())
+                assertEquals(ReadMarker(0.seconds), historyProvider.provide<ReadMarker<Duration>>(ReadMarker.concreteType(typeOf<Duration>())))
+                assertEquals(AwaitMarker, historyProvider.provide<TaskHistoryStep>())
+                assertEquals(SpawnMarker(SpawnMarkerBranch.Child), historyProvider.provide<TaskHistoryStep>())
+                assertEquals(ReadMarker(30.minutes), historyProvider.provide<ReadMarker<Duration>>(ReadMarker.concreteType(typeOf<Duration>())))
+                assertFalse(historyProvider.hasNext())
+            }
+            with (tasks[1]) {
+                assertEquals(Name("P"), name)
+                assertEquals(Name("P"), root)
+                assertEquals(Instant.parse("2000-01-01T01:00:00Z"), time)
+                val historyProvider = assertNotNull(history).provider()
+                assertEquals(SpawnMarker(SpawnMarkerBranch.Parent), historyProvider.provide<TaskHistoryStep>())
+                assertEquals(ReadMarker(0.seconds), historyProvider.provide<ReadMarker<Duration>>(ReadMarker.concreteType(typeOf<Duration>())))
+                assertEquals(AwaitMarker, historyProvider.provide<TaskHistoryStep>())
+                assertEquals(SpawnMarker(SpawnMarkerBranch.Parent), historyProvider.provide<TaskHistoryStep>())
+                assertEquals(ReadMarker(30.minutes), historyProvider.provide<ReadMarker<Duration>>(ReadMarker.concreteType(typeOf<Duration>())))
+                assertFalse(historyProvider.hasNext())
             }
         }
     }
@@ -1027,7 +979,7 @@ class SimulationTest {
                     it.Delay(45.minutes, clock) {
                         // 00:45:00
                         it.report("C -- 2")
-                        Complete(Unit)
+                        Complete
                     }
                 }) {
                     it.Delay(30.minutes, clock) {
@@ -1038,13 +990,13 @@ class SimulationTest {
                             it.Delay(45.minutes, clock) {
                                 // 01:15:00
                                 it.report("D -- 2")
-                                Complete(Unit)
+                                Complete
                             }
                         }) {
                             it.Delay(1.hours, clock) {
                                 // 01:30:00
                                 it.report("P -- 3")
-                                Complete(Unit)
+                                Complete
                             }
                         }
                     }
@@ -1082,11 +1034,11 @@ class SimulationTest {
                         it.Delay(45.minutes, clock) {
                             val time = it.read(clock)
                             it.report("Child $nValue end at $time")
-                            Complete(Unit)
+                            Complete
                         }
                     }) {
                         it.emit(n) { it + 1 }
-                        Restart<Unit>()
+                        Restart
                     }
                 }
             }
@@ -1135,10 +1087,10 @@ class SimulationTest {
                             val nVal = it.read(n)
                             it.report("Iteration $nVal at $time")
                             it.emit(n) { it + 1 }
-                            Restart<Unit>()
+                            Restart
                         }
                     }) {
-                        Complete(Unit)
+                        Complete
                     }
                 }
             }
@@ -1179,15 +1131,15 @@ class SimulationTest {
                         it.report("GC -- 1")
                         it.Delay(90.minutes, clock) {
                             it.report("GC -- 2")
-                            Complete(Unit)
+                            Complete
                         }
                     }) {
                         it.report("C -- 2")
-                        Complete(Unit)
+                        Complete
                     }
                 }) {
                     it.report("P -- 2")
-                    Complete(Unit)
+                    Complete
                 }
             }
         }
@@ -1222,7 +1174,7 @@ class SimulationTest {
                         it.report("A$i -- 2")
                         it.Delay(10.seconds, clock) {
                             it.report("A$i -- 3")
-                            Complete(Unit)
+                            Complete
                         }
                     }
                 }
@@ -1237,7 +1189,7 @@ class SimulationTest {
                             it.report("B$i -- 2")
                             it.Delay(10.seconds, clock) {
                                 it.report("B$i -- 3")
-                                Complete(Unit)
+                                Complete
                             }
                         }
                     }
@@ -1251,11 +1203,11 @@ class SimulationTest {
                             it.report("C$i -- 2")
                             it.Delay(10.seconds, clock) {
                                 it.report("C$i -- 3")
-                                Complete(Unit)
+                                Complete
                             }
                         }) {
                             it.Delay(10.seconds, clock) {
-                                Complete(Unit)
+                                Complete
                             }
                         }
                     }
