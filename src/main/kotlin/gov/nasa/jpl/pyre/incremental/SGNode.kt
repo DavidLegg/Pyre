@@ -3,7 +3,7 @@ package gov.nasa.jpl.pyre.incremental
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.Task
+import gov.nasa.jpl.pyre.kernel.tasks.Task
 
 sealed interface SGNode {
     val serialId: Int

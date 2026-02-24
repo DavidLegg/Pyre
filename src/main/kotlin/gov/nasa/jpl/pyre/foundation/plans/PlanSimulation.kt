@@ -9,13 +9,11 @@ import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
 import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.clock
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.kernel.Snapshot
-import gov.nasa.jpl.pyre.kernel.SimulationState
+import gov.nasa.jpl.pyre.kernel.KernelSimulator
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.resources.resource
-import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
@@ -32,7 +30,6 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.MutableSnapshot
 import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.report
-import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.within
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
 import gov.nasa.jpl.pyre.kernel.Name
@@ -66,7 +63,7 @@ class PlanSimulation<M>(
     modelClass: KType,
 ) {
     private val simulationScope: SimulationScope
-    private val state: SimulationState
+    private val state: KernelSimulator
     private val activityResource: MutableDiscreteResource<GroundedActivity<M>?>
 
     init {
@@ -84,7 +81,7 @@ class PlanSimulation<M>(
             }
         }
 
-        state = SimulationState(reportHandler, inconProvider, startTime = start)
+        state = KernelSimulator(reportHandler, inconProvider, startTime = start)
         simulationScope = object : InitScope {
             override fun <T : Any> allocate(
                 name: Name,
@@ -179,7 +176,7 @@ class PlanSimulation<M>(
         }
     }
 
-    fun save(finconCollector: MutableSnapshot) = state.save(finconCollector)
+    fun save() = state.save()
 
     fun addActivities(activities: List<GroundedActivity<M>>) {
         // TODO: Consider formalizing this as a way to "safely" ingest info into the sim.

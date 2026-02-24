@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
@@ -11,10 +10,10 @@ import gov.nasa.jpl.pyre.kernel.ConditionResult
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import gov.nasa.jpl.pyre.kernel.PureTaskStep
-import gov.nasa.jpl.pyre.kernel.Task
-import gov.nasa.jpl.pyre.kernel.Task.BasicTaskActions
-import gov.nasa.jpl.pyre.kernel.Task.PureStepResult.*
+import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
+import gov.nasa.jpl.pyre.kernel.tasks.Task
+import gov.nasa.jpl.pyre.kernel.new_tasks.BasicTaskActions
+import gov.nasa.jpl.pyre.kernel.tasks.Task.PureStepResult.*
 import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
 

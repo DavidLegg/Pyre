@@ -53,6 +53,9 @@ sealed interface Snapshot {
     fun within(key: String): Snapshot
     fun <T> provide(type: KType): T?
     fun inconExists(): Boolean
+    // TODO: Should we have a method which enumerates the leaves available under a given prefix path?
+    //   Or equivalently, just gives all leaves (and we use within to restrict the search)?
+    //   Or alternatively, just gives the next layer of keys?
 
     companion object {
         fun Snapshot.within(keys: Sequence<String>): Snapshot {
@@ -222,6 +225,7 @@ sealed interface MutableSnapshot : Snapshot {
         }
         fun MutableSnapshot.within(vararg keys: String): MutableSnapshot = within(keys.asSequence())
         inline fun <reified T> MutableSnapshot.report(value: T) = report(value, typeOf<T>())
+        inline fun <reified T> MutableSnapshot.report(vararg keys: String, value: T) = within(*keys).report(value, typeOf<T>())
     }
 }
 

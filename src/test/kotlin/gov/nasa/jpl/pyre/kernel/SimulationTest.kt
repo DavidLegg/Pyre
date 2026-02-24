@@ -3,13 +3,13 @@ package gov.nasa.jpl.pyre.kernel
 import gov.nasa.jpl.pyre.*
 import gov.nasa.jpl.pyre.foundation.plans.InstantSerializer
 import gov.nasa.jpl.pyre.utilities.andThen
-import gov.nasa.jpl.pyre.kernel.SimpleSimulation.SimulationSetup
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.allocate
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.read
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
-import gov.nasa.jpl.pyre.kernel.SimpleSimulation.Companion.save
 import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
-import gov.nasa.jpl.pyre.kernel.Task.PureStepResult.*
+import gov.nasa.jpl.pyre.kernel.tasks.Task.PureStepResult.*
+import gov.nasa.jpl.pyre.kernel.new_tasks.BasicTaskActions
+import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -52,16 +52,18 @@ class SimulationTest {
         assertDoesNotThrow {
             // Build a simulation that'll write reports to memory
             val reports = mutableListOf<Any?>()
-            val inconProvider = incon?.let { jsonFormat.decodeFromJsonElement<Snapshot>(it) }
-            val startTime = inconProvider?.provide<Instant>("simulation", "time") ?: Instant.parse("2000-01-01T00:00:00Z")
-            val simulation = SimpleSimulation(SimulationSetup(
-                reportHandler = reports::add,
-                inconProvider = inconProvider,
-                initialize = initialize,
-                startTime = startTime,
-            ))
+            val snapshot = incon?.let { jsonFormat.decodeFromJsonElement<Snapshot>(it) }
+            val startTime = snapshot?.provide<Instant>("simulation", "time") ?: Instant.parse("2000-01-01T00:00:00Z")
+            val simulation = KernelSimulator(
+                reports::add,
+                initialize,
+                snapshot,
+                startTime,
+            )
             // Run the simulation to the end
-            simulation.runUntil(startTime + duration)
+            // More advanced simulators might apply some checks against a "stalled" simulation here.
+            val endTime = startTime + duration
+            while (simulation.time() < endTime) simulation.stepTo(endTime)
             // Cut a fincon, if requested
             val fincon = if (takeFincon) {
                 jsonFormat.encodeToJsonElement(simulation.save())
@@ -105,7 +107,7 @@ class SimulationTest {
      * "Patch" test-ism - I removed the Delay task step type in favor of using Await.
      * Rather than rewrite a bunch of tests, I'm re-building Delay in terms of Await.
      */
-    private fun <T> Task.BasicTaskActions.Delay(time: Duration, clock: Cell<Duration>, block: PureTaskStep<T>): Await<T> {
+    private fun <T> BasicTaskActions.Delay(time: Duration, clock: Cell<Duration>, block: PureTaskStep<T>): Await<T> {
         val endTime = read(clock) + time
         return Await({ SatisfiedAt(endTime - it.read(clock)) }, block)
     }

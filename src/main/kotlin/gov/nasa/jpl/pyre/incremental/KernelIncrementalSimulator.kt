@@ -3,13 +3,15 @@ package gov.nasa.jpl.pyre.incremental
 import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator.FrontierAction.*
 import gov.nasa.jpl.pyre.incremental.SGNode.*
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
+import gov.nasa.jpl.pyre.kernel.new_tasks.BasicTaskActions
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.PureTaskStep
+import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.ReadActions
 import gov.nasa.jpl.pyre.kernel.SatisfiedAt
-import gov.nasa.jpl.pyre.kernel.Task
+import gov.nasa.jpl.pyre.kernel.tasks.Task
+import gov.nasa.jpl.pyre.kernel.new_tasks.TaskStepResult
 import gov.nasa.jpl.pyre.utilities.compose
 import gov.nasa.jpl.pyre.utilities.identity
 import java.io.File
@@ -235,10 +237,10 @@ class KernelIncrementalSimulator(
                             "Internal error! Step following a root task node was not a ${StepBeginNode::class.simpleName}"
                         }
                         next = next.next
-                        var stepResult: Task.TaskStepResult<*>
+                        var stepResult: TaskStepResult<*>
                         while (true) {
                             dumpDotToFile(DebugLevel.MINOR, next, checkIntegrity = false)
-                            stepResult = nextTask.runStep(object : Task.BasicTaskActions {
+                            stepResult = nextTask.runStep(object : BasicTaskActions {
                                 override fun <V> read(cell: Cell<V>): V = if (next != null) {
                                     check(next is ReadNode) {
                                         "Internal error! Task replay (read) did not align with history (${next!!::class.simpleName})"
@@ -279,7 +281,7 @@ class KernelIncrementalSimulator(
                             if (next == null) break
                             // Otherwise, match that result to the next node, advance next to skip the yielding action, and go again.
                             when (stepResult) {
-                                is Task.TaskStepResult.Await<*> -> {
+                                is TaskStepResult.Await<*> -> {
                                     check(next is AwaitNode) {
                                         "Internal error! Task replay (await) did not align with history (${next!!::class.simpleName})"
                                     }
@@ -294,13 +296,13 @@ class KernelIncrementalSimulator(
                                     nextTask = stepResult.continuation
                                 }
 
-                                is Task.TaskStepResult.Complete<*> -> {
+                                is TaskStepResult.Complete<*> -> {
                                     check(false) {
                                         "Internal error! Task replay (complete) did not align with history (${next!!::class.simpleName})"
                                     }
                                 }
 
-                                is Task.TaskStepResult.Restart<*> -> {
+                                is TaskStepResult.Restart<*> -> {
                                     // We only ever replay part of a single task.
                                     // The task should never restart while replaying.
                                     check(false) {
@@ -308,7 +310,7 @@ class KernelIncrementalSimulator(
                                     }
                                 }
 
-                                is Task.TaskStepResult.Spawn<*, *> -> {
+                                is TaskStepResult.Spawn<*, *> -> {
                                     check(next is SpawnNode) {
                                         "Internal error! Task replay (spawn) did not align with history (${next!!::class.simpleName})"
                                     }
@@ -503,7 +505,7 @@ class KernelIncrementalSimulator(
      * Run [continuation], appending nodes after this [TaskNode] to record its actions.
      * Mutates the simulator as needed to record all consequences of continuing this task.
      */
-    private fun TaskNode.continueWith(continuation: (Task.BasicTaskActions) -> Task.TaskStepResult<*>) {
+    private fun TaskNode.continueWith(continuation: (BasicTaskActions) -> TaskStepResult<*>) {
         // Expand this task node
         var lastTaskStepNode: TaskNode = this
         // Go find the root task, to look up root merge opportunities...
@@ -512,7 +514,7 @@ class KernelIncrementalSimulator(
         val rootTask = (rootTaskNode as RootTaskNode).task
         // We can merge only if this action is happening on the same branch as the merge opportunity.
         val mergeOpportunity: RootTaskNode? = rootMergeOpportunities[rootTask]?.takeIf { it.time sameBranchAs time }
-        val basicTaskActions = object : Task.BasicTaskActions {
+        val basicTaskActions = object : BasicTaskActions {
             override fun <V> read(cell: Cell<V>): V {
                 // Look up the cell node
                 val cellNode = getCellNode(cell, lastTaskStepNode.time)
@@ -667,7 +669,7 @@ class KernelIncrementalSimulator(
             }
         }
         when (val result = continuation(basicTaskActions)) {
-            is Task.TaskStepResult.Await<*> -> {
+            is TaskStepResult.Await<*> -> {
                 // Create an await node and add it to the frontier, to be checked in the next batch.
                 lastTaskStepNode = AwaitNode(
                     nextNodeId++,
@@ -684,12 +686,12 @@ class KernelIncrementalSimulator(
                     taskNodes += it
                 }
             }
-            is Task.TaskStepResult.Complete<*> -> {
+            is TaskStepResult.Complete<*> -> {
                 // Nothing to do.
                 // Note that if there was a merge opportunity, there's also a scheduled FrontierAction
                 // to revoke it. We'll let that frontierAction handle things.
             }
-            is Task.TaskStepResult.Restart<*> -> {
+            is TaskStepResult.Restart<*> -> {
                 if (mergeOpportunity != null) {
                     // Accept the opportunity to merge instead of re-run, by
                     // removing the scheduled action to revoke the merge opportunity.
@@ -714,7 +716,7 @@ class KernelIncrementalSimulator(
                     }
                 }
             }
-            is Task.TaskStepResult.Spawn<*, *> -> {
+            is TaskStepResult.Spawn<*, *> -> {
                 // Spawning is a yielding action, so add our continuation to the next batch.
                 // Also add the child task to the next batch, as a root task node so it can be independently restarted.
                 lastTaskStepNode = SpawnNode(

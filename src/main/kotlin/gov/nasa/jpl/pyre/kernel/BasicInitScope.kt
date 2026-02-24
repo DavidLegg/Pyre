@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.kernel
 
+import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import kotlin.reflect.KType
 import kotlin.time.Duration
 

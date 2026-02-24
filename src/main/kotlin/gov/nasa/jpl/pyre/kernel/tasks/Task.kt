@@ -1,19 +1,30 @@
-package gov.nasa.jpl.pyre.kernel
+package gov.nasa.jpl.pyre.kernel.tasks
 
+import gov.nasa.jpl.pyre.kernel.Cell
+import gov.nasa.jpl.pyre.kernel.Condition
+import gov.nasa.jpl.pyre.kernel.Effect
+import gov.nasa.jpl.pyre.kernel.MutableSnapshot
 import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.report
+import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
 import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.within
-import gov.nasa.jpl.pyre.kernel.PureTask.TaskHistoryStep.*
-import gov.nasa.jpl.pyre.kernel.Task.*
-import gov.nasa.jpl.pyre.kernel.TaskHistoryCollector.Companion.report
-import gov.nasa.jpl.pyre.kernel.TaskHistoryProvider.Companion.provide
+import gov.nasa.jpl.pyre.kernel.Snapshot
+import gov.nasa.jpl.pyre.kernel.new_tasks.BasicTaskActions
+import gov.nasa.jpl.pyre.kernel.new_tasks.MutableTaskHistory
+import gov.nasa.jpl.pyre.kernel.new_tasks.TaskHistory
+import gov.nasa.jpl.pyre.kernel.new_tasks.TaskHistoryCollector
+import gov.nasa.jpl.pyre.kernel.new_tasks.TaskStepResult
+import gov.nasa.jpl.pyre.kernel.tasks.Task.*
+import gov.nasa.jpl.pyre.kernel.new_tasks.TaskHistoryCollector.Companion.report
+import gov.nasa.jpl.pyre.kernel.new_tasks.TaskHistoryProvider
+import gov.nasa.jpl.pyre.kernel.new_tasks.TaskHistoryProvider.Companion.provide
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KType
 
 fun interface PureTaskStep<T> {
-    fun run(actions: BasicTaskActions): PureStepResult<T>
+    fun run(actions: BasicTaskActions): Task.PureStepResult<T>
 }
 
 /**
@@ -44,7 +55,7 @@ interface Task<T> {
      * Restore a task from history provided by inconProvider.
      *
      * Assumes that this is the root task from which the given task was spawned,
-     * and that inconProvider has been restricted using [Snapshot.within] to the desired task's history.
+     * and that inconProvider has been restricted using [gov.nasa.jpl.pyre.kernel.Snapshot.within] to the desired task's history.
      *
      * May return a task with a different [TaskId] from this, if restoring a child task.
      */
@@ -57,20 +68,6 @@ interface Task<T> {
         fun child(childName: Name) = TaskId(rootTaskName, childName, 0)
 
         override fun toString() = "$name[$stepNumber]"
-    }
-
-    /**
-     * The "non-yielding" actions a [PureTask] can take.
-     *
-     * Non-yielding actions don't interrupt the flow of control, aka "yield".
-     */
-    interface BasicTaskActions {
-        fun <V> read(cell: Cell<V>): V
-        fun <V> emit(cell: Cell<V>, effect: Effect<V>)
-        fun <V> report(value: V)
-        // Note that "spawn" is not listed here. Arguably, it's a non-yielding action and should be here.
-        // It winds up being easier to restore tasks if we can choose which branch (parent or child) to take.
-        // For this reason, it's better to treat spawn as a yielding action.
     }
 
 
@@ -100,24 +97,6 @@ interface Task<T> {
         }
     }
 
-    /**
-     * Like [PureStepResult], but includes task history information needed to fully save and restore the task.
-     */
-    sealed interface TaskStepResult<T> {
-        data class Complete<T>(val value: T) : TaskStepResult<T> {
-            override fun toString() = "Complete($value)"
-        }
-        data class Await<T>(val condition: Condition, val rewait: Task<T>, val continuation: Task<T>) : TaskStepResult<T> {
-            override fun toString() = "Await($condition)"
-        }
-        data class Spawn<S, T>(val child: Task<S>, val continuation: Task<T>) : TaskStepResult<T> {
-            override fun toString() = "Spawn($child)"
-        }
-        data class Restart<T>(val continuation: Task<T>) : TaskStepResult<T> {
-            override fun toString() = "Restart"
-        }
-    }
-
     companion object {
         fun <T> of(name: Name, step: PureTaskStep<T>): Task<T> {
             return PureTask(TaskId(name), step, {}, null)
@@ -131,7 +110,7 @@ interface Task<T> {
 // Even I use it to test the kernel engine, since writing Task from scratch would be so miserable.
 // For that reason, I'm keeping this in kernel instead of foundation.
 private class PureTask<T>(
-    override val id: TaskId,
+    override val id: Task.TaskId,
     private val step: PureTaskStep<T>,
     private val saveData: TaskHistoryCollector.() -> Unit,
     rootTask: PureTask<T>?
@@ -148,7 +127,7 @@ private class PureTask<T>(
             override fun <V> read(cell: Cell<V>): V =
                 actions.read(cell).also { value ->
                     partialHistory += {
-                        report(ReadMarker(value), ReadMarker.concreteType(cell.valueType))
+                        report(PureTask.TaskHistoryStep.ReadMarker(value), PureTask.TaskHistoryStep.ReadMarker.Companion.concreteType(cell.valueType))
                     }
                 }
 
@@ -157,8 +136,8 @@ private class PureTask<T>(
             override fun <V> report(value: V) = actions.report(value)
         }
         return when (val stepResult = step.run(historyCapturingActions)) {
-            is PureStepResult.Complete -> TaskStepResult.Complete(stepResult.value)
-            is PureStepResult.Await -> TaskStepResult.Await(
+            is Task.PureStepResult.Complete -> TaskStepResult.Complete(stepResult.value)
+            is Task.PureStepResult.Await -> TaskStepResult.Await(
                 stepResult.condition,
                 PureTask(
                     id,
@@ -169,26 +148,26 @@ private class PureTask<T>(
                 PureTask(
                     id.nextStep(),
                     stepResult.continuation,
-                    { reportHistory(); report<TaskHistoryStep>(AwaitMarker) },
+                    { reportHistory(); report<TaskHistoryStep>(PureTask.TaskHistoryStep.AwaitMarker) },
                     rootTask
                 )
             )
-            is PureStepResult.Spawn<*, T> -> runSpawn(stepResult) { reportHistory() }
-            is PureStepResult.Restart -> TaskStepResult.Restart(rootTask)
+            is Task.PureStepResult.Spawn<*, T> -> runSpawn(stepResult) { reportHistory() }
+            is Task.PureStepResult.Restart -> TaskStepResult.Restart(rootTask)
         }
     }
 
-    private fun <S> runSpawn(step: PureStepResult.Spawn<S, T>, reportHistory: TaskHistoryCollector.() -> Unit) = TaskStepResult.Spawn(
+    private fun <S> runSpawn(step: Task.PureStepResult.Spawn<S, T>, reportHistory: TaskHistoryCollector.() -> Unit) = TaskStepResult.Spawn(
         PureTask(
             id.child(step.childName),
             step.child,
-            { reportHistory(); report<TaskHistoryStep>(SpawnMarker(SpawnMarkerBranch.Child)) },
+            { reportHistory(); report<TaskHistoryStep>(PureTask.TaskHistoryStep.SpawnMarker(PureTask.TaskHistoryStep.SpawnMarkerBranch.Child)) },
             null
         ),
         PureTask(
             id.nextStep(),
             step.continuation,
-            { reportHistory(); report<TaskHistoryStep>(SpawnMarker(SpawnMarkerBranch.Parent)) },
+            { reportHistory(); report<TaskHistoryStep>(PureTask.TaskHistoryStep.SpawnMarker(PureTask.TaskHistoryStep.SpawnMarkerBranch.Parent)) },
             rootTask
         )
     )
@@ -206,7 +185,7 @@ private class PureTask<T>(
     private fun restoreSingle(inconProvider: TaskHistoryProvider): Task<*> {
         val restorationActions = object : BasicTaskActions {
             override fun <V> read(cell: Cell<V>): V =
-                requireNotNull(inconProvider.provide<ReadMarker<V>>(ReadMarker.concreteType(cell.valueType))) {
+                requireNotNull(inconProvider.provide<PureTask.TaskHistoryStep.ReadMarker<V>>(PureTask.TaskHistoryStep.ReadMarker.Companion.concreteType(cell.valueType))) {
                     "No restore data available to read $cell! Incon data is malformed."
                 }.value
             override fun <V> emit(cell: Cell<V>, effect: Effect<V>) { /* ignore and continue */ }
@@ -220,15 +199,15 @@ private class PureTask<T>(
             thisTask = when (val stepResult = thisTask.runStep(restorationActions)) {
                 is TaskStepResult.Await -> {
                     // If an await step has incon data, it completed, so continue the task
-                    inconProvider.provideStep<AwaitMarker> { stepResult.continuation }
+                    inconProvider.provideStep<PureTask.TaskHistoryStep.AwaitMarker> { stepResult.continuation }
                         // Otherwise, we're awaiting right now, so return the rewait task
                         ?: stepResult.rewait
                 }
                 // For spawns, check the task history and take the branch corresponding with this history
-                is TaskStepResult.Spawn<*, *> -> checkNotNull(inconProvider.provideStep<SpawnMarker> {
+                is TaskStepResult.Spawn<*, *> -> checkNotNull(inconProvider.provideStep<PureTask.TaskHistoryStep.SpawnMarker> {
                     when (it.branch) {
-                        SpawnMarkerBranch.Parent -> stepResult.continuation
-                        SpawnMarkerBranch.Child -> stepResult.child
+                        PureTask.TaskHistoryStep.SpawnMarkerBranch.Parent -> stepResult.continuation
+                        PureTask.TaskHistoryStep.SpawnMarkerBranch.Child -> stepResult.child
                     }
                 }) {
                     // It should not be possible not to have incon data for a spawn - they always run to completion
