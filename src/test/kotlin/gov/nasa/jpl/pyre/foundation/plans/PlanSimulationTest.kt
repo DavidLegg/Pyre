@@ -12,7 +12,6 @@ import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.ModelWithResources.
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.PowerState.*
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.TestModel.*
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation.Companion.save
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.discardReports
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.*
@@ -63,7 +62,7 @@ class PlanSimulationTest {
             val epoch = Instant.parse("2020-01-01T00:00:00Z")
             val simulation = PlanSimulation(
                 reportHandler = discardReports,
-                start = epoch,
+                startTime = epoch,
                 constructModel = ::EmptyModel,
             )
             simulation.runUntil(Instant.parse("2020-01-01T01:00:00Z"))
@@ -137,7 +136,7 @@ class PlanSimulationTest {
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation = PlanSimulation(
             reportHandler = reports.reportHandler(),
-            start = epoch,
+            startTime = epoch,
             constructModel = ::ModelWithResources,
         )
         simulation.runUntil(Instant.parse("2020-01-01T01:00:00Z"))
@@ -177,7 +176,7 @@ class PlanSimulationTest {
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation = PlanSimulation(
             reportHandler = reports.reportHandler(),
-            start = epoch,
+            startTime = epoch,
             constructModel = ::ModelWithResources,
         )
         simulation.runPlan(
@@ -313,7 +312,7 @@ class PlanSimulationTest {
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation = PlanSimulation(
             reportHandler = reports.reportHandler(),
-            start = epoch,
+            startTime = epoch,
             constructModel = ::TestModel,
         )
         simulation.runPlan(
@@ -404,7 +403,7 @@ class PlanSimulationTest {
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation1 = PlanSimulation(
             reportHandler = reports1.reportHandler(),
-            start = epoch,
+            startTime = epoch,
             constructModel = ::TestModel,
         )
         // Use addActivities and runUntil to force a state with finished, running, and unstarted activities
@@ -428,7 +427,7 @@ class PlanSimulationTest {
         val reports2 = MutableSimulationResults()
         val simulation2 = PlanSimulation(
             reportHandler = reports2.reportHandler(),
-            inconProvider = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot>(fincon1),
+            incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot>(fincon1),
             constructModel = ::TestModel,
         )
         // Add an activity which will spawn a child, which will be active during the next fincon cycle
@@ -451,7 +450,7 @@ class PlanSimulationTest {
         val reports3 = MutableSimulationResults()
         val simulation3 = PlanSimulation(
             reportHandler = reports3.reportHandler(),
-            inconProvider = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot>(fincon2),
+            incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot>(fincon2),
             constructModel = ::TestModel,
         )
         simulation3.runUntil(Instant.parse("2020-01-01T03:00:00Z"))
@@ -469,7 +468,7 @@ class PlanSimulationTest {
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation = PlanSimulation(
             reportHandler = reports.reportHandler(),
-            start = epoch,
+            startTime = epoch,
             constructModel = ::TestModel,
         )
         simulation.runPlan(

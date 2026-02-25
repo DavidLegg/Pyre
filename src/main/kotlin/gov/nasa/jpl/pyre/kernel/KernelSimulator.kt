@@ -2,17 +2,17 @@ package gov.nasa.jpl.pyre.kernel
 
 import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.report
 import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.within
-import gov.nasa.jpl.pyre.kernel.new_tasks.TaskStepResult.*
+import gov.nasa.jpl.pyre.kernel.tasks.TaskStepResult.*
 import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
 import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.within
 import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
-import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import gov.nasa.jpl.pyre.kernel.new_tasks.BasicTaskActions
+import gov.nasa.jpl.pyre.kernel.tasks.ActivityTask
+import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
+import gov.nasa.jpl.pyre.kernel.tasks.PureTask
 import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.tasks.Task
-import gov.nasa.jpl.pyre.kernel.new_tasks.TaskStepResult
+import gov.nasa.jpl.pyre.kernel.tasks.TaskStepResult
 import gov.nasa.jpl.pyre.utilities.andThen
-import kotlinx.serialization.SerializationException
 import java.util.Comparator.comparing
 import java.util.PriorityQueue
 import kotlin.reflect.KType
@@ -20,6 +20,9 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Instant
 
+typealias ReportHandler = (Any?) -> Unit
+
+// TODO: Standardize constructor between this and PlanSimulation and incremental simulator
 class KernelSimulator(
     private val reportHandler: ReportHandler,
     initialize: context (BasicInitScope) () -> Unit,
@@ -29,7 +32,7 @@ class KernelSimulator(
     // Use a class, not a data class, for performance.
     // Adding and removing entries from the task queue is faster when the entry uses object identity
     // rather than deep equality.
-    private class TaskEntry(val time: Instant, val task: Task<*>) {
+    private class TaskEntry(val time: Instant, val task: Task) {
         operator fun component1() = time
         operator fun component2() = task
         override fun toString(): String = "$task @ $time"
@@ -49,20 +52,24 @@ class KernelSimulator(
         }
     }
     private var cells: MutableList<Cell<*>> = mutableListOf()
-    private val daemonNames: MutableList<Name> = mutableListOf()
     private val tasks: PriorityQueue<TaskEntry> = PriorityQueue(comparing(TaskEntry::time))
-    private val cellListeners: MutableMap<Cell<*>, MutableSet<AwaitingTask<*>>> = mutableMapOf()
-    private val listeningTasks: MutableMap<AwaitingTask<*>, Set<Cell<*>>> = mutableMapOf()
+    private val cellListeners: MutableMap<Cell<*>, MutableSet<AwaitingTask>> = mutableMapOf()
+    private val listeningTasks: MutableMap<AwaitingTask, Set<Cell<*>>> = mutableMapOf()
     private val modifiedCells: MutableSet<Cell<*>> = mutableSetOf()
 
-    private class AwaitingTask<T>(val await: Await<T>) {
+    private class AwaitingTask(val await: Await) {
         var scheduledTask: TaskEntry? = null
         override fun toString(): String = "${await.rewait} -- $await"
     }
-    private val awaitingTasks: MutableSet<AwaitingTask<*>> = mutableSetOf()
+    private val awaitingTasks: MutableSet<AwaitingTask> = mutableSetOf()
+
+    /** The number of descendent tasks of each loaded activity. Keys are removed when value hits 0. */
+    private val activityDescendents: MutableMap<ActivityTask, Int> = mutableMapOf()
 
     init {
         // Construct the init scope and give it back to the initializer
+        val rootTasks = mutableMapOf<Name, Task>()
+        val daemonsWithoutInconTasks = mutableSetOf<Name>()
         initialize(object : BasicInitScope {
             private val cellIncon = incon?.within("cells")
             private val taskIncon = incon?.within("tasks")
@@ -84,67 +91,98 @@ class KernelSimulator(
 
             override fun <T> read(cell: Cell<T>): T = (cell as CellImpl<T>).value
 
-            override fun <T> spawn(name: Name, step: PureTaskStep<T>) {
-                // Remember the name of this daemon to save it (and its descendants) later
-                daemonNames += name
-                val rootTask = Task.of(name, step)
-
-                // Look up which, if any, children of this task to restore from incon.
-                val idsToRestore = taskIncon?.within(name.asSequence() + "children")?.provide<List<List<String>>>()
-                if (idsToRestore == null) {
-                    tasks += TaskEntry(time, rootTask)
-                } else {
-                    // To restore tasks, we replay their history provided by the incon.
-                    // In so doing, they may access any part of the model.
-                    // Since the model may not be fully constructed when this task is spawned, we need to defer
-                    // restoring this group of tasks until after the model is constructed.
-                    // We can do this by injecting a dummy task, run during the next sim step, to actually restore the tasks.
-                    // Since the simulation won't advance until initialization is complete, this guarantees the model is fully constructed.
-                    tasks += TaskEntry(time, Task.of(name / "restore") {
-                        try {
-                            // For any child reported in the incon, call restore using that child's id (encoded as the condition keys)
-                            // to get the state history which spawned and later ran that child.
-                            tasks += idsToRestore.map {
-                                // Since that child is reported as needing to be restored, throw an error if there's no incon data for it
-                                requireNotNull(restoreTask(rootTask, taskIncon.within(it.asSequence())))
-                            }
-                        } catch (_: SerializationException) {
-                            tasks += TaskEntry(time, rootTask)
-                        }
-                        Task.PureStepResult.Complete(Unit)
-                    })
+            override fun spawn(name: Name, step: PureTaskStep) {
+                require(name !in rootTasks) {
+                    "A daemon named $name has already been constructed! Please choose a unique name for every daemon task."
                 }
+                val rootTask = PureTask(name, step)
+                rootTasks[name] = rootTask
+                daemonsWithoutInconTasks += name
             }
 
             override fun <T> report(value: T) = reportHandler(value)
         })
+
+        // Now that the model, if any, exists, pull in all the activities from the incon.
+        incon?.provide<List<ActivityTask>>("activities")
+            ?.associateByTo(rootTasks) { it.name }
+
+        // Now that we've collected all the root tasks, restore all the tasks from the incon.
+        tasks += incon?.provide<List<Snapshot>>("tasks")?.mapNotNull { taskSnapshot ->
+            val name = requireNotNull(taskSnapshot.provide<Name>("name")) {
+                "Malformed incon: 'name' field is missing from a task"
+            }
+            val rootName = requireNotNull(taskSnapshot.provide<Name>("root")) {
+                "Malformed incon: 'root' field is missing from task $name"
+            }
+            val time = requireNotNull(taskSnapshot.provide<Instant>("time")) {
+                "Malformed incon: 'time' field is missing from task $name"
+            }
+            rootTasks[rootName]?.restoreFrom(taskSnapshot)?.let {
+                daemonsWithoutInconTasks -= rootName
+                TaskEntry(time, it)
+            }
+            // TODO: Should we warn that a saved task is being dropped if the line above produces null?
+        } ?: emptyList()
+
+        // TODO: Think through how to handle daemons that run to completion
+        //   Right now, they'll be forgotten by the simulator and then restored from the start!
+
+        for (daemonName in daemonsWithoutInconTasks) {
+            tasks += TaskEntry(time, rootTasks.getValue(daemonName))
+        }
     }
 
-    private fun restoreTask(rootTask: Task<*>, inconProvider: Snapshot): TaskEntry? =
-        rootTask.restore(inconProvider)?.let { restoredTask ->
-            val restoredTime = requireNotNull(inconProvider.within("time").provide<Instant>())
-            TaskEntry(restoredTime, restoredTask)
+    fun addActivity(time: Instant, name: Name, step: PureTaskStep) {
+        val task = ActivityTask(name, step)
+        activityDescendents[task] = 1
+        tasks += TaskEntry(time, task)
+    }
+
+    fun save(): Snapshot {
+        // TODO: Consider a more structured Snapshot class.
+        //   This may help interop between this and other simulators...
+        val snapshot = MutableSnapshot()
+
+        // Data for the simulator itself:
+        snapshot.report("simulation", "time", value=time)
+
+        // Cells:
+        val cellCollector = snapshot.within("cells")
+        for (cell in cells) {
+            cellCollector.within(cell.name.asSequence()).report((cell as CellImpl<*>).value, cell.valueType)
         }
 
-    fun time() = time
+        // Activities:
+        // Just store a list of all the loaded root activities, sorted by name to give a canonical ordering.
+        snapshot.report("activities", value=activityDescendents.keys.sortedBy { it.name.toString() })
 
-    /**
-     * Add a task which won't be saved if a fincon is taken.
-     *
-     * The caller assumes all responsibility for ensuring that
-     * 1) A fincon without this task will nevertheless restore the simulation adequately, or
-     * 2) This task will run to completion before a fincon is taken.
-     */
-    fun <T> addEphemeralTask(name: Name, step: PureTaskStep<T>, time: Instant = time()) {
-        tasks += TaskEntry(time, Task.of(name, step))
+        // Tasks:
+        // Tasks which are the scheduled re-evaluation or continuation of a condition should not be directly restored.
+        // Instead, we should restore the listening task, and it will generate the appropriate task when it first runs.
+        val excludedTasks: Set<TaskEntry> = listeningTasks.keys.mapNotNullTo(mutableSetOf()) { it.scheduledTask }
+        val tasksToSave = tasks.filter { it !in excludedTasks } + listeningTasks.keys.map { TaskEntry(time, it.await.rewait) }
+        // Sort the tasks by name to apply an arbitrary but consistent order, then take a snapshot of each.
+        val taskSnapshots = tasksToSave
+            .sortedBy { it.task.name.toString() }
+            .map { (time, task) ->
+                MutableSnapshot()
+                    .also(task::saveTo)
+                    .apply { report("time", value = time) }
+            }
+        snapshot.report("tasks", value=taskSnapshots)
+
+        return snapshot
     }
+
+    fun time() = time
 
     fun stepTo(endTime: Instant) {
         val batchTime = tasks.peek()?.time
         if (batchTime != null && batchTime == time && batchTime <= endTime) {
             // Collect a batch of tasks, prior to running any of those tasks,
             // since running the tasks may add new tasks that should logically come after this batch.
-            val taskBatch = mutableSetOf<Task<*>>()
+            val taskBatch = mutableSetOf<Task>()
             while (tasks.peek()?.time == batchTime) taskBatch += tasks.remove().task
             runTaskBatch(taskBatch)
         } else {
@@ -166,7 +204,7 @@ class KernelSimulator(
         // This avoids accumulating numerical precision errors for complex dynamics when stepping up repeatedly.
     }
 
-    private fun runTaskBatch(tasks: MutableSet<Task<*>>) {
+    private fun runTaskBatch(tasks: MutableSet<Task>) {
         for (task in tasks) {
             runTask(task)
         }
@@ -198,7 +236,7 @@ class KernelSimulator(
         awaitingTasks.clear()
     }
 
-    private fun <T> runTask(task: Task<T>) {
+    private fun runTask(task: Task) {
         val cellsModifiedByThisTask: MutableSet<Cell<*>> = mutableSetOf()
 
         val actions = object : BasicTaskActions {
@@ -239,7 +277,7 @@ class KernelSimulator(
             val stepResult = try {
                 nextTask.runStep(actions)
             } catch (e: Throwable) {
-                System.err.println("Error while running ${nextTask.id}: $e")
+                System.err.println("Error while running ${nextTask.name}: $e")
                 throw e
             }
             when (stepResult) {
@@ -248,7 +286,7 @@ class KernelSimulator(
                     awaitingTasks += AwaitingTask(stepResult)
                     break
                 }
-                is Spawn<*, T> -> {
+                is Spawn -> {
                     tasks += TaskEntry(time, stepResult.child)
                     nextTask = stepResult.continuation
                 }
@@ -280,7 +318,7 @@ class KernelSimulator(
         }
     }
 
-    private fun <T> evaluateAwaitingTask(awaitingTask: AwaitingTask<T>) {
+    private fun evaluateAwaitingTask(awaitingTask: AwaitingTask) {
         // Reset any listeners from any prior evaluation of this task
         resetListeners(awaitingTask)
 
@@ -320,15 +358,15 @@ class KernelSimulator(
         }
     }
 
-    private fun <T> conditionalTask(awaitingTask: AwaitingTask<T>, task: Task<T>) = object : Task<T> by task {
-        override fun runStep(actions: BasicTaskActions): TaskStepResult<T> {
+    private fun conditionalTask(awaitingTask: AwaitingTask, task: Task) = object : Task by task {
+        override fun runStep(actions: BasicTaskActions): TaskStepResult {
             // Remove all listeners before continuing so we don't re-trigger the condition
             resetListeners(awaitingTask)
             return task.runStep(actions)
         }
     }
 
-    private fun <T> setListeners(awaitingTask: AwaitingTask<T>, cellsRead: Set<Cell<*>>) {
+    private fun setListeners(awaitingTask: AwaitingTask, cellsRead: Set<Cell<*>>) {
         // Schedule listeners to re-evaluate condition if cells change
         for (cell in cellsRead) {
             cellListeners.getOrPut(cell) { mutableSetOf() } += awaitingTask
@@ -336,50 +374,11 @@ class KernelSimulator(
         listeningTasks[awaitingTask] = cellsRead
     }
 
-    private fun <T> resetListeners(awaitingTask: AwaitingTask<T>) {
+    private fun resetListeners(awaitingTask: AwaitingTask) {
         // Reset the cells we're listening to
         listeningTasks.remove(awaitingTask)?.forEach { cellListeners[it]?.remove(awaitingTask) }
         // Remove the scheduled rewait or continuation, if it's there.
         awaitingTask.scheduledTask?.let(tasks::remove)
-    }
-
-    fun save(): Snapshot {
-        val snapshot = MutableSnapshot()
-        with (snapshot.within("simulation")) {
-            within("time").report(time)
-        }
-        val cellCollector = snapshot.within("cells")
-        for (cell in cells) {
-            cellCollector.within(cell.name.asSequence()).report((cell as CellImpl<*>).value, cell.valueType)
-        }
-        val daemonCollector = snapshot.within("daemons")
-        val activityCollector = snapshot.within("activities")
-        // Tasks which are the scheduled re-evaluation or continuation of a condition should not be directly restored.
-        // Instead, we should restore the listening task, and it will generate the appropriate task when it first runs.
-        val excludedTasks: Set<TaskEntry> = listeningTasks.keys.mapNotNullTo(mutableSetOf()) { it.scheduledTask }
-        val tasksToSave: List<TaskEntry> =
-            tasks.filter { it !in excludedTasks } + listeningTasks.keys.map { TaskEntry(time, it.await.rewait) }
-
-        // --- REWRITE ---
-
-        val taskCollector = snapshot.within("tasks")
-
-        tasksToSave.forEach { (time, task) ->
-            taskCollector.within(task.id.name.asSequence())
-                .also(task::save)
-                .within("time")
-                .report<Instant>(time)
-        }
-        val tasksByRootTaskName = tasksToSave.groupBy { it.task.id.rootTaskName }
-        // Report the running children for every root task.
-        // If a root task and all its children are complete, report an empty list of running children.
-        // This distinguishes completed root tasks from new root tasks, where a root task is added because the model changes.
-        for (rootTaskName in daemonNames) {
-            val tasks = tasksByRootTaskName.getOrDefault(rootTaskName, listOf())
-            taskCollector.within(rootTaskName.asSequence() + "children")
-                .report(tasks.map { it.task.id.name.asSequence().toList() })
-        }
-        return snapshot
     }
 
     /**
@@ -391,10 +390,10 @@ class KernelSimulator(
         println("${this::class.simpleName} dump:")
         println("  Simulation time: $time")
         println("  Active tasks:")
-        tasks.sortedBy { it.time }.forEach { (time, task) -> println("    $time - ${task.id}") }
+        tasks.sortedBy { it.time }.forEach { (time, task) -> println("    $time - ${task.name}") }
         println("  Waiting tasks:")
         val waitingTasks = awaitingTasks.toMutableSet()
         waitingTasks += listeningTasks.keys
-        waitingTasks.forEach { println("    ${it.await.rewait.id}") }
+        waitingTasks.forEach { println("    ${it.await.rewait.name}") }
     }
 }

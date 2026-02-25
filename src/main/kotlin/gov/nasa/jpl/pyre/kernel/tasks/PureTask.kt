@@ -1,29 +1,35 @@
-package gov.nasa.jpl.pyre.kernel.new_tasks
+package gov.nasa.jpl.pyre.kernel.tasks
 
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.MutableSnapshot
 import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.report
-import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.within
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import gov.nasa.jpl.pyre.kernel.Snapshot
 import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
-import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.within
-import gov.nasa.jpl.pyre.kernel.new_tasks.HistorySavingTask.TaskHistoryStep.*
-import gov.nasa.jpl.pyre.kernel.new_tasks.TaskHistoryCollector.Companion.report
-import gov.nasa.jpl.pyre.kernel.new_tasks.TaskHistoryProvider.Companion.provide
+import gov.nasa.jpl.pyre.kernel.tasks.PureTask.TaskHistoryStep.*
+import gov.nasa.jpl.pyre.kernel.tasks.TaskHistoryCollector.Companion.report
+import gov.nasa.jpl.pyre.kernel.tasks.TaskHistoryProvider.Companion.provide
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KType
 
-class HistorySavingTask private constructor(
+/**
+ * A "pure" task is a task driven by [PureTaskStep]s.
+ * It records its history to save to a snapshot, and can replay that history to resume from a snapshot.
+ */
+class PureTask private constructor(
     override val name: Name,
-    override val rootTask: Task,
+    rootTask: Task?,
     private val pureStepFunction: PureTaskStep,
-    private val collectPriorHistory: TaskHistoryCollector.() -> Unit
+    private val collectPriorHistory: TaskHistoryCollector.() -> Unit,
 ) : Task {
+    override val rootTask: Task = rootTask ?: this
+
+    // public users of this class can build root tasks, and only root tasks build non-root tasks
+    constructor(name: Name, pureStepFunction: PureTaskStep) :
+            this(name, null, pureStepFunction, {})
 
     override fun runStep(actions: BasicTaskActions): TaskStepResult {
         val thisStepHistory = mutableListOf<Pair<ReadMarker<*>, KType>>()
@@ -45,7 +51,7 @@ class HistorySavingTask private constructor(
             is PureStepResult.Await -> TaskStepResult.Await(
                 stepResult.condition,
                 // To rewait this task, just return the step result
-                HistorySavingTask(
+                PureTask(
                     name,
                     rootTask,
                     { stepResult },
@@ -53,7 +59,7 @@ class HistorySavingTask private constructor(
                     { collectHistory() }
                 ),
                 // To continue this task, run the continuation
-                HistorySavingTask(
+                PureTask(
                     name,
                     rootTask,
                     stepResult.continuation,
@@ -62,43 +68,88 @@ class HistorySavingTask private constructor(
                 ),
             )
             is PureStepResult.Spawn -> TaskStepResult.Spawn(
-                HistorySavingTask(
+                PureTask(
                     stepResult.childName,
                     rootTask,
                     stepResult.child,
                     { collectHistory(); report<TaskHistoryStep>(SpawnMarker(SpawnMarkerBranch.Child)) }
                 ),
-                HistorySavingTask(
+                PureTask(
                     name,
                     rootTask,
                     stepResult.continuation,
                     { collectHistory(); report<TaskHistoryStep>(SpawnMarker(SpawnMarkerBranch.Parent)) }
                 )
             )
-            // TODO: Think about this again... Should we be wrapping rootTask in a HistorySavingTask with no history?
             is PureStepResult.Restart -> TaskStepResult.Restart(rootTask)
         }
     }
 
     override fun saveTo(snapshot: MutableSnapshot) {
-        // TODO: Do we need to indicate something to the root task?
-        snapshot.within(name.asSequence()).report(MutableTaskHistory().apply(collectPriorHistory))
+        snapshot.apply {
+            // Record our own name
+            report("name", value=name)
+            // Record the root task from which to restore this task
+            report("root", value=rootTask.name)
+            // Record the history of all the steps this task took
+            report("history", value=MutableTaskHistory().apply(collectPriorHistory))
+        }
     }
 
-    override fun restoreFrom(snapshot: Snapshot): List<Task> {
-        // TODO: Do we need to look for children somehow?
-        val snapshotHistory = requireNotNull(snapshot.within(name.asSequence()).provide<TaskHistory>()).provider()
+    override fun restoreFrom(snapshot: Snapshot): Task {
+        // Reverse the process of saveTo. First, verify this is the correct root task to restore from:
+        val resultName = requireNotNull(snapshot.provide<Name>("name")) {
+            "Malformed incon: 'name' field is missing from a task"
+        }
+        val resultRootName = requireNotNull(snapshot.provide<Name>("root")) {
+            "Malformed incon: 'root' field is missing from task $resultName"
+        }
+        require(resultRootName == name) {
+            "Internal error! Attempting to restore $resultName with root task $name, but it descends from root task $resultRootName"
+        }
+
+        val historyProvider = requireNotNull(snapshot.provide<TaskHistory>("history")) {
+            "Malformed incon: 'history' field is missing from task $resultName"
+        }.provider()
 
         val restorationActions = object : BasicTaskActions {
             override fun <V> read(cell: Cell<V>): V =
-                requireNotNull(snapshotHistory.provide<ReadMarker<V>>(ReadMarker.concreteType(cell.valueType))) {
-                    "No restore data available to read $cell! Incon data is malformed for task $name."
+                requireNotNull(historyProvider.provide<ReadMarker<V>>(ReadMarker.concreteType(cell.valueType))) {
+                    "Malformed incon: task $resultName read $cell, but no read data is available in the snapshot"
                 }.value
             override fun <V> emit(cell: Cell<V>, effect: Effect<V>) { /* ignore */ }
             override fun <V> report(value: V) { /* ignore */ }
         }
 
-        TODO("Continue reworking task restoration from tasks/Task.kt")
+        var result: Task = this
+        while (historyProvider.hasNext()) {
+            result = when (val stepResult = result.runStep(restorationActions)) {
+                is TaskStepResult.Await -> {
+                    // If an await step has incon data, it completed, so continue the task
+                    historyProvider.provide<AwaitMarker>()?.let { stepResult.continuation } ?: stepResult.rewait
+                }
+                is TaskStepResult.Spawn -> {
+                    // Spawns always run to completion, so there must be incon data for it.
+                    val marker = requireNotNull(historyProvider.provide<SpawnMarker>()) {
+                        "Malformed incon: 'spawn' action taken by task $resultName does not have a step in incon history"
+                    }
+                    when (marker.branch) {
+                        SpawnMarkerBranch.Parent -> stepResult.continuation
+                        SpawnMarkerBranch.Child -> stepResult.child
+                    }
+                }
+                // Restarts and completes shouldn't happen.
+                // A restart should have trimmed history; a complete should have eliminated it.
+                is TaskStepResult.Restart -> throw IllegalArgumentException(
+                    "Malformed incon: task $resultName restarted while restoring from a snapshot"
+                )
+                is TaskStepResult.Complete -> throw IllegalArgumentException(
+                    "Malformed incon: task $resultName completed while restoring from a snapshot"
+                )
+            }
+        }
+        // If there's no history data left, we've reached the active step
+        return result
     }
 
     @Serializable

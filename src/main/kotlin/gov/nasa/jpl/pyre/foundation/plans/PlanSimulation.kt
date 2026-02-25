@@ -10,33 +10,21 @@ import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.cloc
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.kernel.Snapshot
 import gov.nasa.jpl.pyre.kernel.KernelSimulator
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.isNotNull
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.isNull
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.channel
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
-import gov.nasa.jpl.pyre.kernel.MutableSnapshot
-import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.report
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.reflect.KType
-import kotlin.reflect.full.withNullability
-import kotlin.reflect.typeOf
 import kotlin.time.Duration
 import kotlin.time.Instant
 
@@ -57,92 +45,69 @@ import kotlin.time.Instant
  */
 class PlanSimulation<M>(
     reportHandler: ChannelizedReportHandler,
-    start: Instant? = null,
-    inconProvider: Snapshot? = null,
+    startTime: Instant? = null,
+    incon: Snapshot? = null,
     constructModel: context (InitScope) () -> M,
-    modelClass: KType,
 ) {
     private val simulationScope: SimulationScope
-    private val state: KernelSimulator
-    private val activityResource: MutableDiscreteResource<GroundedActivity<M>?>
+    private val kernelSimulator: KernelSimulator
 
     init {
-        val simStart: Instant
-        if (inconProvider == null) {
-            simStart = requireNotNull(start) {
-                "If inconProvider is null, start must be provided."
+        lateinit var tempSimulationScope: SimulationScope
+        kernelSimulator = KernelSimulator(reportHandler, incon = incon, startTime = startTime, initialize = {
+            // Get the kernel-level init scope
+            val basicInitScope = contextOf<BasicInitScope>()
+            // Wrap it in a foundation-level init scope
+            val initScope = object : InitScope {
+                override fun <T : Any> allocate(
+                    name: Name,
+                    value: T,
+                    valueType: KType,
+                    stepBy: (T, Duration) -> T,
+                    mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
+                ): Cell<T> = basicInitScope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
+
+                override fun spawn(name: Name, block: suspend context(TaskScope) () -> TaskScopeResult) =
+                    // When spawning a task, build a simulation scope which incorporates the task's Name
+                    basicInitScope.spawn(name, context(subSimulationScope(contextName / name)) { coroutineTask(block) })
+
+                override fun <V> read(cell: Cell<V>): V = basicInitScope.read(cell)
+                override fun <T> report(channel: Channel<T>, value: T) = basicInitScope.report(ChannelData(channel.name, now(), value))
+
+                override fun <T> channel(
+                    name: Name,
+                    metadata: Map<String, ChannelReport.Metadatum>,
+                    valueType: KType
+                ): Channel<T> {
+                    val reportType = ChannelData::class.withArg(valueType)
+                    basicInitScope.report(ChannelMetadata<T>(
+                        name,
+                        metadata,
+                        dataType = valueType,
+                        reportType = reportType,
+                        metadataType = ChannelMetadata::class.withArg(valueType),
+                    ))
+                    return Channel(name, reportType)
+                }
+
+                override val contextName: Name? = null
+                override fun toString() = ""
+
+                override val simulationClock = clock("simulation_clock", requireNotNull(incon?.provide<Instant>("simulation", "time") ?: startTime))
+
+                override val activities = channel<ActivityEvent>(Name("activities"))
+                override val stdout = channel<String>(Name("stdout"))
+                override val stderr = channel<String>(Name("stderr"))
             }
-        } else {
-            simStart = requireNotNull(inconProvider.provide<Instant>("simulation", "time")) {
-                "Incon must provide simulation.time"
-            }
-            require(start == null || start == simStart) {
-                "start time $start must be null or match incon start time $simStart"
-            }
-        }
-
-        state = KernelSimulator(reportHandler, inconProvider, startTime = start)
-        simulationScope = object : InitScope {
-            override fun <T : Any> allocate(
-                name: Name,
-                value: T,
-                valueType: KType,
-                stepBy: (T, Duration) -> T,
-                mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
-            ): Cell<T> = state.initScope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
-
-            override fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) =
-                // When spawning a task, build a simulation scope which incorporates the task's Name
-                state.initScope.spawn(name, context(subSimulationScope(contextName / name)) { coroutineTask(block) })
-
-            override fun <T> read(cell: Cell<T>): T =
-                state.initScope.read(cell)
-
-            override fun <T> channel(name: Name, metadata: Map<String, ChannelReport.Metadatum>, valueType: KType): Channel<T> {
-                val reportType = ChannelData::class.withArg(valueType)
-                state.initScope.report(ChannelMetadata<T>(
-                    name,
-                    metadata,
-                    dataType = valueType,
-                    reportType = reportType,
-                    metadataType = ChannelMetadata::class.withArg(valueType),
-                ))
-                return Channel(name, reportType)
-            }
-
-            override fun <T> report(channel: Channel<T>, value: T) =
-                state.initScope.report(ChannelData(channel.name, now(), value))
-
-            override val contextName: Name? = null
-            override fun toString() = ""
-
-            override val simulationClock = clock("simulation_clock", simStart)
-
-            override val activities = channel<ActivityEvent>(Name("activities"))
-            override val stdout = channel<String>(Name("stdout"))
-            override val stderr = channel<String>(Name("stderr"))
-        }
-        with (simulationScope) {
-            // Construct the model itself
-            val model = constructModel()
-
-            // Construct the activity daemon
-            // This reaction loop will build an activity whenever the directive resource is loaded.
-            // Reacting to a resource like this plays nicely with the fincon - each iteration of the loop
-            // is a function of the resource value (activity directive) read on that iteration.
-            // If the activity is captured by a fincon, it will record the directive's serialization
-            // in the task history, such that it can be re-launched when the simulation is restored.
-            activityResource = discreteResource<GroundedActivity<M>?>("activity_to_schedule", null,
-                GroundedActivity::class.withArg(modelClass).withNullability(true))
-            spawn("activities", whenever(activityResource.isNotNull()) {
-                val groundedActivity = requireNotNull(activityResource.getValue())
-                activityResource.set(null)
-                ActivityActions.spawn(groundedActivity, model)
-            })
-        }
+            // Use the foundation-level init scope to build the model
+            constructModel(initScope)
+            // Also squirrel away that init scope, as just a simulation scope, to be re-used later
+            tempSimulationScope = initScope
+        })
+        simulationScope = tempSimulationScope
     }
 
-    fun time() = state.time()
+    fun time() = kernelSimulator.time()
 
     /**
      * Run the simulation until [endTime].
@@ -151,10 +116,10 @@ class PlanSimulation<M>(
      * without advancing in time, an exception is thrown to avoid infinite loops.
      */
     fun runUntil(endTime: Instant) {
-        require(endTime >= state.time()) {
-            "Simulation time is currently ${state.time()}, cannot step backwards to $endTime"
+        require(endTime >= time()) {
+            "Simulation time is currently ${time()}, cannot step backwards to $endTime"
         }
-        while (state.time() < endTime) stepTo(endTime)
+        while (time() < endTime) stepTo(endTime)
     }
 
     private var stepsWithoutAdvancingTime = 0
@@ -166,56 +131,27 @@ class PlanSimulation<M>(
      * without advancing in time, an exception is thrown to avoid infinite loops.
      */
     fun stepTo(endTime: Instant) {
-        val timeBeforeStep = state.time()
-        state.stepTo(endTime)
-        if (state.time() > timeBeforeStep) {
+        val timeBeforeStep = time()
+        kernelSimulator.stepTo(endTime)
+        if (time() > timeBeforeStep) {
             stepsWithoutAdvancingTime = 0
         } else if (++stepsWithoutAdvancingTime > SIMULATION_STALL_LIMIT) {
-            state.dump()
-            throw IllegalStateException("Simulation has stalled at ${state.time()} after $stepsWithoutAdvancingTime iterations.")
+            kernelSimulator.dump()
+            throw IllegalStateException("Simulation has stalled at ${time()} after $stepsWithoutAdvancingTime iterations.")
         }
     }
 
-    fun save() = state.save()
+    fun save() = kernelSimulator.save()
 
-    fun addActivities(activities: List<GroundedActivity<M>>) {
-        // TODO: Consider formalizing this as a way to "safely" ingest info into the sim.
-        val activitiesToLoad = activities.toMutableList()
-        var activityLoaderActive = true
-
-        // The directive loader will iteratively pull directives off the queue
-        // and set them in the activityDirectiveResource.
-        // The activity launcher will react to this by constructing and launching the activity.
-        // That nulls out the resource, allowing this task to load the next activity.
-
-        // Note that because this task depends on state not captured in a cell, it is not "safe" for simulation.
-        // However, because it works in conjunction with the activity launcher, it will always complete
-        // before the simulation advances in time.
-        // Combined with the loop below to exercise this task to completion, thereby unloading this unsafe task,
-        // the simulation is always in a safe state to save/restore when this function returns.
-        state.addEphemeralTask(Name("activity loader"), with (simulationScope) {
-            coroutineTask {
-                if (activitiesToLoad.isEmpty()) {
-                    activityLoaderActive = false
-                    TaskScopeResult.Complete(Unit)
-                } else {
-                    await(activityResource.isNull())
-                    val a = activitiesToLoad.removeFirst()
-                    activityResource.set(a)
-                    TaskScopeResult.Restart()
-                }
-            }
-        })
-
-        // Now, actually load the plan by cycling the simulation without advancing it.
-        while (activityLoaderActive) state.stepTo(state.time())
+    fun addActivity(activity: GroundedActivity<M>) {
+        kernelSimulator.addActivity(activity.time, Name("activity") / activity.name, TODO("Converting a GroundedActivity to a PureTaskStep"))
     }
 
     fun runPlan(plan: Plan<M>) {
-        require(plan.startTime == state.time()) {
-            "Cannot run plan starting at ${plan.startTime}. Simulation is at ${state.time()}"
+        require(plan.startTime == time()) {
+            "Cannot run plan starting at ${plan.startTime}. Simulation is at ${time()}"
         }
-        addActivities(plan.activities)
+        plan.activities.forEach(this::addActivity)
         runUntil(plan.endTime)
     }
 
@@ -227,14 +163,5 @@ class PlanSimulation<M>(
          * This provides protection against some kinds of infinitely looping tasks.
          */
         var SIMULATION_STALL_LIMIT: Int = 100
-
-        fun PlanSimulation<*>.save(): Snapshot = MutableSnapshot().also(this::save)
     }
 }
-
-inline fun <reified M> PlanSimulation(
-    reportHandler: ChannelizedReportHandler,
-    start: Instant? = null,
-    inconProvider: Snapshot? = null,
-    noinline constructModel: context (InitScope) () -> M,
-) = PlanSimulation(reportHandler, start, inconProvider, constructModel, typeOf<M>())

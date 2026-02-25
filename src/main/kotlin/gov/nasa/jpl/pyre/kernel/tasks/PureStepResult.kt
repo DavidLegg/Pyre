@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.kernel.new_tasks
+package gov.nasa.jpl.pyre.kernel.tasks
 
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Name
@@ -23,7 +23,7 @@ sealed interface PureStepResult {
     data class Spawn(val childName: Name, val child: PureTaskStep, val continuation: PureTaskStep) : PureStepResult {
         override fun toString() = "Spawn($childName)"
     }
-    class Restart : PureStepResult {
+    object Restart : PureStepResult {
         override fun toString() = "Restart"
     }
 }

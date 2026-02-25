@@ -98,9 +98,9 @@ class GraphIncrementalPlanSimulation<M>(
                         mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
                     ): Cell<T> = basicInitScope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
 
-                    override fun <T> spawn(
+                    override fun spawn(
                         name: Name,
-                        block: suspend context(TaskScope) () -> TaskScopeResult<T>
+                        block: suspend context(TaskScope) () -> TaskScopeResult
                     ) =
                         // When spawning a task, build a simulation scope which incorporates the task's Name
                         basicInitScope.spawn(name, context(subSimulationScope(contextName / name)) { coroutineTask(block) })

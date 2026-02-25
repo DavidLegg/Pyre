@@ -8,7 +8,7 @@ import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.read
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
 import gov.nasa.jpl.pyre.kernel.tasks.Task.PureStepResult.*
-import gov.nasa.jpl.pyre.kernel.new_tasks.BasicTaskActions
+import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
 import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

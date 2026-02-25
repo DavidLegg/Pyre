@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.kernel.new_tasks
+package gov.nasa.jpl.pyre.kernel.tasks
 
 import gov.nasa.jpl.pyre.kernel.Condition
 

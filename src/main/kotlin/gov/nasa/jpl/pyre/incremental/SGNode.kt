@@ -21,7 +21,7 @@ sealed interface SGNode {
      */
     sealed interface YieldingStepNode : TaskNode {
         /** The handle to continue running this task. Null after executing, since any task step may only be run once. */
-        var continuation: Task<*>?
+        var continuation: Task?
     }
 
     /**
@@ -34,7 +34,7 @@ sealed interface SGNode {
     class RootTaskNode(
         override val serialId: Int,
         override val time: SimulationTime,
-        val task: Task<*>,
+        val task: Task,
         // prior is mutable so that spawn nodes can link them after making them
         override var prior: TaskNode? = null,
         override var next: TaskNode? = null,
@@ -47,7 +47,7 @@ sealed interface SGNode {
         override val serialId: Int,
         override val time: SimulationTime,
         override var prior: TaskNode?,
-        override var continuation: Task<*>?,
+        override var continuation: Task?,
         override var next: TaskNode? = null,
     ) : YieldingStepNode {
         override fun toString(): String = "Begin($continuation) @ $time"
@@ -90,7 +90,7 @@ sealed interface SGNode {
         override val time: SimulationTime,
         override var prior: TaskNode?,
         val child: RootTaskNode,
-        override var continuation: Task<*>?,
+        override var continuation: Task?,
         override var next: TaskNode? = null,
     ) : YieldingStepNode {
         override fun toString(): String = "Spawn($child) @ $time"
@@ -102,7 +102,7 @@ sealed interface SGNode {
         override var prior: TaskNode?,
         val condition: Condition,
         val reads: MutableMap<CellNode<*>, Any?> = mutableMapOf(),
-        override var continuation: Task<*>?,
+        override var continuation: Task?,
         override var next: TaskNode? = null,
     ) : YieldingStepNode {
         override fun toString(): String = "Await($condition) @ $time"
