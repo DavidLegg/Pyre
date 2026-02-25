@@ -18,6 +18,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
@@ -43,17 +44,17 @@ import kotlin.time.Instant
  * 3. simulating until the end of this cycle, and
  * 4. cutting a fincon in preparation for the next cycle.
  */
-class PlanSimulation<M>(
+class PlanSimulation<M : Any>(
     reportHandler: ChannelizedReportHandler,
     startTime: Instant? = null,
     incon: Snapshot? = null,
     constructModel: context (InitScope) () -> M,
 ) {
-    private val simulationScope: SimulationScope
+    private lateinit var simulationScope: SimulationScope
+    private lateinit var model: M
     private val kernelSimulator: KernelSimulator
 
     init {
-        lateinit var tempSimulationScope: SimulationScope
         kernelSimulator = KernelSimulator(reportHandler, incon = incon, startTime = startTime, initialize = {
             // Get the kernel-level init scope
             val basicInitScope = contextOf<BasicInitScope>()
@@ -100,11 +101,10 @@ class PlanSimulation<M>(
                 override val stderr = channel<String>(Name("stderr"))
             }
             // Use the foundation-level init scope to build the model
-            constructModel(initScope)
+            model = constructModel(initScope)
             // Also squirrel away that init scope, as just a simulation scope, to be re-used later
-            tempSimulationScope = initScope
+            simulationScope = initScope
         })
-        simulationScope = tempSimulationScope
     }
 
     fun time() = kernelSimulator.time()
@@ -144,7 +144,13 @@ class PlanSimulation<M>(
     fun save() = kernelSimulator.save()
 
     fun addActivity(activity: GroundedActivity<M>) {
-        kernelSimulator.addActivity(activity.time, Name("activity") / activity.name, TODO("Converting a GroundedActivity to a PureTaskStep"))
+        // TODO: To get save/restore to work, this needs to be wrapped in a class implementing PureTaskStep,
+        //   with some machinery to add that class to the serialization for PureTaskStep, aliasing to the wrapped activity.
+        kernelSimulator.addActivity(
+            activity.time,
+            Name("activity") / activity.name,
+            // Build a simple task which merely calls the appropriate activity at the indicated time.
+            context(simulationScope) { coroutineTask(task { ActivityActions.call(activity.activity, model) }) })
     }
 
     fun runPlan(plan: Plan<M>) {
