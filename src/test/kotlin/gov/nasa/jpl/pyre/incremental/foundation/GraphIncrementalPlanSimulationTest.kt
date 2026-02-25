@@ -47,11 +47,12 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.IntStream
 import kotlin.math.PI
+import kotlin.math.exp
+import kotlin.math.ln
+import kotlin.math.pow
 import kotlin.random.Random
 import kotlin.random.nextInt
 import kotlin.random.nextLong
-import kotlin.reflect.KType
-import kotlin.reflect.typeOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration
@@ -63,9 +64,9 @@ import kotlin.time.Instant
 class GraphIncrementalPlanSimulationTest {
     private val planStart = Instant.parse("2025-01-01T00:00:00Z")
     private val planEnd = Instant.parse("2025-01-02T00:00:00Z")
-    private inline fun <reified M> test(
-        noinline constructModel: context (InitScope) () -> M
-    ) = IncrementalSimulationTester(constructModel, Plan(planStart, planEnd), typeOf<M>())
+    private fun <M : Any> test(
+        constructModel: context (InitScope) () -> M
+    ) = IncrementalSimulationTester(constructModel, Plan(planStart, planEnd))
 
     private fun test(
         vararg activities: GroundedActivity<TestModel>
@@ -73,7 +74,7 @@ class GraphIncrementalPlanSimulationTest {
 
     private fun test(
         activities: List<GroundedActivity<TestModel>>
-    ) = IncrementalSimulationTester(::TestModel, Plan(planStart, planEnd, activities), typeOf<TestModel>())
+    ) = IncrementalSimulationTester(::TestModel, Plan(planStart, planEnd, activities))
 
     @Test
     fun `empty model`() {
@@ -516,7 +517,7 @@ class GraphIncrementalPlanSimulationTest {
     fun `random plan edits conform to fundamental incremental sim guarantee`(seed: Int) {
         // TODO - bias the randomization slightly towards plan bounds and concurrency
         val rng = Random(seed)
-        val numberOfInitialActivities = Math.pow(10.0, rng.nextDouble(1.0, 3.0)).toInt()
+        val numberOfInitialActivities = 10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()
         val roundsOfEdits = 100
         println("Running $numberOfInitialActivities activities through $roundsOfEdits rounds of edits...")
 
@@ -536,7 +537,7 @@ class GraphIncrementalPlanSimulationTest {
             println("Running round $roundNumber of edits...")
             // Choose a number of activities to edit, up to the entire plan, with a bias towards small edits.
             val numberOfEdits = if (activities.size <= 1) activities.size else
-                Math.exp(rng.nextDouble(0.0, Math.log(activities.size.toDouble()))).toInt()
+                exp(rng.nextDouble(0.0, ln(activities.size.toDouble()))).toInt()
             val additions = mutableListOf<GroundedActivity<TestModel>>()
             val removals = mutableListOf<GroundedActivity<TestModel>>()
             // Pick random edits to make. If we edit an activity, remove it from activities so it doesn't get edited twice.
@@ -622,18 +623,18 @@ class GraphIncrementalPlanSimulationTest {
     // TODO: Something like this might actually be useful more generally, applied to an incremental simulator / scheduler.
     //   More generally, incremental sim should be powering a SchedulingSystem-like class with operations like this
     // Private test-ism to quickly and legibly make simple edits to a plan
-    private fun <M> IncrementalSimulationTester<M>.add(vararg activities: GroundedActivity<M>) =
+    private fun <M : Any> IncrementalSimulationTester<M>.add(vararg activities: GroundedActivity<M>) =
         run(PlanEdits(activities.toList(), emptyList()))
-    private fun <M> IncrementalSimulationTester<M>.remove(vararg activities: GroundedActivity<M>) =
+    private fun <M : Any> IncrementalSimulationTester<M>.remove(vararg activities: GroundedActivity<M>) =
         run(PlanEdits(emptyList(), activities.toList()))
-    private fun <M> IncrementalSimulationTester<M>.edit(vararg activities: Pair<GroundedActivity<M>, Activity<M>>) =
+    private fun <M : Any> IncrementalSimulationTester<M>.edit(vararg activities: Pair<GroundedActivity<M>, Activity<M>>) =
         run(
             PlanEdits(
                 activities.map { GroundedActivity(it.first.time, it.second) },
                 activities.map { it.first },
             )
         )
-    private fun <M> IncrementalSimulationTester<M>.move(vararg activities: Pair<GroundedActivity<M>, Duration>) =
+    private fun <M : Any> IncrementalSimulationTester<M>.move(vararg activities: Pair<GroundedActivity<M>, Duration>) =
         run(
             PlanEdits(
                 activities.map { GroundedActivity(planStart + it.second, it.first.activity) },
@@ -658,13 +659,12 @@ class GraphIncrementalPlanSimulationTest {
  *
  * This test class directly checks this guarantee, comparing results from the incremental and single-shot simulators.
  */
-private class IncrementalSimulationTester<M>(
+private class IncrementalSimulationTester<M : Any>(
     constructModel: context (InitScope) () -> M,
     plan: Plan<M>,
-    modelClass: KType,
 ) {
-    private val baselineSimulation = NonIncrementalPlanSimulation(constructModel, plan, modelClass)
-    private val testSimulation = GraphIncrementalPlanSimulation(constructModel, plan, modelClass)
+    private val baselineSimulation = NonIncrementalPlanSimulation(constructModel, plan)
+    private val testSimulation = GraphIncrementalPlanSimulation(constructModel, plan)
 
     init {
         assertSynced()

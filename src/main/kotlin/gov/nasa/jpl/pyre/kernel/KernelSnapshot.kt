@@ -8,18 +8,18 @@ import kotlin.time.Instant
  */
 data class KernelSnapshot(
     val time: Instant,
-    val cells: DependentMap<Name>,
-    val tasks: List<KernelTaskSnapshot>,
+    val cells: DependentMap,
+    val tasks: List<GroundedKernelTaskSnapshot>,
 )
 
-data class KernelTaskSnapshot(
+data class GroundedKernelTaskSnapshot(
     val time: Instant,
     val name: Name,
     val root: Name,
     val history: TaskHistory,
 )
 
-data class TaskSnapshot(
+data class KernelTaskSnapshot(
     val name: Name,
     val root: Name,
     val history: TaskHistory,

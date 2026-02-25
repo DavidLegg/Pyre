@@ -47,7 +47,7 @@ object SchedulingAlgorithms {
      * @throws CouldNotScheduleException
      * If solver cannot find a suitable start time.
      */
-    fun <M, C> SchedulingSystem<M, C>.scheduleActivityToEndNear(
+    fun <M : Any, C> SchedulingSystem<M, C>.scheduleActivityToEndNear(
         activity: Activity<M>,
         endTime: Instant,
         earliestStart: Instant = time(),

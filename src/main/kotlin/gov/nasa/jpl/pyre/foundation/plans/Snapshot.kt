@@ -1,8 +1,7 @@
 package gov.nasa.jpl.pyre.foundation.plans
 
 import gov.nasa.jpl.pyre.kernel.DependentMap
-import gov.nasa.jpl.pyre.kernel.KernelTaskSnapshot
-import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.GroundedKernelTaskSnapshot
 import kotlin.time.Instant
 
 /**
@@ -10,7 +9,7 @@ import kotlin.time.Instant
  */
 data class Snapshot<M>(
     val time: Instant,
-    val cells: DependentMap<Name>,
-    val tasks: List<KernelTaskSnapshot>,
+    val cells: DependentMap,
+    val tasks: List<GroundedKernelTaskSnapshot>,
     val activities: List<GroundedActivity<M>>
 )

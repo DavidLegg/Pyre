@@ -10,7 +10,6 @@ import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.ReadActions
 import gov.nasa.jpl.pyre.kernel.SatisfiedAt
-import gov.nasa.jpl.pyre.kernel.tasks.ActivityTask
 import gov.nasa.jpl.pyre.kernel.tasks.PureTask
 import gov.nasa.jpl.pyre.kernel.tasks.Task
 import gov.nasa.jpl.pyre.kernel.tasks.TaskStepResult
@@ -154,7 +153,7 @@ class KernelIncrementalSimulator(
             require(activity.time < planEnd) {
                 "Cannot add activity $activity at or after plan ends at $planEnd"
             }
-            val task = ActivityTask(activity.name, activity.task)
+            val task = PureTask(activity.name, activity.task)
             frontier += StartTask(
                 RootTaskNode(
                     nextNodeId++,

@@ -1,8 +1,7 @@
 package gov.nasa.jpl.pyre.kernel.tasks
 
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.Snapshot
-import gov.nasa.jpl.pyre.kernel.TaskSnapshot
+import gov.nasa.jpl.pyre.kernel.KernelTaskSnapshot
 
 /**
  * Any task which may run in a simulation.
@@ -28,12 +27,12 @@ interface Task {
     /**
      * Save a snapshot of this task.
      */
-    fun save(): TaskSnapshot
+    fun save(): KernelTaskSnapshot
 
     /**
      * Treat this as a root task, and restore the child described by [snapshot].
      *
      * This method should be called for every child task present in simulation snapshot to fully restore the simulation.
      */
-    fun restoreFrom(snapshot: TaskSnapshot): Task
+    fun restoreFrom(snapshot: KernelTaskSnapshot): Task
 }

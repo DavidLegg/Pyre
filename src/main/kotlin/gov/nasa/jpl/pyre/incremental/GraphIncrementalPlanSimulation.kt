@@ -37,7 +37,6 @@ import kotlin.time.Duration
 class GraphIncrementalPlanSimulation<M>(
     constructModel: context (InitScope) () -> M,
     plan: Plan<M>,
-    modelClass: KType,
 ) : IncrementalPlanSimulation<M> {
     override var plan: Plan<M> = plan
         private set

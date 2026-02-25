@@ -37,7 +37,6 @@ import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
-import gov.nasa.jpl.pyre.kernel.Snapshot
 import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
@@ -407,13 +406,12 @@ class PlanSimulationTest {
             constructModel = ::TestModel,
         )
         // Use addActivities and runUntil to force a state with finished, running, and unstarted activities
-        simulation1.addActivities(
-            listOf(
-                GroundedActivity(Instant.parse("2020-01-01T00:03:00Z"), DeviceBoot()),
-                GroundedActivity(Instant.parse("2020-01-01T00:10:00Z"), DeviceActivate(60.minutes)),
-                GroundedActivity(Instant.parse("2020-01-01T01:20:00Z"), DeviceShutdown()),
-            )
-        )
+        simulation1.apply {
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:03:00Z"), DeviceBoot()))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:10:00Z"), DeviceActivate(60.minutes)))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T01:20:00Z"), DeviceShutdown()))
+        }
+
         simulation1.runUntil(Instant.parse("2020-01-01T00:20:00Z"))
         with (reports1.toSimulationResults()) {
             checkActivities {
@@ -427,13 +425,11 @@ class PlanSimulationTest {
         val reports2 = MutableSimulationResults()
         val simulation2 = PlanSimulation(
             reportHandler = reports2.reportHandler(),
-            incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot>(fincon1),
+            incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot<TestModel>>(fincon1),
             constructModel = ::TestModel,
         )
         // Add an activity which will spawn a child, which will be active during the next fincon cycle
-        simulation2.addActivities(listOf(
-            GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), DeviceActivate(20.minutes))
-        ))
+        simulation2.addActivity(GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), DeviceActivate(20.minutes)))
         simulation2.runUntil(Instant.parse("2020-01-01T02:00:00Z"))
 
         with (reports2.toSimulationResults()) {
@@ -450,7 +446,7 @@ class PlanSimulationTest {
         val reports3 = MutableSimulationResults()
         val simulation3 = PlanSimulation(
             reportHandler = reports3.reportHandler(),
-            incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot>(fincon2),
+            incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot<TestModel>>(fincon2),
             constructModel = ::TestModel,
         )
         simulation3.runUntil(Instant.parse("2020-01-01T03:00:00Z"))

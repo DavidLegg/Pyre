@@ -204,7 +204,7 @@ fun schedulingMain(args: Array<String>) {
         val baseScheduler = SchedulingSystem(
             STANDARD_CONFIG,
             ::SystemModel,
-            planStart,
+            startTime = planStart,
         )
 
         val commPasses: List<CommPass> = commScheduleFile.inputStream()
@@ -465,14 +465,12 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_dir
     this += GroundedActivity(scienceOp.end, backgroundTurn())
 }
 
+// TODO: This no longer works because a Snapshot includes the model it's designed for as a type parameter.
+//   Fix this or delete this use case entirely.
+/*
 fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_subsystem(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
     // Build a dedicated GNC scheduler, rather than running the full system, for performance.
-    val gncScheduler = SchedulingSystem(
-        // Collect a fincon from the full system to ensure the new scheduler is in the same state
-        // Note that this is a "rough" fincon - some tasks will restart because subsystems don't align perfectly with full-systems,
-        // but it should be "good enough" to get a high-precision turn time estimate.
-        // Part of this requires building a subsystem-specific JSON_FORMAT, so that activities get dumped during restore.
-        // This is a bit of a kludge, but again it's largely "good enough".
+    val gncScheduler = SchedulingSystem<GncModel, GncModel.Config>(
         config.gncConfig,
         { config ->
             // Instead of other subsystems, fill the inputs for the GNC system with replays of the prior layer.
@@ -480,6 +478,11 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_sub
             // Note that we need to build the GNC model in subContext("gnc") to line up with the full system fincon.
             GncModel(subContext("gnc"), config, gncInputProfiles.asInputs())
         },
+        // Collect a fincon from the full system to ensure the new scheduler is in the same state
+        // Note that this is a "rough" fincon - some tasks will restart because subsystems don't align perfectly with full-systems,
+        // but it should be "good enough" to get a high-precision turn time estimate.
+        // Part of this requires building a subsystem-specific JSON_FORMAT, so that activities get dumped during restore.
+        // This is a bit of a kludge, but again it's largely "good enough".
         incon = fincon(),
     )
     // Use the GNC scheduler to find when to start the turn
@@ -489,3 +492,4 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_sub
     // Also add a turn away from the target, back to the background attitude. This doesn't need advanced scheduling.
     this += GroundedActivity(scienceOp.end, backgroundTurn())
 }
+ */

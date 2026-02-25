@@ -1,19 +1,10 @@
 package gov.nasa.jpl.pyre.kernel
 
-import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.report
-import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.within
+import gov.nasa.jpl.pyre.kernel.tasks.*
 import gov.nasa.jpl.pyre.kernel.tasks.TaskStepResult.*
-import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
-import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
-import gov.nasa.jpl.pyre.kernel.tasks.ActivityTask
-import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
-import gov.nasa.jpl.pyre.kernel.tasks.PureTask
-import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
-import gov.nasa.jpl.pyre.kernel.tasks.Task
-import gov.nasa.jpl.pyre.kernel.tasks.TaskStepResult
 import gov.nasa.jpl.pyre.utilities.andThen
+import java.util.*
 import java.util.Comparator.comparing
-import java.util.PriorityQueue
 import kotlin.reflect.KType
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
@@ -95,7 +86,7 @@ class KernelSimulator(
 
         // Now that we've collected all the root tasks, restore all the tasks from the incon.
         tasks += incon?.tasks?.mapNotNull { kernelTaskSnapshot ->
-            val taskSnapshot = kernelTaskSnapshot.run { TaskSnapshot(name, root, history) }
+            val taskSnapshot = kernelTaskSnapshot.run { KernelTaskSnapshot(name, root, history) }
             rootTasks[taskSnapshot.root]?.restoreFrom(taskSnapshot)?.let {
                 daemonsWithoutInconTasks -= taskSnapshot.root
                 TaskEntry(kernelTaskSnapshot.time, it)
@@ -120,7 +111,7 @@ class KernelSimulator(
      * To restore it, the caller must provide this task as part of initialization.
      */
     fun addTask(time: Instant, name: Name, step: PureTaskStep) {
-        val task = ActivityTask(name, step)
+        val task = PureTask(name, step)
         tasks += TaskEntry(time, task)
     }
 
@@ -131,13 +122,13 @@ class KernelSimulator(
         val tasksToSave = tasks.filter { it !in excludedTasks } + listeningTasks.keys.map { TaskEntry(time, it.await.rewait) }
         return KernelSnapshot(
             time,
-            MutableDependentMap<Name>().also {
+            MutableDependentMap().also {
                 for (cell in cells) {
                     it.put(cell.name, (cell as CellImpl<*>).value, cell.valueType)
                 }
             },
             tasksToSave.sortedBy { it.task.name.toString() }.map { (time, task) ->
-                task.save().run { KernelTaskSnapshot(time, name, root, history) }
+                task.save().run { GroundedKernelTaskSnapshot(time, name, root, history) }
             }
         )
     }

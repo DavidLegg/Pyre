@@ -2,12 +2,8 @@ package gov.nasa.jpl.pyre.kernel.tasks
 
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.MutableSnapshot
-import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.report
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.Snapshot
-import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
-import gov.nasa.jpl.pyre.kernel.TaskSnapshot
+import gov.nasa.jpl.pyre.kernel.KernelTaskSnapshot
 import gov.nasa.jpl.pyre.kernel.tasks.PureTask.TaskHistoryStep.*
 import gov.nasa.jpl.pyre.kernel.tasks.TaskHistoryCollector.Companion.report
 import gov.nasa.jpl.pyre.kernel.tasks.TaskHistoryProvider.Companion.provide
@@ -86,10 +82,10 @@ class PureTask private constructor(
         }
     }
 
-    override fun save(): TaskSnapshot =
-        TaskSnapshot(name, rootTask.name, MutableTaskHistory().apply(collectPriorHistory))
+    override fun save(): KernelTaskSnapshot =
+        KernelTaskSnapshot(name, rootTask.name, MutableTaskHistory().apply(collectPriorHistory))
 
-    override fun restoreFrom(snapshot: TaskSnapshot): Task {
+    override fun restoreFrom(snapshot: KernelTaskSnapshot): Task {
         require(snapshot.root == name) {
             "Internal error! Attempting to restore ${snapshot.name} with root task $name, but it descends from root task ${snapshot.root}"
         }

@@ -22,10 +22,10 @@ object UnitTesting {
      * [testTask] may spawn activities to simulate a plan, or produce effects directly.
      * Assertions may be made directly by [testTask] during simulation, or afterward on the results.
      */
-    inline fun <reified M> runUnitTest(
+    fun <M : Any> runUnitTest(
         simulationStart: Instant,
-        noinline constructModel: context (InitScope) () -> M,
-        noinline testTask: suspend context (TaskScope) (M) -> Unit
+        constructModel: context (InitScope) () -> M,
+        testTask: suspend context (TaskScope) (M) -> Unit
     ): SimulationResults {
         val results = MutableSimulationResults(simulationStart, simulationStart, )
 

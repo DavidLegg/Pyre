@@ -13,9 +13,9 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class RandomNumberGeneratorTest {
-    private inline fun <reified M> runUnitTest(
-        noinline initTestTask: context (InitScope) () -> M,
-        noinline testTask: suspend context (TaskScope) (M) -> Unit = {},
+    private fun <M : Any> runUnitTest(
+        initTestTask: context (InitScope) () -> M,
+        testTask: suspend context (TaskScope) (M) -> Unit = {},
     ) {
         runUnitTest(
             Instant.parse("2020-01-01T00:00:00Z"),
