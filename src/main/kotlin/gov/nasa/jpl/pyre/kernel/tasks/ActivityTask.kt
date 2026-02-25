@@ -3,6 +3,8 @@ package gov.nasa.jpl.pyre.kernel.tasks
 import gov.nasa.jpl.pyre.kernel.Name
 import kotlinx.serialization.Serializable
 
+// TODO: Remove this, and just use PureTaskStep instead
+
 /**
  * A kind of [Task] constructed independently of the model.
  *

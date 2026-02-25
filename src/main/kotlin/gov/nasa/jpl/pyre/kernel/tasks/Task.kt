@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.kernel.tasks
 
-import gov.nasa.jpl.pyre.kernel.MutableSnapshot
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.Snapshot
+import gov.nasa.jpl.pyre.kernel.TaskSnapshot
 
 /**
  * Any task which may run in a simulation.
@@ -26,16 +26,14 @@ interface Task {
     fun runStep(actions: BasicTaskActions): TaskStepResult
 
     /**
-     * Save the state of this task to the provided [MutableSnapshot].
-     *
-     * This method presumes that [snapshot] has been restricted to a suitable location for this task already.
+     * Save a snapshot of this task.
      */
-    fun saveTo(snapshot: MutableSnapshot)
+    fun save(): TaskSnapshot
 
     /**
      * Treat this as a root task, and restore the child described by [snapshot].
      *
      * This method should be called for every child task present in simulation snapshot to fully restore the simulation.
      */
-    fun restoreFrom(snapshot: Snapshot): Task
+    fun restoreFrom(snapshot: TaskSnapshot): Task
 }

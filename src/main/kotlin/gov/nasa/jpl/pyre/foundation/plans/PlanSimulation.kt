@@ -8,7 +8,6 @@ import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
 import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.clock
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.kernel.Snapshot
 import gov.nasa.jpl.pyre.kernel.KernelSimulator
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScopeResult
@@ -22,9 +21,10 @@ import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
+import gov.nasa.jpl.pyre.kernel.KernelSnapshot
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import kotlin.reflect.KType
 import kotlin.time.Duration
 import kotlin.time.Instant
@@ -47,64 +47,78 @@ import kotlin.time.Instant
 class PlanSimulation<M : Any>(
     reportHandler: ChannelizedReportHandler,
     startTime: Instant? = null,
-    incon: Snapshot? = null,
+    incon: Snapshot<M>? = null,
     constructModel: context (InitScope) () -> M,
 ) {
     private lateinit var simulationScope: SimulationScope
     private lateinit var model: M
     private val kernelSimulator: KernelSimulator
+    private val loadedActivities: MutableList<GroundedActivity<M>>
 
     init {
-        kernelSimulator = KernelSimulator(reportHandler, incon = incon, startTime = startTime, initialize = {
-            // Get the kernel-level init scope
-            val basicInitScope = contextOf<BasicInitScope>()
-            // Wrap it in a foundation-level init scope
-            val initScope = object : InitScope {
-                override fun <T : Any> allocate(
-                    name: Name,
-                    value: T,
-                    valueType: KType,
-                    stepBy: (T, Duration) -> T,
-                    mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
-                ): Cell<T> = basicInitScope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
+        // Pull in all the loaded activities
+        loadedActivities = incon?.activities?.toMutableList() ?: mutableListOf()
+        kernelSimulator = KernelSimulator(
+            reportHandler,
+            incon = incon?.run { KernelSnapshot(time, cells, tasks) },
+            startTime = startTime,
+            initialize = {
+                // Get the kernel-level init scope
+                val basicInitScope = contextOf<BasicInitScope>()
+                // Wrap it in a foundation-level init scope
+                val initScope = object : InitScope {
+                    override fun <T : Any> allocate(
+                        name: Name,
+                        value: T,
+                        valueType: KType,
+                        stepBy: (T, Duration) -> T,
+                        mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
+                    ): Cell<T> = basicInitScope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
 
-                override fun spawn(name: Name, block: suspend context(TaskScope) () -> TaskScopeResult) =
-                    // When spawning a task, build a simulation scope which incorporates the task's Name
-                    basicInitScope.spawn(name, context(subSimulationScope(contextName / name)) { coroutineTask(block) })
+                    override fun spawn(name: Name, block: suspend context(TaskScope) () -> TaskScopeResult) =
+                        // When spawning a task, build a simulation scope which incorporates the task's Name
+                        basicInitScope.spawn(name, context(subSimulationScope(contextName / name)) { coroutineTask(block) })
 
-                override fun <V> read(cell: Cell<V>): V = basicInitScope.read(cell)
-                override fun <T> report(channel: Channel<T>, value: T) = basicInitScope.report(ChannelData(channel.name, now(), value))
+                    override fun <V> read(cell: Cell<V>): V = basicInitScope.read(cell)
+                    override fun <T> report(channel: Channel<T>, value: T) = basicInitScope.report(ChannelData(channel.name, now(), value))
 
-                override fun <T> channel(
-                    name: Name,
-                    metadata: Map<String, ChannelReport.Metadatum>,
-                    valueType: KType
-                ): Channel<T> {
-                    val reportType = ChannelData::class.withArg(valueType)
-                    basicInitScope.report(ChannelMetadata<T>(
-                        name,
-                        metadata,
-                        dataType = valueType,
-                        reportType = reportType,
-                        metadataType = ChannelMetadata::class.withArg(valueType),
-                    ))
-                    return Channel(name, reportType)
+                    override fun <T> channel(
+                        name: Name,
+                        metadata: Map<String, ChannelReport.Metadatum>,
+                        valueType: KType
+                    ): Channel<T> {
+                        val reportType = ChannelData::class.withArg(valueType)
+                        basicInitScope.report(ChannelMetadata<T>(
+                            name,
+                            metadata,
+                            dataType = valueType,
+                            reportType = reportType,
+                            metadataType = ChannelMetadata::class.withArg(valueType),
+                        ))
+                        return Channel(name, reportType)
+                    }
+
+                    override val contextName: Name? = null
+                    override fun toString() = ""
+
+                    override val simulationClock = clock("simulation_clock", requireNotNull(incon?.time ?: startTime))
+
+                    override val activities = channel<ActivityEvent>(Name("activities"))
+                    override val stdout = channel<String>(Name("stdout"))
+                    override val stderr = channel<String>(Name("stderr"))
                 }
-
-                override val contextName: Name? = null
-                override fun toString() = ""
-
-                override val simulationClock = clock("simulation_clock", requireNotNull(incon?.provide<Instant>("simulation", "time") ?: startTime))
-
-                override val activities = channel<ActivityEvent>(Name("activities"))
-                override val stdout = channel<String>(Name("stdout"))
-                override val stderr = channel<String>(Name("stderr"))
-            }
-            // Use the foundation-level init scope to build the model
-            model = constructModel(initScope)
-            // Also squirrel away that init scope, as just a simulation scope, to be re-used later
-            simulationScope = initScope
-        })
+                // Use the foundation-level init scope to build the model
+                model = constructModel(initScope)
+                // Also squirrel away that init scope, as just a simulation scope, to be re-used later
+                simulationScope = initScope
+                // Finally, restart all the activities that we loaded from the incon.
+                // This won't actually start these activities now; instead, it'll provide the root tasks necessary
+                // to restore these activities to however they were when the incon was produced.
+                for (activity in loadedActivities) {
+                    basicInitScope.spawn(activity.taskName(), activity.pureTaskStep())
+                }
+            },
+        )
     }
 
     fun time() = kernelSimulator.time()
@@ -141,17 +155,12 @@ class PlanSimulation<M : Any>(
         }
     }
 
-    fun save() = kernelSimulator.save()
-
-    fun addActivity(activity: GroundedActivity<M>) {
-        // TODO: To get save/restore to work, this needs to be wrapped in a class implementing PureTaskStep,
-        //   with some machinery to add that class to the serialization for PureTaskStep, aliasing to the wrapped activity.
-        kernelSimulator.addActivity(
-            activity.time,
-            Name("activity") / activity.name,
-            // Build a simple task which merely calls the appropriate activity at the indicated time.
-            context(simulationScope) { coroutineTask(task { ActivityActions.call(activity.activity, model) }) })
+    fun save(): Snapshot<M> = kernelSimulator.save().run {
+        Snapshot(time, cells, tasks, loadedActivities.toList())
     }
+
+    fun addActivity(activity: GroundedActivity<M>) =
+        kernelSimulator.addTask(activity.time, activity.taskName(), activity.pureTaskStep())
 
     fun runPlan(plan: Plan<M>) {
         require(plan.startTime == time()) {
@@ -159,6 +168,16 @@ class PlanSimulation<M : Any>(
         }
         plan.activities.forEach(this::addActivity)
         runUntil(plan.endTime)
+    }
+
+    private fun GroundedActivity<M>.taskName(): Name = Name("activity") / name
+
+    private fun GroundedActivity<M>.pureTaskStep(): PureTaskStep = context(simulationScope) {
+        // Build a simple task which calls the activity and records when the activity is finished
+        coroutineTask(task {
+            ActivityActions.call(activity, model)
+            loadedActivities -= this
+        })
     }
 
     companion object {

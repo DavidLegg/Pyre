@@ -7,6 +7,7 @@ import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.report
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.Snapshot
 import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
+import gov.nasa.jpl.pyre.kernel.TaskSnapshot
 import gov.nasa.jpl.pyre.kernel.tasks.PureTask.TaskHistoryStep.*
 import gov.nasa.jpl.pyre.kernel.tasks.TaskHistoryCollector.Companion.report
 import gov.nasa.jpl.pyre.kernel.tasks.TaskHistoryProvider.Companion.provide
@@ -85,37 +86,20 @@ class PureTask private constructor(
         }
     }
 
-    override fun saveTo(snapshot: MutableSnapshot) {
-        snapshot.apply {
-            // Record our own name
-            report("name", value=name)
-            // Record the root task from which to restore this task
-            report("root", value=rootTask.name)
-            // Record the history of all the steps this task took
-            report("history", value=MutableTaskHistory().apply(collectPriorHistory))
-        }
-    }
+    override fun save(): TaskSnapshot =
+        TaskSnapshot(name, rootTask.name, MutableTaskHistory().apply(collectPriorHistory))
 
-    override fun restoreFrom(snapshot: Snapshot): Task {
-        // Reverse the process of saveTo. First, verify this is the correct root task to restore from:
-        val resultName = requireNotNull(snapshot.provide<Name>("name")) {
-            "Malformed incon: 'name' field is missing from a task"
-        }
-        val resultRootName = requireNotNull(snapshot.provide<Name>("root")) {
-            "Malformed incon: 'root' field is missing from task $resultName"
-        }
-        require(resultRootName == name) {
-            "Internal error! Attempting to restore $resultName with root task $name, but it descends from root task $resultRootName"
+    override fun restoreFrom(snapshot: TaskSnapshot): Task {
+        require(snapshot.root == name) {
+            "Internal error! Attempting to restore ${snapshot.name} with root task $name, but it descends from root task ${snapshot.root}"
         }
 
-        val historyProvider = requireNotNull(snapshot.provide<TaskHistory>("history")) {
-            "Malformed incon: 'history' field is missing from task $resultName"
-        }.provider()
+        val historyProvider = snapshot.history.provider()
 
         val restorationActions = object : BasicTaskActions {
             override fun <V> read(cell: Cell<V>): V =
                 requireNotNull(historyProvider.provide<ReadMarker<V>>(ReadMarker.concreteType(cell.valueType))) {
-                    "Malformed incon: task $resultName read $cell, but no read data is available in the snapshot"
+                    "Malformed incon: task ${snapshot.name} read $cell, but no read data is available in the snapshot"
                 }.value
             override fun <V> emit(cell: Cell<V>, effect: Effect<V>) { /* ignore */ }
             override fun <V> report(value: V) { /* ignore */ }
@@ -131,7 +115,7 @@ class PureTask private constructor(
                 is TaskStepResult.Spawn -> {
                     // Spawns always run to completion, so there must be incon data for it.
                     val marker = requireNotNull(historyProvider.provide<SpawnMarker>()) {
-                        "Malformed incon: 'spawn' action taken by task $resultName does not have a step in incon history"
+                        "Malformed incon: 'spawn' action taken by task ${snapshot.name} does not have a step in incon history"
                     }
                     when (marker.branch) {
                         SpawnMarkerBranch.Parent -> stepResult.continuation
@@ -141,10 +125,10 @@ class PureTask private constructor(
                 // Restarts and completes shouldn't happen.
                 // A restart should have trimmed history; a complete should have eliminated it.
                 is TaskStepResult.Restart -> throw IllegalArgumentException(
-                    "Malformed incon: task $resultName restarted while restoring from a snapshot"
+                    "Malformed incon: task ${snapshot.name} restarted while restoring from a snapshot"
                 )
                 is TaskStepResult.Complete -> throw IllegalArgumentException(
-                    "Malformed incon: task $resultName completed while restoring from a snapshot"
+                    "Malformed incon: task ${snapshot.name} completed while restoring from a snapshot"
                 )
             }
         }

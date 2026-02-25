@@ -4,7 +4,6 @@ import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.report
 import gov.nasa.jpl.pyre.kernel.MutableSnapshot.Companion.within
 import gov.nasa.jpl.pyre.kernel.tasks.TaskStepResult.*
 import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.provide
-import gov.nasa.jpl.pyre.kernel.Snapshot.Companion.within
 import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import gov.nasa.jpl.pyre.kernel.tasks.ActivityTask
 import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
@@ -26,7 +25,7 @@ typealias ReportHandler = (Any?) -> Unit
 class KernelSimulator(
     private val reportHandler: ReportHandler,
     initialize: context (BasicInitScope) () -> Unit,
-    incon: Snapshot? = null,
+    incon: KernelSnapshot? = null,
     startTime: Instant? = null,
 ) {
     // Use a class, not a data class, for performance.
@@ -39,13 +38,10 @@ class KernelSimulator(
     }
 
     private var time: Instant = if (incon != null) {
-        val inconTime: Instant = requireNotNull(incon.provide("simulation", "time")) {
-            "Incon must specify a ${Instant::class.simpleName} at simulation.time"
+        require(startTime == null || startTime == incon.time) {
+            "Specified start time $startTime does not agree with incon time ${incon.time}"
         }
-        require(startTime == null || startTime == inconTime) {
-            "Specified start time $startTime does not agree with incon time $inconTime"
-        }
-        inconTime
+        incon.time
     } else {
         requireNotNull(startTime) {
             "Either a start time or an incon must be specified"
@@ -63,17 +59,11 @@ class KernelSimulator(
     }
     private val awaitingTasks: MutableSet<AwaitingTask> = mutableSetOf()
 
-    /** The number of descendent tasks of each loaded activity. Keys are removed when value hits 0. */
-    private val activityDescendents: MutableMap<ActivityTask, Int> = mutableMapOf()
-
     init {
         // Construct the init scope and give it back to the initializer
         val rootTasks = mutableMapOf<Name, Task>()
         val daemonsWithoutInconTasks = mutableSetOf<Name>()
         initialize(object : BasicInitScope {
-            private val cellIncon = incon?.within("cells")
-            private val taskIncon = incon?.within("tasks")
-
             override fun <T : Any> allocate(
                 name: Name,
                 value: T,
@@ -82,7 +72,7 @@ class KernelSimulator(
                 mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
             ): Cell<T> = CellImpl(
                 name,
-                cellIncon?.within(name.asSequence())?.provide(valueType) ?: value,
+                incon?.cells?.get(name, valueType) ?: value,
                 valueType,
                 stepBy,
                 mergeConcurrentEffects,
@@ -103,24 +93,12 @@ class KernelSimulator(
             override fun <T> report(value: T) = reportHandler(value)
         })
 
-        // Now that the model, if any, exists, pull in all the activities from the incon.
-        incon?.provide<List<ActivityTask>>("activities")
-            ?.associateByTo(rootTasks) { it.name }
-
         // Now that we've collected all the root tasks, restore all the tasks from the incon.
-        tasks += incon?.provide<List<Snapshot>>("tasks")?.mapNotNull { taskSnapshot ->
-            val name = requireNotNull(taskSnapshot.provide<Name>("name")) {
-                "Malformed incon: 'name' field is missing from a task"
-            }
-            val rootName = requireNotNull(taskSnapshot.provide<Name>("root")) {
-                "Malformed incon: 'root' field is missing from task $name"
-            }
-            val time = requireNotNull(taskSnapshot.provide<Instant>("time")) {
-                "Malformed incon: 'time' field is missing from task $name"
-            }
-            rootTasks[rootName]?.restoreFrom(taskSnapshot)?.let {
-                daemonsWithoutInconTasks -= rootName
-                TaskEntry(time, it)
+        tasks += incon?.tasks?.mapNotNull { kernelTaskSnapshot ->
+            val taskSnapshot = kernelTaskSnapshot.run { TaskSnapshot(name, root, history) }
+            rootTasks[taskSnapshot.root]?.restoreFrom(taskSnapshot)?.let {
+                daemonsWithoutInconTasks -= taskSnapshot.root
+                TaskEntry(kernelTaskSnapshot.time, it)
             }
             // TODO: Should we warn that a saved task is being dropped if the line above produces null?
         } ?: emptyList()
@@ -128,51 +106,40 @@ class KernelSimulator(
         // TODO: Think through how to handle daemons that run to completion
         //   Right now, they'll be forgotten by the simulator and then restored from the start!
 
+        // If there are any tasks that didn't have an incon, they must be new daemons created by an update to the model.
+        // Tolerate this and start those daemons.
         for (daemonName in daemonsWithoutInconTasks) {
             tasks += TaskEntry(time, rootTasks.getValue(daemonName))
         }
     }
 
-    fun addActivity(time: Instant, name: Name, step: PureTaskStep) {
+    /**
+     * Add a task to this simulation.
+     *
+     * This task will be included by [save] automatically.
+     * To restore it, the caller must provide this task as part of initialization.
+     */
+    fun addTask(time: Instant, name: Name, step: PureTaskStep) {
         val task = ActivityTask(name, step)
-        activityDescendents[task] = 1
         tasks += TaskEntry(time, task)
     }
 
-    fun save(): Snapshot {
-        // TODO: Consider a more structured Snapshot class.
-        //   This may help interop between this and other simulators...
-        val snapshot = MutableSnapshot()
-
-        // Data for the simulator itself:
-        snapshot.report("simulation", "time", value=time)
-
-        // Cells:
-        val cellCollector = snapshot.within("cells")
-        for (cell in cells) {
-            cellCollector.within(cell.name.asSequence()).report((cell as CellImpl<*>).value, cell.valueType)
-        }
-
-        // Activities:
-        // Just store a list of all the loaded root activities, sorted by name to give a canonical ordering.
-        snapshot.report("activities", value=activityDescendents.keys.sortedBy { it.name.toString() })
-
-        // Tasks:
+    fun save(): KernelSnapshot {
         // Tasks which are the scheduled re-evaluation or continuation of a condition should not be directly restored.
         // Instead, we should restore the listening task, and it will generate the appropriate task when it first runs.
         val excludedTasks: Set<TaskEntry> = listeningTasks.keys.mapNotNullTo(mutableSetOf()) { it.scheduledTask }
         val tasksToSave = tasks.filter { it !in excludedTasks } + listeningTasks.keys.map { TaskEntry(time, it.await.rewait) }
-        // Sort the tasks by name to apply an arbitrary but consistent order, then take a snapshot of each.
-        val taskSnapshots = tasksToSave
-            .sortedBy { it.task.name.toString() }
-            .map { (time, task) ->
-                MutableSnapshot()
-                    .also(task::saveTo)
-                    .apply { report("time", value = time) }
+        return KernelSnapshot(
+            time,
+            MutableDependentMap<Name>().also {
+                for (cell in cells) {
+                    it.put(cell.name, (cell as CellImpl<*>).value, cell.valueType)
+                }
+            },
+            tasksToSave.sortedBy { it.task.name.toString() }.map { (time, task) ->
+                task.save().run { KernelTaskSnapshot(time, name, root, history) }
             }
-        snapshot.report("tasks", value=taskSnapshots)
-
-        return snapshot
+        )
     }
 
     fun time() = time
