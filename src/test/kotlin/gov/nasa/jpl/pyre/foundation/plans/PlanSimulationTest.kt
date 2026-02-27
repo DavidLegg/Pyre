@@ -397,8 +397,75 @@ class PlanSimulationTest {
     }
 
     @Test
-    fun activities_can_be_saved_and_restored() {
-        val reports1 = MutableSimulationResults()
+    fun activities_can_be_saved_and_restored_in_memory() {
+        val t0 = Instant.parse("2020-01-01T00:00:00Z")
+        val t1 = Instant.parse("2020-01-01T00:20:00Z")
+        val reports1 = MutableSimulationResults(t0, t1)
+        val simulation1 = PlanSimulation(
+            reportHandler = reports1.reportHandler(),
+            startTime = t0,
+            constructModel = ::TestModel,
+        )
+        // Use addActivities and runUntil to force a state with finished, running, and unstarted activities
+        simulation1.apply {
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:03:00Z"), DeviceBoot()))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:10:00Z"), DeviceActivate(60.minutes)))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T01:20:00Z"), DeviceShutdown()))
+        }
+
+        simulation1.runUntil(t1)
+        with (reports1.toSimulationResults()) {
+            checkActivities {
+                finished("DeviceBoot", "2020-01-01T00:03:00Z", "2020-01-01T00:08:00Z")
+                unfinished("DeviceActivate", "2020-01-01T00:10:00Z")
+            }
+        }
+
+        val fincon1 = simulation1.save()
+
+        val t2 = Instant.parse("2020-01-01T02:00:00Z")
+        val reports2 = MutableSimulationResults(t1, t2)
+        val simulation2 = PlanSimulation(
+            reportHandler = reports2.reportHandler(),
+            incon = fincon1,
+            constructModel = ::TestModel,
+        )
+        // Add an activity which will spawn a child, which will be active during the next fincon cycle
+        simulation2.addActivity(GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), DeviceActivate(20.minutes)))
+        simulation2.runUntil(t2)
+
+        with (reports2.toSimulationResults()) {
+            checkActivities {
+                finished("DeviceActivate", "2020-01-01T00:10:00Z", "2020-01-01T01:10:00Z", false)
+                finished("DeviceShutdown", "2020-01-01T01:20:00Z", "2020-01-01T01:25:00Z")
+                unfinished("DeviceActivate", "2020-01-01T01:58:00Z")
+                unfinished("DeviceBoot", "2020-01-01T01:58:00Z")
+            }
+        }
+
+        val fincon2 = simulation2.save()
+
+        val t3 = Instant.parse("2020-01-01T03:00:00Z")
+        val reports3 = MutableSimulationResults(t2, t3)
+        val simulation3 = PlanSimulation(
+            reportHandler = reports3.reportHandler(),
+            incon = fincon2,
+            constructModel = ::TestModel,
+        )
+        simulation3.runUntil(t3)
+        with(reports3.toSimulationResults()) {
+            checkActivities {
+                finished("DeviceBoot", "2020-01-01T01:58:00Z", "2020-01-01T02:03:00Z", false)
+                finished("DeviceActivate", "2020-01-01T01:58:00Z", "2020-01-01T02:23:00Z", false)
+            }
+        }
+    }
+
+    @Test
+    fun activities_can_be_saved_and_restored_to_json() {
+        val t0 = Instant.parse("2020-01-01T00:00:00Z")
+        val t1 = Instant.parse("2020-01-01T00:20:00Z")
+        val reports1 = MutableSimulationResults(t0, t1)
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
         val simulation1 = PlanSimulation(
             reportHandler = reports1.reportHandler(),
@@ -412,7 +479,7 @@ class PlanSimulationTest {
             addActivity(GroundedActivity(Instant.parse("2020-01-01T01:20:00Z"), DeviceShutdown()))
         }
 
-        simulation1.runUntil(Instant.parse("2020-01-01T00:20:00Z"))
+        simulation1.runUntil(t1)
         with (reports1.toSimulationResults()) {
             checkActivities {
                 finished("DeviceBoot", "2020-01-01T00:03:00Z", "2020-01-01T00:08:00Z")
@@ -422,7 +489,8 @@ class PlanSimulationTest {
 
         val fincon1 = TestModel.JSON_FORMAT.encodeToJsonElement(simulation1.save())
 
-        val reports2 = MutableSimulationResults()
+        val t2 = Instant.parse("2020-01-01T02:00:00Z")
+        val reports2 = MutableSimulationResults(t1, t2)
         val simulation2 = PlanSimulation(
             reportHandler = reports2.reportHandler(),
             incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot<TestModel>>(fincon1),
@@ -443,7 +511,8 @@ class PlanSimulationTest {
 
         val fincon2 = TestModel.JSON_FORMAT.encodeToJsonElement(simulation2.save())
 
-        val reports3 = MutableSimulationResults()
+        val t3 = Instant.parse("2020-01-01T03:00:00Z")
+        val reports3 = MutableSimulationResults(t2, t3)
         val simulation3 = PlanSimulation(
             reportHandler = reports3.reportHandler(),
             incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot<TestModel>>(fincon2),

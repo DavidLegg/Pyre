@@ -49,6 +49,8 @@ sealed interface DependentMap {
 
     companion object {
         inline fun <reified V> DependentMap.get(key: Name): V? = get(key, typeOf<V>())
+
+        internal fun construct(): MutableDependentMap = MemoryDependentMap()
     }
 
     /**
@@ -64,7 +66,7 @@ sealed interface DependentMap {
 
         @Suppress("UNCHECKED_CAST")
         override fun <V> get(key: Name, valueType: KType): V? {
-            return base[key] as V?
+            return base[key]?.first as V?
         }
     }
 
@@ -133,4 +135,4 @@ sealed interface MutableDependentMap : DependentMap {
     }
 }
 
-fun MutableDependentMap(): MutableDependentMap = TODO()
+fun MutableDependentMap(): MutableDependentMap = DependentMap.construct()

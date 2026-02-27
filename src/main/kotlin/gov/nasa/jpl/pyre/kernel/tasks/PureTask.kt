@@ -18,15 +18,19 @@ import kotlin.reflect.KType
  */
 class PureTask private constructor(
     override val name: Name,
+    startTask: Task?,
     rootTask: Task?,
     private val pureStepFunction: PureTaskStep,
     private val collectPriorHistory: TaskHistoryCollector.() -> Unit,
 ) : Task {
+    /** The start of this task; what should be run when a task restarts */
+    private val startTask: Task = startTask ?: this
+    /** The root task from which this task descends; what should be used to restore this task from a snapshot. */
     override val rootTask: Task = rootTask ?: this
 
     // public users of this class can build root tasks, and only root tasks build non-root tasks
     constructor(name: Name, pureStepFunction: PureTaskStep) :
-            this(name, null, pureStepFunction, {})
+            this(name, null, null, pureStepFunction, {})
 
     override fun runStep(actions: BasicTaskActions): TaskStepResult {
         val thisStepHistory = mutableListOf<Pair<ReadMarker<*>, KType>>()
@@ -50,6 +54,7 @@ class PureTask private constructor(
                 // To rewait this task, just return the step result
                 PureTask(
                     name,
+                    startTask,
                     rootTask,
                     { stepResult },
                     // Capture history here without an AwaitMarker; rewaiting implies the await is unfinished.
@@ -58,6 +63,7 @@ class PureTask private constructor(
                 // To continue this task, run the continuation
                 PureTask(
                     name,
+                    startTask,
                     rootTask,
                     stepResult.continuation,
                     // Add an AwaitMarker to this history, since continuing implies the await is finished.
@@ -67,27 +73,32 @@ class PureTask private constructor(
             is PureStepResult.Spawn -> TaskStepResult.Spawn(
                 PureTask(
                     stepResult.childName,
+                    null,
                     rootTask,
                     stepResult.child,
                     { collectHistory(); report<TaskHistoryStep>(SpawnMarker(SpawnMarkerBranch.Child)) }
                 ),
                 PureTask(
                     name,
+                    startTask,
                     rootTask,
                     stepResult.continuation,
                     { collectHistory(); report<TaskHistoryStep>(SpawnMarker(SpawnMarkerBranch.Parent)) }
                 )
             )
-            is PureStepResult.Restart -> TaskStepResult.Restart(rootTask)
+            is PureStepResult.Restart -> TaskStepResult.Restart(startTask)
         }
     }
 
     override fun save(): KernelTaskSnapshot =
-        KernelTaskSnapshot(name, rootTask.name, MutableTaskHistory().apply(collectPriorHistory))
+        KernelTaskSnapshot(name, rootTask.name, history=MutableTaskHistory().apply(collectPriorHistory))
 
     override fun restoreFrom(snapshot: KernelTaskSnapshot): Task {
         require(snapshot.root == name) {
             "Internal error! Attempting to restore ${snapshot.name} with root task $name, but it descends from root task ${snapshot.root}"
+        }
+        requireNotNull(snapshot.history) {
+            "Internal error! Attempting to restore ${snapshot.name} but 'history' is missing!"
         }
 
         val historyProvider = snapshot.history.provider()
@@ -106,11 +117,11 @@ class PureTask private constructor(
             result = when (val stepResult = result.runStep(restorationActions)) {
                 is TaskStepResult.Await -> {
                     // If an await step has incon data, it completed, so continue the task
-                    historyProvider.provide<AwaitMarker>()?.let { stepResult.continuation } ?: stepResult.rewait
+                    historyProvider.provideExpected<AwaitMarker>(snapshot.name)?.let { stepResult.continuation } ?: stepResult.rewait
                 }
                 is TaskStepResult.Spawn -> {
                     // Spawns always run to completion, so there must be incon data for it.
-                    val marker = requireNotNull(historyProvider.provide<SpawnMarker>()) {
+                    val marker = requireNotNull(historyProvider.provideExpected<SpawnMarker>(snapshot.name)) {
                         "Malformed incon: 'spawn' action taken by task ${snapshot.name} does not have a step in incon history"
                     }
                     when (marker.branch) {
@@ -129,6 +140,14 @@ class PureTask private constructor(
             }
         }
         // If there's no history data left, we've reached the active step
+        return result
+    }
+
+    private inline fun <reified T : TaskHistoryStep> TaskHistoryProvider.provideExpected(taskName: Name): T? {
+        val result = provide<TaskHistoryStep>()
+        require(result is T?) {
+            "Malformed incon: Task $taskName expected a ${T::class.simpleName} step in its history, but a ${result!!::class.simpleName} step was provided"
+        }
         return result
     }
 

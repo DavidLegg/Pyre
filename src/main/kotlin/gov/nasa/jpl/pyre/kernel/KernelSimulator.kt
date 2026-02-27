@@ -43,6 +43,7 @@ class KernelSimulator(
     private val cellListeners: MutableMap<Cell<*>, MutableSet<AwaitingTask>> = mutableMapOf()
     private val listeningTasks: MutableMap<AwaitingTask, Set<Cell<*>>> = mutableMapOf()
     private val modifiedCells: MutableSet<Cell<*>> = mutableSetOf()
+    private val daemonNames: Set<Name>
 
     private class AwaitingTask(val await: Await) {
         var scheduledTask: TaskEntry? = null
@@ -83,19 +84,28 @@ class KernelSimulator(
 
             override fun <T> report(value: T) = reportHandler(value)
         })
+        // Save off the set of daemon names before we start trimming this set back down
+        daemonNames = daemonsWithoutInconTasks.toSet()
 
         // Now that we've collected all the root tasks, restore all the tasks from the incon.
-        tasks += incon?.tasks?.mapNotNull { kernelTaskSnapshot ->
-            val taskSnapshot = kernelTaskSnapshot.run { KernelTaskSnapshot(name, root, history) }
-            rootTasks[taskSnapshot.root]?.restoreFrom(taskSnapshot)?.let {
-                daemonsWithoutInconTasks -= taskSnapshot.root
-                TaskEntry(kernelTaskSnapshot.time, it)
+        incon?.tasks?.forEach { taskSnapshot ->
+            // Regardless of whether this task is complete or active, it exists in the incon.
+            daemonsWithoutInconTasks -= taskSnapshot.name
+            if (taskSnapshot.history != null) {
+                // The task has history, so it's still running
+                requireNotNull(taskSnapshot.time) {
+                    "Malformed task snapshot: 'time' is missing from ${taskSnapshot.name} but 'history' is present"
+                }
+                rootTasks[taskSnapshot.root]?.restoreFrom(taskSnapshot)?.let {
+                    daemonsWithoutInconTasks -= taskSnapshot.root
+                    tasks += TaskEntry(taskSnapshot.time, it)
+                }
+                // TODO: Should we warn that a saved task is being dropped if the line above produces null?
+                // This happens when an incon has task data for a daemon that isn't restarted.
+                // This is abnormal but not catastrophic - model updates may do this.
+                // However, the remaining effects of the dropped task will not be observed, which may or may not be intentional.
             }
-            // TODO: Should we warn that a saved task is being dropped if the line above produces null?
-        } ?: emptyList()
-
-        // TODO: Think through how to handle daemons that run to completion
-        //   Right now, they'll be forgotten by the simulator and then restored from the start!
+        }
 
         // If there are any tasks that didn't have an incon, they must be new daemons created by an update to the model.
         // Tolerate this and start those daemons.
@@ -120,6 +130,8 @@ class KernelSimulator(
         // Instead, we should restore the listening task, and it will generate the appropriate task when it first runs.
         val excludedTasks: Set<TaskEntry> = listeningTasks.keys.mapNotNullTo(mutableSetOf()) { it.scheduledTask }
         val tasksToSave = tasks.filter { it !in excludedTasks } + listeningTasks.keys.map { TaskEntry(time, it.await.rewait) }
+        val activeTaskNames: Set<Name> = tasksToSave.mapTo(mutableSetOf()) { it.task.name }
+        val completedDaemonNames = daemonNames.filter { it !in activeTaskNames }
         return KernelSnapshot(
             time,
             MutableDependentMap().also {
@@ -127,9 +139,11 @@ class KernelSimulator(
                     it.put(cell.name, (cell as CellImpl<*>).value, cell.valueType)
                 }
             },
-            tasksToSave.sortedBy { it.task.name.toString() }.map { (time, task) ->
-                task.save().run { GroundedKernelTaskSnapshot(time, name, root, history) }
-            }
+            // Add the time for each active task we save
+            (tasksToSave.map { (time, task) -> task.save().copy(time = time) }
+                    // And include a marker for every completed daemon, so we don't
+                    + completedDaemonNames.map { KernelTaskSnapshot(it) })
+                .sortedBy { it.name }
         )
     }
 

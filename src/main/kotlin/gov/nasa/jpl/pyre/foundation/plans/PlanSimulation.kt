@@ -159,8 +159,12 @@ class PlanSimulation<M : Any>(
         Snapshot(time, cells, tasks, loadedActivities.toList())
     }
 
-    fun addActivity(activity: GroundedActivity<M>) =
+    // TODO: Consider adding a resource to the model to assign serial IDs to activities, to guarantee uniqueness.
+
+    fun addActivity(activity: GroundedActivity<M>) {
+        loadedActivities += activity
         kernelSimulator.addTask(activity.time, activity.taskName(), activity.pureTaskStep())
+    }
 
     fun runPlan(plan: Plan<M>) {
         require(plan.startTime == time()) {
@@ -175,7 +179,10 @@ class PlanSimulation<M : Any>(
     private fun GroundedActivity<M>.pureTaskStep(): PureTaskStep = context(simulationScope) {
         // Build a simple task which calls the activity and records when the activity is finished
         coroutineTask(task {
-            ActivityActions.call(activity, model)
+            // Call the "floating" version of the activity, to preserve everything but the time.
+            // The timing is done directly when adding this to the simulator.
+            ActivityActions.call(this.float(), model)
+            // Record that we've unloaded the activity when we're done.
             loadedActivities -= this
         })
     }

@@ -91,7 +91,6 @@ sealed interface TaskHistory {
                 .deserialize(decoder)
             return SerializedTaskHistory(steps, (decoder as JsonDecoder).json)
         }
-
     }
 
     private class MemoryTaskHistory(
@@ -116,7 +115,7 @@ sealed interface TaskHistory {
     ) : TaskHistory {
         override fun provider() = object : TaskHistoryProvider {
             private var i = 0
-            override fun hasNext(): Boolean = i <= steps.size
+            override fun hasNext(): Boolean = i < steps.size
 
             @Suppress("UNCHECKED_CAST")
             override fun <T> provide(type: KType): T? =

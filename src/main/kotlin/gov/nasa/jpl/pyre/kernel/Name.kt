@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.kernel
 
+import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.utilities.Serialization.alias
@@ -8,7 +9,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 
 @Serializable(with = Name.NameSerializer::class)
-data class Name(val namespace: Name?, val simpleName: String) {
+data class Name(val namespace: Name?, val simpleName: String) : Comparable<Name> {
     constructor(simpleName: String) : this(null, simpleName)
 
     init {
@@ -19,6 +20,12 @@ data class Name(val namespace: Name?, val simpleName: String) {
     }
 
     override fun toString(): String = (namespace?.let { it.toString() + SEPARATOR } ?: "") + simpleName
+
+    override fun compareTo(other: Name): Int =
+        // Lexical order by components...
+        (this.asSequence() zip other.asSequence()).firstNotNullOfOrNull { (n, m) -> n.compareTo(m) }
+            // ...and prefixes come first.
+            ?: this.asSequence().count().compareTo(other.asSequence().count())
 
     companion object {
         private const val SEPARATOR: Char = '/'
