@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.foundation.plans
 
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.kernel.Name
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -30,9 +31,8 @@ interface Activity<M> {
  */
 @Serializable
 data class FloatingActivity<M>(
+    val name: Name,
     val activity: Activity<M>,
-    val typeName: String = activity::class.simpleName ?: throw IllegalArgumentException("Activity must have a typeName"),
-    val name: String = typeName,
 )
 
 /**
@@ -42,13 +42,12 @@ data class FloatingActivity<M>(
 data class GroundedActivity<M>(
     @Contextual
     val time: Instant,
+    val name: Name,
     val activity: Activity<M>,
-    val typeName: String = activity::class.simpleName ?: throw IllegalArgumentException("Activity must have a typeName"),
-    val name: String = typeName,
 )
 
-fun <M> GroundedActivity<M>.float() = FloatingActivity(activity, typeName, name)
-fun <M> FloatingActivity<M>.ground(time: Instant) = GroundedActivity(time, activity, typeName, name)
+fun <M> GroundedActivity<M>.float() = FloatingActivity(name, activity)
+fun <M> FloatingActivity<M>.ground(time: Instant) = GroundedActivity(time, name, activity)
 
 fun <M : Any> SerializersModuleBuilder.model(modelClass: KClass<M>) {
     // Because Activity takes Model as a type parameter, we must specify a serializer for the model type.

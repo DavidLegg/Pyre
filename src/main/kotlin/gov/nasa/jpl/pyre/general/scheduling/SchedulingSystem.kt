@@ -155,7 +155,7 @@ class SchedulingSystem<M : Any, C> private constructor(
     fun addActivities(activities: Collection<GroundedActivity<M>>) = activities.forEach(::addActivity)
     fun addPlan(plan: Plan<M>) = addActivities(plan.activities)
 
-    operator fun plusAssign(activity: Activity<M>) = addActivity(GroundedActivity(time(), activity))
+    operator fun plusAssign(activity: Activity<M>) = addActivity(GroundedActivity(time(), Name(requireNotNull(activity::class.simpleName)), activity))
     operator fun plusAssign(activity: GroundedActivity<M>) = addActivity(activity)
     operator fun plusAssign(activities: Collection<GroundedActivity<M>>) = addActivities(activities)
     operator fun plusAssign(plan: Plan<M>) = addPlan(plan)

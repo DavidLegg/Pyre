@@ -7,6 +7,7 @@ import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
+import kotlin.sequences.fold
 
 @Serializable(with = Name.NameSerializer::class)
 data class Name(val namespace: Name?, val simpleName: String) : Comparable<Name> {
@@ -54,4 +55,17 @@ object NameOperations {
      * Returned sequence is always finite and non-empty.
      */
     fun Name.asSequence(): Sequence<String> = (namespace?.run { asSequence() } ?: emptySequence()) + simpleName
+
+    /**
+     * Return the suffix of this [Name] after [prefix]
+     */
+    fun Name.relativeTo(prefix: Name): Name {
+        val parts = this.asSequence().toMutableList()
+        for (prefixPart in prefix.asSequence()) {
+            require(parts.removeFirstOrNull() == prefixPart) {
+                "$prefix is not a prefix of $this"
+            }
+        }
+        return parts.fold(null) { ns, n -> ns / n }!!
+    }
 }

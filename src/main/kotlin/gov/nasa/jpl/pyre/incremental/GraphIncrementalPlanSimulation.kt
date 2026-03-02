@@ -4,6 +4,7 @@ import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
+import gov.nasa.jpl.pyre.foundation.plans.float
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.*
 import gov.nasa.jpl.pyre.foundation.resources.Resource
@@ -168,7 +169,9 @@ class GraphIncrementalPlanSimulation<M>(
         time,
         context (simulationScope) {
             coroutineTask(task {
-                call(activity, model)
+                // Call the "floating" version of this activity to preserve everything except timing.
+                // Timing is handled when adding this task to the simulator.
+                call(float(), model)
             })
         }
     )

@@ -22,8 +22,11 @@ import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.KernelSnapshot
+import gov.nasa.jpl.pyre.kernel.KernelTaskSnapshot
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.kernel.NameOperations.relativeTo
 import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import kotlin.reflect.KType
 import kotlin.time.Duration
@@ -53,14 +56,29 @@ class PlanSimulation<M : Any>(
     private lateinit var simulationScope: SimulationScope
     private lateinit var model: M
     private val kernelSimulator: KernelSimulator
-    private val loadedActivities: MutableList<GroundedActivity<M>>
+    // TODO: Is there a way to know when we can safely remove entries from loadedActivities?
+    private val loadedActivities: MutableMap<Name, GroundedActivity<M>> = mutableMapOf()
 
     init {
-        // Pull in all the loaded activities
-        loadedActivities = incon?.activities?.toMutableList() ?: mutableListOf()
+        // Load activities in from the incon
+        incon?.activities?.forEach {
+            val activityName = it.activity.kernelName()
+            val priorActivity = loadedActivities.put(activityName, it.activity)
+            require(priorActivity == null || priorActivity == it.activity) {
+                "Malformed incon: Activity name $activityName references two different activities: $priorActivity and ${it.activity}"
+            }
+        }
+        // Build a kernel snapshot by combining daemon and activity tasks
+        val kernelIncon = incon?.run {
+            KernelSnapshot(
+                time,
+                cells,
+                daemons + activities.map { KernelTaskSnapshot(it.name, it.activity.kernelName(), it.time, it.history) }
+            )
+        }
         kernelSimulator = KernelSimulator(
             reportHandler,
-            incon = incon?.run { KernelSnapshot(time, cells, tasks) },
+            incon = kernelIncon,
             startTime = startTime,
             initialize = {
                 // Get the kernel-level init scope
@@ -114,8 +132,8 @@ class PlanSimulation<M : Any>(
                 // Finally, restart all the activities that we loaded from the incon.
                 // This won't actually start these activities now; instead, it'll provide the root tasks necessary
                 // to restore these activities to however they were when the incon was produced.
-                for (activity in loadedActivities) {
-                    basicInitScope.spawn(activity.taskName(), activity.pureTaskStep())
+                for ((name, activity) in loadedActivities) {
+                    basicInitScope.spawn(name, activity.toPureTaskStep(name))
                 }
             },
         )
@@ -155,15 +173,40 @@ class PlanSimulation<M : Any>(
         }
     }
 
-    fun save(): Snapshot<M> = kernelSimulator.save().run {
-        Snapshot(time, cells, tasks, loadedActivities.toList())
+    fun save(): Snapshot<M> {
+        val kernelSnapshot = kernelSimulator.save()
+        val daemons = mutableListOf<KernelTaskSnapshot>()
+        val activities = mutableListOf<ActivityTaskSnapshot<M>>()
+        for (taskSnapshot in kernelSnapshot.tasks) {
+            // This task is, or is spawned by, an activity
+            if (taskSnapshot.root.asSequence().first() == "activity") {
+                if (taskSnapshot.history != null) {
+                    // This task is still loaded in the simulator
+                    activities += taskSnapshot.run {
+                        ActivityTaskSnapshot(
+                            time,
+                            name,
+                            loadedActivities.getValue(root),
+                            history,
+                        )
+                    }
+                }
+                // else: activity is completed, throw it away.
+                // Unlike daemons, which get restarted if we throw away their snapshot,
+                // a completed activity can just be forgotten.
+            } else {
+                daemons += taskSnapshot
+            }
+        }
+        return Snapshot(kernelSnapshot.time, kernelSnapshot.cells, daemons, activities)
     }
 
-    // TODO: Consider adding a resource to the model to assign serial IDs to activities, to guarantee uniqueness.
-
     fun addActivity(activity: GroundedActivity<M>) {
-        loadedActivities += activity
-        kernelSimulator.addTask(activity.time, activity.taskName(), activity.pureTaskStep())
+        val name = activity.kernelName()
+        require(loadedActivities.put(name, activity) == null) {
+            "$name is already loaded. All concurrently loaded activities must have unique names."
+        }
+        kernelSimulator.addTask(activity.time, name, activity.toPureTaskStep(name))
     }
 
     fun runPlan(plan: Plan<M>) {
@@ -174,16 +217,18 @@ class PlanSimulation<M : Any>(
         runUntil(plan.endTime)
     }
 
-    private fun GroundedActivity<M>.taskName(): Name = Name("activity") / name
+    /** The name of the root kernel task for this activity */
+    private fun GroundedActivity<M>.kernelName(): Name = Name("activity") / name
 
-    private fun GroundedActivity<M>.pureTaskStep(): PureTaskStep = context(simulationScope) {
+    /** The kernel task that will run this activity under the given name */
+    private fun GroundedActivity<M>.toPureTaskStep(kernelName: Name): PureTaskStep = context(simulationScope) {
         // Build a simple task which calls the activity and records when the activity is finished
         coroutineTask(task {
             // Call the "floating" version of the activity, to preserve everything but the time.
             // The timing is done directly when adding this to the simulator.
-            ActivityActions.call(this.float(), model)
+            ActivityActions.call(float(), model)
             // Record that we've unloaded the activity when we're done.
-            loadedActivities -= this
+            loadedActivities.remove(kernelName)
         })
     }
 

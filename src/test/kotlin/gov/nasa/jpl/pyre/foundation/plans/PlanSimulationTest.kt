@@ -37,6 +37,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
+import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
@@ -183,9 +184,9 @@ class PlanSimulationTest {
                 epoch,
                 epoch + 1.hours,
                 listOf(
-                    GroundedActivity(Instant.parse("2020-01-01T00:05:00Z"), DummyActivity(), "Type A", "Activity 1"),
-                    GroundedActivity(Instant.parse("2020-01-01T00:15:00Z"), DummyActivity(), "Type B", "Activity 2"),
-                    GroundedActivity(Instant.parse("2020-01-01T00:45:00Z"), DummyActivity(), "Type C", "Activity 3"),
+                    GroundedActivity(Instant.parse("2020-01-01T00:05:00Z"), Name("Activity 1"), DummyActivity()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:15:00Z"), Name("Activity 2"), DummyActivity()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:45:00Z"), Name("Activity 3"), DummyActivity()),
                 )
             )
         )
@@ -193,9 +194,9 @@ class PlanSimulationTest {
 
         with (reports.toSimulationResults()) {
             checkActivities {
-                finished("Activity 1", "Type A", "2020-01-01T00:05:00Z", "2020-01-01T00:05:00Z")
-                finished("Activity 2", "Type B", "2020-01-01T00:15:00Z", "2020-01-01T00:15:00Z")
-                finished("Activity 3", "Type C", "2020-01-01T00:45:00Z", "2020-01-01T00:45:00Z")
+                finished("Activity 1", "2020-01-01T00:05:00Z", "2020-01-01T00:05:00Z")
+                finished("Activity 2", "2020-01-01T00:15:00Z", "2020-01-01T00:15:00Z")
+                finished("Activity 3", "2020-01-01T00:45:00Z", "2020-01-01T00:45:00Z")
             }
         }
     }
@@ -248,7 +249,7 @@ class PlanSimulationTest {
         }
 
         @Serializable
-        class DeviceActivate(val duration: Duration) : Activity<TestModel> {
+        data class DeviceActivate(val duration: Duration) : Activity<TestModel> {
             context(scope: TaskScope)
             override suspend fun effectModel(model: TestModel) {
                 if (model.deviceState.getValue() != STANDBY) {
@@ -319,14 +320,14 @@ class PlanSimulationTest {
                 epoch,
                 epoch + 2.hours + 5.minutes,
                 listOf(
-                    GroundedActivity(Instant.parse("2020-01-01T00:05:00Z"), DeviceBoot()),
-                    GroundedActivity(Instant.parse("2020-01-01T00:15:00Z"), DeviceActivate(10.minutes), name = "Observation 1"),
-                    GroundedActivity(Instant.parse("2020-01-01T00:26:00Z"), DeviceShutdown()),
-                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), DeviceActivate(20.minutes), name = "Observation 2"),
-                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), DeviceShutdown()),
-                    GroundedActivity(Instant.parse("2020-01-01T01:40:00Z"), DeviceActivate(60.minutes), name = "Observation 3"),
-                    GroundedActivity(Instant.parse("2020-01-01T01:50:00Z"), AddMiscPower(3.0)),
-                    GroundedActivity(Instant.parse("2020-01-01T01:55:00Z"), AddMiscPower(3.0)),
+                    GroundedActivity(Instant.parse("2020-01-01T00:05:00Z"), Name("DeviceBoot"), DeviceBoot()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:15:00Z"), Name("Observation 1"), DeviceActivate(10.minutes)),
+                    GroundedActivity(Instant.parse("2020-01-01T00:26:00Z"), Name("DeviceShutdown1"), DeviceShutdown()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), Name("Observation 2"), DeviceActivate(20.minutes)),
+                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), Name("DeviceShutdown2"), DeviceShutdown()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:40:00Z"), Name("Observation 3"), DeviceActivate(60.minutes)),
+                    GroundedActivity(Instant.parse("2020-01-01T01:50:00Z"), Name("AddMiscPower1"), AddMiscPower(3.0)),
+                    GroundedActivity(Instant.parse("2020-01-01T01:55:00Z"), Name("AddMiscPower2"), AddMiscPower(3.0)),
                 ),
             )
         )
@@ -334,15 +335,15 @@ class PlanSimulationTest {
         with (reports.toSimulationResults()) {
             checkActivities {
                 finished("DeviceBoot", "2020-01-01T00:05:00Z", "2020-01-01T00:10:00Z")
-                finished("Observation 1", "DeviceActivate", "2020-01-01T00:15:00Z", "2020-01-01T00:25:00Z")
-                finished("DeviceShutdown", "2020-01-01T00:26:00Z", "2020-01-01T00:31:00Z")
+                finished("Observation 1", "2020-01-01T00:15:00Z", "2020-01-01T00:25:00Z")
+                finished("DeviceShutdown1", "2020-01-01T00:26:00Z", "2020-01-01T00:31:00Z")
                 finished("DeviceBoot", "2020-01-01T01:00:00Z", "2020-01-01T01:05:00Z")
-                finished("Observation 2", "DeviceActivate", "2020-01-01T01:00:00Z", "2020-01-01T01:25:00Z")
-                finished("DeviceShutdown", "2020-01-01T01:30:00Z", "2020-01-01T01:35:00Z")
+                finished("Observation 2", "2020-01-01T01:00:00Z", "2020-01-01T01:25:00Z")
+                finished("DeviceShutdown2", "2020-01-01T01:30:00Z", "2020-01-01T01:35:00Z")
                 finished("DeviceBoot", "2020-01-01T01:40:00Z", "2020-01-01T01:45:00Z")
-                unfinished("Observation 3", "DeviceActivate", "2020-01-01T01:40:00Z")
-                finished("AddMiscPower", "2020-01-01T01:50:00Z")
-                finished("AddMiscPower", "2020-01-01T01:55:00Z")
+                unfinished("Observation 3", "2020-01-01T01:40:00Z")
+                finished("AddMiscPower1", "2020-01-01T01:50:00Z")
+                finished("AddMiscPower2", "2020-01-01T01:55:00Z")
                 finished("DeviceShutdown", "2020-01-01T01:55:00Z", "2020-01-01T02:00:00Z")
             }
             checkChannel<String>("stderr") {
@@ -408,9 +409,9 @@ class PlanSimulationTest {
         )
         // Use addActivities and runUntil to force a state with finished, running, and unstarted activities
         simulation1.apply {
-            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:03:00Z"), DeviceBoot()))
-            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:10:00Z"), DeviceActivate(60.minutes)))
-            addActivity(GroundedActivity(Instant.parse("2020-01-01T01:20:00Z"), DeviceShutdown()))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:03:00Z"), Name("DeviceBoot"), DeviceBoot()))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:10:00Z"), Name("DeviceActivate"), DeviceActivate(60.minutes)))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T01:20:00Z"), Name("DeviceShutdown"), DeviceShutdown()))
         }
 
         simulation1.runUntil(t1)
@@ -431,14 +432,14 @@ class PlanSimulationTest {
             constructModel = ::TestModel,
         )
         // Add an activity which will spawn a child, which will be active during the next fincon cycle
-        simulation2.addActivity(GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), DeviceActivate(20.minutes)))
+        simulation2.addActivity(GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), Name("DeviceActivate2"), DeviceActivate(20.minutes)))
         simulation2.runUntil(t2)
 
         with (reports2.toSimulationResults()) {
             checkActivities {
                 finished("DeviceActivate", "2020-01-01T00:10:00Z", "2020-01-01T01:10:00Z", false)
                 finished("DeviceShutdown", "2020-01-01T01:20:00Z", "2020-01-01T01:25:00Z")
-                unfinished("DeviceActivate", "2020-01-01T01:58:00Z")
+                unfinished("DeviceActivate2", "2020-01-01T01:58:00Z")
                 unfinished("DeviceBoot", "2020-01-01T01:58:00Z")
             }
         }
@@ -456,7 +457,7 @@ class PlanSimulationTest {
         with(reports3.toSimulationResults()) {
             checkActivities {
                 finished("DeviceBoot", "2020-01-01T01:58:00Z", "2020-01-01T02:03:00Z", false)
-                finished("DeviceActivate", "2020-01-01T01:58:00Z", "2020-01-01T02:23:00Z", false)
+                finished("DeviceActivate2", "2020-01-01T01:58:00Z", "2020-01-01T02:23:00Z", false)
             }
         }
     }
@@ -474,9 +475,9 @@ class PlanSimulationTest {
         )
         // Use addActivities and runUntil to force a state with finished, running, and unstarted activities
         simulation1.apply {
-            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:03:00Z"), DeviceBoot()))
-            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:10:00Z"), DeviceActivate(60.minutes)))
-            addActivity(GroundedActivity(Instant.parse("2020-01-01T01:20:00Z"), DeviceShutdown()))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:03:00Z"), Name("DeviceBoot"), DeviceBoot()))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:10:00Z"), Name("DeviceActivate"), DeviceActivate(60.minutes)))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T01:20:00Z"), Name("DeviceShutdown"), DeviceShutdown()))
         }
 
         simulation1.runUntil(t1)
@@ -497,14 +498,14 @@ class PlanSimulationTest {
             constructModel = ::TestModel,
         )
         // Add an activity which will spawn a child, which will be active during the next fincon cycle
-        simulation2.addActivity(GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), DeviceActivate(20.minutes)))
+        simulation2.addActivity(GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), Name("DeviceActivate2"), DeviceActivate(20.minutes)))
         simulation2.runUntil(Instant.parse("2020-01-01T02:00:00Z"))
 
         with (reports2.toSimulationResults()) {
             checkActivities {
                 finished("DeviceActivate", "2020-01-01T00:10:00Z", "2020-01-01T01:10:00Z", false)
                 finished("DeviceShutdown", "2020-01-01T01:20:00Z", "2020-01-01T01:25:00Z")
-                unfinished("DeviceActivate", "2020-01-01T01:58:00Z")
+                unfinished("DeviceActivate2", "2020-01-01T01:58:00Z")
                 unfinished("DeviceBoot", "2020-01-01T01:58:00Z")
             }
         }
@@ -522,7 +523,7 @@ class PlanSimulationTest {
         with(reports3.toSimulationResults()) {
             checkActivities {
                 finished("DeviceBoot", "2020-01-01T01:58:00Z", "2020-01-01T02:03:00Z", false)
-                finished("DeviceActivate", "2020-01-01T01:58:00Z", "2020-01-01T02:23:00Z", false)
+                finished("DeviceActivate2", "2020-01-01T01:58:00Z", "2020-01-01T02:23:00Z", false)
             }
         }
     }
@@ -541,18 +542,18 @@ class PlanSimulationTest {
                 epoch,
                 epoch + 2.hours + 5.minutes,
                 listOf(
-                    GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), ReportDeviceState()),
-                    GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), DeviceBoot()),
-                    GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), ReportDeviceState()),
-                    GroundedActivity(Instant.parse("2020-01-01T00:30:00Z"), ReportDeviceState()),
-                    GroundedActivity(Instant.parse("2020-01-01T00:30:00Z"), DeviceShutdown()),
-                    GroundedActivity(Instant.parse("2020-01-01T00:30:00Z"), ReportDeviceState()),
-                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), ReportDeviceState()),
-                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), DeviceBoot()),
-                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), ReportDeviceState()),
-                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), ReportDeviceState()),
-                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), DeviceShutdown()),
-                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), Name("ReportDeviceState1"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), Name("DeviceBoot2"), DeviceBoot()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), Name("ReportDeviceState3"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:30:00Z"), Name("ReportDeviceState4"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:30:00Z"), Name("DeviceShutdown5"), DeviceShutdown()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:30:00Z"), Name("ReportDeviceState6"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), Name("ReportDeviceState7"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), Name("DeviceBoot8"), DeviceBoot()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), Name("ReportDeviceState9"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), Name("ReportDeviceState10"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), Name("DeviceShutdown11"), DeviceShutdown()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), Name("ReportDeviceState12"), ReportDeviceState()),
                 ),
             )
         )

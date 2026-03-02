@@ -37,6 +37,8 @@ import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQu
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -66,6 +68,15 @@ fun main(args: Array<String>) {
                 reportHandler,
                 epoch,
                 constructModel = ::UnitDemo,
+            )
+
+            // Quick hack to ensure all activities have a unique name.
+            // TODO: Formalize this and incorporate it into the simulators.
+            var id = 0
+            fun <M> GroundedActivity(time: Instant, activity: Activity<M>) = GroundedActivity(
+                time,
+                Name((++id).toString()) / activity::class.simpleName!!,
+                activity
             )
 
             simulation.apply {

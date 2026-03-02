@@ -1,12 +1,15 @@
 package gov.nasa.jpl.pyre.foundation.plans
 
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.task
+import gov.nasa.jpl.pyre.kernel.Name
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -16,11 +19,11 @@ import kotlin.time.Instant
 object ActivityActions {
     @Serializable
     data class ActivityEvent(
-        val name: String,
+        val name: Name,
         val type: String,
-        @Contextual
+        @Serializable(with = InstantSerializer::class)
         val start: Instant,
-        @Contextual
+        @Serializable(with = InstantSerializer::class)
         val end: Instant? = null,
         // Report the activity instance itself, but only for in-memory usage.
         // The default serialization drops this extra detail.
@@ -36,10 +39,11 @@ object ActivityActions {
         val startTime = now()
         scope.activities.report(ActivityEvent(
             activity.name,
-            activity.typeName,
+            activity.activity::class.simpleName!!,
             startTime,
             activity = activity.activity,
         ))
+        // TODO: Wrap this in a block to add activity to the context name, somehow.
         activity.activity.effectModel(model)
         // Report both start and end time with the activity end event.
         // This avoids needing to generate or persist unique IDs for activities.
@@ -47,7 +51,7 @@ object ActivityActions {
         // all such start events are exactly equivalent.
         scope.activities.report(ActivityEvent(
             activity.name,
-            activity.typeName,
+            activity.activity::class.simpleName!!,
             startTime,
             now(),
             activity = activity.activity,
@@ -56,7 +60,7 @@ object ActivityActions {
 
     context (scope: TaskScope)
     suspend fun <M> call(activity: Activity<M>, model: M) =
-        call(FloatingActivity(activity), model)
+        call(FloatingActivity(Name(requireNotNull(activity::class.simpleName)), activity), model)
 
     context (scope: TaskScope)
     suspend fun <M> defer(time: Duration, activity: FloatingActivity<M>, model: M) =
@@ -80,5 +84,5 @@ object ActivityActions {
 
     context(scope: TaskScope)
     suspend fun <M> spawn(activity: Activity<M>, model: M) =
-        spawn(FloatingActivity(activity), model)
+        spawn(FloatingActivity(Name(requireNotNull(activity::class.simpleName)), activity), model)
 }

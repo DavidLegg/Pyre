@@ -31,6 +31,7 @@ import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingAlgorithms.scheduleActivityToEndNear
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem
 import gov.nasa.jpl.pyre.examples.units.KILOWATT_HOUR
+import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
@@ -49,11 +50,12 @@ import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.general.results.discrete.BooleanProfile
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.Companion.compute
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplayScope.Companion.countActivities
 import gov.nasa.jpl.pyre.general.units.Unit.Companion.SCALAR
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.builtins.DoubleArraySerializer
@@ -397,6 +399,20 @@ fun schedulingMain(args: Array<String>) {
         println("End scheduling procedure - ${schedulingEnd - schedulingStart}")
     }
 }
+
+// TODO: This is a bit of a hack to ensure we have unique names for all activities.
+//   I should come up with a better way to do this, incorporated into PlanSimulation and/or SchedulingSystem
+var nextActivityId = 1
+
+fun <M> GroundedActivity(
+    time: Instant,
+    activity: Activity<M>,
+    name: String = activity::class.simpleName!!,
+) = GroundedActivity(
+    time,
+    Name(nextActivityId++.toString()) / name,
+    activity
+)
 
 fun commPassActivity(pass: CommPass) = GroundedActivity(
     pass.start,

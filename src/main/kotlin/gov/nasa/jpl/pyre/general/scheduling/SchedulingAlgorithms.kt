@@ -3,6 +3,7 @@ package gov.nasa.jpl.pyre.general.scheduling
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
+import gov.nasa.jpl.pyre.kernel.Name
 import org.apache.commons.math3.analysis.UnivariateFunction
 import org.apache.commons.math3.analysis.solvers.AllowedSolution
 import org.apache.commons.math3.analysis.solvers.BracketingNthOrderBrentSolver
@@ -51,7 +52,7 @@ object SchedulingAlgorithms {
         activity: Activity<M>,
         endTime: Instant,
         earliestStart: Instant = time(),
-        name: String = requireNotNull(activity::class.simpleName),
+        name: Name = Name(requireNotNull(activity::class.simpleName)),
     ): GroundedActivity<M> {
         // If the earliest start is later than now, save computation by copying the scheduler
         // and advancing the copy to the earliest start.
@@ -62,7 +63,7 @@ object SchedulingAlgorithms {
             // Compute the start time as an offset from now:
             val tInstant = start + tDouble.seconds
             // Copy this scheduler and run the activity at that start time
-            val tEnd = testScheduler.copy().runUntil(GroundedActivity(tInstant, activity, name=name))
+            val tEnd = testScheduler.copy().runUntil(GroundedActivity(tInstant, name, activity))
             // Return the error in end time, also in seconds.
             // Using seconds as the input and output unit ensures slopes near 1.0, for a well-conditioned root-finding problem.
             (tEnd - endTime).toDouble(DurationUnit.SECONDS)
@@ -81,7 +82,7 @@ object SchedulingAlgorithms {
                 AllowedSolution.BELOW_SIDE,
             )
             // Having selected our start time as a double, add the activity to this at that time:
-            val groundedActivity = GroundedActivity(start + selectedStartDouble.seconds, activity, name=name)
+            val groundedActivity = GroundedActivity(start + selectedStartDouble.seconds, name, activity)
             this += groundedActivity
             return groundedActivity
         } catch (e: NoBracketingException) {

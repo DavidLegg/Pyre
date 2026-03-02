@@ -40,6 +40,8 @@ import gov.nasa.jpl.pyre.incremental.GraphIncrementalPlanSimulation
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.utilities.named
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.until
@@ -521,11 +523,21 @@ class GraphIncrementalPlanSimulationTest {
         val roundsOfEdits = 100
         println("Running $numberOfInitialActivities activities through $roundsOfEdits rounds of edits...")
 
+        val usedActivityIds = mutableSetOf<Long>()
+        fun Random.nextActivityId(): Name {
+            var activityId: Long
+            do {
+                activityId = nextLong(100_000_000_000, 1_000_000_000_000)
+            } while (!usedActivityIds.add(activityId))
+            return Name(activityId.toString())
+        }
+
         // Choose an initial plan
         val activities = mutableListOf<GroundedActivity<TestModel>>()
         repeat(numberOfInitialActivities) {
             activities += GroundedActivity(
                 rng.nextInstant(planStart..planEnd),
+                rng.nextActivityId(),
                 rng.nextActivity())
         }
         // Verify the incremental simulator can handle that initial plan
@@ -547,6 +559,7 @@ class GraphIncrementalPlanSimulationTest {
                         // Add an activity
                         val activity = GroundedActivity(
                             rng.nextInstant(planStart..planEnd),
+                            rng.nextActivityId(),
                             rng.nextActivity())
                         additions += activity
                     }
@@ -568,7 +581,7 @@ class GraphIncrementalPlanSimulationTest {
                         // Edit an activity's arguments
                         val activity = activities.randomRemove(rng)
                         removals += activity
-                        val newActivity = GroundedActivity(activity.time, activity.activity.randomArgs(rng))
+                        val newActivity = activity.copy(activity = activity.activity.randomArgs(rng))
                         additions += newActivity
                     }
                     else -> throw AssertionError("Code path should never run")
@@ -617,8 +630,11 @@ class GraphIncrementalPlanSimulationTest {
     }
 
     // Private test-ism to quickly and legibly write out a plan
-    private infix fun <M> Activity<M>.at(time: Duration): GroundedActivity<M> =
-        GroundedActivity(planStart + time, this)
+    private var nextActivityId = 1
+    private infix fun <M> Activity<M>.at(time: Duration): GroundedActivity<M> = GroundedActivity(
+        planStart + time,
+        Name(nextActivityId++.toString()) / this::class.simpleName!!,
+        this)
 
     // TODO: Something like this might actually be useful more generally, applied to an incremental simulator / scheduler.
     //   More generally, incremental sim should be powering a SchedulingSystem-like class with operations like this
@@ -630,14 +646,14 @@ class GraphIncrementalPlanSimulationTest {
     private fun <M : Any> IncrementalSimulationTester<M>.edit(vararg activities: Pair<GroundedActivity<M>, Activity<M>>) =
         run(
             PlanEdits(
-                activities.map { GroundedActivity(it.first.time, it.second) },
+                activities.map { it.first.copy(activity = it.second) },
                 activities.map { it.first },
             )
         )
     private fun <M : Any> IncrementalSimulationTester<M>.move(vararg activities: Pair<GroundedActivity<M>, Duration>) =
         run(
             PlanEdits(
-                activities.map { GroundedActivity(planStart + it.second, it.first.activity) },
+                activities.map { it.first.copy(time = planStart + it.second) },
                 activities.map { it.first },
             )
         )
