@@ -59,34 +59,47 @@ import kotlin.random.nextLong
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class GraphIncrementalPlanSimulationTest {
-    private val planStart = Instant.parse("2025-01-01T00:00:00Z")
-    private val planEnd = Instant.parse("2025-01-02T00:00:00Z")
-    private fun <M : Any> test(
+    private val day0 = Instant.parse("2025-01-01T00:00:00Z")
+    private val day1 = day0 + 1.days
+    private val day2 = day1 + 1.days
+    private val day3 = day2 + 1.days
+    private fun <M : Any> testModel(
+        startTime: Instant = day0,
+        endTime: Instant = day1,
+        incon: Checkpoint<M>? = null,
         constructModel: context (InitScope) () -> M
-    ) = IncrementalSimulationTester(constructModel, Plan(planStart, planEnd))
+    ) = IncrementalSimulationTester(constructModel, Plan(startTime, endTime), incon)
 
     private fun test(
-        vararg activities: GroundedActivity<TestModel>
-    ) = test(activities.toList())
+        vararg activities: GroundedActivity<TestModel>,
+        startTime: Instant = day0,
+        endTime: Instant = day1,
+        incon: Checkpoint<TestModel>? = null,
+    ) = test(activities.toList(), startTime, endTime, incon)
 
     private fun test(
-        activities: List<GroundedActivity<TestModel>>
-    ) = IncrementalSimulationTester(::TestModel, Plan(planStart, planEnd, activities))
+        activities: List<GroundedActivity<TestModel>>,
+        startTime: Instant = day0,
+        endTime: Instant = day1,
+        incon: Checkpoint<TestModel>? = null,
+    ) = IncrementalSimulationTester(::TestModel, Plan(startTime, endTime, activities), incon)
 
     @Test
     fun `empty model`() {
-        test { /* no model to build */ }
+        testModel { /* no model to build */ }
     }
 
     @Test
     fun `model with unregistered resources`() {
-        test {
+        testModel {
             val x = discreteResource("x", 10)
             val p = polynomialResource("p", 0.0, 1e-3)
             val b = (p greaterThan map(x) { it.toDouble() }.asPolynomial()).named { "b" }
@@ -96,7 +109,7 @@ class GraphIncrementalPlanSimulationTest {
 
     @Test
     fun `model with registered resources`() {
-        test {
+        testModel {
             val x = discreteResource("x", 10).registered()
             val p = polynomialResource("p", 0.0, 1e-3).registered()
             val b = (p greaterThan map(x) { it.toDouble() }.asPolynomial()).named { "b" }.registered()
@@ -106,7 +119,7 @@ class GraphIncrementalPlanSimulationTest {
 
     @Test
     fun `model with simple daemon`() {
-        test {
+        testModel {
             val x = discreteResource("x", 10).registered()
             val p = polynomialResource("p", 0.0, 1e-3).registered()
             val b = (p greaterThan map(x) { it.toDouble() }.asPolynomial()).named { "b" }.registered()
@@ -119,7 +132,7 @@ class GraphIncrementalPlanSimulationTest {
 
     @Test
     fun `model with daemon that spawns children`() {
-        test {
+        testModel {
             val x = discreteResource("x", 10).registered()
             val p = polynomialResource("p", 0.0, 1e-3).registered()
             val b = (p greaterThan map(x) { it.toDouble() }.asPolynomial()).named { "b" }.registered()
@@ -139,7 +152,99 @@ class GraphIncrementalPlanSimulationTest {
 
     @Test
     fun `model with concurrent tasks`() {
-        test {
+        testModel {
+            val x = discreteResource("x", 10).registered()
+            val p = polynomialResource("p", 0.0, 1e-3).registered()
+            val b = (p greaterThan map(x) { it.toDouble() }.asPolynomial()).named { "b" }.registered()
+            spawn("daemon 1", whenever(b) {
+                repeat(10) {
+                    x.increment()
+                    delay(5.seconds)
+                }
+            })
+            spawn("daemon 2", whenever(b) {
+                repeat(5) {
+                    x.increment()
+                    delay(10.seconds)
+                }
+            })
+            Triple(x, p, b)
+        }
+    }
+
+    private fun <M : Any> testModelSaveAndRestore(constructModel: context (InitScope) () -> M) {
+        val simulator1 = testModel(startTime = day0, endTime = day2, constructModel = constructModel)
+        // Try saving a checkpoint in the middle of the time range
+        val checkpoint1 = simulator1.save(day1)
+        // Use that to restore a simulation extending further than the original sim
+        testModel(startTime = day1, endTime = day3, incon = checkpoint1, constructModel = constructModel)
+        // Try saving a checkpoint at the end of the time range
+        val checkpoint2 = simulator1.save(day2)
+        // Use that to restore a simulation as well
+        testModel(startTime = day2, endTime = day3, incon = checkpoint2, constructModel = constructModel)
+    }
+
+    @Test
+    fun `save and restore empty model`() {
+        testModelSaveAndRestore { /* no model to build */ }
+    }
+
+    @Test
+    fun `save and restore model with unregistered resources`() {
+        testModelSaveAndRestore {
+            val x = discreteResource("x", 10)
+            val p = polynomialResource("p", 0.0, 1e-3)
+            val b = (p greaterThan map(x) { it.toDouble() }.asPolynomial()).named { "b" }
+            Triple(x, p, b)
+        }
+    }
+
+    @Test
+    fun `save and restore model with registered resources`() {
+        testModelSaveAndRestore {
+            val x = discreteResource("x", 10).registered()
+            val p = polynomialResource("p", 0.0, 1e-3).registered()
+            val b = (p greaterThan map(x) { it.toDouble() }.asPolynomial()).named { "b" }.registered()
+            Triple(x, p, b)
+        }
+    }
+
+    @Test
+    fun `save and restore model with simple daemon`() {
+        testModelSaveAndRestore {
+            val x = discreteResource("x", 10).registered()
+            val p = polynomialResource("p", 0.0, 1e-3).registered()
+            val b = (p greaterThan map(x) { it.toDouble() }.asPolynomial()).named { "b" }.registered()
+            spawn("daemon", whenever(b) {
+                x.increment(10)
+            })
+            Triple(x, p, b)
+        }
+    }
+
+    @Test
+    fun `save and restore model with daemon that spawns children`() {
+        testModelSaveAndRestore {
+            val x = discreteResource("x", 10).registered()
+            val p = polynomialResource("p", 0.0, 1e-3).registered()
+            val b = (p greaterThan map(x) { it.toDouble() }.asPolynomial()).named { "b" }.registered()
+            spawn("daemon", whenever(b) {
+                TaskScope.spawn("daemon child", task {
+                    repeat(10) {
+                        x.increment()
+                        delay(5.seconds)
+                    }
+                })
+                // Delay epsilon so the child task can bump x up, avoiding an infinite loop in the parent
+                delay(EPSILON)
+            })
+            Triple(x, p, b)
+        }
+    }
+
+    @Test
+    fun `save and restore model with concurrent tasks`() {
+        testModelSaveAndRestore {
             val x = discreteResource("x", 10).registered()
             val p = polynomialResource("p", 0.0, 1e-3).registered()
             val b = (p greaterThan map(x) { it.toDouble() }.asPolynomial()).named { "b" }.registered()
@@ -503,6 +608,43 @@ class GraphIncrementalPlanSimulationTest {
         )
     }
 
+    @Test
+    fun `saving and restoring single effect activities`() {
+        val simulator1 = test(
+            SetStandaloneCounter(1) at 5.minutes,
+            SetStandaloneCounter(2) at 12.hours,
+            SetStandaloneCounter(0) at 24.hours,
+            SetStandaloneCounter(10) at 25.hours,
+            SetStandaloneCounter(0) at 36.hours,
+            startTime = day0,
+            endTime = day2,
+        )
+        val checkpoint1 = simulator1.save(day1)
+        test(startTime = day1, endTime = day3, incon = checkpoint1)
+        val checkpoint2 = simulator1.save(day2)
+        test(startTime = day2, endTime = day3, incon = checkpoint2)
+    }
+
+    @Test
+    fun `saving and restoring activities that spawn children`() {
+        val simulator1 = test(
+            // SpawnChildren reads the counter, so interleave activities to set the counter to interesting values.
+            IncrementStandaloneCounter(1) at 4.hours,
+            SpawnChildren("A") at 5.hours,
+            IncrementStandaloneCounter(2) at 23.hours,
+            SpawnChildren("B") at 1.days - 6.seconds,
+            IncrementStandaloneCounter(10) at 47.hours,
+            SpawnChildren("C") at 2.days - 12.seconds,
+            SpawnChildren("D") at 2.days - 9.seconds,
+            startTime = day0,
+            endTime = day2,
+        )
+        val checkpoint1 = simulator1.save(day1)
+        test(startTime = day1, endTime = day3, incon = checkpoint1)
+        val checkpoint2 = simulator1.save(day2)
+        test(startTime = day2, endTime = day3, incon = checkpoint2)
+    }
+
     /**
      * Since incremental sim is complicated, and we have an "oracle" in the form of single-shot simulation,
      * we can randomly generate plans and plan edits and see if incremental sim works on them.
@@ -530,21 +672,51 @@ class GraphIncrementalPlanSimulationTest {
             return Name(activityId.toString())
         }
 
+        var startTime = day0
+        var endTime = day1
+
         // Choose an initial plan
         val activities = mutableListOf<GroundedActivity<TestModel>>()
         repeat(numberOfInitialActivities) {
             activities += GroundedActivity(
-                rng.nextInstant(planStart..planEnd),
+                rng.nextInstant(startTime..endTime),
                 rng.nextActivityId(),
                 rng.nextActivity())
         }
         // Verify the incremental simulator can handle that initial plan
-        val tester = test(activities)
+        var tester = test(activities)
         println("Initial simulation complete")
 
         // For as many rounds of edits as we've decided to do...
         for (roundNumber in 1..roundsOfEdits) {
             println("Running round $roundNumber of edits...")
+            // In some rounds, do a save/restore cycle
+            if (rng.chance(0.05)) {
+                // Pick a new random start time, and slide the end time with it
+                startTime = rng.nextInstant(startTime..endTime)
+                endTime = startTime + 1.days
+                // Choose whether to inject new activities or not
+                val newActivities = mutableListOf<GroundedActivity<TestModel>>()
+                if (rng.chance()) {
+                    repeat (10.0.pow(rng.nextDouble(0.0, 2.0)).toInt()) {
+                        newActivities += GroundedActivity(
+                            rng.nextInstant(startTime..endTime),
+                            rng.nextActivityId(),
+                            rng.nextActivity())
+                    }
+                }
+                // Then build a new incremental tester with those time bounds, saving and restoring from a checkpoint
+                tester = test(
+                    activities = newActivities,
+                    startTime = startTime,
+                    endTime = endTime,
+                    incon = tester.save(startTime),
+                )
+                // Finally, filter the list of activities down to just those starting in the new time range.
+                // Activities starting earlier than this cannot be changed.
+                activities.removeIf { it.time < startTime }
+                activities += newActivities
+            }
             // Choose a number of activities to edit, up to the entire plan, with a bias towards small edits.
             val numberOfEdits = if (activities.size <= 1) activities.size else
                 exp(rng.nextDouble(0.0, ln(activities.size.toDouble()))).toInt()
@@ -556,7 +728,7 @@ class GraphIncrementalPlanSimulationTest {
                     1 -> {
                         // Add an activity
                         val activity = GroundedActivity(
-                            rng.nextInstant(planStart..planEnd),
+                            rng.nextInstant(startTime..endTime),
                             rng.nextActivityId(),
                             rng.nextActivity())
                         additions += activity
@@ -572,7 +744,7 @@ class GraphIncrementalPlanSimulationTest {
                         removals += activity
                         val newActivity = activity.copy(time =
                             rng.nextInstant(activity.time - 10.minutes..activity.time + 10.minutes)
-                                .coerceIn(planStart..planEnd - 1.microseconds))
+                                .coerceIn(startTime..endTime - 1.microseconds))
                         additions += newActivity
                     }
                     4 -> {
@@ -592,6 +764,8 @@ class GraphIncrementalPlanSimulationTest {
 
     private fun Random.nextInstant(range: ClosedRange<Instant>): Instant =
         range.start + nextLong(0..range.start.until(range.endInclusive, DateTimeUnit.MICROSECOND)).microseconds
+
+    private fun Random.chance(p: Double = 0.5): Boolean = nextDouble() < p
 
     private fun Random.nextActivity(): Activity<TestModel> =
         // Choose randomly among the activity types, then choose random arguments for them
@@ -630,7 +804,7 @@ class GraphIncrementalPlanSimulationTest {
     // Private test-ism to quickly and legibly write out a plan
     private var nextActivityId = 1
     private infix fun <M> Activity<M>.at(time: Duration): GroundedActivity<M> = GroundedActivity(
-        planStart + time,
+        day0 + time,
         Name(nextActivityId++.toString()) / this::class.simpleName!!,
         this)
 
@@ -651,7 +825,7 @@ class GraphIncrementalPlanSimulationTest {
     private fun <M : Any> IncrementalSimulationTester<M>.move(vararg activities: Pair<GroundedActivity<M>, Duration>) =
         run(
             PlanEdits(
-                activities.map { it.first.copy(time = planStart + it.second) },
+                activities.map { it.first.copy(time = day0 + it.second) },
                 activities.map { it.first },
             )
         )
