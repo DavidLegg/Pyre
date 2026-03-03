@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.examples.orbiter.power
 
 import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.foundation.plans.Simulator
+import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource

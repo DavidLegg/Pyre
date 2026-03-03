@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.general.results
 
-import gov.nasa.jpl.pyre.foundation.plans.Simulator
+import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.general.results.Profile.Companion.end
 import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport

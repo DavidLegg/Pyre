@@ -4,7 +4,7 @@ import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.foundation.plans.Simulator
+import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData

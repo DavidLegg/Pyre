@@ -2,8 +2,8 @@ package gov.nasa.jpl.pyre.incremental.foundation
 
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.foundation.plans.Simulator
-import gov.nasa.jpl.pyre.foundation.plans.SimulatorOperations.plusAssign
+import gov.nasa.jpl.pyre.foundation.Simulator
+import gov.nasa.jpl.pyre.foundation.SimulatorOperations.plusAssign
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope

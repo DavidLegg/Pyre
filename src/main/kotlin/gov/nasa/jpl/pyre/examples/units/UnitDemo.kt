@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.examples.units.DeviceIndicator.*
 import gov.nasa.jpl.pyre.examples.units.DeviceState.*
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
-import gov.nasa.jpl.pyre.foundation.plans.Simulator
+import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource

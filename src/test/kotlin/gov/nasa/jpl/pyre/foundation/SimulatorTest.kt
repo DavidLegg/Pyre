@@ -1,18 +1,16 @@
-package gov.nasa.jpl.pyre.foundation.plans
+package gov.nasa.jpl.pyre.foundation
 
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.checkActivities
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.checkChannel
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.finished
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.reports
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.reportsDiscrete
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.unfinished
-import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.foundation.plans.SimulatorTest.ModelWithResources.DummyActivity
-import gov.nasa.jpl.pyre.foundation.plans.SimulatorTest.PowerState.*
-import gov.nasa.jpl.pyre.foundation.plans.SimulatorTest.TestModel.*
+import gov.nasa.jpl.pyre.foundation.SimulatorTest.ModelWithResources.DummyActivity
+import gov.nasa.jpl.pyre.foundation.SimulatorTest.PowerState.*
+import gov.nasa.jpl.pyre.foundation.SimulatorTest.TestModel.*
+import gov.nasa.jpl.pyre.foundation.plans.*
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
-import gov.nasa.jpl.pyre.general.reporting.ReportHandling.discardReports
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.*
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
@@ -26,6 +24,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.plus
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
@@ -34,10 +33,12 @@ import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stdout
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.task
+import gov.nasa.jpl.pyre.general.reporting.ReportHandling.discardReports
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
@@ -45,7 +46,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.modules.SerializersModule
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration

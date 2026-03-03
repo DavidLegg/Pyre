@@ -22,6 +22,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.ResourceResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
+import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.applyTo
 import gov.nasa.jpl.pyre.incremental.SGNode.*
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell

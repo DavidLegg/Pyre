@@ -1,4 +1,6 @@
-package gov.nasa.jpl.pyre.foundation.plans
+package gov.nasa.jpl.pyre.foundation
+
+import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 
 object SimulatorOperations {
     operator fun <M : Any> Simulator<M>.plusAssign(activity: GroundedActivity<M>) = addActivity(activity)

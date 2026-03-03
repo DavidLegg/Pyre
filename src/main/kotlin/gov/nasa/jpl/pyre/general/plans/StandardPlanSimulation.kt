@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.general.plans
 
 import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.foundation.plans.Simulator
+import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler

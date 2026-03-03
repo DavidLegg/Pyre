@@ -1,6 +1,12 @@
-package gov.nasa.jpl.pyre.foundation.plans
+package gov.nasa.jpl.pyre.foundation
 
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
+import gov.nasa.jpl.pyre.foundation.plans.ActivityTaskCheckpoint
+import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
+import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
+import gov.nasa.jpl.pyre.foundation.plans.Plan
+import gov.nasa.jpl.pyre.foundation.plans.float
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
@@ -27,6 +33,7 @@ import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
+import kotlin.collections.iterator
 import kotlin.reflect.KType
 import kotlin.time.Duration
 import kotlin.time.Instant

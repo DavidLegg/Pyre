@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
 /**
- * A checkpoint of [Simulator] which supports serialization to disk.
+ * A checkpoint of [gov.nasa.jpl.pyre.foundation.Simulator] which supports serialization to disk.
  *
  * Unlike [gov.nasa.jpl.pyre.kernel.KernelCheckpoint], this separates tasks explicitly into [daemons] and [activities].
  * [daemons] are tasks which originate from the model. The model constructor facilitates resuming these.

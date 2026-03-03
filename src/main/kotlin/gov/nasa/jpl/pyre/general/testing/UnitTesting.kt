@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.general.testing
 
-import gov.nasa.jpl.pyre.foundation.plans.Simulator
+import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
