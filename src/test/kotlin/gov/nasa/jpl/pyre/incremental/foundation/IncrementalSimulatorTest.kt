@@ -40,6 +40,12 @@ import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperatio
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulator
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorImpl
+import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.add
+import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.edit
+import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.minus
+import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.move
+import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.plus
+import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.remove
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
@@ -549,7 +555,7 @@ class IncrementalSimulatorTest {
         val a1 = SetStandaloneCounter(1) at 5.minutes
         val a2 = SetStandaloneCounter(2) at 10.minutes
         val a3 = SetStandaloneCounter(0) at 20.minutes
-        test(a1, a2, a3).move(a2 to 12.minutes)
+        test(a1, a2, a3).move(a2 to day0 + 12.minutes)
     }
 
     @Test
@@ -557,7 +563,7 @@ class IncrementalSimulatorTest {
         val a1 = SetDerivationSource(1) at 5.minutes
         val a2 = SetDerivationSource(2) at 10.minutes
         val a3 = SetDerivationSource(0) at 20.minutes
-        test(a1, a2, a3).move(a2 to 12.minutes)
+        test(a1, a2, a3).move(a2 to day0 + 12.minutes)
     }
 
     @Test
@@ -565,7 +571,7 @@ class IncrementalSimulatorTest {
         val a1 = AddJob(10) at 5.minutes
         val a2 = AddJob(20) at 10.minutes
         val a3 = AddJob(30) at 20.minutes
-        test(a1, a2, a3).move(a2 to 12.minutes)
+        test(a1, a2, a3).move(a2 to day0 + 12.minutes)
     }
 
     @Test
@@ -576,8 +582,8 @@ class IncrementalSimulatorTest {
         val a4 = IncrementStandaloneCounter(10) at 18.minutes
         val a5 = IncrementStandaloneCounter(20) at 20.minutes
         test(a1, a2, a3, a4, a5).move(
-            a2 to 7.minutes,
-            a4 to 20.minutes,
+            a2 to day0 + 7.minutes,
+            a4 to day0 + 20.minutes,
         )
     }
 
@@ -590,8 +596,8 @@ class IncrementalSimulatorTest {
         val a5 = SetIntegrand(-1.0) at 20.minutes
         val a6 = SetIntegrand(0.0) at 25.minutes
         test(a1, a2, a3, a4, a5, a6).move(
-            a3 to 15.minutes,
-            a4 to 18.minutes,
+            a3 to day0 + 15.minutes,
+            a4 to day0 + 18.minutes,
         )
     }
 
@@ -605,8 +611,8 @@ class IncrementalSimulatorTest {
         val a6 = SpawnChildren("C") at 15.minutes
         val a7 = SpawnChildren("D") at 15.minutes + 3.seconds
         test(a1, a2, a3, a4, a5, a6, a7).move(
-            a2 to 4.minutes + 10.seconds,
-            a4 to 15.minutes - 3.seconds,
+            a2 to day0 + 4.minutes + 10.seconds,
+            a4 to day0 + 15.minutes - 3.seconds,
         )
     }
 
@@ -678,6 +684,7 @@ class IncrementalSimulatorTest {
         var endTime = day1
 
         // Choose an initial plan
+        // We'll maintain this list of activities, separate from simulator.plan, since we don't yet trust the simulator.
         val activities = mutableListOf<GroundedActivity<TestModel>>()
         repeat(numberOfInitialActivities) {
             activities += GroundedActivity(
@@ -722,45 +729,43 @@ class IncrementalSimulatorTest {
             // Choose a number of activities to edit, up to the entire plan, with a bias towards small edits.
             val numberOfEdits = if (activities.size <= 1) activities.size else
                 exp(rng.nextDouble(0.0, ln(activities.size.toDouble()))).toInt()
-            val additions = mutableListOf<GroundedActivity<TestModel>>()
-            val removals = mutableListOf<GroundedActivity<TestModel>>()
+            var edits = PlanEdits<TestModel>()
             // Pick random edits to make. If we edit an activity, remove it from activities so it doesn't get edited twice.
             repeat (numberOfEdits) {
                 when (rng.nextInt(1..4)) {
                     1 -> {
                         // Add an activity
-                        val activity = GroundedActivity(
+                        edits += GroundedActivity(
                             rng.nextInstant(startTime..endTime),
                             rng.nextActivityId(),
-                            rng.nextActivity())
-                        additions += activity
+                            rng.nextActivity()
+                        )
                     }
                     2 -> {
                         // Remove an activity
-                        val activity = activities.randomRemove(rng)
-                        removals += activity
+                        edits -= activities.randomRemove(rng)
                     }
                     3 -> {
                         // Move an activity (by up to 10 minutes)
                         val activity = activities.randomRemove(rng)
-                        removals += activity
-                        val newActivity = activity.copy(time =
-                            rng.nextInstant(activity.time - 10.minutes..activity.time + 10.minutes)
-                                .coerceIn(startTime..endTime - 1.microseconds))
-                        additions += newActivity
+                        val time = rng.nextInstant(activity.time - 10.minutes..activity.time + 10.minutes)
+                            .coerceIn(startTime..endTime - 1.microseconds)
+                        edits += move(activity to time)
                     }
                     4 -> {
                         // Edit an activity's arguments
                         val activity = activities.randomRemove(rng)
-                        removals += activity
-                        val newActivity = activity.copy(activity = activity.activity.randomArgs(rng))
-                        additions += newActivity
+                        val newActivity = activity.activity.randomArgs(rng)
+                        edits += edit(activity to newActivity)
                     }
                     else -> throw AssertionError("Code path should never run")
                 }
             }
             // Now run those randomly-chosen edits, asserting the single-shot and incremental simulators agree
-            tester.run(PlanEdits(additions, removals))
+            tester.run(edits)
+            // Also apply the edits to our list of activities, to know what we can edit next round
+            activities -= edits.removals.toSet()
+            activities += edits.additions
         }
     }
 
@@ -809,28 +814,6 @@ class IncrementalSimulatorTest {
         day0 + time,
         Name(nextActivityId++.toString()) / this::class.simpleName!!,
         this)
-
-    // TODO: Something like this might actually be useful more generally, applied to an incremental simulator / scheduler.
-    //   More generally, incremental sim should be powering a SchedulingSystem-like class with operations like this
-    // Private test-ism to quickly and legibly make simple edits to a plan
-    private fun <M : Any> IncrementalSimulationTester<M>.add(vararg activities: GroundedActivity<M>) =
-        run(PlanEdits(activities.toList(), emptyList()))
-    private fun <M : Any> IncrementalSimulationTester<M>.remove(vararg activities: GroundedActivity<M>) =
-        run(PlanEdits(emptyList(), activities.toList()))
-    private fun <M : Any> IncrementalSimulationTester<M>.edit(vararg activities: Pair<GroundedActivity<M>, Activity<M>>) =
-        run(
-            PlanEdits(
-                activities.map { it.first.copy(activity = it.second) },
-                activities.map { it.first },
-            )
-        )
-    private fun <M : Any> IncrementalSimulationTester<M>.move(vararg activities: Pair<GroundedActivity<M>, Duration>) =
-        run(
-            PlanEdits(
-                activities.map { it.first.copy(time = day0 + it.second) },
-                activities.map { it.first },
-            )
-        )
 }
 
 /**

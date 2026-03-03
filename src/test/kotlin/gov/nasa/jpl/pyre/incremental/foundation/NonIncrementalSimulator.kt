@@ -12,6 +12,7 @@ import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulator
+import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import kotlin.time.Instant
 
@@ -29,7 +30,7 @@ class NonIncrementalSimulator<M : Any>(
     override var results: SimulationResults = computeResults(plan)
 
     override fun run(edits: PlanEdits<M>) {
-        plan = edits.applyTo(plan)
+        plan += edits
         results = computeResults(plan)
     }
 
