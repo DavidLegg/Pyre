@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.general.results
 
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.Simulator
 import gov.nasa.jpl.pyre.general.results.Profile.Companion.end
 import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
@@ -92,7 +92,7 @@ object ProfileOperations {
         val results = mutableListOf<ChannelData<*>>()
         lateinit var resultName: Name
         // Construct and run a simulation to compute the derived profile
-        PlanSimulation(
+        Simulator(
             object : BaseChannelizedReportHandler() {
                 override fun <T> constructChannel(metadata: ChannelReport.ChannelMetadata<T>): (ChannelData<T>) -> Unit {
                     if (metadata.channel == Name("__result")) {

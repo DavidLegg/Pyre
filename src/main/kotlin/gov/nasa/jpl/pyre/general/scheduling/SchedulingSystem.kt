@@ -4,7 +4,7 @@ import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
@@ -68,7 +68,7 @@ class SchedulingSystem<M : Any, C> private constructor(
     private val results: MutableSimulationResults,
 ) {
     private var model: M? = null
-    private val simulation: PlanSimulation<M> = PlanSimulation(
+    private val simulation: Simulator<M> = Simulator(
         results.reportHandler(),
         startTime,
         incon,

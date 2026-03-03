@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.general.testing
 
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.Simulator
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
@@ -31,7 +31,7 @@ object UnitTesting {
 
         // Leak a test variable out of the simulation as a shortcut to report when the simulation is finished.
         var testTaskComplete = false
-        val simulation = PlanSimulation(results.reportHandler(), simulationStart) {
+        val simulation = Simulator(results.reportHandler(), simulationStart) {
             // Build the model and add a task to run the test code.
             constructModel().also {
                 spawn("Test Task", task {

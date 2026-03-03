@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.general.plans
 
 import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
@@ -31,7 +31,7 @@ data class StandardPlanSimulationSetup<M>(
 )
 
 /**
- * Baseline way to set up and run a [PlanSimulation].
+ * Baseline way to set up and run a [Simulator].
  *
  * A JSON setup file is read from disk.
  * The setup file indicates a plan and (optionally) an incon, as paths relative to the location of the setup file.
@@ -91,7 +91,7 @@ fun <M: Any> runStandardPlanSimulation(
                         incon = null
                     }
 
-                    val simulation = PlanSimulation(
+                    val simulation = Simulator(
                         reportHandler,
                         plan.startTime,
                         incon,

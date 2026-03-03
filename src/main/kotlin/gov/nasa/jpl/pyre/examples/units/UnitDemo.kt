@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.examples.units.DeviceIndicator.*
 import gov.nasa.jpl.pyre.examples.units.DeviceState.*
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource
@@ -64,7 +64,7 @@ fun main(args: Array<String>) {
         CsvReportHandler(out, UnitDemo.JSON_FORMAT).use { reportHandler ->
             val epoch = Instant.parse("2000-01-01T00:00:00Z")
 
-            val simulation = PlanSimulation(
+            val simulation = Simulator(
                 reportHandler,
                 epoch,
                 constructModel = ::UnitDemo,

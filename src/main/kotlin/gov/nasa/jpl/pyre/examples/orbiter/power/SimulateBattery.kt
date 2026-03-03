@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.examples.orbiter.power
 
 import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.plans.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
@@ -33,7 +33,7 @@ fun main(args: Array<String>) {
     }
     val plan: Plan<StandaloneBatteryModel> = jsonFormat.decodeFromStream(FileInputStream(planFile))
 
-    val simulation = PlanSimulation(
+    val simulation = Simulator(
         jsonlReportHandler(),
         plan.startTime,
         constructModel = ::StandaloneBatteryModel,

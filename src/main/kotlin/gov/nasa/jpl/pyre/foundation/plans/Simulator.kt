@@ -37,16 +37,16 @@ import kotlin.time.Instant
  * The model is constructed irrespective of the plan, and defines the world the activities interact with.
  *
  * Activities are atomic units of simulation behavior, which may interact directly with the model but not each other.
- * Activities are specified in a Plan as ActivityDirectives, indicating what activity to perform, and when to perform it.
- * A Plan can be loaded into a running simulation, augmenting its behavior with additional Activities.
+ * Activities are listed in a plan, indicating what activity to perform and when to perform it.
+ * A plan can be loaded into a running simulation, augmenting its behavior with additional activities.
  *
  * A standard workflow involves
- * 1. restoring a simulation from a fincon taken at the end of the last planning cycle,
+ * 1. restoring a simulation from a fincon (checkpoint) taken at the end of the last planning cycle,
  * 2. loading a plan with the next cycle's activities,
  * 3. simulating until the end of this cycle, and
- * 4. cutting a fincon in preparation for the next cycle.
+ * 4. cutting a fincon (checkpoint) in preparation for the next cycle.
  */
-class PlanSimulation<M : Any>(
+class Simulator<M : Any>(
     reportHandler: ChannelizedReportHandler,
     startTime: Instant? = null,
     incon: Checkpoint<M>? = null,

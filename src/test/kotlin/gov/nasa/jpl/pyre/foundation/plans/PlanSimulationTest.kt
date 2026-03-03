@@ -60,7 +60,7 @@ class PlanSimulationTest {
     fun empty_model_can_be_created() {
         assertDoesNotThrow {
             val epoch = Instant.parse("2020-01-01T00:00:00Z")
-            val simulation = PlanSimulation(
+            val simulation = Simulator(
                 reportHandler = discardReports,
                 startTime = epoch,
                 constructModel = ::EmptyModel,
@@ -134,7 +134,7 @@ class PlanSimulationTest {
     fun model_with_resources_can_be_created() {
         val reports = MutableSimulationResults()
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
-        val simulation = PlanSimulation(
+        val simulation = Simulator(
             reportHandler = reports.reportHandler(),
             startTime = epoch,
             constructModel = ::ModelWithResources,
@@ -174,7 +174,7 @@ class PlanSimulationTest {
     fun activities_can_be_created() {
         val reports = MutableSimulationResults()
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
-        val simulation = PlanSimulation(
+        val simulation = Simulator(
             reportHandler = reports.reportHandler(),
             startTime = epoch,
             constructModel = ::ModelWithResources,
@@ -310,7 +310,7 @@ class PlanSimulationTest {
     fun activities_can_interact_with_model() {
         val reports = MutableSimulationResults()
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
-        val simulation = PlanSimulation(
+        val simulation = Simulator(
             reportHandler = reports.reportHandler(),
             startTime = epoch,
             constructModel = ::TestModel,
@@ -402,7 +402,7 @@ class PlanSimulationTest {
         val t0 = Instant.parse("2020-01-01T00:00:00Z")
         val t1 = Instant.parse("2020-01-01T00:20:00Z")
         val reports1 = MutableSimulationResults(t0, t1)
-        val simulation1 = PlanSimulation(
+        val simulation1 = Simulator(
             reportHandler = reports1.reportHandler(),
             startTime = t0,
             constructModel = ::TestModel,
@@ -426,7 +426,7 @@ class PlanSimulationTest {
 
         val t2 = Instant.parse("2020-01-01T02:00:00Z")
         val reports2 = MutableSimulationResults(t1, t2)
-        val simulation2 = PlanSimulation(
+        val simulation2 = Simulator(
             reportHandler = reports2.reportHandler(),
             incon = fincon1,
             constructModel = ::TestModel,
@@ -448,7 +448,7 @@ class PlanSimulationTest {
 
         val t3 = Instant.parse("2020-01-01T03:00:00Z")
         val reports3 = MutableSimulationResults(t2, t3)
-        val simulation3 = PlanSimulation(
+        val simulation3 = Simulator(
             reportHandler = reports3.reportHandler(),
             incon = fincon2,
             constructModel = ::TestModel,
@@ -468,7 +468,7 @@ class PlanSimulationTest {
         val t1 = Instant.parse("2020-01-01T00:20:00Z")
         val reports1 = MutableSimulationResults(t0, t1)
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
-        val simulation1 = PlanSimulation(
+        val simulation1 = Simulator(
             reportHandler = reports1.reportHandler(),
             startTime = epoch,
             constructModel = ::TestModel,
@@ -492,7 +492,7 @@ class PlanSimulationTest {
 
         val t2 = Instant.parse("2020-01-01T02:00:00Z")
         val reports2 = MutableSimulationResults(t1, t2)
-        val simulation2 = PlanSimulation(
+        val simulation2 = Simulator(
             reportHandler = reports2.reportHandler(),
             incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Checkpoint<TestModel>>(fincon1),
             constructModel = ::TestModel,
@@ -514,7 +514,7 @@ class PlanSimulationTest {
 
         val t3 = Instant.parse("2020-01-01T03:00:00Z")
         val reports3 = MutableSimulationResults(t2, t3)
-        val simulation3 = PlanSimulation(
+        val simulation3 = Simulator(
             reportHandler = reports3.reportHandler(),
             incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Checkpoint<TestModel>>(fincon2),
             constructModel = ::TestModel,
@@ -532,7 +532,7 @@ class PlanSimulationTest {
     fun `concurrent activities do not observe each other`() {
         val reports = MutableSimulationResults()
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
-        val simulation = PlanSimulation(
+        val simulation = Simulator(
             reportHandler = reports.reportHandler(),
             startTime = epoch,
             constructModel = ::TestModel,
