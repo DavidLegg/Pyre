@@ -6,33 +6,19 @@ import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.float
-import gov.nasa.jpl.pyre.foundation.reporting.Channel
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.*
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.resources.clock.Clock
-import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.clock
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.channel
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.ResourceResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.applyTo
-import gov.nasa.jpl.pyre.incremental.SGNode.*
-import gov.nasa.jpl.pyre.kernel.BasicInitScope
-import gov.nasa.jpl.pyre.kernel.Cell
-import gov.nasa.jpl.pyre.kernel.Effect
+import gov.nasa.jpl.pyre.incremental.SGNode.ReportNode
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import java.util.TreeSet
-import kotlin.reflect.KType
-import kotlin.time.Duration
+import java.util.*
 import kotlin.time.Instant
 
 fun <M : Any> IncrementalSimulator(
@@ -97,54 +83,7 @@ class IncrementalSimulatorImpl<M>(
             plan.startTime,
             plan.endTime,
             {
-                val basicInitScope = contextOf<BasicInitScope>()
-                // TODO: Coalesce this construction of an InitScope with that in PlanSimulation
-                val initScope = object : InitScope {
-                    override fun <T : Any> allocate(
-                        name: Name,
-                        value: T,
-                        valueType: KType,
-                        stepBy: (T, Duration) -> T,
-                        mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
-                    ): Cell<T> = basicInitScope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
-
-                    override fun spawn(
-                        name: Name,
-                        block: suspend context(TaskScope) () -> TaskScopeResult
-                    ) =
-                        // When spawning a task, build a simulation scope which incorporates the task's Name
-                        basicInitScope.spawn(name, context(subSimulationScope(contextName / name)) { coroutineTask(block) })
-
-                    override fun <T> channel(
-                        name: Name,
-                        metadata: Map<String, Metadatum>,
-                        valueType: KType
-                    ): Channel<T> {
-                        val reportType = ChannelData::class.withArg(valueType)
-                        basicInitScope.report(ChannelMetadata<T>(
-                            name,
-                            metadata,
-                            dataType = valueType,
-                            reportType = reportType,
-                            metadataType = ChannelMetadata::class.withArg(valueType),
-                        ))
-                        return Channel(name, reportType)
-                    }
-
-                    override fun <V> read(cell: Cell<V>): V = basicInitScope.read(cell)
-
-                    override fun <T> report(channel: Channel<T>, value: T) =
-                        basicInitScope.report(ChannelData(channel.name, now(), value))
-
-                    override val contextName: Name? = null
-                    override fun toString() = ""
-
-                    override val simulationClock: Resource<Clock> = clock("simulation_clock", plan.startTime)
-
-                    override val activities: Channel<ActivityEvent> = channel(Name("activities"))
-                    override val stdout: Channel<String> = channel(Name("stdout"))
-                    override val stderr: Channel<String> = channel(Name("stderr"))
-                }
+                val initScope = InitScope(plan.startTime)
                 tempSimulationScope = initScope
                 tempModel = constructModel(initScope)
                 plan.activities.map { activity ->

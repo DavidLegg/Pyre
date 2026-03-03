@@ -1,32 +1,19 @@
 package gov.nasa.jpl.pyre.foundation
 
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.ActivityTaskCheckpoint
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.float
-import gov.nasa.jpl.pyre.foundation.reporting.Channel
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
-import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.clock
-import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.kernel.KernelSimulator
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScopeResult
 import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.channel
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
-import gov.nasa.jpl.pyre.kernel.Cell
-import gov.nasa.jpl.pyre.kernel.Effect
+import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.kernel.KernelCheckpoint
 import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
 import gov.nasa.jpl.pyre.kernel.Name
@@ -34,8 +21,6 @@ import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import kotlin.collections.iterator
-import kotlin.reflect.KType
-import kotlin.time.Duration
 import kotlin.time.Instant
 
 /**
@@ -87,50 +72,8 @@ class Simulator<M : Any>(
             incon = kernelIncon,
             startTime = startTime,
             initialize = {
-                // Get the kernel-level init scope
-                val basicInitScope = contextOf<BasicInitScope>()
                 // Wrap it in a foundation-level init scope
-                val initScope = object : InitScope {
-                    override fun <T : Any> allocate(
-                        name: Name,
-                        value: T,
-                        valueType: KType,
-                        stepBy: (T, Duration) -> T,
-                        mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
-                    ): Cell<T> = basicInitScope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
-
-                    override fun spawn(name: Name, block: suspend context(TaskScope) () -> TaskScopeResult) =
-                        // When spawning a task, build a simulation scope which incorporates the task's Name
-                        basicInitScope.spawn(name, context(subSimulationScope(contextName / name)) { coroutineTask(block) })
-
-                    override fun <V> read(cell: Cell<V>): V = basicInitScope.read(cell)
-                    override fun <T> report(channel: Channel<T>, value: T) = basicInitScope.report(ChannelData(channel.name, now(), value))
-
-                    override fun <T> channel(
-                        name: Name,
-                        metadata: Map<String, ChannelReport.Metadatum>,
-                        valueType: KType
-                    ): Channel<T> {
-                        val reportType = ChannelData::class.withArg(valueType)
-                        basicInitScope.report(ChannelMetadata<T>(
-                            name,
-                            metadata,
-                            dataType = valueType,
-                            reportType = reportType,
-                            metadataType = ChannelMetadata::class.withArg(valueType),
-                        ))
-                        return Channel(name, reportType)
-                    }
-
-                    override val contextName: Name? = null
-                    override fun toString() = ""
-
-                    override val simulationClock = clock("simulation_clock", requireNotNull(incon?.time ?: startTime))
-
-                    override val activities = channel<ActivityEvent>(Name("activities"))
-                    override val stdout = channel<String>(Name("stdout"))
-                    override val stderr = channel<String>(Name("stderr"))
-                }
+                val initScope = InitScope(requireNotNull(incon?.time ?: startTime))
                 // Use the foundation-level init scope to build the model
                 model = constructModel(initScope)
                 // Also squirrel away that init scope, as just a simulation scope, to be re-used later
@@ -139,7 +82,8 @@ class Simulator<M : Any>(
                 // This won't actually start these activities now; instead, it'll provide the root tasks necessary
                 // to restore these activities to however they were when the incon was produced.
                 for ((name, activity) in loadedActivities) {
-                    basicInitScope.spawn(name, activity.toPureTaskStep(name))
+                    // For maximum control, bypass the foundation-level init scope and directly start the kernel task.
+                    spawn(name, activity.toPureTaskStep(name))
                 }
             },
         )

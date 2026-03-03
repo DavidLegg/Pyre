@@ -3,19 +3,28 @@ package gov.nasa.jpl.pyre.foundation.tasks
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.clock.Clock
+import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.clock
 import gov.nasa.jpl.pyre.foundation.resources.getValue
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.channel
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
+import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import kotlin.contracts.ExperimentalContracts
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 /**
  * A context for all the "global" conveniences offered by foundation during simulation.
@@ -176,4 +185,58 @@ interface InitScope : SimulationScope, ResourceScope, ReportScope {
         inline fun <reified T> channel(name: Name, vararg metadata: Pair<String, ChannelReport.Metadatum>) =
             scope.channel<T>(name, metadata.toMap(), typeOf<T>())
     }
+}
+
+/**
+ * Construct a foundation-level [InitScope] by wrapping a kernel-level [BasicInitScope]
+ */
+context (basicInitScope: BasicInitScope)
+fun InitScope(startTime: Instant): InitScope = object : InitScope {
+    override fun <T : Any> allocate(
+        name: Name,
+        value: T,
+        valueType: KType,
+        stepBy: (T, Duration) -> T,
+        mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
+    ): Cell<T> = basicInitScope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
+
+    override fun spawn(name: Name, block: suspend context(TaskScope) () -> TaskScopeResult) =
+        // When spawning a task, build a simulation scope which incorporates the task's Name
+        basicInitScope.spawn(name, context(subSimulationScope(contextName / name)) { coroutineTask(block) })
+
+    override fun <V> read(cell: Cell<V>): V = basicInitScope.read(cell)
+    override fun <T> report(channel: Channel<T>, value: T) = basicInitScope.report(
+        ChannelData(
+            channel.name,
+            now(),
+            value
+        )
+    )
+
+    override fun <T> channel(
+        name: Name,
+        metadata: Map<String, ChannelReport.Metadatum>,
+        valueType: KType
+    ): Channel<T> {
+        val reportType = ChannelData::class.withArg(valueType)
+        basicInitScope.report(
+            ChannelMetadata<T>(
+                name,
+                metadata,
+                dataType = valueType,
+                reportType = reportType,
+                metadataType = ChannelMetadata::class.withArg(valueType),
+            )
+        )
+        return Channel(name, reportType)
+    }
+
+    override val contextName: Name? = null
+    override fun toString() = ""
+
+    override val simulationClock = clock("simulation_clock", startTime)
+
+    override val activities = channel<ActivityEvent>(Name("activities"))
+    override val stdout = channel<String>(Name("stdout"))
+    override val stderr = channel<String>(Name("stderr"))
 }
