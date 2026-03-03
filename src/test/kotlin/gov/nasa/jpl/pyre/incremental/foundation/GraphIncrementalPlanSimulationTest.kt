@@ -229,9 +229,6 @@ class GraphIncrementalPlanSimulationTest {
 
     @Test
     fun `initial plan with concurrent read and write at plan start`() {
-        // TODO: The incremental simulator gets the correct answer here,
-        //   while the single-shot simulator gets it wrong!
-        //   The single-shot issues a report with value 1!
         test(
             IncrementStandaloneCounter(1) at 0.minutes,
             ReportStandaloneCounter("A") at 0.minutes,
