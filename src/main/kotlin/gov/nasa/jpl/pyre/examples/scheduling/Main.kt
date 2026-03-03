@@ -481,7 +481,7 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_dir
     this += GroundedActivity(scienceOp.end, backgroundTurn())
 }
 
-// TODO: This no longer works because a Snapshot includes the model it's designed for as a type parameter.
+// TODO: This no longer works because a Checkpoint includes the model it's designed for as a type parameter.
 //   Fix this or delete this use case entirely.
 /*
 fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_subsystem(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {

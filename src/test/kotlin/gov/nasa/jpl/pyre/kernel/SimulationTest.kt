@@ -27,12 +27,12 @@ import kotlin.time.Instant
 class SimulationTest {
     private data class SimulationResult(
         val reports: List<Any?>,
-        val fincon: KernelSnapshot?,
+        val fincon: KernelCheckpoint?,
     )
 
     private fun runSimulation(
         duration: Duration,
-        incon: KernelSnapshot? = null,
+        incon: KernelCheckpoint? = null,
         takeFincon: Boolean = false,
         initialize: context (BasicInitScope) () -> Unit,
     ): SimulationResult {

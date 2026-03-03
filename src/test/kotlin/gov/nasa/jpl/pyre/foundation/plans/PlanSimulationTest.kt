@@ -494,7 +494,7 @@ class PlanSimulationTest {
         val reports2 = MutableSimulationResults(t1, t2)
         val simulation2 = PlanSimulation(
             reportHandler = reports2.reportHandler(),
-            incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot<TestModel>>(fincon1),
+            incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Checkpoint<TestModel>>(fincon1),
             constructModel = ::TestModel,
         )
         // Add an activity which will spawn a child, which will be active during the next fincon cycle
@@ -516,7 +516,7 @@ class PlanSimulationTest {
         val reports3 = MutableSimulationResults(t2, t3)
         val simulation3 = PlanSimulation(
             reportHandler = reports3.reportHandler(),
-            incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot<TestModel>>(fincon2),
+            incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Checkpoint<TestModel>>(fincon2),
             constructModel = ::TestModel,
         )
         simulation3.runUntil(Instant.parse("2020-01-01T03:00:00Z"))

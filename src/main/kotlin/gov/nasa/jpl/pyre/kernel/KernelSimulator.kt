@@ -16,7 +16,7 @@ typealias ReportHandler = (Any?) -> Unit
 class KernelSimulator(
     private val reportHandler: ReportHandler,
     initialize: context (BasicInitScope) () -> Unit,
-    incon: KernelSnapshot? = null,
+    incon: KernelCheckpoint? = null,
     startTime: Instant? = null,
 ) {
     // Use a class, not a data class, for performance.
@@ -88,17 +88,17 @@ class KernelSimulator(
         daemonNames = daemonsWithoutInconTasks.toSet()
 
         // Now that we've collected all the root tasks, restore all the tasks from the incon.
-        incon?.tasks?.forEach { taskSnapshot ->
+        incon?.tasks?.forEach { taskCheckpoint ->
             // Regardless of whether this task is complete or active, it exists in the incon.
-            daemonsWithoutInconTasks -= taskSnapshot.name
-            if (taskSnapshot.history != null) {
+            daemonsWithoutInconTasks -= taskCheckpoint.name
+            if (taskCheckpoint.history != null) {
                 // The task has history, so it's still running
-                requireNotNull(taskSnapshot.time) {
-                    "Malformed task snapshot: 'time' is missing from ${taskSnapshot.name} but 'history' is present"
+                requireNotNull(taskCheckpoint.time) {
+                    "Malformed task checkpoint: 'time' is missing from ${taskCheckpoint.name} but 'history' is present"
                 }
-                rootTasks[taskSnapshot.root]?.restoreFrom(taskSnapshot)?.let {
-                    daemonsWithoutInconTasks -= taskSnapshot.root
-                    tasks += TaskEntry(taskSnapshot.time, it)
+                rootTasks[taskCheckpoint.root]?.restoreFrom(taskCheckpoint)?.let {
+                    daemonsWithoutInconTasks -= taskCheckpoint.root
+                    tasks += TaskEntry(taskCheckpoint.time, it)
                 }
                 // TODO: Should we warn that a saved task is being dropped if the line above produces null?
                 // This happens when an incon has task data for a daemon that isn't restarted.
@@ -125,14 +125,14 @@ class KernelSimulator(
         tasks += TaskEntry(time, task)
     }
 
-    fun save(): KernelSnapshot {
+    fun save(): KernelCheckpoint {
         // Tasks which are the scheduled re-evaluation or continuation of a condition should not be directly restored.
         // Instead, we should restore the listening task, and it will generate the appropriate task when it first runs.
         val excludedTasks: Set<TaskEntry> = listeningTasks.keys.mapNotNullTo(mutableSetOf()) { it.scheduledTask }
         val tasksToSave = tasks.filter { it !in excludedTasks } + listeningTasks.keys.map { TaskEntry(time, it.await.rewait) }
         val activeTaskNames: Set<Name> = tasksToSave.mapTo(mutableSetOf()) { it.task.name }
         val completedDaemonNames = daemonNames.filter { it !in activeTaskNames }
-        return KernelSnapshot(
+        return KernelCheckpoint(
             time,
             MutableDependentMap().also {
                 for (cell in cells) {
@@ -142,7 +142,7 @@ class KernelSimulator(
             // Add the time for each active task we save
             (tasksToSave.map { (time, task) -> task.save().copy(time = time) }
                     // And include a marker for every completed daemon, so we don't
-                    + completedDaemonNames.map { KernelTaskSnapshot(it) })
+                    + completedDaemonNames.map { KernelTaskCheckpoint(it) })
                 .sortedBy { it.name }
         )
     }

@@ -1,7 +1,7 @@
 package gov.nasa.jpl.pyre.kernel.tasks
 
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.KernelTaskSnapshot
+import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
 
 /**
  * Any task which may run in a simulation.
@@ -25,14 +25,14 @@ interface Task {
     fun runStep(actions: BasicTaskActions): TaskStepResult
 
     /**
-     * Save a snapshot of this task.
+     * Save a checkpoint of this task.
      */
-    fun save(): KernelTaskSnapshot
+    fun save(): KernelTaskCheckpoint
 
     /**
-     * Treat this as a root task, and restore the child described by [snapshot].
+     * Treat this as a root task, and restore the child described by [checkpoint].
      *
-     * This method should be called for every child task present in simulation snapshot to fully restore the simulation.
+     * This method should be called for every child task present in simulation checkpoint to fully restore the simulation.
      */
-    fun restoreFrom(snapshot: KernelTaskSnapshot): Task
+    fun restoreFrom(checkpoint: KernelTaskCheckpoint): Task
 }

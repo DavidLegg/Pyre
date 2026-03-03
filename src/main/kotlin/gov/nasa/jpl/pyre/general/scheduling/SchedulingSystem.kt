@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
-import gov.nasa.jpl.pyre.foundation.plans.Snapshot
+import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
@@ -60,7 +60,7 @@ class SchedulingSystem<M : Any, C> private constructor(
     startTime: Instant?,
     val config: C,
     private val constructModel: context (InitScope) (C) -> M,
-    incon: Snapshot<M>?,
+    incon: Checkpoint<M>?,
     /** Activities not yet part of the simulation */
     private val futureActivities: PriorityQueue<GroundedActivity<M>>,
     /** Activities which have been incorporated into the simulation. */
@@ -85,7 +85,7 @@ class SchedulingSystem<M : Any, C> private constructor(
         config: C,
         constructModel: context (InitScope) (C) -> M,
         startTime: Instant? = null,
-        incon: Snapshot<M>? = null,
+        incon: Checkpoint<M>? = null,
     ) : this(
         startTime,
         config,

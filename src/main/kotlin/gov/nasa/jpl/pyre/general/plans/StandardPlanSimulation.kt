@@ -2,7 +2,7 @@ package gov.nasa.jpl.pyre.general.plans
 
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
-import gov.nasa.jpl.pyre.foundation.plans.Snapshot
+import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.general.reporting.ParallelReportHandler.Companion.inParallel
@@ -81,11 +81,11 @@ fun <M: Any> runStandardPlanSimulation(
                 // Write output in parallel with simulation
                 baseReportHandler.inParallel { reportHandler ->
                     // Initialize the simulation from an incon, if available.
-                    val incon: Snapshot<M>?
+                    val incon: Checkpoint<M>?
                     if (setup.inconFile != null) {
                         val inconPath = setupPath.resolveSibling(setup.inconFile)
                         println("Reading initial conditions $inconPath")
-                        incon = jsonFormat.decodeFromFile<Snapshot<M>>(inconPath)
+                        incon = jsonFormat.decodeFromFile<Checkpoint<M>>(inconPath)
                     } else {
                         println("No initial conditions given.")
                         incon = null

@@ -3,7 +3,7 @@ package gov.nasa.jpl.pyre.kernel.tasks
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.KernelTaskSnapshot
+import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
 import gov.nasa.jpl.pyre.kernel.tasks.PureTask.TaskHistoryStep.*
 import gov.nasa.jpl.pyre.kernel.tasks.TaskHistoryCollector.Companion.report
 import gov.nasa.jpl.pyre.kernel.tasks.TaskHistoryProvider.Companion.provide
@@ -14,7 +14,7 @@ import kotlin.reflect.KType
 
 /**
  * A "pure" task is a task driven by [PureTaskStep]s.
- * It records its history to save to a snapshot, and can replay that history to resume from a snapshot.
+ * It records its history to save to a checkpoint, and can replay that history to resume from a checkpoint.
  */
 class PureTask private constructor(
     override val name: Name,
@@ -25,7 +25,7 @@ class PureTask private constructor(
 ) : Task {
     /** The start of this task; what should be run when a task restarts */
     private val startTask: Task = startTask ?: this
-    /** The root task from which this task descends; what should be used to restore this task from a snapshot. */
+    /** The root task from which this task descends; what should be used to restore this task from a checkpoint. */
     override val rootTask: Task = rootTask ?: this
 
     // public users of this class can build root tasks, and only root tasks build non-root tasks
@@ -90,23 +90,23 @@ class PureTask private constructor(
         }
     }
 
-    override fun save(): KernelTaskSnapshot =
-        KernelTaskSnapshot(name, rootTask.name, history=MutableTaskHistory().apply(collectPriorHistory))
+    override fun save(): KernelTaskCheckpoint =
+        KernelTaskCheckpoint(name, rootTask.name, history=MutableTaskHistory().apply(collectPriorHistory))
 
-    override fun restoreFrom(snapshot: KernelTaskSnapshot): Task {
-        require(snapshot.root == name) {
-            "Internal error! Attempting to restore ${snapshot.name} with root task $name, but it descends from root task ${snapshot.root}"
+    override fun restoreFrom(checkpoint: KernelTaskCheckpoint): Task {
+        require(checkpoint.root == name) {
+            "Internal error! Attempting to restore ${checkpoint.name} with root task $name, but it descends from root task ${checkpoint.root}"
         }
-        requireNotNull(snapshot.history) {
-            "Internal error! Attempting to restore ${snapshot.name} but 'history' is missing!"
+        requireNotNull(checkpoint.history) {
+            "Internal error! Attempting to restore ${checkpoint.name} but 'history' is missing!"
         }
 
-        val historyProvider = snapshot.history.provider()
+        val historyProvider = checkpoint.history.provider()
 
         val restorationActions = object : BasicTaskActions {
             override fun <V> read(cell: Cell<V>): V =
                 requireNotNull(historyProvider.provide<ReadMarker<V>>(ReadMarker.concreteType(cell.valueType))) {
-                    "Malformed incon: task ${snapshot.name} read $cell, but no read data is available in the snapshot"
+                    "Malformed incon: task ${checkpoint.name} read $cell, but no read data is available in the checkpoint"
                 }.value
             override fun <V> emit(cell: Cell<V>, effect: Effect<V>) { /* ignore */ }
             override fun <V> report(value: V) { /* ignore */ }
@@ -117,12 +117,12 @@ class PureTask private constructor(
             result = when (val stepResult = result.runStep(restorationActions)) {
                 is TaskStepResult.Await -> {
                     // If an await step has incon data, it completed, so continue the task
-                    historyProvider.provideExpected<AwaitMarker>(snapshot.name)?.let { stepResult.continuation } ?: stepResult.rewait
+                    historyProvider.provideExpected<AwaitMarker>(checkpoint.name)?.let { stepResult.continuation } ?: stepResult.rewait
                 }
                 is TaskStepResult.Spawn -> {
                     // Spawns always run to completion, so there must be incon data for it.
-                    val marker = requireNotNull(historyProvider.provideExpected<SpawnMarker>(snapshot.name)) {
-                        "Malformed incon: 'spawn' action taken by task ${snapshot.name} does not have a step in incon history"
+                    val marker = requireNotNull(historyProvider.provideExpected<SpawnMarker>(checkpoint.name)) {
+                        "Malformed incon: 'spawn' action taken by task ${checkpoint.name} does not have a step in incon history"
                     }
                     when (marker.branch) {
                         SpawnMarkerBranch.Parent -> stepResult.continuation
@@ -132,10 +132,10 @@ class PureTask private constructor(
                 // Restarts and completes shouldn't happen.
                 // A restart should have trimmed history; a complete should have eliminated it.
                 is TaskStepResult.Restart -> throw IllegalArgumentException(
-                    "Malformed incon: task ${snapshot.name} restarted while restoring from a snapshot"
+                    "Malformed incon: task ${checkpoint.name} restarted while restoring from a checkpoint"
                 )
                 is TaskStepResult.Complete -> throw IllegalArgumentException(
-                    "Malformed incon: task ${snapshot.name} completed while restoring from a snapshot"
+                    "Malformed incon: task ${checkpoint.name} completed while restoring from a checkpoint"
                 )
             }
         }

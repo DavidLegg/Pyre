@@ -21,12 +21,11 @@ import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.KernelSnapshot
-import gov.nasa.jpl.pyre.kernel.KernelTaskSnapshot
+import gov.nasa.jpl.pyre.kernel.KernelCheckpoint
+import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import gov.nasa.jpl.pyre.kernel.NameOperations.relativeTo
 import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import kotlin.reflect.KType
 import kotlin.time.Duration
@@ -50,7 +49,7 @@ import kotlin.time.Instant
 class PlanSimulation<M : Any>(
     reportHandler: ChannelizedReportHandler,
     startTime: Instant? = null,
-    incon: Snapshot<M>? = null,
+    incon: Checkpoint<M>? = null,
     constructModel: context (InitScope) () -> M,
 ) {
     private lateinit var simulationScope: SimulationScope
@@ -68,12 +67,12 @@ class PlanSimulation<M : Any>(
                 "Malformed incon: Activity name $activityName references two different activities: $priorActivity and ${it.activity}"
             }
         }
-        // Build a kernel snapshot by combining daemon and activity tasks
+        // Build a kernel checkpoint by combining daemon and activity tasks
         val kernelIncon = incon?.run {
-            KernelSnapshot(
+            KernelCheckpoint(
                 time,
                 cells,
-                daemons + activities.map { KernelTaskSnapshot(it.name, it.activity.kernelName(), it.time, it.history) }
+                daemons + activities.map { KernelTaskCheckpoint(it.name, it.activity.kernelName(), it.time, it.history) }
             )
         }
         kernelSimulator = KernelSimulator(
@@ -173,17 +172,17 @@ class PlanSimulation<M : Any>(
         }
     }
 
-    fun save(): Snapshot<M> {
-        val kernelSnapshot = kernelSimulator.save()
-        val daemons = mutableListOf<KernelTaskSnapshot>()
-        val activities = mutableListOf<ActivityTaskSnapshot<M>>()
-        for (taskSnapshot in kernelSnapshot.tasks) {
+    fun save(): Checkpoint<M> {
+        val kernelCheckpoint = kernelSimulator.save()
+        val daemons = mutableListOf<KernelTaskCheckpoint>()
+        val activities = mutableListOf<ActivityTaskCheckpoint<M>>()
+        for (taskCheckpoint in kernelCheckpoint.tasks) {
             // This task is, or is spawned by, an activity
-            if (taskSnapshot.root.asSequence().first() == "activity") {
-                if (taskSnapshot.history != null) {
+            if (taskCheckpoint.root.asSequence().first() == "activity") {
+                if (taskCheckpoint.history != null) {
                     // This task is still loaded in the simulator
-                    activities += taskSnapshot.run {
-                        ActivityTaskSnapshot(
+                    activities += taskCheckpoint.run {
+                        ActivityTaskCheckpoint(
                             time,
                             name,
                             loadedActivities.getValue(root),
@@ -192,13 +191,13 @@ class PlanSimulation<M : Any>(
                     }
                 }
                 // else: activity is completed, throw it away.
-                // Unlike daemons, which get restarted if we throw away their snapshot,
+                // Unlike daemons, which get restarted if we throw away their checkpoint,
                 // a completed activity can just be forgotten.
             } else {
-                daemons += taskSnapshot
+                daemons += taskCheckpoint
             }
         }
-        return Snapshot(kernelSnapshot.time, kernelSnapshot.cells, daemons, activities)
+        return Checkpoint(kernelCheckpoint.time, kernelCheckpoint.cells, daemons, activities)
     }
 
     fun addActivity(activity: GroundedActivity<M>) {

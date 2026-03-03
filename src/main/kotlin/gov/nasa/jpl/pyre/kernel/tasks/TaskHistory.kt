@@ -18,7 +18,7 @@ import kotlin.reflect.typeOf
 /*
  * Why is this file so complicated?
  *
- * Basically the same reason that Snapshot is so complicated.
+ * Basically the same reason that Checkpoint is so complicated.
  * When copying task history in memory, we don't want to serialize, not even to JsonElements.
  * To support this, I have MemoryTaskHistory.
  *
@@ -30,7 +30,7 @@ import kotlin.reflect.typeOf
  */
 
 /**
- * Collects each step of a task history as an individual report, for saving to [gov.nasa.jpl.pyre.kernel.KernelSnapshot].
+ * Collects each step of a task history as an individual report, for saving to [gov.nasa.jpl.pyre.kernel.KernelCheckpoint].
  * Implementations of this type are stateful and are mutated by [report].
  */
 interface TaskHistoryCollector {
@@ -42,7 +42,7 @@ interface TaskHistoryCollector {
 }
 
 /**
- * Provides reports indicating what steps a task has taken, usually from [gov.nasa.jpl.pyre.kernel.KernelSnapshot].
+ * Provides reports indicating what steps a task has taken, usually from [gov.nasa.jpl.pyre.kernel.KernelCheckpoint].
  * Implementations of this type are stateful and are mutated by [provide], like an Iterator would be.
  */
 interface TaskHistoryProvider {

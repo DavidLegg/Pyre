@@ -6,18 +6,18 @@ import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
 /**
- * A snapshot of the state of [KernelSimulator] which supports serialization to disk.
+ * A checkpoint of the state of [KernelSimulator] which supports serialization to disk.
  */
 @Serializable
-data class KernelSnapshot(
+data class KernelCheckpoint(
     @Serializable(with = InstantSerializer::class)
     val time: Instant,
     val cells: DependentMap,
-    val tasks: List<KernelTaskSnapshot>,
+    val tasks: List<KernelTaskCheckpoint>,
 )
 
 @Serializable
-data class KernelTaskSnapshot(
+data class KernelTaskCheckpoint(
     /** The name of this task */
     val name: Name,
     /** The name of the root task from which this task is descended. */
