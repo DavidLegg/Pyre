@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import kotlin.time.Instant
 
-interface IncrementalPlanSimulation<M> {
+interface IncrementalSimulator<M> {
     /**
      * The currently-active plan, the result of the initial plan and all subsequent edits applied via [run]
      */

@@ -29,7 +29,7 @@ import kotlin.time.Instant
 // TODO: Look for opportunities to refactor node creation (e.g. an "insert after" operator that does the link modification).
 
 /**
- * Support for [GraphIncrementalPlanSimulation], which implements graph-based incremental simulation at the kernel level.
+ * Support for [IncrementalSimulatorImpl], which implements graph-based incremental simulation at the kernel level.
  */
 class KernelIncrementalSimulator(
     planStart: Instant,

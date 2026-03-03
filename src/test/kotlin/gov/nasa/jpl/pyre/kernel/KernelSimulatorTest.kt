@@ -24,7 +24,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
-class SimulationTest {
+class KernelSimulatorTest {
     private data class SimulationResult(
         val reports: List<Any?>,
         val fincon: KernelCheckpoint?,

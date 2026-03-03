@@ -37,7 +37,9 @@ import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperatio
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.constant
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.polynomialResource
-import gov.nasa.jpl.pyre.incremental.GraphIncrementalPlanSimulation
+import gov.nasa.jpl.pyre.general.results.SimulationResults
+import gov.nasa.jpl.pyre.incremental.IncrementalSimulator
+import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorImpl
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
@@ -66,7 +68,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
-class GraphIncrementalPlanSimulationTest {
+class IncrementalSimulatorTest {
     private val day0 = Instant.parse("2025-01-01T00:00:00Z")
     private val day1 = day0 + 1.days
     private val day2 = day1 + 1.days
@@ -851,15 +853,18 @@ private class IncrementalSimulationTester<M : Any>(
     constructModel: context (InitScope) () -> M,
     plan: Plan<M>,
     incon: Checkpoint<M>? = null,
-) {
-    private val baselineSimulation = NonIncrementalPlanSimulation(constructModel, plan, incon)
-    private val testSimulation = GraphIncrementalPlanSimulation(constructModel, plan, incon)
+) : IncrementalSimulator<M> {
+    private val baselineSimulation = NonIncrementalSimulator(constructModel, plan, incon)
+    private val testSimulation = IncrementalSimulatorImpl(constructModel, plan, incon)
 
     init {
         assertSynced()
     }
 
-    fun run(edits: PlanEdits<M>) {
+    override val plan: Plan<M> get() = testSimulation.plan
+    override val results: SimulationResults get() = testSimulation.results
+
+    override fun run(edits: PlanEdits<M>) {
         baselineSimulation.run(edits)
         testSimulation.run(edits)
         assertSynced()
@@ -899,7 +904,7 @@ private class IncrementalSimulationTester<M : Any>(
         assert(remainingTestActivities.isEmpty())
     }
 
-    fun save(time: Instant): Checkpoint<M> {
+    override fun save(time: Instant): Checkpoint<M> {
         // Save checkpoints from both, and assert they're equivalent
         val baselineCheckpoint = baselineSimulation.save(time)
         val testCheckpoint = testSimulation.save(time)

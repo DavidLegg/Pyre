@@ -11,19 +11,19 @@ import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
-import gov.nasa.jpl.pyre.incremental.IncrementalPlanSimulation
+import gov.nasa.jpl.pyre.incremental.IncrementalSimulator
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import kotlin.time.Instant
 
 /**
- * Not-actually-incremental implementation of [gov.nasa.jpl.pyre.incremental.IncrementalPlanSimulation].
+ * Not-actually-incremental implementation of [gov.nasa.jpl.pyre.incremental.IncrementalSimulator].
  * This is the baseline correct behavior for an incremental simulator, without the complexity of actually being incremental.
  */
-class NonIncrementalPlanSimulation<M : Any>(
+class NonIncrementalSimulator<M : Any>(
     private val constructModel: context (InitScope) () -> M,
     plan: Plan<M>,
     private val incon: Checkpoint<M>? = null,
-) : IncrementalPlanSimulation<M> {
+) : IncrementalSimulator<M> {
     override var plan: Plan<M> = plan
         private set
     override var results: SimulationResults = computeResults(plan)

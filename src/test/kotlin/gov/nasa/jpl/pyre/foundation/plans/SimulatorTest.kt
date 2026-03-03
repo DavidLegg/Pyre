@@ -8,9 +8,9 @@ import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.reports
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.reportsDiscrete
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.unfinished
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.ModelWithResources.DummyActivity
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.PowerState.*
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.TestModel.*
+import gov.nasa.jpl.pyre.foundation.plans.SimulatorTest.ModelWithResources.DummyActivity
+import gov.nasa.jpl.pyre.foundation.plans.SimulatorTest.PowerState.*
+import gov.nasa.jpl.pyre.foundation.plans.SimulatorTest.TestModel.*
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.discardReports
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
@@ -53,7 +53,7 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
-class PlanSimulationTest {
+class SimulatorTest {
     class EmptyModel(context: InitScope)
 
     @Test

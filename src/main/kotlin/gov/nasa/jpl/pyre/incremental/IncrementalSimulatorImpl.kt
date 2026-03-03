@@ -34,14 +34,20 @@ import kotlin.reflect.KType
 import kotlin.time.Duration
 import kotlin.time.Instant
 
-/**
- * Implements [IncrementalPlanSimulation] using an in-memory directed acyclic graph of the events that took place.
- */
-class GraphIncrementalPlanSimulation<M>(
+fun <M : Any> IncrementalSimulator(
     constructModel: context (InitScope) () -> M,
     plan: Plan<M>,
     incon: Checkpoint<M>? = null,
-) : IncrementalPlanSimulation<M> {
+): IncrementalSimulator<M> = IncrementalSimulatorImpl(constructModel, plan, incon)
+
+/**
+ * Implements [IncrementalSimulator] using an in-memory directed acyclic graph of the events that took place.
+ */
+class IncrementalSimulatorImpl<M>(
+    constructModel: context (InitScope) () -> M,
+    plan: Plan<M>,
+    incon: Checkpoint<M>? = null,
+) : IncrementalSimulator<M> {
     override var plan: Plan<M> = plan
         private set
     override val results: SimulationResults get() = SimulationResults(
