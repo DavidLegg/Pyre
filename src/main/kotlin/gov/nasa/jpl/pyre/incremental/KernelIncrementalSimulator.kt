@@ -6,6 +6,7 @@ import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
+import gov.nasa.jpl.pyre.kernel.KernelCheckpoint
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.ReadActions
@@ -34,7 +35,8 @@ class KernelIncrementalSimulator(
     planStart: Instant,
     private val planEnd: Instant,
     constructPlan: context (BasicInitScope) () -> List<KernelActivity>,
-    private val reportHandler: IncrementalReportHandler
+    private val reportHandler: IncrementalReportHandler,
+    incon: KernelCheckpoint? = null,
 ) {
     private var nextNodeId: Int = 0
     /** All cell nodes allocated in the DAG */
@@ -93,6 +95,8 @@ class KernelIncrementalSimulator(
     }
 
     init {
+        incon?.let { TODO("incon handling") }
+
         // Init happens before any tasks, at plan start.
         var cellAllocTime = SimulationTime(planStart).cellSteppingBatch()
         // Put initial reports on a different branch from cell allocation.

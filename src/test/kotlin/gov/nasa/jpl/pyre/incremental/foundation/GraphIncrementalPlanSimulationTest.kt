@@ -3,6 +3,7 @@ package gov.nasa.jpl.pyre.incremental.foundation
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
+import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
@@ -675,9 +676,10 @@ class GraphIncrementalPlanSimulationTest {
 private class IncrementalSimulationTester<M : Any>(
     constructModel: context (InitScope) () -> M,
     plan: Plan<M>,
+    incon: Checkpoint<M>? = null,
 ) {
-    private val baselineSimulation = NonIncrementalPlanSimulation(constructModel, plan)
-    private val testSimulation = GraphIncrementalPlanSimulation(constructModel, plan)
+    private val baselineSimulation = NonIncrementalPlanSimulation(constructModel, plan, incon)
+    private val testSimulation = GraphIncrementalPlanSimulation(constructModel, plan, incon)
 
     init {
         assertSynced()
@@ -721,6 +723,48 @@ private class IncrementalSimulationTester<M : Any>(
             assert(remainingTestActivities.remove(baseActivity))
         }
         assert(remainingTestActivities.isEmpty())
+    }
+
+    fun save(time: Instant): Checkpoint<M> {
+        // Save checkpoints from both, and assert they're equivalent
+        val baselineCheckpoint = baselineSimulation.save(time)
+        val testCheckpoint = testSimulation.save(time)
+
+        // Since a checkpoint is likely to have issues, do a fine-grained comparison to aid debugging
+        assertEquals(baselineCheckpoint.time, testCheckpoint.time)
+        assertEquals(baselineCheckpoint.cells, testCheckpoint.cells)
+
+        // Daemons are stored as a list, but order isn't relevant
+        val remainingTestDaemons = testCheckpoint.daemons.toMutableList()
+        for (baselineDaemon in baselineCheckpoint.daemons) {
+            // Find the relevant daemon entry by name and remove it
+            val n = remainingTestDaemons.indexOfFirst { it.name == baselineDaemon.name }
+            require(n >= 0) { "No daemon named ${baselineDaemon.name}" }
+            val testDaemon = remainingTestDaemons.removeAt(n)
+            // Assert that each field is equal separately to aid debugging
+            assertEquals(baselineDaemon.name, testDaemon.name)
+            assertEquals(baselineDaemon.root, testDaemon.root)
+            assertEquals(baselineDaemon.time, testDaemon.time)
+            assertEquals(baselineDaemon.history, testDaemon.history)
+        }
+        assert(remainingTestDaemons.isEmpty())
+
+        // Activities are stored as a list, but order isn't relevant
+        val remainingTestActivities = testCheckpoint.activities.toMutableList()
+        for (baselineActivity in baselineCheckpoint.activities) {
+            val n = remainingTestActivities.indexOfFirst { it.name == baselineActivity.name }
+            require(n >= 0) { "No activity named ${baselineActivity.name}" }
+            val testActivity = remainingTestActivities.removeAt(n)
+            // Assert that each field is equal separately to aid debugging
+            assertEquals(baselineActivity.name, testActivity.name)
+            assertEquals(baselineActivity.time, testActivity.time)
+            assertEquals(baselineActivity.activity, testActivity.activity)
+            assertEquals(baselineActivity.history, testActivity.history)
+        }
+        assert(remainingTestActivities.isEmpty())
+
+        // Having asserted that both checkpoints are equivalent, it doesn't matter which we return.
+        return baselineCheckpoint
     }
 }
 

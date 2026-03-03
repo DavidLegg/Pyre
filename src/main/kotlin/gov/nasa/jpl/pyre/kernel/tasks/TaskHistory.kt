@@ -93,7 +93,7 @@ sealed interface TaskHistory {
         }
     }
 
-    private class MemoryTaskHistory(
+    private data class MemoryTaskHistory(
         var steps: MutableList<Pair<*, KType>> = mutableListOf()
     ) : MutableTaskHistory {
         override fun <T> report(value: T, type: KType) {
@@ -109,7 +109,7 @@ sealed interface TaskHistory {
         }
     }
 
-    private class SerializedTaskHistory(
+    private data class SerializedTaskHistory(
         var steps: List<JsonElement>,
         private var json: Json,
     ) : TaskHistory {

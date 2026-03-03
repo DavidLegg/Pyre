@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
+import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.float
@@ -31,6 +32,7 @@ import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import java.util.TreeSet
 import kotlin.reflect.KType
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 /**
  * Implements [IncrementalPlanSimulation] using an in-memory directed acyclic graph of the events that took place.
@@ -38,6 +40,7 @@ import kotlin.time.Duration
 class GraphIncrementalPlanSimulation<M>(
     constructModel: context (InitScope) () -> M,
     plan: Plan<M>,
+    incon: Checkpoint<M>? = null,
 ) : IncrementalPlanSimulation<M> {
     override var plan: Plan<M> = plan
         private set
@@ -142,7 +145,8 @@ class GraphIncrementalPlanSimulation<M>(
                     activity.toKernelActivity(tempSimulationScope, tempModel).also { kernelActivityMap[activity] = it }
                 }
             },
-            incrementalReportHandler
+            incrementalReportHandler,
+            incon?.let { TODO("incon handling") }
         )
         simulationScope = checkNotNull(tempSimulationScope)
         model = checkNotNull(tempModel)
@@ -162,6 +166,10 @@ class GraphIncrementalPlanSimulation<M>(
                 activity.toKernelActivity(simulationScope, model).also { kernelActivityMap[activity] = it }
             }
         ))
+    }
+
+    override fun save(time: Instant): Checkpoint<M> {
+        TODO("saving checkpoints")
     }
 
     private fun GroundedActivity<M>.toKernelActivity(simulationScope: SimulationScope, model: M) = KernelActivity(
