@@ -3,13 +3,18 @@ package gov.nasa.jpl.pyre.foundation.plans
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.spawn
+import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.kernel.tasks.KernelTask
+import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -85,4 +90,21 @@ object ActivityActions {
     context(scope: TaskScope)
     suspend fun <M> spawn(activity: Activity<M>, model: M) =
         spawn(FloatingActivity(Name(requireNotNull(activity::class.simpleName)), activity), model)
+
+    // Utilities for translating foundation-level activities down to kernel-level tasks.
+    // toKernelTask is the fundamental source of truth on how to do this.
+    // The other methods are exposed to allow simulators to do partial translations as needed.
+
+    context(scope: SimulationScope)
+    fun <M> GroundedActivity<M>.toKernelTask(model: M): KernelTask = KernelTask(
+        kernelTaskName(name),
+        time,
+        float().toPureTaskStep(model),
+    )
+
+    fun kernelTaskName(activityName: Name): Name = Name("activities") / activityName
+
+    context(scope: SimulationScope)
+    fun <M> FloatingActivity<M>.toPureTaskStep(model: M): PureTaskStep =
+        coroutineTask(task { call(this, model) })
 }

@@ -11,6 +11,7 @@ import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.ReadActions
 import gov.nasa.jpl.pyre.kernel.SatisfiedAt
+import gov.nasa.jpl.pyre.kernel.tasks.KernelTask
 import gov.nasa.jpl.pyre.kernel.tasks.PureTask
 import gov.nasa.jpl.pyre.kernel.tasks.Task
 import gov.nasa.jpl.pyre.kernel.tasks.TaskStepResult
@@ -34,7 +35,7 @@ import kotlin.time.Instant
 class KernelIncrementalSimulator(
     planStart: Instant,
     private val planEnd: Instant,
-    constructPlan: context (BasicInitScope) () -> List<KernelActivity>,
+    constructPlan: context (BasicInitScope) () -> List<KernelTask>,
     private val reportHandler: IncrementalReportHandler,
     incon: KernelCheckpoint? = null,
 ) {
@@ -68,7 +69,7 @@ class KernelIncrementalSimulator(
     )
 
     /** Root task nodes corresponding to activities in the plan, recorded to facilitate revoking tasks. */
-    private val planTaskNodes: MutableMap<KernelActivity, RootTaskNode> = mutableMapOf()
+    private val planTaskNodes: MutableMap<KernelTask, RootTaskNode> = mutableMapOf()
     /** Root nodes with which we may merge restart requests, rather than re-running. */
     private val rootMergeOpportunities: MutableMap<Task, RootTaskNode> = mutableMapOf()
 
@@ -157,7 +158,7 @@ class KernelIncrementalSimulator(
             require(activity.time < planEnd) {
                 "Cannot add activity $activity at or after plan ends at $planEnd"
             }
-            val task = PureTask(activity.name, activity.task)
+            val task = PureTask(activity.name, activity.step)
             frontier += StartTask(
                 RootTaskNode(
                     nextNodeId++,

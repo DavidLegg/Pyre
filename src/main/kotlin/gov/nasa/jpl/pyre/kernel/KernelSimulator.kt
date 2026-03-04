@@ -120,9 +120,8 @@ class KernelSimulator(
      * This task will be included by [save] automatically.
      * To restore it, the caller must provide this task as part of initialization.
      */
-    fun addTask(time: Instant, name: Name, step: PureTaskStep) {
-        val task = PureTask(name, step)
-        tasks += TaskEntry(time, task)
+    fun addTask(task: KernelTask) {
+        tasks += TaskEntry(task.time, PureTask(task.name, task.step))
     }
 
     fun save(): KernelCheckpoint {

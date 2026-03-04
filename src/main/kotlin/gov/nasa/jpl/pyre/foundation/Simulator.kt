@@ -1,25 +1,24 @@
 package gov.nasa.jpl.pyre.foundation
 
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
+import gov.nasa.jpl.pyre.foundation.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.kernelTaskName
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.toKernelTask
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.toPureTaskStep
 import gov.nasa.jpl.pyre.foundation.plans.ActivityTaskCheckpoint
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
+import gov.nasa.jpl.pyre.foundation.plans.FloatingActivity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.plans.float
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
 import gov.nasa.jpl.pyre.kernel.KernelSimulator
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
-import gov.nasa.jpl.pyre.foundation.tasks.task
-import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.kernel.KernelCheckpoint
 import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
-import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import kotlin.collections.iterator
 import kotlin.time.Instant
 
@@ -51,28 +50,29 @@ class Simulator<M : Any>(
     private val loadedActivities: MutableMap<Name, GroundedActivity<M>> = mutableMapOf()
 
     init {
-        // Load activities in from the incon
-        incon?.activities?.forEach {
-            val activityName = it.activity.kernelName()
-            val priorActivity = loadedActivities.put(activityName, it.activity)
-            require(priorActivity == null || priorActivity == it.activity) {
-                "Malformed incon: Activity name $activityName references two different activities: $priorActivity and ${it.activity}"
-            }
-        }
-        // Build a kernel checkpoint by combining daemon and activity tasks
+        // Build a kernel checkpoint by combining daemon and activity tasks.
         val kernelIncon = incon?.run {
-            KernelCheckpoint(
-                time,
-                cells,
-                daemons + activities.map { KernelTaskCheckpoint(it.name, it.activity.kernelName(), it.time, it.history) }
-            )
+            val kernelTasks = daemons.toMutableList()
+            for (activityCheckpoint in activities) {
+                with (activityCheckpoint) {
+                    // Load each activity in the incon, and build a kernel task checkpoint for it.
+                    val rootTaskName = kernelTaskName(activity.name)
+                    loadedActivities.put(rootTaskName, activity).also {
+                        require(it == null || it == activity) {
+                            "Malformed incon: Activity name $rootTaskName references two different activities: $it and $activity"
+                        }
+                    }
+                    kernelTasks += KernelTaskCheckpoint(name, rootTaskName, time, history)
+                }
+            }
+            KernelCheckpoint(time, cells, kernelTasks)
         }
         kernelSimulator = KernelSimulator(
             reportHandler,
             incon = kernelIncon,
             startTime = startTime,
             initialize = {
-                // Wrap it in a foundation-level init scope
+                // Wrap kernel-level init scope in a foundation-level init scope
                 val initScope = InitScope(requireNotNull(incon?.time ?: startTime))
                 // Use the foundation-level init scope to build the model
                 model = constructModel(initScope)
@@ -81,9 +81,10 @@ class Simulator<M : Any>(
                 // Finally, restart all the activities that we loaded from the incon.
                 // This won't actually start these activities now; instead, it'll provide the root tasks necessary
                 // to restore these activities to however they were when the incon was produced.
-                for ((name, activity) in loadedActivities) {
+                for (activity in loadedActivities.values) {
                     // For maximum control, bypass the foundation-level init scope and directly start the kernel task.
-                    spawn(name, activity.toPureTaskStep(name))
+                    val task = context (simulationScope) { activity.toKernelTask(model) }
+                    spawn(task.name, task.step)
                 }
             },
         )
@@ -128,17 +129,13 @@ class Simulator<M : Any>(
         val daemons = mutableListOf<KernelTaskCheckpoint>()
         val activities = mutableListOf<ActivityTaskCheckpoint<M>>()
         for (taskCheckpoint in kernelCheckpoint.tasks) {
-            // This task is, or is spawned by, an activity
-            if (taskCheckpoint.root.asSequence().first() == "activity") {
+            val rootActivity = loadedActivities[taskCheckpoint.root]
+            if (rootActivity != null) {
+                // This task is, or is spawned by, an activity
                 if (taskCheckpoint.history != null) {
                     // This task is still loaded in the simulator
                     activities += taskCheckpoint.run {
-                        ActivityTaskCheckpoint(
-                            time,
-                            name,
-                            loadedActivities.getValue(root),
-                            history,
-                        )
+                        ActivityTaskCheckpoint(time, name, rootActivity, history)
                     }
                 }
                 // else: activity is completed, throw it away.
@@ -152,11 +149,12 @@ class Simulator<M : Any>(
     }
 
     fun addActivity(activity: GroundedActivity<M>) {
-        val name = activity.kernelName()
-        require(loadedActivities.put(name, activity) == null) {
-            "$name is already loaded. All concurrently loaded activities must have unique names."
+        val kernelTask = context(simulationScope) { activity.toKernelTask(model) }
+        require(loadedActivities.put(kernelTask.name, activity) == null) {
+            "${kernelTask.name} is already loaded. All concurrently loaded activities must have unique names."
         }
-        kernelSimulator.addTask(activity.time, name, activity.toPureTaskStep(name))
+        kernelSimulator.addTask(kernelTask)
+        // TODO: How do we know when loadedActivities is done?
     }
 
     fun runPlan(plan: Plan<M>) {
@@ -165,21 +163,6 @@ class Simulator<M : Any>(
         }
         plan.activities.forEach(this::addActivity)
         runUntil(plan.endTime)
-    }
-
-    /** The name of the root kernel task for this activity */
-    private fun GroundedActivity<M>.kernelName(): Name = Name("activity") / name
-
-    /** The kernel task that will run this activity under the given name */
-    private fun GroundedActivity<M>.toPureTaskStep(kernelName: Name): PureTaskStep = context(simulationScope) {
-        // Build a simple task which calls the activity and records when the activity is finished
-        coroutineTask(task {
-            // Call the "floating" version of the activity, to preserve everything but the time.
-            // The timing is done directly when adding this to the simulator.
-            ActivityActions.call(float(), model)
-            // Record that we've unloaded the activity when we're done.
-            loadedActivities.remove(kernelName)
-        })
     }
 
     companion object {

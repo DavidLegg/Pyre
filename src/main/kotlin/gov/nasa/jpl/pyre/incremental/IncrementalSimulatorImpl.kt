@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.toKernelTask
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
@@ -18,6 +19,7 @@ import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.applyTo
 import gov.nasa.jpl.pyre.incremental.SGNode.ReportNode
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.kernel.tasks.KernelTask
 import java.util.*
 import kotlin.time.Instant
 
@@ -49,7 +51,7 @@ class IncrementalSimulatorImpl<M>(
     private val simulationScope: SimulationScope
     private val model: M
     private val kernelSimulation: KernelIncrementalSimulator
-    private val kernelActivityMap: MutableMap<GroundedActivity<*>, KernelActivity> = mutableMapOf()
+    private val kernelActivityMap: MutableMap<GroundedActivity<*>, KernelTask> = mutableMapOf()
 
     init {
         val incrementalReportHandler = object : BaseIncrementalChannelizedReportHandler() {
@@ -87,8 +89,10 @@ class IncrementalSimulatorImpl<M>(
                 tempSimulationScope = initScope
                 tempModel = constructModel(initScope)
                 plan.activities.map { activity ->
-                    // Convert plan activities to kernel activities, and record those translations
-                    activity.toKernelActivity(tempSimulationScope, tempModel).also { kernelActivityMap[activity] = it }
+                    context (tempSimulationScope) {
+                        // Convert plan activities to kernel activities, and record those translations
+                        activity.toKernelTask(tempModel).also { kernelActivityMap[activity] = it }
+                    }
                 }
             },
             incrementalReportHandler,
@@ -108,8 +112,10 @@ class IncrementalSimulatorImpl<M>(
                 }
             },
             edits.additions.map { activity ->
-                // Convert plan activities to kernel activities, and record those translations
-                activity.toKernelActivity(simulationScope, model).also { kernelActivityMap[activity] = it }
+                context (simulationScope) {
+                    // Convert plan activities to kernel activities, and record those translations
+                    activity.toKernelTask(model).also { kernelActivityMap[activity] = it }
+                }
             }
         ))
     }
@@ -117,18 +123,6 @@ class IncrementalSimulatorImpl<M>(
     override fun save(time: Instant): Checkpoint<M> {
         TODO("saving checkpoints")
     }
-
-    private fun GroundedActivity<M>.toKernelActivity(simulationScope: SimulationScope, model: M) = KernelActivity(
-        Name("activities") / name,
-        time,
-        context (simulationScope) {
-            coroutineTask(task {
-                // Call the "floating" version of this activity to preserve everything except timing.
-                // Timing is handled when adding this task to the simulator.
-                call(float(), model)
-            })
-        }
-    )
 
     private data class MutableIncrementalResourceResults<T>(
         val metadata: ChannelMetadata<T>,
@@ -140,4 +134,3 @@ class IncrementalSimulatorImpl<M>(
             ResourceResults(metadata, data.map { it.content })
     }
 }
-
