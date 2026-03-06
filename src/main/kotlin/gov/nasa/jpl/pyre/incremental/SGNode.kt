@@ -3,6 +3,7 @@ package gov.nasa.jpl.pyre.incremental
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Effect
+import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.tasks.Task
 
 sealed interface SGNode {
@@ -11,15 +12,18 @@ sealed interface SGNode {
 
 
     sealed interface TaskNode : SGNode {
+        val taskName: Name
         var prior: TaskNode?
         var next: TaskNode?
     }
+
+    sealed interface NonRootTaskNode : TaskNode
 
     /**
      * Any step of a task which yields back to the simulator.
      * These have an explicit continuation [Task] used to resume the rest of the task when appropriate.
      */
-    sealed interface YieldingStepNode : TaskNode {
+    sealed interface YieldingStepNode : NonRootTaskNode {
         /** The handle to continue running this task. Null after executing, since any task step may only be run once. */
         var continuation: Task?
     }
@@ -28,7 +32,7 @@ sealed interface SGNode {
      * Any [TaskNode] which is not a [YieldingStepNode].
      * The task continues immediately, with no opportunity for the simulator to pause at this point.
      */
-    sealed interface NonYieldingStepNode : TaskNode
+    sealed interface NonYieldingStepNode : NonRootTaskNode
 
     /** The root task, from which a task can be restarted or replayed. */
     class RootTaskNode(
@@ -39,12 +43,14 @@ sealed interface SGNode {
         override var prior: TaskNode? = null,
         override var next: TaskNode? = null,
     ) : TaskNode {
+        override val taskName: Name get() = task.name
         override fun toString(): String = "Root($task) @ $time"
     }
 
     /** The first node in a task step, following a root or yielding step. Used to schedule the next task step. */
     class StepBeginNode(
         override val serialId: Int,
+        override val taskName: Name,
         override val time: SimulationTime,
         override var prior: TaskNode?,
         override var continuation: Task?,
@@ -55,6 +61,7 @@ sealed interface SGNode {
 
     class ReadNode(
         override val serialId: Int,
+        override val taskName: Name,
         override val time: SimulationTime,
         override var prior: TaskNode?,
         var cell: CellNode<*>,
@@ -66,6 +73,7 @@ sealed interface SGNode {
 
     class WriteNode(
         override val serialId: Int,
+        override val taskName: Name,
         override val time: SimulationTime,
         override var prior: TaskNode?,
         val cell: CellWriteNode<*>,
@@ -77,6 +85,7 @@ sealed interface SGNode {
     // TODO: Add an interface IncrementalReport which only has (time, content)
     class ReportNode<T>(
         override val serialId: Int,
+        override val taskName: Name,
         override val time: SimulationTime,
         override var prior: TaskNode?,
         val content: T,
@@ -87,6 +96,7 @@ sealed interface SGNode {
 
     class SpawnNode(
         override val serialId: Int,
+        override val taskName: Name,
         override val time: SimulationTime,
         override var prior: TaskNode?,
         val child: RootTaskNode,
@@ -98,6 +108,7 @@ sealed interface SGNode {
 
     class AwaitNode(
         override val serialId: Int,
+        override val taskName: Name,
         override val time: SimulationTime,
         override var prior: TaskNode?,
         val condition: Condition,

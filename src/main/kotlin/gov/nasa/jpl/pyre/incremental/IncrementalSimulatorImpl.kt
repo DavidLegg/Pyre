@@ -1,24 +1,19 @@
 package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.toKernelTask
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.foundation.plans.float
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
-import gov.nasa.jpl.pyre.foundation.tasks.coroutineTask
-import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.ResourceResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.applyTo
 import gov.nasa.jpl.pyre.incremental.SGNode.ReportNode
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.kernel.tasks.KernelTask
 import java.util.*
 import kotlin.time.Instant
@@ -50,7 +45,7 @@ class IncrementalSimulatorImpl<M>(
     private val activityResults: TreeSet<ReportNode<ChannelData<ActivityEvent>>> = TreeSet(compareBy { it.time })
     private val simulationScope: SimulationScope
     private val model: M
-    private val kernelSimulation: KernelIncrementalSimulator
+    private val kernelSimulator: KernelIncrementalSimulator
     private val kernelActivityMap: MutableMap<GroundedActivity<*>, KernelTask> = mutableMapOf()
 
     init {
@@ -81,7 +76,7 @@ class IncrementalSimulatorImpl<M>(
         }
         var tempSimulationScope: SimulationScope? = null
         var tempModel: M? = null
-        kernelSimulation = KernelIncrementalSimulator(
+        kernelSimulator = KernelIncrementalSimulator(
             plan.startTime,
             plan.endTime,
             {
@@ -104,7 +99,7 @@ class IncrementalSimulatorImpl<M>(
 
     override fun run(edits: PlanEdits<M>) {
         plan = edits.applyTo(plan)
-        kernelSimulation.run(KernelPlanEdits(
+        kernelSimulator.run(KernelPlanEdits(
             edits.removals.map { activity ->
                 // Look up the translated activities, and remove them as we do so
                 requireNotNull(kernelActivityMap.remove(activity)) {
@@ -121,6 +116,7 @@ class IncrementalSimulatorImpl<M>(
     }
 
     override fun save(time: Instant): Checkpoint<M> {
+        val kernelCheckpoint = kernelSimulator.save(time)
         TODO("saving checkpoints")
     }
 

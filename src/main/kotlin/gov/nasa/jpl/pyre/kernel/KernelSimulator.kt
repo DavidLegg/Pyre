@@ -75,7 +75,7 @@ class KernelSimulator(
 
             override fun spawn(name: Name, step: PureTaskStep) {
                 require(name !in rootTasks) {
-                    "A daemon named $name has already been constructed! Please choose a unique name for every daemon task."
+                    "A task named $name has already been constructed! Please choose a unique name for every task."
                 }
                 val rootTask = PureTask(name, step)
                 rootTasks[name] = rootTask
@@ -140,7 +140,7 @@ class KernelSimulator(
             },
             // Add the time for each active task we save
             (tasksToSave.map { (time, task) -> task.save().copy(time = time) }
-                    // And include a marker for every completed daemon, so we don't
+                    // And include a marker for every completed daemon, so we don't restart them
                     + completedDaemonNames.map { KernelTaskCheckpoint(it) })
                 .sortedBy { it.name }
         )
