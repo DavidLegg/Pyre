@@ -20,11 +20,10 @@ import gov.nasa.jpl.pyre.kernel.tasks.TaskStepResult
 import gov.nasa.jpl.pyre.utilities.compose
 import gov.nasa.jpl.pyre.utilities.identity
 import java.io.File
-import java.util.Deque
 import java.util.PriorityQueue
-import java.util.Stack
 import java.util.TreeMap
 import java.util.TreeSet
+import kotlin.also
 import kotlin.collections.plusAssign
 import kotlin.reflect.KType
 import kotlin.time.Duration
@@ -61,10 +60,10 @@ class KernelIncrementalSimulator(
     private var nextNodeId: Int = 0
     /** All cell nodes allocated in the DAG */
     private val cellNodes: MutableMap<Cell<*>, TreeMap<SimulationTime, CellNode<*>>> = mutableMapOf()
-    /** All task nodes allocated in the DAG */
-    private val taskNodes: MutableMap<Name, TreeMap<SimulationTime, TaskNode>> = mutableMapOf()
-    /** The permanently-assigned branch number for each task. */
-    private val taskBranch: MutableMap<Name, Int> = mutableMapOf()
+    /** The root of each task branch, keyed by time. */
+    private val branchRoots: TreeMap<SimulationTime, TaskBranch> = TreeMap()
+    // TODO: Add bookkeeping info like the end time for the branch, to improve performance
+    private class TaskBranch(val root: RootTaskNode)
     /** A list of branch numbers which are no longer being used, and can safely be re-used. */
     private val recycledBranchNumbers: MutableList<Int> = mutableListOf()
     /** The work list of actions to resolve the DAG. */
@@ -144,18 +143,7 @@ class KernelIncrementalSimulator(
 
             override fun spawn(name: Name, step: PureTaskStep) {
                 // Schedule the task on its own branch, as part of the first batch.
-                val taskNode = RootTaskNode(
-                    nextNodeId++,
-                    startTime.branchFor(name),
-                    PureTask(name, step),
-                )
-                frontier += StartTask(taskNode)
-                taskNodes.put(name, TreeMap()).also {
-                    require(it == null) {
-                        "A task named $name has already been constructed! Please choose a unique name for every task."
-                    }
-                }
-                addTaskNode(taskNode)
+                frontier += StartTask(PureTask(name, step).branchAt(startTime))
             }
 
             override fun <T> read(cell: Cell<T>): T {
@@ -187,11 +175,6 @@ class KernelIncrementalSimulator(
                 "Activity $it not found in the plan."
             }
             fullyRevokeTask(rootTaskNode)
-            // Since we've completely removed this task, we can recycle its name and branch
-            // TODO: Once we trust this code, I think we can remove the checks on removedTaskNodes
-            taskNodes.remove(it.name).also { check(checkNotNull(it).isEmpty()) }
-            // Unassign the branch number, and record it for recycling
-            recycledBranchNumbers += checkNotNull(taskBranch.remove(it.name))
         }
         for (activity in planEdits.additions) {
             require(activity.time < planEnd) {
@@ -199,12 +182,7 @@ class KernelIncrementalSimulator(
             }
             val task = PureTask(activity.name, activity.step)
             frontier += StartTask(
-                RootTaskNode(
-                    nextNodeId++,
-                    SimulationTime(activity.time).branchFor(task.name),
-                    task,
-                ).also {
-                    addTaskNode(it)
+                task.branchAt(SimulationTime(activity.time)).also {
                     planTaskNodes[activity] = it
                 }
             )
@@ -230,16 +208,18 @@ class KernelIncrementalSimulator(
             }
         }
         // Save the tasks by looking up an appropriate task node for each task
-        val taskCheckpoints = taskNodes.map { (taskName, orderedTaskNodes) ->
-            orderedTaskNodes.ceilingEntry(simulationTime)?.let { (_, taskNode) ->
-                // If a task node is found, use it to save a task checkpoint.
-                check(taskNode is YieldingStepNode) {
-                    "Internal error! Task node for $taskName at or after $simulationTime is not yielding."
-                }
-                taskNode.loadContinuation().save()
-            } ?:
-                // Otherwise the task is done. Add a "completed" checkpoint.
-                KernelTaskCheckpoint(taskName)
+        val taskCheckpoints = branchRoots.values.map { branch ->
+            val tip = generateSequence(branch.root as TaskNode) { it.next }
+                .takeWhile { it.time < simulationTime }
+                .last()
+            // TODO: Figure out if tip represents a completed task.
+            //   If it's completed and branch.root.prior == null, save a "completed" checkpoint.
+            //   If it's completed and branch.root.prior != null, drop this element.
+            check(tip is YieldingStepNode) {
+                "Internal error! Task node for ${tip.taskName} at or after $simulationTime is not yielding."
+            }
+            tip.loadContinuation().save()
+            TODO("Saving tasks")
         }
         return KernelCheckpoint(time, cellCheckpoint, taskCheckpoints)
     }
@@ -258,7 +238,6 @@ class KernelIncrementalSimulator(
                         action.node.task,
                     ).also {
                         frontier += RunTask(it)
-                        addTaskNode(it)
                     }
                 }
 
@@ -394,7 +373,6 @@ class KernelIncrementalSimulator(
                                 action.node.continuation,
                             ).also {
                                 frontier += RunTask(it)
-                                addTaskNode(it)
                             }
                         } else {
                             AwaitNode(
@@ -406,7 +384,6 @@ class KernelIncrementalSimulator(
                                 continuation = action.node.continuation
                             ).also {
                                 frontier += CheckCondition(it)
-                                addTaskNode(it)
                             }
                         }
                     }
@@ -461,21 +438,20 @@ class KernelIncrementalSimulator(
         }
     }
 
-    private fun addTaskNode(taskNode: TaskNode) {
-        taskNodes.getValue(taskNode.taskName).put(taskNode.time, taskNode).also {
-            check(it == null) {
-                "Internal error! There's already a node for ${taskNode.taskName} at ${taskNode.time}"
-            }
+    /** Construct a new root task node, and assign a new branch number to it. */
+    private fun Task.branchAt(time: SimulationTime): RootTaskNode {
+        // Grab a recycled branch number if available, or else assign a new branch number.
+        // When a branch number is assigned, it exists in either taskBranch or recycledBranchNumbers.
+        // If recycledBranchNumbers is empty, all and only 0..<taskBranch.size are assigned branch numbers.
+        val branchNumber = recycledBranchNumbers.removeLastOrNull() ?: branchRoots.size
+        return RootTaskNode(
+            nextNodeId++,
+            time.copy(branch = branchNumber),
+            this
+        ).also {
+            branchRoots[it.time] = TaskBranch(it)
         }
     }
-
-    private fun SimulationTime.branchFor(taskName: Name): SimulationTime =
-        copy(branch = taskBranch.computeIfAbsent(taskName) {
-            // Grab a recycled branch number if available, or else assign a new branch number.
-            // When a branch number is assigned, it exists in either taskBranch or recycledBranchNumbers.
-            // If recycledBranchNumbers is empty, all and only 0..<taskBranch.size are assigned branch numbers.
-            recycledBranchNumbers.removeLastOrNull() ?: taskBranch.size
-        })
 
     private fun <T> CellWriteNode<T>.branchNetEffect(batchStart: CellNode<T>) =
         // The branch comprises all our prior write nodes until batchStart
@@ -512,7 +488,6 @@ class KernelIncrementalSimulator(
                 ).also {
                     lastTaskStepNode.next = it
                     cellNode.reads += it
-                    addTaskNode(it)
                 }
                 dumpDotToFile(DebugLevel.MINOR, lastTaskStepNode)
                 // Return the value
@@ -633,7 +608,6 @@ class KernelIncrementalSimulator(
                     // Also add the edges from the prior task step and from the cell write node to this.
                     lastTaskStepNode.next = it
                     writeNode.writer = it
-                    addTaskNode(it)
                 }
                 dumpDotToFile(DebugLevel.MINOR, lastTaskStepNode)
             }
@@ -648,7 +622,6 @@ class KernelIncrementalSimulator(
                     value,
                 ).also {
                     lastTaskStepNode.next = it
-                    addTaskNode(it)
                     reportHandler.report(it)
                 }
                 dumpDotToFile(DebugLevel.MINOR, lastTaskStepNode)
@@ -669,8 +642,6 @@ class KernelIncrementalSimulator(
                     lastTaskStepNode.next = it
                     // Schedule the condition to be checked
                     frontier += CheckCondition(it)
-                    // And mark the branch as occupied
-                    addTaskNode(it)
                 }
             }
             is TaskStepResult.Complete -> {
@@ -699,34 +670,25 @@ class KernelIncrementalSimulator(
                     ).also {
                         lastTaskStepNode.next = it
                         frontier += StartTask(it)
-                        addTaskNode(it)
                     }
                 }
             }
             is TaskStepResult.Spawn -> {
                 // Spawning is a yielding action, so add our continuation to the next batch.
-                // Also add the child task to the next batch, as a root task node so it can be independently restarted.
+                // Also add the child task to the next batch, and build a new task branch for it.
                 lastTaskStepNode = SpawnNode(
                     nextNodeId++,
                     lastTaskStepNode.taskName,
                     lastTaskStepNode.time.nextTaskBatch(),
                     lastTaskStepNode,
-                    RootTaskNode(
-                        nextNodeId++,
-                        lastTaskStepNode.time.nextTaskBatch().branchFor(result.child.name),
-                        result.child,
-                    ).also {
+                    result.child.branchAt(lastTaskStepNode.time.nextTaskBatch()).also {
                         frontier += StartTask(it)
-                        addTaskNode(it)
                     },
                     result.continuation,
-                    next = mergeOpportunity,
                 ).also {
                     lastTaskStepNode.next = it
-                    mergeOpportunity?.prior = it
                     it.child.prior = it
                     frontier += RunTask(it)
-                    addTaskNode(it)
                 }
             }
         }
@@ -877,6 +839,10 @@ class KernelIncrementalSimulator(
      * This includes repetitions and children spawned by this task.
      */
     private fun fullyRevokeTask(task: TaskNode) {
+        // If this node is a branch root, remove it and recycle the branch number
+        branchRoots.remove(task.time)?.let {
+            recycledBranchNumbers += it.root.time.branch
+        }
         var next: TaskNode? = task
         while (next != null) {
             next = revokeSingleTask(next)
@@ -900,12 +866,6 @@ class KernelIncrementalSimulator(
      * @return RootTaskNodes following [task]
      */
     private fun revokeSingleTask(task: TaskNode): RootTaskNode? {
-        // Remove our record of this node
-        checkNotNull(taskNodes[task.taskName]).remove(task.time).also {
-            require(it == task) {
-                "Internal error! Task node for ${task.taskName} at ${task.time} was not as expected: $it vs. $task"
-            }
-        }
         // Remove any frontier action(s) related to this node
         if (task is RootTaskNode) frontier -= StartTask(task)
         if (task is NonRootTaskNode) frontier -= RunTask(task)
@@ -1175,7 +1135,10 @@ class KernelIncrementalSimulator(
                 collect(node)
             }
         }
-        for (node in taskNodes.values.flatMap { it.values }) {
+        // Walk all the branches to collect all the task nodes, plus the merge opportunities, since those aren't necessarily connected to a branch.
+        val regularTaskNodes = branchRoots.values.flatMap { generateSequence(it.root as TaskNode) { it.next } }
+        val mergeOpNodes = rootMergeOpportunities.values.flatMap { generateSequence(it as TaskNode) { it.next } }
+        for (node in regularTaskNodes + mergeOpNodes) {
             taskDotId[node] = "task${n++}"
             collect(node)
         }
