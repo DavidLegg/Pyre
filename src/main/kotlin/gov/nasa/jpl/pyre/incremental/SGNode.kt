@@ -35,7 +35,7 @@ sealed interface SGNode {
     sealed interface NonYieldingStepNode : NonRootTaskNode
 
     /** The root task, from which a task can be restarted or replayed. */
-    class RootTaskNode(
+    class StartTaskNode(
         override val serialId: Int,
         override val time: SimulationTime,
         val task: Task,
@@ -45,18 +45,6 @@ sealed interface SGNode {
     ) : TaskNode {
         override val taskName: Name get() = task.name
         override fun toString(): String = "Root($task) @ $time"
-    }
-
-    /** The first node in a task step, following a root or yielding step. Used to schedule the next task step. */
-    class StepBeginNode(
-        override val serialId: Int,
-        override val taskName: Name,
-        override val time: SimulationTime,
-        override var prior: TaskNode?,
-        override var continuation: Task?,
-        override var next: TaskNode? = null,
-    ) : YieldingStepNode {
-        override fun toString(): String = "Begin($continuation) @ $time"
     }
 
     class ReadNode(
@@ -99,7 +87,7 @@ sealed interface SGNode {
         override val taskName: Name,
         override val time: SimulationTime,
         override var prior: TaskNode?,
-        val child: RootTaskNode,
+        val child: StartTaskNode,
         override var continuation: Task?,
         override var next: TaskNode? = null,
     ) : YieldingStepNode {
@@ -117,6 +105,17 @@ sealed interface SGNode {
         override var next: TaskNode? = null,
     ) : YieldingStepNode {
         override fun toString(): String = "Await($condition) @ $time"
+    }
+
+    class AwaitCompleteNode(
+        override val serialId: Int,
+        override val taskName: Name,
+        override val time: SimulationTime,
+        override var prior: TaskNode?,
+        override var continuation: Task?,
+        override var next: TaskNode? = null,
+    ) : YieldingStepNode {
+        override fun toString(): String = "AwaitComplete($taskName) @ $time"
     }
 
     sealed interface CellNode<T> : SGNode {
