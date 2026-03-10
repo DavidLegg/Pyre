@@ -263,7 +263,7 @@ class KernelIncrementalSimulator(
                     // If we merge, we remove the RevokeMergeOpportunity action.
                     // Hence if we run the RevokeMergeOpportunity action, we failed to merge this root.
                     // Remove that root, but optimistically add its downstream repeat as a merge opportunity.
-                    rootMergeOpportunities.remove(action.node.task)
+                    rootMergeOpportunities.remove(action.node.continuation)
                     revokeWithMergeOpportunity(action.node)
                 }
 
@@ -451,8 +451,7 @@ class KernelIncrementalSimulator(
         var lastTaskStepNode: TaskNode = this
         // Go find the root task, to look up root merge opportunities...
         // TODO: Key off of something easier to find... taskName is a good candidate
-        val rootTaskNode = priorNodes().first { it is StartTaskNode }
-        val rootTask = (rootTaskNode as StartTaskNode).task
+        val rootTask = (priorNodes().first { it is StartTaskNode } as StartTaskNode).continuation
         // We can merge only if this action is happening on the same branch as the merge opportunity.
         val mergeOpportunity: StartTaskNode? = rootMergeOpportunities[rootTask]?.takeIf { it.time sameBranchAs time }
         val basicTaskActions = object : BasicTaskActions {
@@ -713,7 +712,9 @@ class KernelIncrementalSimulator(
      */
     private fun YieldingStepNode.runContinuation(actions: BasicTaskActions): TaskStepResult =
         // Once the continuation is run, it cannot be re-run. Unload it immediately.
-        loadContinuation().runStep(actions).also { continuation = null }
+        loadContinuation().runStep(actions).also {
+            if (this !is StartTaskNode) continuation = null
+        }
 
     /**
      * Return the continuation for this task node.
@@ -721,44 +722,40 @@ class KernelIncrementalSimulator(
      */
     private fun YieldingStepNode.loadContinuation(): Task {
         if (continuation == null) {
-            continuation = if (prior is StartTaskNode) {
-                // This is a start node. Just copy the task from the root node, which is safe to re-run.
-                (prior as StartTaskNode).task
-            } else {
-                // Otherwise, run a task from the yielding node prior to this, replaying it to this.
-                val priorYieldingStepNode = checkNotNull(prior).priorNodes().first { it is YieldingStepNode } as YieldingStepNode
-                // When replaying, all actions should be replays. No continuation actions are needed.
-                val stepResult = priorYieldingStepNode.runContinuation(priorYieldingStepNode.replayingTaskActions(
-                    object : BasicTaskActions {
-                        override fun <V> read(cell: Cell<V>): V = throwError()
-                        override fun <V> emit(cell: Cell<V>, effect: Effect<V>) = throwError()
-                        override fun <V> report(value: V) = throwError()
-                        private fun throwError(): Nothing =
-                            throw IllegalStateException("Replay of task $taskName did not yield when expected to!")
-                    }))
-                when (this) {
-                    is AwaitNode -> {
-                        check(stepResult is TaskStepResult.Await) {
-                            "Replay of task $taskName did not await when expected to!"
-                        }
-                        // The continuation of an await is to rewait the condition
-                        stepResult.rewait
+            // Otherwise, run a task from the yielding node prior to this, replaying it to this.
+            val priorYieldingStepNode = checkNotNull(prior).priorNodes().first { it is YieldingStepNode } as YieldingStepNode
+            // When replaying, all actions should be replays. No continuation actions are needed.
+            val stepResult = priorYieldingStepNode.runContinuation(priorYieldingStepNode.replayingTaskActions(
+                object : BasicTaskActions {
+                    override fun <V> read(cell: Cell<V>): V = throwError()
+                    override fun <V> emit(cell: Cell<V>, effect: Effect<V>) = throwError()
+                    override fun <V> report(value: V) = throwError()
+                    private fun throwError(): Nothing =
+                        throw IllegalStateException("Replay of task $taskName did not yield when expected to!")
+                }))
+            continuation = when (this) {
+                is AwaitNode -> {
+                    check(stepResult is TaskStepResult.Await) {
+                        "Replay of task $taskName did not await when expected to!"
                     }
-                    is AwaitCompleteNode -> {
-                        check(stepResult is TaskStepResult.Await) {
-                            "Replay of task $taskName did not await when expected to!"
-                        }
-                        // The continuation of an await-complete is the real continuation
-                        stepResult.continuation
-                    }
-                    is SpawnNode -> {
-                        check(stepResult is TaskStepResult.Spawn) {
-                            "Replay of task $taskName did not spawn when expected to!"
-                        }
-                        // The continuation of a spawn is the parent branch; children have their own RootTaskNode.
-                        stepResult.continuation
-                    }
+                    // The continuation of an await is to rewait the condition
+                    stepResult.rewait
                 }
+                is AwaitCompleteNode -> {
+                    check(stepResult is TaskStepResult.Await) {
+                        "Replay of task $taskName did not await when expected to!"
+                    }
+                    // The continuation of an await-complete is the real continuation
+                    stepResult.continuation
+                }
+                is SpawnNode -> {
+                    check(stepResult is TaskStepResult.Spawn) {
+                        "Replay of task $taskName did not spawn when expected to!"
+                    }
+                    // The continuation of a spawn is the parent branch; children have their own RootTaskNode.
+                    stepResult.continuation
+                }
+                is StartTaskNode -> throw IllegalStateException("StartTaskNode for $taskName had a null continuation")
             }
         }
         return continuation!!
@@ -835,7 +832,7 @@ class KernelIncrementalSimulator(
         // giving any running tasks an opportunity to merge with it before the Revoke happens.
         renumberSteps(it, Int.MAX_VALUE / 2)
         frontier += RevokeMergeOpportunity(it)
-        rootMergeOpportunities[it.task] = it
+        rootMergeOpportunities[checkNotNull(it.continuation)] = it
     }
 
     /**
@@ -1163,7 +1160,7 @@ class KernelIncrementalSimulator(
                             is ReadNode -> "Read ${node.cell.cell.name}"
                             is ReportNode<*> -> "Report ${node.content}"
                             is WriteNode -> "Write '${node.cell.effect}'"
-                            is StartTaskNode -> "Root ${node.task.name}"
+                            is StartTaskNode -> "Root ${node.taskName}"
                             is AwaitNode -> "Await ${node.condition}" + (if (node.continuation != null) " ++" else "")
                             is AwaitCompleteNode -> "AwaitComplete" + (if (node.continuation != null) " ++" else "")
                             is SpawnNode -> "Spawn" + (if (node.continuation != null) " ++" else "")

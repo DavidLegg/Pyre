@@ -17,13 +17,11 @@ sealed interface SGNode {
         var next: TaskNode?
     }
 
-    sealed interface NonRootTaskNode : TaskNode
-
     /**
      * Any step of a task which yields back to the simulator.
      * These have an explicit continuation [Task] used to resume the rest of the task when appropriate.
      */
-    sealed interface YieldingStepNode : NonRootTaskNode {
+    sealed interface YieldingStepNode : TaskNode {
         /** The handle to continue running this task. Null after executing, since any task step may only be run once. */
         var continuation: Task?
     }
@@ -32,19 +30,20 @@ sealed interface SGNode {
      * Any [TaskNode] which is not a [YieldingStepNode].
      * The task continues immediately, with no opportunity for the simulator to pause at this point.
      */
-    sealed interface NonYieldingStepNode : NonRootTaskNode
+    sealed interface NonYieldingStepNode : TaskNode
 
     /** The root task, from which a task can be restarted or replayed. */
     class StartTaskNode(
         override val serialId: Int,
         override val time: SimulationTime,
-        val task: Task,
+        task: Task,
         // prior is mutable so that spawn nodes can link them after making them
         override var prior: TaskNode? = null,
         override var next: TaskNode? = null,
-    ) : TaskNode {
-        override val taskName: Name get() = task.name
-        override fun toString(): String = "Root($task) @ $time"
+    ) : YieldingStepNode {
+        override val taskName: Name = task.name
+        override var continuation: Task? = task
+        override fun toString(): String = "Root($taskName) @ $time"
     }
 
     class ReadNode(
