@@ -193,23 +193,24 @@ class KernelIncrementalSimulator(
         }
         // Save the tasks by looking up an appropriate task node for each task
         val taskCheckpoints = branchRoots.values.mapNotNull { branch ->
-            val tip = branch.root.thisAndNextNodes().takeWhile { it.time < simulationTime }.last()
-            if (tip is FinalStepNode) {
-                // This branch has completed.
-                if (branch.root.prior == null) {
-                    // This is a root task, not spawned by another task. Save a "completed" checkpoint for it.
-                    KernelTaskCheckpoint(branch.root.taskName)
+            branch.root.thisAndNextNodes().takeWhile { it.time < simulationTime }.lastOrNull()?.let { tip ->
+                if (tip is FinalStepNode) {
+                    // This branch has completed.
+                    if (branch.root.prior == null) {
+                        // This is a root task, not spawned by another task. Save a "completed" checkpoint for it.
+                        KernelTaskCheckpoint(branch.root.taskName)
+                    } else {
+                        // This task was spawned by another; no task checkpoint is required.
+                        null
+                    }
                 } else {
-                    // This task was spawned by another; no task checkpoint is required.
-                    null
+                    // This branch has not completed. It must have yielded instead.
+                    check(tip is YieldingStepNode) {
+                        "Internal error! Task node for ${tip.taskName} at or after $simulationTime is not yielding."
+                    }
+                    // Load the continuation, and ask it to save a task checkpoint.
+                    tip.loadContinuation().save()
                 }
-            } else {
-                // This branch has not completed. It must have yielded instead.
-                check(tip is YieldingStepNode) {
-                    "Internal error! Task node for ${tip.taskName} at or after $simulationTime is not yielding."
-                }
-                // Load the continuation, and ask it to save a task checkpoint.
-                tip.loadContinuation().save()
             }
         }
         return KernelCheckpoint(time, cellCheckpoint, taskCheckpoints)

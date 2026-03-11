@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.toKernelTask
+import gov.nasa.jpl.pyre.foundation.plans.ActivityTaskCheckpoint
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
@@ -13,6 +14,7 @@ import gov.nasa.jpl.pyre.general.results.ResourceResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.applyTo
 import gov.nasa.jpl.pyre.incremental.SGNode.ReportNode
+import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.tasks.KernelTask
 import java.util.*
@@ -46,7 +48,7 @@ class IncrementalSimulatorImpl<M>(
     private val simulationScope: SimulationScope
     private val model: M
     private val kernelSimulator: KernelIncrementalSimulator
-    private val kernelActivityMap: MutableMap<GroundedActivity<*>, KernelTask> = mutableMapOf()
+    private val kernelActivityMap: MutableMap<GroundedActivity<M>, KernelTask> = mutableMapOf()
 
     init {
         val incrementalReportHandler = object : BaseIncrementalChannelizedReportHandler() {
@@ -116,8 +118,29 @@ class IncrementalSimulatorImpl<M>(
     }
 
     override fun save(time: Instant): Checkpoint<M> {
+        val activityByKernelTaskName = kernelActivityMap.entries
+            .associate { (activity, kernelTask) -> kernelTask.name to activity }
         val kernelCheckpoint = kernelSimulator.save(time)
-        TODO("saving checkpoints")
+        val daemons = mutableListOf<KernelTaskCheckpoint>()
+        val activities = mutableListOf<ActivityTaskCheckpoint<M>>()
+        for (taskCheckpoint in kernelCheckpoint.tasks) {
+            val rootActivity = activityByKernelTaskName[taskCheckpoint.root]
+            if (rootActivity != null) {
+                // This task is, or is spawned by, an activity
+                if (taskCheckpoint.history != null) {
+                    // This task is still loaded in the simulator
+                    activities += taskCheckpoint.run {
+                        ActivityTaskCheckpoint(time, name, rootActivity, history)
+                    }
+                }
+                // else: activity is completed, throw it away.
+                // Unlike daemons, which get restarted if we throw away their checkpoint,
+                // a completed activity can just be forgotten.
+            } else {
+                daemons += taskCheckpoint
+            }
+        }
+        return Checkpoint(kernelCheckpoint.time, kernelCheckpoint.cells, daemons, activities)
     }
 
     private data class MutableIncrementalResourceResults<T>(
