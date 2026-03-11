@@ -27,10 +27,15 @@ sealed interface SGNode {
     }
 
     /**
-     * Any [TaskNode] which is not a [YieldingStepNode].
+     * Any [TaskNode] which is not a [YieldingStepNode] nor a [FinalStepNode].
      * The task continues immediately, with no opportunity for the simulator to pause at this point.
      */
     sealed interface NonYieldingStepNode : TaskNode
+
+    /**
+     * A [TaskNode] indicating the task is complete.
+     */
+    sealed interface FinalStepNode : TaskNode
 
     /** The root task, from which a task can be restarted or replayed. */
     class StartTaskNode(
@@ -115,6 +120,16 @@ sealed interface SGNode {
         override var next: TaskNode? = null,
     ) : YieldingStepNode {
         override fun toString(): String = "AwaitComplete($taskName) @ $time"
+    }
+
+    class TaskCompleteNode(
+        override val serialId: Int,
+        override val taskName: Name,
+        override val time: SimulationTime,
+        override var prior: TaskNode?,
+        override var next: TaskNode? = null,
+    ) : FinalStepNode {
+        override fun toString(): String = "TaskComplete($taskName) @ $time"
     }
 
     sealed interface CellNode<T> : SGNode {

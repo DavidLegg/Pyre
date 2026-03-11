@@ -207,7 +207,7 @@ class KernelIncrementalSimulator(
         }
         // Save the tasks by looking up an appropriate task node for each task
         val taskCheckpoints = branchRoots.values.map { branch ->
-            val tip = branch.root.nextNodes().takeWhile { it.time < simulationTime }.last()
+            val tip = branch.root.thisAndNextNodes().takeWhile { it.time < simulationTime }.last()
             // TODO: Figure out if tip represents a completed task.
             //   If it's completed and branch.root.prior == null, save a "completed" checkpoint.
             //   If it's completed and branch.root.prior != null, drop this element.
@@ -225,6 +225,9 @@ class KernelIncrementalSimulator(
             dumpDotToFile(DebugLevel.MAJOR, frontier.firstOrNull()?.node)
             when (val action = frontier.pollFirst() ?: break) {
                 is RunTask -> {
+                    // TODO: Remove this special case and clean this up.
+                    //   When re-running a task, build RunTask around the node prior to that which should be revoked.
+                    //   Then, in this method, always revokeWithMO(next) and run from this
                     val taskTip = if (action.node.next != null) {
                         // We're re-running a task. Revoke the part of its future we're about to overwrite.
                         // Leave an opportunity to merge back in if appropriate.
@@ -244,7 +247,7 @@ class KernelIncrementalSimulator(
                         action.node
                     }
                     // Invariant: All non-root task nodes are, or are preceded by, a yielding task node.
-                    val startFrom = taskTip.priorNodes().first { it is YieldingStepNode } as YieldingStepNode
+                    val startFrom = taskTip.thisAndPriorNodes().first { it is YieldingStepNode } as YieldingStepNode
                     // Continue the task graph from task tip
                     taskTip.continueWith { realActions ->
                         // But do so by running from the most recent yielding action.
@@ -296,6 +299,7 @@ class KernelIncrementalSimulator(
                             SimulationTime(
                                 action.time.instant + it,
                                 branch = action.time.branch)
+                                // TODO: Remove this filter when building "mutable end time" feature
                                 // Filter out results after the end of the plan
                                 .takeIf { it.instant < planEnd }
                         } else {
@@ -451,7 +455,7 @@ class KernelIncrementalSimulator(
         var lastTaskStepNode: TaskNode = this
         // Go find the root task, to look up root merge opportunities...
         // TODO: Key off of something easier to find... taskName is a good candidate
-        val rootTask = (priorNodes().first { it is StartTaskNode } as StartTaskNode).continuation
+        val rootTask = (thisAndPriorNodes().first { it is StartTaskNode } as StartTaskNode).continuation
         // We can merge only if this action is happening on the same branch as the merge opportunity.
         val mergeOpportunity: StartTaskNode? = rootMergeOpportunities[rootTask]?.takeIf { it.time sameBranchAs time }
         val basicTaskActions = object : BasicTaskActions {
@@ -626,7 +630,14 @@ class KernelIncrementalSimulator(
                 }
             }
             is TaskStepResult.Complete -> {
-                // Nothing to do.
+                lastTaskStepNode = TaskCompleteNode(
+                    nextNodeId++,
+                    lastTaskStepNode.taskName,
+                    lastTaskStepNode.time.nextStep(),
+                    lastTaskStepNode,
+                ).also {
+                    lastTaskStepNode.next = it
+                }
                 // Note that if there was a merge opportunity, there's also a scheduled FrontierAction
                 // to revoke it. We'll let that frontierAction handle things.
             }
@@ -711,9 +722,13 @@ class KernelIncrementalSimulator(
      * Load (if necessary), run, and unload the continuation in this node.
      */
     private fun YieldingStepNode.runContinuation(actions: BasicTaskActions): TaskStepResult =
-        // Once the continuation is run, it cannot be re-run. Unload it immediately.
         loadContinuation().runStep(actions).also {
+            // Only the continuation in a StartTaskNode may be re-run. Otherwise, unload it immediately.
             if (this !is StartTaskNode) continuation = null
+            if (this is AwaitCompleteNode) {
+                // For an AwaitCompleteNode, the continuation is shared with all prior Await nodes. Unload all of them.
+                priorNodes().takeWhile { it is AwaitNode }.forEach { (it as AwaitNode).continuation = null }
+            }
         }
 
     /**
@@ -722,8 +737,8 @@ class KernelIncrementalSimulator(
      */
     private fun YieldingStepNode.loadContinuation(): Task {
         if (continuation == null) {
-            // Otherwise, run a task from the yielding node prior to this, replaying it to this.
-            val priorYieldingStepNode = checkNotNull(prior).priorNodes().first { it is YieldingStepNode } as YieldingStepNode
+            // Run a task from the yielding node prior to this, replaying it to this.
+            val priorYieldingStepNode = priorNodes().first { it is YieldingStepNode } as YieldingStepNode
             // When replaying, all actions should be replays. No continuation actions are needed.
             val stepResult = priorYieldingStepNode.runContinuation(priorYieldingStepNode.replayingTaskActions(
                 object : BasicTaskActions {
@@ -863,6 +878,7 @@ class KernelIncrementalSimulator(
             // couldn't be proven to be in the same state. Since children (may) inherit state from their parents,
             // any child spawned from possibly-different parents may itself be possibly-different, so cannot be merged.
             is SpawnNode -> fullyRevokeTask(task.child)
+            is TaskCompleteNode -> { /* Nothing to do */ }
         }
         // Don't check integrity now, we're purposely breaking the integrity of the next node by removing this node.
         dumpDotToFile(DebugLevel.MINOR, task.next, checkIntegrity = false)
@@ -1036,8 +1052,10 @@ class KernelIncrementalSimulator(
         }
     }
 
-    private fun TaskNode.priorNodes() = generateSequence(this) { it.prior }
-    private fun TaskNode.nextNodes() = generateSequence(this) { it.next }
+    private fun TaskNode.thisAndPriorNodes() = generateSequence(this) { it.prior }
+    private fun TaskNode.thisAndNextNodes() = generateSequence(this) { it.next }
+    private fun TaskNode.priorNodes() = thisAndPriorNodes().drop(1)
+    private fun TaskNode.nextNodes() = thisAndNextNodes().drop(1)
 
     private fun SimulationTime.nextStep() = copy(step = step + 1)
 
@@ -1113,8 +1131,8 @@ class KernelIncrementalSimulator(
             }
         }
         // Walk all the branches to collect all the task nodes, plus the merge opportunities, since those aren't necessarily connected to a branch.
-        val regularTaskNodes = branchRoots.values.flatMap { it.root.nextNodes() }
-        val mergeOpNodes = rootMergeOpportunities.values.flatMap { it.nextNodes() }
+        val regularTaskNodes = branchRoots.values.flatMap { it.root.thisAndNextNodes() }
+        val mergeOpNodes = rootMergeOpportunities.values.flatMap { it.thisAndNextNodes() }
         for (node in regularTaskNodes + mergeOpNodes) {
             taskDotId[node] = "task${n++}"
             collect(node)
@@ -1164,6 +1182,7 @@ class KernelIncrementalSimulator(
                             is AwaitNode -> "Await ${node.condition}" + (if (node.continuation != null) " ++" else "")
                             is AwaitCompleteNode -> "AwaitComplete" + (if (node.continuation != null) " ++" else "")
                             is SpawnNode -> "Spawn" + (if (node.continuation != null) " ++" else "")
+                            is TaskCompleteNode -> "TaskComplete ${node.taskName}"
                         }
                         shape = "box"
                         id = taskDotId.getValue(node)
