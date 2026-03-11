@@ -7,6 +7,7 @@ import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.KernelCheckpoint
+import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
 import gov.nasa.jpl.pyre.kernel.MutableDependentMap
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
@@ -28,21 +29,6 @@ import kotlin.reflect.KType
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Instant
-
-// TODO: There are some bugs in the code below for handling tasks for incon saving, I think.
-//   First, we aren't adding new sub-trees to taskNodes when adding tasks.
-//   Second and more seriously, we've assumed that task names are completely unique.
-//   Actually, they just need to be unique at any given moment. It's valid (and desirable) for a parent task
-//   to be able to kick off multiple synonymous children, provided none of them overlap in time.
-//   To fix this, maybe saving an incon should start from each of planTaskNodes and explore the graph?
-//   Or maybe we need to be able to say, explicitly, somehow, that a task has completed?
-//   That could gel with explicitly representing (and potentially revoking!) task failures...
-//   Maybe taskNodes could have a type like Name -> List<TreeMap<SimTime, TaskNode>>, where each subtree is one instance
-//   of a task by that name. Maybe with a little extra bookkeeping to know the state of the task...
-//   Additionally, when saving an incon, we look for task nodes after the save time.
-//   We assume a task without nodes after that time is complete; but it may also just be waiting.
-//   This could be remedied by adding nodes outside the "end" time we're considering.
-//   That would also open up the ability to mutate the end time, to scope the incremental simulation up and down on the fly.
 
 // TODO: Look for opportunities to refactor node creation (e.g. an "insert after" operator that does the link modification).
 
@@ -206,16 +192,25 @@ class KernelIncrementalSimulator(
             }
         }
         // Save the tasks by looking up an appropriate task node for each task
-        val taskCheckpoints = branchRoots.values.map { branch ->
+        val taskCheckpoints = branchRoots.values.mapNotNull { branch ->
             val tip = branch.root.thisAndNextNodes().takeWhile { it.time < simulationTime }.last()
-            // TODO: Figure out if tip represents a completed task.
-            //   If it's completed and branch.root.prior == null, save a "completed" checkpoint.
-            //   If it's completed and branch.root.prior != null, drop this element.
-            check(tip is YieldingStepNode) {
-                "Internal error! Task node for ${tip.taskName} at or after $simulationTime is not yielding."
+            if (tip is FinalStepNode) {
+                // This branch has completed.
+                if (branch.root.prior == null) {
+                    // This is a root task, not spawned by another task. Save a "completed" checkpoint for it.
+                    KernelTaskCheckpoint(branch.root.taskName)
+                } else {
+                    // This task was spawned by another; no task checkpoint is required.
+                    null
+                }
+            } else {
+                // This branch has not completed. It must have yielded instead.
+                check(tip is YieldingStepNode) {
+                    "Internal error! Task node for ${tip.taskName} at or after $simulationTime is not yielding."
+                }
+                // Load the continuation, and ask it to save a task checkpoint.
+                tip.loadContinuation().save()
             }
-            tip.loadContinuation().save()
-            TODO("Saving tasks")
         }
         return KernelCheckpoint(time, cellCheckpoint, taskCheckpoints)
     }

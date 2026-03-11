@@ -132,6 +132,12 @@ sealed interface SGNode {
         override fun toString(): String = "TaskComplete($taskName) @ $time"
     }
 
+    // TODO: Should we also have a TaskErrorNode / TaskCrashedNode, implementing FinalStepNode?
+    //   Rationale: The kernel has final say over tasks; catching errors there means you *can't* crash the simulator.
+    //   It also has a little extra context about what task this is (task name, parent names, etc.)
+    //   Counter-rationale: This adds complexity to the kernel.
+    //   It also means I basically *can't* crash out of a sim even if that behavior is desired, for some reason.
+
     sealed interface CellNode<T> : SGNode {
         val cell: Cell<T>
         var value: T
