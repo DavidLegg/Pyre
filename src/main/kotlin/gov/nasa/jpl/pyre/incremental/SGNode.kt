@@ -144,6 +144,25 @@ sealed interface SGNode {
     //   It also has a little extra context about what task this is (task name, parent names, etc.)
     //   Counter-rationale: This adds complexity to the kernel.
     //   It also means I basically *can't* crash out of a sim even if that behavior is desired, for some reason.
+    //   Also, I don't have access to the stderr channel from the kernel.
+    //   There's no great way for the kernel to report that the task failed.
+    //   We could catch from coroutineTask instead, where we're converting foundation tasks to kernel tasks.
+    //   In that case, we could catch the error, report the failure on stderr, and gracefully complete the task.
+    //   Additionally, if we *really* need to crash the sim, we could either (a) have a dedicated "CrashSim" exception
+    //   which we handle specially from coroutineTask, or (b) we could have special tasks which don't get error catching.
+
+    // Related thought - should cells have a "failed" state, separate from any value?
+    // When we apply an effect, merge effects, or step a cell, that's model-provided code. It could throw exceptions.
+    // If it does, right now, the simulator just crashes. That's not great behavior, especially if throwing from a task
+    // only crashes the one task. I don't like the asymmetry in severity there.
+    // Instead, if an operation on a cell throws, we could capture the exception and mark the cell as "failed".
+    // TBD how to handle "clearing" a cell, since effects are a function of the cell's value... maybe you can't clear it?
+    // If a task or condition tries to read a "failed" cell, we throw a "CellFailedException" of our own making.
+    // Tasks and conditions have the option to catch this (e.g. a resource-reporting task could catch this,
+    // make a report to the stderr channel that the resource failed, and await it being cleared).
+    // Since most tasks wouldn't catch it though, those parts of the model could just crash out and turn off.
+    // This way, a bad state can crash the parts of the model that depend on it, deterministically.
+    // Tasks still have an option to recover if they really need to.
 
     sealed interface CellNode<T> : SGNode {
         val cell: Cell<T>
