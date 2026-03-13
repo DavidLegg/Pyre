@@ -129,9 +129,12 @@ class IncrementalSimulatorImpl<M>(
                 // This task is, or is spawned by, an activity
                 if (taskCheckpoint.history != null) {
                     // This task is still loaded in the simulator
-                    activities += taskCheckpoint.run {
-                        ActivityTaskCheckpoint(time, name, rootActivity, history)
-                    }
+                    activities += ActivityTaskCheckpoint(
+                        taskCheckpoint.time,
+                        taskCheckpoint.name,
+                        rootActivity,
+                        taskCheckpoint.history,
+                    )
                 }
                 // else: activity is completed, throw it away.
                 // Unlike daemons, which get restarted if we throw away their checkpoint,

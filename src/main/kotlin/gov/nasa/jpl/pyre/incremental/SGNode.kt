@@ -105,6 +105,13 @@ sealed interface SGNode {
         override var prior: TaskNode?,
         val condition: Condition,
         val reads: MutableMap<CellNode<*>, Any?> = mutableMapOf(),
+        // TODO: Should the continuation on an AwaitNode just be the rewait instead?
+        //   If we do that, we can just run the rewait task to recover the continuation...
+        //   But to do that safely, we'd have to reload all the AwaitNodes' continuations when we do that, maybe?
+        //   Alternatively, maybe both the incremental and single-shot simulator should lose the notion of a "rewait" task,
+        //   and just store the condition directly instead?
+        //   The question then is how to deal with task history for awaiting vs. await-completed tasks...
+        val rewait: Task,
         override var continuation: Task?,
         override var next: TaskNode? = null,
     ) : YieldingStepNode {

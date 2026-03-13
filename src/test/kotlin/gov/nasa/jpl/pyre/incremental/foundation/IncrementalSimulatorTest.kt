@@ -48,6 +48,7 @@ import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.remove
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
+import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
@@ -64,6 +65,7 @@ import kotlin.math.pow
 import kotlin.random.Random
 import kotlin.random.nextInt
 import kotlin.random.nextLong
+import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration
@@ -894,7 +896,7 @@ private class IncrementalSimulationTester<M : Any>(
 
         // Since a checkpoint is likely to have issues, do a fine-grained comparison to aid debugging
         assertEquals(baselineCheckpoint.time, testCheckpoint.time)
-        assertEquals(baselineCheckpoint.cells, testCheckpoint.cells)
+        assert(baselineCheckpoint.cells valueEquals testCheckpoint.cells)
 
         // Daemons are stored as a list, but order isn't relevant
         val remainingTestDaemons = testCheckpoint.daemons.toMutableList()

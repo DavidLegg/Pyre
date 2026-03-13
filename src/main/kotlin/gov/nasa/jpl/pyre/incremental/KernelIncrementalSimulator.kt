@@ -184,15 +184,24 @@ class KernelIncrementalSimulator(
             "Cannot save checkpoint at $time outside of plan bounds $planStart to $planEnd"
         }
         val simulationTime = SimulationTime(time)
+
         // Save the cell values by looking up an appropriate cell node for each cell
-        val cellCheckpoint = MutableDependentMap().also {
-            for ((cell, nodes) in cellNodes) {
-                val (_, cellNode) = nodes.floorEntry(simulationTime)
-                it.put(cell.name, cellNode.value, cell.valueType)
-            }
+        val cellCheckpoint = MutableDependentMap()
+        @Suppress("UNCHECKED_CAST")
+        fun <T> CellNode<T>.save() {
+            // Stepping many small increments can accrue numerical error in complex dynamics.
+            // Walk back to our first non-step-node ancestor and step from there instead.
+            var baseNode = this
+            while (baseNode is CellStepNode) baseNode = baseNode.prior
+            val value = cell.stepBy(baseNode.value, time - baseNode.time.instant)
+            cellCheckpoint.put(cell.name, value, cell.valueType)
         }
-        // Save the tasks by looking up an appropriate task node for each task
-        val taskCheckpoints = branchRoots.values.mapNotNull { branch ->
+        cellNodes.values.forEach {
+            it.floorEntry(simulationTime).value.save()
+        }
+
+        // Save running tasks by finding the tip of that branch and saving an appropriate checkpoint
+        val runningTaskCheckpoints = branchRoots.values.mapNotNull { branch ->
             branch.root.thisAndNextNodes().takeWhile { it.time < simulationTime }.lastOrNull()?.let { tip ->
                 if (tip is FinalStepNode) {
                     // This branch has completed.
@@ -206,14 +215,24 @@ class KernelIncrementalSimulator(
                 } else {
                     // This branch has not completed. It must have yielded instead.
                     check(tip is YieldingStepNode) {
-                        "Internal error! Task node for ${tip.taskName} at or after $simulationTime is not yielding."
+                        "Internal error! Task node for ${tip.taskName} at $simulationTime is not yielding."
                     }
                     // Load the continuation, and ask it to save a task checkpoint.
-                    tip.loadContinuation().save()
+                    if (tip is AwaitNode) {
+                        // AwaitNodes use the rewait, not the continuation, to save history.
+                        // Additionally, we use the sim checkpoint time, not the node time.
+                        tip.rewait.save().copy(time = time)
+                    } else {
+                        tip.loadContinuation().save().copy(time = tip.time.instant)
+                    }
                 }
             }
         }
-        return KernelCheckpoint(time, cellCheckpoint, taskCheckpoints)
+        // Also save tasks from the plan which haven't started yet
+        val notStartedTaskCheckpoints = planTaskNodes.values.filter { it.time >= simulationTime }.map {
+            it.loadContinuation().save().copy(time = it.time.instant)
+        }
+        return KernelCheckpoint(time, cellCheckpoint, runningTaskCheckpoints + notStartedTaskCheckpoints)
     }
 
     private fun resolve() {
@@ -363,6 +382,7 @@ class KernelIncrementalSimulator(
                                 resultTime,
                                 action.node,
                                 action.node.condition,
+                                rewait = action.node.rewait,
                                 continuation = action.node.continuation
                             ).also {
                                 frontier += CheckCondition(it)
@@ -617,6 +637,7 @@ class KernelIncrementalSimulator(
                     lastTaskStepNode.time.nextTaskBatch(),
                     lastTaskStepNode,
                     result.condition,
+                    rewait = result.rewait,
                     continuation = result.continuation,
                 ).also {
                     // Having constructed the node, link it to chain of task step nodes

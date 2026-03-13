@@ -155,7 +155,7 @@ class PureTask private constructor(
     sealed interface TaskHistoryStep {
         @Serializable
         @SerialName("await")
-        object AwaitMarker : TaskHistoryStep
+        data object AwaitMarker : TaskHistoryStep
 
         // This is a hack to get a "polymorphic" interface with the type parameter, for ReadMarker.
         // By constructing a KType with this, we can both include a concrete type for T,
