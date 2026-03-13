@@ -98,15 +98,14 @@ class KernelIncrementalSimulator(
     }
 
     init {
-        incon?.let { TODO("incon handling") }
-
         // Init happens before any tasks, at plan start.
         var cellAllocTime = SimulationTime(planStart).cellSteppingBatch()
         // Put initial reports on a different branch from cell allocation.
         // This shouldn't be strictly necessary, but it makes debugging easier by giving everything a unique time.
         val firstReportTime = cellAllocTime.copy(branch = 1)
-        var startTime = cellAllocTime.nextTaskBatch()
+        val startTime = cellAllocTime.nextTaskBatch()
         var lastReport: ReportNode<*>? = null
+        val rootTasks = mutableMapOf<Name, Task>()
 
         val basicInitScope = object : BasicInitScope {
             override fun <T : Any> allocate(
@@ -119,15 +118,23 @@ class KernelIncrementalSimulator(
                 // Create an incremental cell, and add its initial value to the graph
                 IncrementalCellImpl(name, valueType, stepBy, mergeConcurrentEffects).also {
                     cellNodes[it] = TreeMap<SimulationTime, CellNode<*>>().apply {
-                        put(cellAllocTime, CellWriteNode(nextNodeId++, cellAllocTime, it, value, null, identity()))
+                        put(cellAllocTime, CellWriteNode(
+                            nextNodeId++,
+                            cellAllocTime,
+                            it,
+                            incon?.cells?.get(name, valueType) ?: value,
+                            null,
+                            identity()))
                         // Advance the cell allocation time so that each initial cell write node has a unique time
                         cellAllocTime = cellAllocTime.nextStep()
                     }
                 }
 
             override fun spawn(name: Name, step: PureTaskStep) {
-                // Schedule the task on its own branch, as part of the first batch.
-                frontier += RunTask(PureTask(name, step).branchAt(startTime))
+                // Record this task, but defer adding it to the graph until later.
+                // We may want to replay tasks from the incon instead, and we should wait until the model is fully constructed
+                // to do so, lest the replay access something not-yet-initialized and error out.
+                rootTasks[name] = PureTask(name, step)
             }
 
             override fun <T> read(cell: Cell<T>): T {
@@ -149,6 +156,30 @@ class KernelIncrementalSimulator(
             }
         }
         val activities = constructPlan(basicInitScope)
+        incon?.tasks?.groupBy { it.root }?.forEach { (rootName, taskCheckpoints) ->
+            // Remove rootTasks that appear in the incon.
+            val rootTask = rootTasks.remove(rootName)
+            if (rootTask != null) {
+                for (taskCheckpoint in taskCheckpoints) {
+                    if (taskCheckpoint.history != null) {
+                        // The task has history, so it's still running
+                        requireNotNull(taskCheckpoint.time) {
+                            "Malformed task checkpoint: 'time' is missing from ${taskCheckpoint.name} but 'history' is present"
+                        }
+                        // Use the rootTask to restore the checkpoint, then schedule it at the appropriate time.
+                        frontier += RunTask(
+                            rootTask.restoreFrom(taskCheckpoint)
+                                .branchAt(SimulationTime(taskCheckpoint.time)))
+                    }
+                }
+            }
+            // TODO: Should there be warning of dropping incon tasks without corresponding model tasks to restore them?
+        }
+        // Root tasks not accounted for by the incon should be started fresh.
+        // These are presumably daemons added by a model update or something.
+        for (task in rootTasks.values) {
+            frontier += RunTask(task.branchAt(startTime))
+        }
         dumpDotToFile(DebugLevel.MAJOR)
         run(KernelPlanEdits(additions = activities))
     }

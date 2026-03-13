@@ -1,6 +1,7 @@
 package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.kernelTaskName
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.toKernelTask
 import gov.nasa.jpl.pyre.foundation.plans.ActivityTaskCheckpoint
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
@@ -14,6 +15,7 @@ import gov.nasa.jpl.pyre.general.results.ResourceResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.applyTo
 import gov.nasa.jpl.pyre.incremental.SGNode.ReportNode
+import gov.nasa.jpl.pyre.kernel.KernelCheckpoint
 import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.tasks.KernelTask
@@ -49,6 +51,11 @@ class IncrementalSimulatorImpl<M>(
     private val model: M
     private val kernelSimulator: KernelIncrementalSimulator
     private val kernelActivityMap: MutableMap<GroundedActivity<M>, KernelTask> = mutableMapOf()
+    // Incon activities have to be tracked separate from "normal" activities.
+    // Since they are in general partially-run, they can't in general be removed from the sim.
+    // Further, there's a dependency-ordering problem with them, where we can't construct the KernelTask for them.
+    // We use them to build the kernel incon, which we need to have to build the model, which we need to build the KernelTask.
+    private val inconActivities: MutableMap<Name, GroundedActivity<M>> = mutableMapOf()
 
     init {
         val incrementalReportHandler = object : BaseIncrementalChannelizedReportHandler() {
@@ -78,6 +85,23 @@ class IncrementalSimulatorImpl<M>(
         }
         var tempSimulationScope: SimulationScope? = null
         var tempModel: M? = null
+        // Build a kernel checkpoint by combining daemon and activity tasks.
+        val kernelIncon = incon?.run {
+            val kernelTasks = daemons.toMutableList()
+            for (activityCheckpoint in activities) {
+                with (activityCheckpoint) {
+                    // Load each activity in the incon, and build a kernel task checkpoint for it.
+                    val rootTaskName = kernelTaskName(activity.name)
+                    inconActivities.put(rootTaskName, activity).also {
+                        require(it == null || it == activity) {
+                            "Malformed incon: Activity name $rootTaskName references two different activities: $it and $activity"
+                        }
+                    }
+                    kernelTasks += KernelTaskCheckpoint(name, rootTaskName, time, history)
+                }
+            }
+            KernelCheckpoint(time, cells, kernelTasks)
+        }
         kernelSimulator = KernelIncrementalSimulator(
             plan.startTime,
             plan.endTime,
@@ -93,7 +117,7 @@ class IncrementalSimulatorImpl<M>(
                 }
             },
             incrementalReportHandler,
-            incon?.let { TODO("incon handling") }
+            kernelIncon,
         )
         simulationScope = checkNotNull(tempSimulationScope)
         model = checkNotNull(tempModel)
@@ -118,7 +142,7 @@ class IncrementalSimulatorImpl<M>(
     }
 
     override fun save(time: Instant): Checkpoint<M> {
-        val activityByKernelTaskName = kernelActivityMap.entries
+        val activityByKernelTaskName = inconActivities + kernelActivityMap.entries
             .associate { (activity, kernelTask) -> kernelTask.name to activity }
         val kernelCheckpoint = kernelSimulator.save(time)
         val daemons = mutableListOf<KernelTaskCheckpoint>()
