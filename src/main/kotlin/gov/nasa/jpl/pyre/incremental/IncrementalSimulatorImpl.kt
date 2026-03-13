@@ -15,6 +15,7 @@ import gov.nasa.jpl.pyre.general.results.ResourceResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.applyTo
 import gov.nasa.jpl.pyre.incremental.SGNode.ReportNode
+import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.kernel.KernelCheckpoint
 import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
 import gov.nasa.jpl.pyre.kernel.Name
@@ -109,6 +110,14 @@ class IncrementalSimulatorImpl<M>(
                 val initScope = InitScope(plan.startTime)
                 tempSimulationScope = initScope
                 tempModel = constructModel(initScope)
+                // Finally, restart all the activities that we loaded from the incon.
+                // This won't actually start these activities now; instead, it'll provide the root tasks necessary
+                // to restore these activities to however they were when the incon was produced.
+                for (activity in inconActivities.values) {
+                    // For maximum control, bypass the foundation-level init scope and directly start the kernel task.
+                    val task = context (tempSimulationScope) { activity.toKernelTask(tempModel) }
+                    spawn(task.name, task.step)
+                }
                 plan.activities.map { activity ->
                     context (tempSimulationScope) {
                         // Convert plan activities to kernel activities, and record those translations
