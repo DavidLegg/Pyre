@@ -186,7 +186,7 @@ class KernelIncrementalSimulator(
 
     fun run(planEdits: KernelPlanEdits) {
         planEdits.removals.forEach {
-            val rootTaskNode = requireNotNull(planTaskNodes[it]) {
+            val rootTaskNode = requireNotNull(planTaskNodes.remove(it)) {
                 "Activity $it not found in the plan."
             }
             fullyRevokeTask(rootTaskNode)
