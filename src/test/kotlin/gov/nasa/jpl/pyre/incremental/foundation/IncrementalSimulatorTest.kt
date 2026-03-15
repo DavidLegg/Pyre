@@ -667,6 +667,20 @@ class IncrementalSimulatorTest {
     @ParameterizedTest
     @MethodSource("fuzzingSeeds")
     fun `random plan edits conform to fundamental incremental sim guarantee`(seed: Int) {
+        var indentLevel = 0
+        fun println(msg: String) {
+            repeat(indentLevel) { print("  ") }
+            print(msg + "\n")
+        }
+        fun startBlock(msg: String? = null) {
+            msg?.also(::println)
+            indentLevel++
+        }
+        fun endBlock(msg: String? = null) {
+            msg?.also(::println)
+            indentLevel--
+        }
+
         // TODO - bias the randomization slightly towards plan bounds and concurrency
         val rng = Random(seed)
         val numberOfInitialActivities = 10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()
@@ -687,34 +701,38 @@ class IncrementalSimulatorTest {
 
         // Choose an initial plan
         // We'll maintain this list of activities, separate from simulator.plan, since we don't yet trust the simulator.
+        startBlock("Building initial plan")
         val activities = mutableListOf<GroundedActivity<TestModel>>()
         repeat(numberOfInitialActivities) {
             activities += GroundedActivity(
                 rng.nextInstant(startTime..endTime),
                 rng.nextActivityId(),
-                rng.nextActivity())
+                rng.nextActivity()).also { println("Add $it") }
         }
+        endBlock()
         // Verify the incremental simulator can handle that initial plan
         var tester = test(activities)
         println("Initial simulation complete")
 
         // For as many rounds of edits as we've decided to do...
         for (roundNumber in 1..roundsOfEdits) {
-            println("Running round $roundNumber of edits...")
+            startBlock("Running round $roundNumber of edits...")
             // In some rounds, do a save/restore cycle
             if (rng.chance(0.05)) {
+                startBlock("Doing a save/restore cycle")
                 // Pick a new random start time, and slide the end time with it
                 startTime = rng.nextInstant(startTime..endTime)
                 endTime = startTime + 1.days
-                // Choose whether to inject new activities or not
+                println("Checkpoint time = $startTime")
+                // Activities that were saved through the checkpoint can't then be changed incrementally,
+                // so choose a new set of activities to work with instead.
+                // TODO: Think through whether this must be the case... If an activity comes from an incon, can it be incrementally edited?
                 val newActivities = mutableListOf<GroundedActivity<TestModel>>()
-                if (rng.chance()) {
-                    repeat (10.0.pow(rng.nextDouble(0.0, 2.0)).toInt()) {
-                        newActivities += GroundedActivity(
-                            rng.nextInstant(startTime..endTime),
-                            rng.nextActivityId(),
-                            rng.nextActivity())
-                    }
+                repeat (10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()) {
+                    newActivities += GroundedActivity(
+                        rng.nextInstant(startTime..endTime),
+                        rng.nextActivityId(),
+                        rng.nextActivity()).also { println("Add $it") }
                 }
                 // Then build a new incremental tester with those time bounds, saving and restoring from a checkpoint
                 tester = test(
@@ -723,15 +741,15 @@ class IncrementalSimulatorTest {
                     endTime = endTime,
                     incon = tester.save(startTime),
                 )
-                // Finally, filter the list of activities down to just those starting in the new time range.
-                // Activities starting earlier than this cannot be changed.
-                activities.removeIf { it.time < startTime }
+                activities.clear()
                 activities += newActivities
+                endBlock("Save/restore cycle complete")
             }
             // Choose a number of activities to edit, up to the entire plan, with a bias towards small edits.
             val numberOfEdits = if (activities.size <= 1) activities.size else
                 exp(rng.nextDouble(0.0, ln(activities.size.toDouble()))).toInt()
             var edits = PlanEdits<TestModel>()
+            startBlock("Choosing $numberOfEdits random edits")
             // Pick random edits to make. If we edit an activity, remove it from activities so it doesn't get edited twice.
             repeat (numberOfEdits) {
                 when (rng.nextInt(1..4)) {
@@ -741,33 +759,38 @@ class IncrementalSimulatorTest {
                             rng.nextInstant(startTime..endTime),
                             rng.nextActivityId(),
                             rng.nextActivity()
-                        )
+                        ).also { println("Add $it") }
                     }
                     2 -> {
                         // Remove an activity
-                        edits -= activities.randomRemove(rng)
+                        edits -= activities.randomRemove(rng).also { println("Remove $it") }
                     }
                     3 -> {
                         // Move an activity (by up to 10 minutes)
                         val activity = activities.randomRemove(rng)
                         val time = rng.nextInstant(activity.time - 10.minutes..activity.time + 10.minutes)
                             .coerceIn(startTime..endTime - 1.microseconds)
+                        println("Move $activity to $time")
                         edits += move(activity to time)
                     }
                     4 -> {
                         // Edit an activity's arguments
                         val activity = activities.randomRemove(rng)
                         val newActivity = activity.activity.randomArgs(rng)
+                        println("Edit $activity to $newActivity")
                         edits += edit(activity to newActivity)
                     }
                     else -> throw AssertionError("Code path should never run")
                 }
             }
+            endBlock()
+            println("Running edits")
             // Now run those randomly-chosen edits, asserting the single-shot and incremental simulators agree
             tester.run(edits)
             // Also apply the edits to our list of activities, to know what we can edit next round
             activities -= edits.removals.toSet()
             activities += edits.additions
+            endBlock()
         }
     }
 
