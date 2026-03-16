@@ -785,6 +785,12 @@ class KernelIncrementalSimulator(
      */
     private fun YieldingStepNode.loadContinuation(): Task {
         if (continuation == null) {
+            // TODO - I think there's a bug here around await nodes.
+            //   If this is an await (or maybe an AwaitComplete too?) and the prior is an await,
+            //   then re-loading the prior runs a continuation. Calling runContinuation on that runs the "await completed"
+            //   part of the task, rather than the "rewait" part, which may be wrong.
+            //   Do I need to add special-case logic for await nodes?
+            //   Or should await nodes use "rewait" as their continuation?
             // Run a task from the yielding node prior to this, replaying it to this.
             val priorYieldingStepNode = priorNodes().first { it is YieldingStepNode } as YieldingStepNode
             // When replaying, all actions should be replays. No continuation actions are needed.
