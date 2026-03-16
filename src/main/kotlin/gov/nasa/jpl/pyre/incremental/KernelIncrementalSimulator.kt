@@ -773,9 +773,9 @@ class KernelIncrementalSimulator(
         loadContinuation().runStep(actions).also {
             // Only the continuation in a StartTaskNode may be re-run. Otherwise, unload it immediately.
             if (this !is StartTaskNode) continuation = null
-            if (this is AwaitCompleteNode) {
+            if (this is AwaitNode || this is AwaitCompleteNode) {
                 // For an AwaitCompleteNode, the continuation is shared with all prior Await nodes. Unload all of them.
-                priorNodes().takeWhile { it is AwaitNode }.forEach { (it as AwaitNode).continuation = null }
+                awaitGroup().forEach { it.continuation = null }
             }
         }
 
@@ -1116,6 +1116,10 @@ class KernelIncrementalSimulator(
     private fun TaskNode.thisAndNextNodes() = generateSequence(this) { it.next }
     private fun TaskNode.priorNodes() = thisAndPriorNodes().drop(1)
     private fun TaskNode.nextNodes() = thisAndNextNodes().drop(1)
+    private fun TaskNode.awaitGroup(): Sequence<YieldingStepNode> =
+        (priorNodes().takeWhile { it is AwaitNode } +
+                thisAndNextNodes().takeWhile { it is AwaitNode || it is AwaitCompleteNode })
+            .map { it as YieldingStepNode }
 
     private fun SimulationTime.nextStep() = copy(step = step + 1)
 
