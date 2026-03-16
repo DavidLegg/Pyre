@@ -791,40 +791,46 @@ class KernelIncrementalSimulator(
             //   part of the task, rather than the "rewait" part, which may be wrong.
             //   Do I need to add special-case logic for await nodes?
             //   Or should await nodes use "rewait" as their continuation?
-            // Run a task from the yielding node prior to this, replaying it to this.
-            val priorYieldingStepNode = priorNodes().first { it is YieldingStepNode } as YieldingStepNode
-            // When replaying, all actions should be replays. No continuation actions are needed.
-            val stepResult = priorYieldingStepNode.runContinuation(priorYieldingStepNode.replayingTaskActions(
-                object : BasicTaskActions {
-                    override fun <V> read(cell: Cell<V>): V = throwError()
-                    override fun <V> emit(cell: Cell<V>, effect: Effect<V>) = throwError()
-                    override fun <V> report(value: V) = throwError()
-                    private fun throwError(): Nothing =
-                        throw IllegalStateException("Replay of task $taskName did not yield when expected to!")
-                }))
-            continuation = when (this) {
-                is AwaitNode -> {
-                    check(stepResult is TaskStepResult.Await) {
-                        "Replay of task $taskName did not await when expected to!"
+            continuation = if ((this is AwaitCompleteNode || this is AwaitNode) && prior is AwaitNode) {
+                // Special case - continuations are copied across await nodes
+                (prior as AwaitNode).loadContinuation()
+            } else {
+                // General case - continuations are rebuilt by running from the prior yielding step.
+                // Run a task from the yielding node prior to this, replaying it to this.
+                val priorYieldingStepNode = priorNodes().first { it is YieldingStepNode } as YieldingStepNode
+                // When replaying, all actions should be replays. No continuation actions are needed.
+                val stepResult = priorYieldingStepNode.runContinuation(priorYieldingStepNode.replayingTaskActions(
+                    object : BasicTaskActions {
+                        override fun <V> read(cell: Cell<V>): V = throwError()
+                        override fun <V> emit(cell: Cell<V>, effect: Effect<V>) = throwError()
+                        override fun <V> report(value: V) = throwError()
+                        private fun throwError(): Nothing =
+                            throw IllegalStateException("Replay of task $taskName did not yield when expected to!")
+                    }))
+                when (this) {
+                    is AwaitNode -> {
+                        check(stepResult is TaskStepResult.Await) {
+                            "Replay of task $taskName did not await when expected to!"
+                        }
+                        // The continuation of an await is to rewait the condition
+                        stepResult.rewait
                     }
-                    // The continuation of an await is to rewait the condition
-                    stepResult.rewait
-                }
-                is AwaitCompleteNode -> {
-                    check(stepResult is TaskStepResult.Await) {
-                        "Replay of task $taskName did not await when expected to!"
+                    is AwaitCompleteNode -> {
+                        check(stepResult is TaskStepResult.Await) {
+                            "Replay of task $taskName did not await when expected to!"
+                        }
+                        // The continuation of an await-complete is the real continuation
+                        stepResult.continuation
                     }
-                    // The continuation of an await-complete is the real continuation
-                    stepResult.continuation
-                }
-                is SpawnNode -> {
-                    check(stepResult is TaskStepResult.Spawn) {
-                        "Replay of task $taskName did not spawn when expected to!"
+                    is SpawnNode -> {
+                        check(stepResult is TaskStepResult.Spawn) {
+                            "Replay of task $taskName did not spawn when expected to!"
+                        }
+                        // The continuation of a spawn is the parent branch; children have their own RootTaskNode.
+                        stepResult.continuation
                     }
-                    // The continuation of a spawn is the parent branch; children have their own RootTaskNode.
-                    stepResult.continuation
+                    is StartTaskNode -> throw IllegalStateException("StartTaskNode for $taskName had a null continuation")
                 }
-                is StartTaskNode -> throw IllegalStateException("StartTaskNode for $taskName had a null continuation")
             }
         }
         return continuation!!
