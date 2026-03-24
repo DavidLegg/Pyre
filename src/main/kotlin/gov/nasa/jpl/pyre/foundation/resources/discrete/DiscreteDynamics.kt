@@ -19,6 +19,7 @@ import kotlin.time.Duration
 data class Discrete<A>(val value: A) : Dynamics<A, Discrete<A>> {
     override fun value() = value
     override fun step(t: Duration) = this
+    override fun toString(): String = value.toString()
 
     class DiscreteSerializer<A>(valueSerializer: KSerializer<A>) : KSerializer<Discrete<A>> by valueSerializer.alias(
         InvertibleFunction.of(

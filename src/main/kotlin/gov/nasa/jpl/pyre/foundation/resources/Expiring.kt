@@ -11,7 +11,13 @@ import kotlinx.serialization.builtins.serializer
 import kotlin.time.Duration
 
 @Serializable
-data class Expiring<T>(val data: T, val expiry: Expiry)
+data class Expiring<T>(val data: T, val expiry: Expiry) {
+    override fun toString(): String = if (expiry == NEVER) {
+        data.toString()
+    } else {
+        "$data (until $expiry)"
+    }
+}
 
 fun <D : Dynamics<*, D>> Expiring<D>.step(time: Duration) = Expiring(data.step(time), expiry - time)
 

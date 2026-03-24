@@ -36,7 +36,12 @@ fun <D> Resource<D>.fullyNamed(nameFn: () -> Name) = object : Resource<D> by thi
 
 @Suppress("NOTHING_TO_INLINE")
 object ThinResourceMonad {
-    inline fun<A> pure(a: A): ThinResource<A> = ThinResource { a }
+    inline fun<A> pure(a: A): ThinResource<A> = object : ThinResource<A> {
+        context(scope: ResourceScope)
+        override fun getDynamics(): A = a
+        override val name: Name = Name(a.toString())
+        override fun toString(): String = name.toString()
+    }
     inline fun<A, B> apply(a: ThinResource<A>, fn: ThinResource<(A) -> B>): ThinResource<B> =
         ThinResource { fn.getDynamics()(a.getDynamics()) }
     inline fun<A> join(a: ThinResource<ThinResource<A>>): ThinResource<A> = ThinResource { a.getDynamics().getDynamics() }

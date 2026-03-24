@@ -17,4 +17,9 @@ data class Clock(
 ) : Dynamics<Instant, Clock> {
     override fun value(): Instant = time
     override fun step(t: Duration): Clock = copy(time = time + t * rate)
+    override fun toString(): String = if (rate == 0.0) {
+        time.toString()
+    } else {
+        "Clock($time, running at ${rate}x)"
+    }
 }
