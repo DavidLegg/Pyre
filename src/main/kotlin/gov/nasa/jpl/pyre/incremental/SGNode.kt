@@ -48,7 +48,7 @@ sealed interface SGNode {
     ) : YieldingStepNode {
         override val taskName: Name = task.name
         override var continuation: Task? = task
-        override fun toString(): String = "Root($taskName) @ $time"
+        override fun toString(): String = "Start($taskName) @ $time"
     }
 
     class ReadNode(

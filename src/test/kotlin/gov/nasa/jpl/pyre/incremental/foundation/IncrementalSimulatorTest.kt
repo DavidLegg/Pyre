@@ -46,6 +46,7 @@ import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.minus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.move
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.remove
+import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
 import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
@@ -604,6 +605,29 @@ class IncrementalSimulatorTest {
     }
 
     @Test
+    fun `TEMP -- cut-down -- moving activities that spawn children`() {
+        // Interesting finding: While trying to cut this down to a minimal example,
+        // I found that changing this increment to 4 causes the failure to go away (!)
+        // Studying why that is could shed light on what's happening here.
+        // Additionally, trying to combine these two increments into a single increment of 4 or 5
+        // also results in the failure disappearing.
+        val a3 = IncrementStandaloneCounter(2) at 9.minutes
+        val a4 = SpawnChildren("B") at 10.minutes
+        val a5 = IncrementStandaloneCounter(2) at 14.minutes
+        val a6 = SpawnChildren("C") at 15.minutes
+        test(
+            a3,
+            a4,
+            a5,
+            a6,
+        )
+            // .also { KernelIncrementalSimulator.DEBUG = KernelIncrementalSimulator.DebugLevel.MAJOR }
+            .move(
+                 a4 to day0 + 15.minutes - 3.seconds,
+            )
+    }
+
+    @Test
     fun `moving activities that spawn children`() {
         val a1 = IncrementStandaloneCounter(1) at 4.minutes
         val a2 = SpawnChildren("A") at 5.minutes
@@ -612,7 +636,9 @@ class IncrementalSimulatorTest {
         val a5 = IncrementStandaloneCounter(10) at 14.minutes
         val a6 = SpawnChildren("C") at 15.minutes
         val a7 = SpawnChildren("D") at 15.minutes + 3.seconds
-        test(a1, a2, a3, a4, a5, a6, a7).move(
+        test(a1, a2, a3, a4, a5, a6, a7)
+            .also { KernelIncrementalSimulator.DEBUG = KernelIncrementalSimulator.DebugLevel.MAJOR }
+            .move(
             a2 to day0 + 4.minutes + 10.seconds,
             a4 to day0 + 15.minutes - 3.seconds,
         )
