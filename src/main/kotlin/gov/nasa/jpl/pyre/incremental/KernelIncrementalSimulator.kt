@@ -451,7 +451,7 @@ class KernelIncrementalSimulator(
                 }.value)
             }
         }
-        // If the value actually changed, re-run all readers and awaiters, and check all next cell nodes.
+        // If the value actually changed, update the value and check all next cell nodes to propagate the change
         if (computedValue != node.value) {
             node.value = computedValue
             node.next.forEach { frontier += CheckCell(it) }
@@ -810,18 +810,11 @@ class KernelIncrementalSimulator(
                             throw IllegalStateException("Replay of task $taskName did not yield when expected to!")
                     }))
                 when (this) {
-                    is AwaitNode -> {
+                    is AwaitNode, is AwaitCompleteNode -> {
                         check(stepResult is TaskStepResult.Await) {
                             "Replay of task $taskName did not await when expected to!"
                         }
-                        // The continuation of an await is to rewait the condition
-                        stepResult.rewait
-                    }
-                    is AwaitCompleteNode -> {
-                        check(stepResult is TaskStepResult.Await) {
-                            "Replay of task $taskName did not await when expected to!"
-                        }
-                        // The continuation of an await-complete is the real continuation
+                        // The continuation of an await is the stepResult's continuation. The rewait is a separate field on an AwaitNode.
                         stepResult.continuation
                     }
                     is SpawnNode -> {
@@ -1163,6 +1156,7 @@ class KernelIncrementalSimulator(
         data class RevokeMergeOpportunity(override val node: StartTaskNode) : FrontierAction
     }
 
+    private var previouslyHighlightedNode: SGNode? = null
     /**
      * Debugging function which dumps the current simulation DAG as a Graphviz (dot) file
      *
@@ -1219,8 +1213,9 @@ class KernelIncrementalSimulator(
 
             for ((j, node) in rank.sortedBy { it.time.file() }.withIndex()) {
                 val fillColor = when {
-                    node === highlightNode -> "#69aa7c"
-                    node in frontierModifier -> "#50a0f4"
+                    node === highlightNode -> "#69aa7c" // green
+                    node === previouslyHighlightedNode -> "#e2dc66" // yellow
+                    node in frontierModifier -> "#50a0f4" // blue
                     else -> null
                 }
                 val styling = fillColor?.let { ", style = filled, fillcolor = \"$it\"" } ?: ""
@@ -1342,6 +1337,7 @@ class KernelIncrementalSimulator(
             }
         }
         graphBuilder.append("}\n")
+        previouslyHighlightedNode = highlightNode
         return graphBuilder.toString()
     }
 }
