@@ -254,37 +254,36 @@ class KernelIncrementalSimulator(
         }
 
         // Save running tasks by finding the tip of that branch and saving an appropriate checkpoint
-        val runningTaskCheckpoints = branchRoots.values.mapNotNull { branch ->
-            branch.root.thisAndNextNodes().takeWhile { it.time < simulationTime }.lastOrNull()?.let { tip ->
-                if (tip is FinalStepNode) {
-                    // This branch has completed.
-                    if (branch.root.prior == null) {
-                        // This is a root task, not spawned by another task. Save a "completed" checkpoint for it.
-                        KernelTaskCheckpoint(branch.root.taskName)
-                    } else {
-                        // This task was spawned by another; no task checkpoint is required.
-                        null
-                    }
+        val runningTaskCheckpoints = branchRoots.subMap(branchRoots.firstKey(), simulationTime).values.mapNotNull { branch ->
+            // branch starts before simulationTime, so it must have a last node before simulationTime.
+            val tip = branch.root.thisAndNextNodes().takeWhile { it.time < simulationTime }.last()
+            if (tip is FinalStepNode) {
+                // This branch has completed.
+                if (branch.root.prior == null) {
+                    // This is a root task, not spawned by another task. Save a "completed" checkpoint for it.
+                    KernelTaskCheckpoint(branch.root.taskName)
                 } else {
-                    // This branch has not completed. It must have yielded instead.
-                    check(tip is YieldingStepNode) {
-                        "Internal error! Task node for ${tip.taskName} at $simulationTime is not yielding."
-                    }
-                    // Load the continuation, and ask it to save a task checkpoint.
-                    if (tip is AwaitNode) {
-                        // AwaitNodes use the rewait, not the continuation, to save history.
-                        // Additionally, we use the sim checkpoint time, not the node time.
-                        tip.rewait.save().copy(time = time)
-                    } else {
-                        tip.loadContinuation().save().copy(time = tip.time.instant)
-                    }
+                    // This task was spawned by another; no task checkpoint is required.
+                    null
+                }
+            } else {
+                // This branch has not completed. It must have yielded instead.
+                check(tip is YieldingStepNode) {
+                    "Internal error! Task node for ${tip.taskName} at $simulationTime is not yielding."
+                }
+                // Load the continuation, and ask it to save a task checkpoint.
+                if (tip is AwaitNode) {
+                    // AwaitNodes use the rewait, not the continuation, to save history.
+                    // Additionally, we use the sim checkpoint time, not the node time.
+                    tip.rewait.save().copy(time = time)
+                } else {
+                    tip.loadContinuation().save().copy(time = tip.time.instant)
                 }
             }
         }
-        // Also save tasks from the plan which haven't started yet
-        val notStartedTaskCheckpoints = planTaskNodes.values.filter { it.time >= simulationTime }.map {
-            it.loadContinuation().save().copy(time = it.time.instant)
-        }
+        // Also save tasks which haven't started yet
+        val notStartedTaskCheckpoints = branchRoots.subMap(simulationTime, true, branchRoots.lastKey(), true)
+            .values.map { it.root.loadContinuation().save().copy(time = it.root.time.instant) }
         return KernelCheckpoint(time, cellCheckpoint, runningTaskCheckpoints + notStartedTaskCheckpoints)
     }
 

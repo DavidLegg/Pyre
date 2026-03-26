@@ -1188,25 +1188,26 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro directly -- cut down`() {
+    fun `activity preserved through two incon cycles`() {
+        // Finding: Both save/restore cycles below are required to repro.
+        // Finding: Changing the activity type from SpawnChild to SetStandaloneCounter still repros.
+        // Finding: Changing the activity name still repros.
+        // Finding: Changing the exact times without reordering still repros.
+        // Finding: Order of timestamps is required to repro.
+        // Conclusion: Something about preserving an activity through two save/restore cycles is failing, where one succeeds.
         var incon: Checkpoint<TestModel>
         var inconTime: Instant
-        println("Building initial plan")
         var tester = test(
-            GroundedActivity(Instant.parse("2025-01-01T15:20:43.997321Z"), Name("784316188272"), SpawnChild(child=SetStandaloneCounter(number=0))),
+            GroundedActivity(Instant.parse("2025-01-01T16:00:00.000000Z"), Name("A"), SetStandaloneCounter(number=0)),
         )
 
-        println("Doing a save/restore cycle")
-        inconTime = Instant.parse("2025-01-01T14:03:24.102133Z")
+        inconTime = Instant.parse("2025-01-01T14:00:00.000000Z")
         incon = tester.save(inconTime)
         tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
-        println("Save/restore cycle complete")
 
-        println("Doing a save/restore cycle")
-        inconTime = Instant.parse("2025-01-01T15:10:53.156736Z")
+        inconTime = Instant.parse("2025-01-01T15:00:00.000000Z")
         incon = tester.save(inconTime)
         tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
-        println("Save/restore cycle complete")
     }
 
     /**
