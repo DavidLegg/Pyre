@@ -29,6 +29,8 @@ import kotlin.reflect.KType
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Instant
+import kotlin.time.Instant.Companion.DISTANT_FUTURE
+import kotlin.time.Instant.Companion.DISTANT_PAST
 
 // TODO: Look for opportunities to refactor node creation (e.g. an "insert after" operator that does the link modification).
 
@@ -254,7 +256,7 @@ class KernelIncrementalSimulator(
         }
 
         // Save running tasks by finding the tip of that branch and saving an appropriate checkpoint
-        val runningTaskCheckpoints = branchRoots.subMap(branchRoots.firstKey(), simulationTime).values.mapNotNull { branch ->
+        val runningTaskCheckpoints = branchRoots.subMap(SimulationTime(DISTANT_PAST), simulationTime).values.mapNotNull { branch ->
             // branch starts before simulationTime, so it must have a last node before simulationTime.
             val tip = branch.root.thisAndNextNodes().takeWhile { it.time < simulationTime }.last()
             if (tip is FinalStepNode) {
@@ -281,9 +283,12 @@ class KernelIncrementalSimulator(
                 }
             }
         }
-        // Also save tasks which haven't started yet
-        val notStartedTaskCheckpoints = branchRoots.subMap(simulationTime, true, branchRoots.lastKey(), true)
-            .values.map { it.root.loadContinuation().save().copy(time = it.root.time.instant) }
+        // Also save root tasks which haven't started yet
+        val notStartedTaskCheckpoints = branchRoots.subMap(simulationTime, SimulationTime(DISTANT_FUTURE))
+            .values
+            // Filter down to root tasks - branches that are spawned in the future by other tasks shouldn't be directly saved.
+            .filter { it.root.prior == null }
+            .map { it.root.loadContinuation().save().copy(time = it.root.time.instant) }
         return KernelCheckpoint(time, cellCheckpoint, runningTaskCheckpoints + notStartedTaskCheckpoints)
     }
 
