@@ -469,10 +469,9 @@ class KernelIncrementalSimulator(
                 node.cell.stepBy(baseNode.value, node.time.instant - baseNode.time.instant)
             }
             is CellWriteNode<T> -> {
-                // Apply the effect to the prior cell value.
-                node.effect(checkNotNull(node.prior) {
-                    "Internal error! Cannot check initial write node."
-                }.value)
+                // If we have a prior node, apply the effect to the prior cell value.
+                // Otherwise, this node is initial; just keep its value intact.
+                node.prior?.let { node.effect(it.value) } ?: node.value
             }
         }
         // If the value actually changed, update the value and check all next cell nodes to propagate the change
