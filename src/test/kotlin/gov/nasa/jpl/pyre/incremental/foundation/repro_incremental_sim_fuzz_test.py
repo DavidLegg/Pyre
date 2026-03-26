@@ -14,23 +14,29 @@ END_SAVE_PATTERN = re.compile(r'Save/restore cycle complete')
 
 def main(in_file: str):
     text = Path(in_file).read_text()
-    first_batch = True
+    edit_round = 0
     incon_time = None
     this_edit_batch = []
+    fns = []
+    fn_calls = []
     for ln in text.splitlines():
         if m := ROUND_PATTERN.search(ln):
-            print_batch(this_edit_batch, first_batch, incon_time)
+            fn, call = translate_batch_fn(this_edit_batch, edit_round, incon_time)
+            fns.append(fn)
+            fn_calls.append(call)
             this_edit_batch = []
-            first_batch = False
-            print(f'println("{ln.strip()}")')
+            edit_round = int(m.group("round"))
+            fn_calls.append(f'println("{ln.strip()}")')
         elif m := START_SAVE_PATTERN.search(ln):
             incon_time = m.group("time")
         elif m := END_SAVE_PATTERN.search(ln):
-            print_batch(this_edit_batch, first_batch, incon_time)
+            fn, call = translate_batch_fn(this_edit_batch, edit_round, incon_time)
+            fns.append(fn)
+            fn_calls.append(call)
             incon_time = None
             this_edit_batch = []
         elif m := ADD_PATTERN.search(ln):
-            if first_batch or incon_time is not None:
+            if edit_round == 0 or incon_time is not None:
                 this_edit_batch.append(translate_activity_match(m))
             else:
                 this_edit_batch.append(f'add({translate_activity_match(m)})')
@@ -40,7 +46,13 @@ def main(in_file: str):
             this_edit_batch.append(f'move({translate_activity_match(m)} to Instant.parse("{m.group("new_time")}"))')
         elif m := EDIT_PATTERN.search(ln):
             this_edit_batch.append(f'edit({translate_activity_match(m)} to {translate_activity_instance_str(m.group("new_activity"))})')
-    print_batch(this_edit_batch, first_batch, incon_time)
+    fn, call = translate_batch_fn(this_edit_batch, edit_round, incon_time)
+    fns.append(fn)
+    fn_calls.append(call)
+
+    test_fn_content = fn_calls[0] + '\n' + indent('\n'.join(fn_calls[1:]))
+    support_fns = '\n\n'.join(fns)
+    print(f'@Test\nfun `repro directly`() {{\n{INDENT}// split into methods to avoid "method too large" compile error\n{indent(test_fn_content)}\n}}\n\n{support_fns}')
 
 
 ID_PATTERN = re.compile(r'id=(?P<id>[a-zA-Z0-9\-_]+)')
@@ -53,21 +65,32 @@ def translate_activity_instance_str(activity_str):
     return activity_str
 
 
-def print_batch(batch, first_batch, incon_time):
-    if first_batch:
-        print('var incon: Checkpoint<TestModel>')
-        print('var inconTime: Instant')
-        print('println("Building initial plan")')
-        print('var tester = test(\n    ' + ',\n    '.join(batch) + '\n)')
+def translate_batch_fn(batch, edit_round, incon_time):
+    if edit_round == 0:
+        contents = '\n'.join([
+            'println("Building initial plan")',
+            'return test(\n    ' + ',\n    '.join(batch) + '\n)',
+        ])
+        return f'private fun buildInitialTester(): IncrementalSimulationTester<TestModel> {{\n{indent(contents)}\n}}', 'var tester = buildInitialTester()'
     elif incon_time is not None:
-        print('println("Doing a save/restore cycle")')
-        print(f'inconTime = Instant.parse("{incon_time}")')
-        print('incon = tester.save(inconTime)')
-        print('tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon, activities = listOf(\n    ' + ',\n    '.join(batch) + '\n))')
-        print('println("Save/restore cycle complete")')
+        contents = '\n'.join([
+            'println("Doing a save/restore cycle")',
+            f'val inconTime = Instant.parse("{incon_time}")',
+            'val incon = tester.save(inconTime)',
+            'return test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon, activities = listOf(\n    ' + ',\n    '.join(batch) + '\n)).also { println("Save/restore cycle complete") }',
+            ])
+        return f'private fun saveRestore{edit_round}(tester: IncrementalSimulationTester<TestModel>): IncrementalSimulationTester<TestModel> {{\n{indent(contents)}\n}}', f'tester = saveRestore{edit_round}(tester)'
     else:
-        print('println("Running edits")')
-        print('tester.run(\n    ' + '\n    + '.join(batch) + '\n)')
+        contents = '\n'.join([
+            'println("Running edits")',
+            'tester.run(\n    ' + '\n    + '.join(batch) + '\n)',
+        ])
+        return f'private fun runEdits{edit_round}(tester: IncrementalSimulationTester<TestModel>) {{\n{indent(contents)}\n}}', f'runEdits{edit_round}(tester)'
+
+
+INDENT = '    '
+def indent(s):
+    return INDENT + s.replace('\n', '\n' + INDENT)
 
 
 if __name__ == '__main__':
