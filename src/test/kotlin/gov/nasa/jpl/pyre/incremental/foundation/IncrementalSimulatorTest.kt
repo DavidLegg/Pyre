@@ -810,14 +810,18 @@ class IncrementalSimulatorTest {
      */
     @Test
     fun `repro directly -- cut down`() {
+        // Finding: The save/restore cycle is required to repro the error.
+        // Finding: Both activities below are required to repro the error.
+        // Finding: The exact timing is not required to repro the error; truncating times to the hour for simplicity.
+        // Finding: The activity names are not critical to repro the error; renaming for better legibility.
         var tester = test()
-        val inconTime = Instant.parse("2025-01-01T14:03:24.102133Z")
+        val inconTime = Instant.parse("2025-01-01T14:00:00.000000Z")
         val incon = tester.save(inconTime)
         tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon, activities = listOf(
-            GroundedActivity(Instant.parse("2025-01-02T10:05:38.150683Z"), Name("666790583887"), SetDerivationSource(number=8)),
+            GroundedActivity(Instant.parse("2025-01-02T10:00:00.000000Z"), Name("Incon SDS"), SetDerivationSource(number=8)),
         ))
         tester.run(
-            add(GroundedActivity(Instant.parse("2025-01-01T21:12:11.136256Z"), Name("737497575449"), SetDerivationSource(number=7)))
+            add(GroundedActivity(Instant.parse("2025-01-01T20:00:00.000000Z"), Name("Added SDS"), SetDerivationSource(number=7)))
         )
     }
 
