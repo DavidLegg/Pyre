@@ -1187,6 +1187,28 @@ class IncrementalSimulatorTest {
         println("Save/restore cycle complete")
     }
 
+    @Test
+    fun `repro directly -- cut down`() {
+        var incon: Checkpoint<TestModel>
+        var inconTime: Instant
+        println("Building initial plan")
+        var tester = test(
+            GroundedActivity(Instant.parse("2025-01-01T15:20:43.997321Z"), Name("784316188272"), SpawnChild(child=SetStandaloneCounter(number=0))),
+        )
+
+        println("Doing a save/restore cycle")
+        inconTime = Instant.parse("2025-01-01T14:03:24.102133Z")
+        incon = tester.save(inconTime)
+        tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
+        println("Save/restore cycle complete")
+
+        println("Doing a save/restore cycle")
+        inconTime = Instant.parse("2025-01-01T15:10:53.156736Z")
+        incon = tester.save(inconTime)
+        tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
+        println("Save/restore cycle complete")
+    }
+
     /**
      * Since incremental sim is complicated, and we have an "oracle" in the form of single-shot simulation,
      * we can randomly generate plans and plan edits and see if incremental sim works on them.
