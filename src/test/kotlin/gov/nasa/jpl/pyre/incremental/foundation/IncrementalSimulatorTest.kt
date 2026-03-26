@@ -683,6 +683,12 @@ class IncrementalSimulatorTest {
         test(startTime = inconTime2, endTime = inconTime2 + 1.days, incon = incon2)
     }
 
+    @Test
+    fun `edit at start`() {
+        val a1 = IncrementStandaloneCounter(6) at 0.hours
+        test(a1).edit(a1 to IncrementStandaloneCounter(9))
+    }
+
     /**
      * Since incremental sim is complicated, and we have an "oracle" in the form of single-shot simulation,
      * we can randomly generate plans and plan edits and see if incremental sim works on them.
