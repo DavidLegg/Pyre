@@ -169,9 +169,29 @@ class KernelIncrementalSimulator(
                             "Malformed task checkpoint: 'time' is missing from ${taskCheckpoint.name} but 'history' is present"
                         }
                         // Use the rootTask to restore the checkpoint, then schedule it at the appropriate time.
-                        frontier += RunTask(
-                            rootTask.restoreFrom(taskCheckpoint)
-                                .branchAt(SimulationTime(taskCheckpoint.time)))
+                        // In order to make the StartTaskNode re-runnable, we have to build a Task wrapper
+                        // which can manage loading and unloading the restored task as its used.
+                        val restoringRoot = object : Task {
+                            private var _base: Task? = null
+                            private val base: Task get() {
+                                if (_base == null) _base = rootTask.restoreFrom(taskCheckpoint)
+                                return _base!!
+                            }
+
+                            // Name and rootTask can just be saved from the first time we restore the base
+                            override val name: Name = base.name
+                            override val rootTask: Task = base.rootTask
+                            // Running the task unloads base. The next time we do something with it, we'll re-restore it.
+                            override fun runStep(actions: BasicTaskActions) =
+                                base.runStep(actions).also { _base = null }
+                            // Using the base to save a checkpoint does not require unloading it.
+                            override fun save() = base.save()
+                            // Using it to restore from a checkpoint might require unloading it?
+                            // This isn't a workflow that can happen in single-shot sim, so I'm not sure how this works.
+                            override fun restoreFrom(checkpoint: KernelTaskCheckpoint) =
+                                base.restoreFrom(checkpoint).also { _base = null }
+                        }
+                        frontier += RunTask(restoringRoot.branchAt(SimulationTime(taskCheckpoint.time)))
                     }
                 }
             }
