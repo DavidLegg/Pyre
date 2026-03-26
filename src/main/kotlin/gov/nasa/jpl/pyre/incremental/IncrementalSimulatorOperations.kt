@@ -111,8 +111,21 @@ object IncrementalSimulatorOperations {
      */
 
     /** Apply [this] edit to [plan] */
-    fun <M> PlanEdits<M>.applyTo(plan: Plan<M>): Plan<M> =
-        plan.copy(activities = plan.activities.filter { it !in removals } + additions)
+    fun <M> PlanEdits<M>.applyTo(plan: Plan<M>): Plan<M> {
+        val remainingRemovals = removals.toMutableList()
+        val newActivities = additions.toMutableList()
+        for (activity in plan.activities) {
+            if (!remainingRemovals.remove(activity)) {
+                // Activity was not indicated for removal; add to newActivities
+                newActivities += activity
+            }
+        }
+        require(remainingRemovals.isEmpty()) {
+            "Cannot remove ${remainingRemovals.size} activities which were not part of this plan: " +
+                    remainingRemovals.joinToString(", ") { it.toString() }
+        }
+        return plan.copy(activities = plan.activities.filter { it !in removals } + additions)
+    }
     operator fun <M> Plan<M>.plus(edits: PlanEdits<M>) = edits.applyTo(this)
     operator fun <M> PlanEdits<M>.plus(plan: Plan<M>) = plan + this
     operator fun <M> Plan<M>.minus(edits: PlanEdits<M>) = this + (-edits)
