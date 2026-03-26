@@ -659,6 +659,21 @@ class IncrementalSimulatorTest {
         test(startTime = day2, endTime = day3, incon = checkpoint2)
     }
 
+    /**
+     * Edge case caught by fuzz testing:
+     * A daemon for reporting a resource must be re-run, starting from the root node built by a save/restore cycle.
+     * This demands that the restored root node be capable of replaying, which puts additional constraints on its construction.
+     */
+    @Test
+    fun `re-running a daemon from its restored continuation`() {
+        val inconTime = Instant.parse("2025-01-01T14:00:00.000000Z")
+        val incon = test().save(inconTime)
+        test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon, activities = listOf(
+            GroundedActivity(Instant.parse("2025-01-02T10:00:00.000000Z"), Name("Incon SDS"), SetDerivationSource(number=8)),
+        ))
+            .add(GroundedActivity(Instant.parse("2025-01-01T20:00:00.000000Z"), Name("Added SDS"), SetDerivationSource(number=7)))
+    }
+
     /** Reproduce the observed NPE-from-continuation by calling a fuzz test with the observed failing seed. */
     @Test
     fun `repro by seed`() {
@@ -814,6 +829,7 @@ class IncrementalSimulatorTest {
         // Finding: Both activities below are required to repro the error.
         // Finding: The exact timing is not required to repro the error; truncating times to the hour for simplicity.
         // Finding: The activity names are not critical to repro the error; renaming for better legibility.
+        // Finding: Activity order is required to repro the error. Swapping activity order does not repro the error.
         var tester = test()
         val inconTime = Instant.parse("2025-01-01T14:00:00.000000Z")
         val incon = tester.save(inconTime)
