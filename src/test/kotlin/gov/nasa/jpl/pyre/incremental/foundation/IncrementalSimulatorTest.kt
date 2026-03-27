@@ -47,6 +47,7 @@ import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.minus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.move
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.remove
+import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
 import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
@@ -708,29 +709,22 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed`() {
-        `random plan edits conform to fundamental incremental sim guarantee`(14)
-    }
-
-    @Test
-    fun `repro directly`() {
-        var tester = test(
-            GroundedActivity(
-                Instant.parse("2025-01-01T18:37:44.854772Z"),
-                Name("124629805876"),
-                AddJob(seed = 20)
-            )
-        )
-        println("Doing a save/restore cycle")
-        val inconTime = Instant.parse("2025-01-01T18:37:49.260687Z")
+    fun `saving a daemon child which completes when restored`() {
+        // Start a job (a child daemon task)
+        var tester = test(GroundedActivity(Instant.parse("2025-01-01T18:00:00.000000Z"), AddJob(seed = 20)))
+        // Save a checkpoint while that child daemon is running
+        val inconTime = Instant.parse("2025-01-01T18:00:01.000000Z")
         val incon = tester.save(inconTime)
+        // When restored, the child daemon's task node has no parent. This is the crux of the edge case.
         tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
-        println("Save/restore cycle complete")
-        println("Doing a save/restore cycle")
-        val inconTime1 = Instant.parse("2025-01-02T16:24:17.020556Z")
+        // Now save again, this time after the child daemon has finished.
+        val inconTime1 = Instant.parse("2025-01-01T19:00:00.000000Z")
         val incon1 = tester.save(inconTime1)
         test(startTime = inconTime1, endTime = inconTime1 + 1.days, incon = incon1)
-        println("Save/restore cycle complete")
+        // Since the child daemon finished, it gets either a "completed" checkpoint or no checkpoint.
+        // Since it's a child daemon, it should get no checkpoint.
+        // Since its first task node has no parent, incorrect code might think it's a top-level daemon
+        // and give it a completed checkpoint by mistake.
     }
 
     /**

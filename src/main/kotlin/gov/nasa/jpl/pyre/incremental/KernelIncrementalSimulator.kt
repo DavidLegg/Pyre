@@ -77,12 +77,14 @@ class KernelIncrementalSimulator(
     /** Root nodes with which we may merge restart requests, rather than re-running. */
     private val rootMergeOpportunities: MutableMap<Task, StartTaskNode> = mutableMapOf()
 
+    // TODO: Make these private again once testing is complete
     public enum class DebugLevel { NONE, MAJOR, MINOR, ALL }
     companion object {
         public var DEBUG = DebugLevel.NONE
+        // Put step variables in companion object, so the numbers keep incrementing through save/restore cycles
+        private var debugMajorStep = 0
+        private var debugMinorStep = 0
     }
-    private var debugMajorStep = 0
-    private var debugMinorStep = 0
     private fun dumpDotToFile(debugLevel: DebugLevel, highlightNode: SGNode? = null, checkIntegrity: Boolean = true) {
         if (DEBUG >= debugLevel) {
             if (debugLevel <= DebugLevel.MAJOR) {
@@ -261,12 +263,12 @@ class KernelIncrementalSimulator(
             val tip = branch.root.thisAndNextNodes().takeWhile { it.time < simulationTime }.last()
             if (tip is FinalStepNode) {
                 // This branch has completed.
-                if (branch.root.prior == null) {
-                    // This is a root task, not spawned by another task. Save a "completed" checkpoint for it.
-                    // TODO: Should StartTaskNode store the rootTaskName separately from its own name,
-                    //   instead of asking to load a continuation here?
-                    //   Or is loading a continuation sufficiently lightweight that this isn't a problem?
-                    KernelTaskCheckpoint(branch.root.taskName, branch.root.loadContinuation().rootTask.name)
+                // TODO: Clean up this naming. "Root" is being overloaded with too many meanings, it's confusing.
+                val branchRootTask = branch.root.loadContinuation()
+                if (branchRootTask == branchRootTask.rootTask) {
+                    // This task is its own root task. That makes it a daemon spawned directly from the model.
+                    // We must save a "completed" checkpoint for it, to indicate not to restart it when restoring.
+                    KernelTaskCheckpoint(branchRootTask.name, branchRootTask.rootTask.name)
                 } else {
                     // This task was spawned by another; no task checkpoint is required.
                     null
