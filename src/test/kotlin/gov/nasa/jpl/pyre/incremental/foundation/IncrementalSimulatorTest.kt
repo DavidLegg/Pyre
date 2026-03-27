@@ -1004,7 +1004,9 @@ private class IncrementalSimulationTester<M : Any>(
         for (baselineDaemon in baselineCheckpoint.daemons) {
             // Find the relevant daemon entry by name and remove it
             val n = remainingTestDaemons.indexOfFirst { it.name == baselineDaemon.name }
-            require(n >= 0) { "No daemon named ${baselineDaemon.name}" }
+            require(n >= 0) {
+                "Checkpoint is missing daemon ${baselineDaemon.name}"
+            }
             val testDaemon = remainingTestDaemons.removeAt(n)
             // Assert that each field is equal separately to aid debugging
             assertEquals(baselineDaemon.name, testDaemon.name)
@@ -1012,7 +1014,9 @@ private class IncrementalSimulationTester<M : Any>(
             assertEquals(baselineDaemon.time, testDaemon.time)
             assertEquals(baselineDaemon.history, testDaemon.history)
         }
-        assert(remainingTestDaemons.isEmpty())
+        assert(remainingTestDaemons.isEmpty()) {
+            "Checkpoint has unexpected daemons: " + remainingTestDaemons.joinToString(", ") { it.name.toString() }
+        }
 
         // Activities are stored as a list, but order isn't relevant
         val remainingTestActivities = testCheckpoint.activities.toMutableList()
