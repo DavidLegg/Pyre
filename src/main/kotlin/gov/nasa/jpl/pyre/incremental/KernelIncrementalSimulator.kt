@@ -263,7 +263,10 @@ class KernelIncrementalSimulator(
                 // This branch has completed.
                 if (branch.root.prior == null) {
                     // This is a root task, not spawned by another task. Save a "completed" checkpoint for it.
-                    KernelTaskCheckpoint(branch.root.taskName)
+                    // TODO: Should StartTaskNode store the rootTaskName separately from its own name,
+                    //   instead of asking to load a continuation here?
+                    //   Or is loading a continuation sufficiently lightweight that this isn't a problem?
+                    KernelTaskCheckpoint(branch.root.taskName, branch.root.loadContinuation().rootTask.name)
                 } else {
                     // This task was spawned by another; no task checkpoint is required.
                     null
@@ -1220,6 +1223,7 @@ class KernelIncrementalSimulator(
             taskDotId[node] = "task${n++}"
             collect(node)
         }
+        val branchRootNodes = branchRoots.values.map { it.root as SGNode }.toSet()
 
         for ((i, rank) in ranks.values.withIndex()) {
             if (i > 0) {
@@ -1241,7 +1245,8 @@ class KernelIncrementalSimulator(
                     node in frontierModifier -> "#50a0f4" // blue
                     else -> null
                 }
-                val styling = fillColor?.let { ", style = filled, fillcolor = \"$it\"" } ?: ""
+                val penWidthStyling = if (node in branchRootNodes) ", penwidth = 4.0" else ""
+                val styling = (fillColor?.let { ", style = filled, fillcolor = \"$it\"" } ?: "") + penWidthStyling
                 val labelSuffix = frontierModifier[node]?.let{ "** $it\\l" } ?: ""
                 val label: String
                 val shape: String

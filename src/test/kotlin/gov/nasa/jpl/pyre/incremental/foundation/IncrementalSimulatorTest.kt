@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.incremental.foundation
 
+import gov.nasa.jpl.pyre.examples.scheduling.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
@@ -46,6 +47,7 @@ import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.minus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.move
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.remove
+import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
 import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
@@ -687,6 +689,23 @@ class IncrementalSimulatorTest {
     fun `edit at start`() {
         val a1 = IncrementStandaloneCounter(6) at 0.hours
         test(a1).edit(a1 to IncrementStandaloneCounter(9))
+    }
+
+    @Test
+    fun `saving activity grandchildren through multiple save-restore cycles`() {
+        var tester = test()
+        val inconTime = Instant.parse("2025-01-01T11:28:05.334363Z")
+        val incon = tester.save(inconTime)
+        tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon, activities = listOf(
+            GroundedActivity(Instant.parse("2025-01-01T18:30:00.000000Z"), SetStandaloneCounter(10)),
+            GroundedActivity(Instant.parse("2025-01-01T18:33:45.000000Z"), SpawnChildren("SC")),
+        ))
+        val inconTime1 = Instant.parse("2025-01-01T18:34:00.000000Z")
+        val incon1 = tester.save(inconTime1)
+        tester = test(startTime = inconTime1, endTime = inconTime1 + 1.days, incon = incon1)
+        val inconTime2 = Instant.parse("2025-01-01T18:34:01.000000Z")
+        val incon2 = tester.save(inconTime2)
+        test(startTime = inconTime2, endTime = inconTime2 + 1.days, incon = incon2)
     }
 
     /**
