@@ -47,7 +47,6 @@ import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.minus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.move
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.remove
-import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
 import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
@@ -706,6 +705,32 @@ class IncrementalSimulatorTest {
         val inconTime2 = Instant.parse("2025-01-01T18:34:01.000000Z")
         val incon2 = tester.save(inconTime2)
         test(startTime = inconTime2, endTime = inconTime2 + 1.days, incon = incon2)
+    }
+
+    @Test
+    fun `repro by seed`() {
+        `random plan edits conform to fundamental incremental sim guarantee`(14)
+    }
+
+    @Test
+    fun `repro directly`() {
+        var tester = test(
+            GroundedActivity(
+                Instant.parse("2025-01-01T18:37:44.854772Z"),
+                Name("124629805876"),
+                AddJob(seed = 20)
+            )
+        )
+        println("Doing a save/restore cycle")
+        val inconTime = Instant.parse("2025-01-01T18:37:49.260687Z")
+        val incon = tester.save(inconTime)
+        tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
+        println("Save/restore cycle complete")
+        println("Doing a save/restore cycle")
+        val inconTime1 = Instant.parse("2025-01-02T16:24:17.020556Z")
+        val incon1 = tester.save(inconTime1)
+        test(startTime = inconTime1, endTime = inconTime1 + 1.days, incon = incon1)
+        println("Save/restore cycle complete")
     }
 
     /**
