@@ -412,6 +412,11 @@ class KernelIncrementalSimulator(
                                 // Note that if there are concurrent cell writes, all of them have the same
                                 // nextTaskBatch, so it suffices to find any one of them and stop.
                                 resultTime = node.time.nextTaskBatch().copy(branch = action.time.branch)
+                                // TODO: Perhaps we should add the found cell to action.node's reads?
+                                //   That way, if the write is disturbed (in particular removed), the awaiter will be re-checked.
+                                //   Counter-argument: This awaiter is not generally concerned with this write node, its next is.
+                                //   If the write is removed, it *should* suffice to re-check action.node.next.
+                                //   That await may be unnecessary, but it shouldn't be harmful.
                             }
                         }
                     }

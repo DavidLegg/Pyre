@@ -47,6 +47,7 @@ import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.minus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.move
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.remove
+import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.unaryPlus
 import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
@@ -725,6 +726,27 @@ class IncrementalSimulatorTest {
         // Since it's a child daemon, it should get no checkpoint.
         // Since its first task node has no parent, incorrect code might think it's a top-level daemon
         // and give it a completed checkpoint by mistake.
+    }
+
+    @Test
+    fun `repro by seed`() {
+        `random plan edits conform to fundamental incremental sim guarantee`(18)
+    }
+
+    @Test
+    fun `repro directly`() {
+        KernelIncrementalSimulator.DEBUG = KernelIncrementalSimulator.DebugLevel.MAJOR
+        println("Building initial plan")
+        val a1 = GroundedActivity(Instant.parse("2025-01-01T21:00:00.000000Z"), Name("A1"), SetIntegrand(0.008284136598839975))
+        var tester = test(a1)
+        println("Doing a save/restore cycle")
+        val inconTime = Instant.parse("2025-01-01T23:00:00.000000Z")
+        val incon = tester.save(inconTime)
+        val a2 = GroundedActivity(Instant.parse("2025-01-01T23:33:29.313981Z"), Name("A2"), SetIntegrand(0.8136596792231392))
+        tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon, activities = listOf(a2))
+        println("Save/restore cycle complete")
+        println("Running edits")
+        tester.move(a2 to Instant.parse("2025-01-01T23:34:34.000000Z"))
     }
 
     /**
