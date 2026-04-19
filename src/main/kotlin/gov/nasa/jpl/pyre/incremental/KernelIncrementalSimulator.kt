@@ -1159,20 +1159,6 @@ class KernelIncrementalSimulator(
                 nextNode.prior = stepNode
             }
 
-            // TODO: I think we can just drop this block in the new paradigm for awaits. Think that through carefully, though.
-//            // Add anything that was awaiting the prior node as awaiting this node too.
-//            // Just stepping a node doesn't disturb the awaiters, though.
-//            for (awaiter in cellNode.awaiters) {
-//                // If the awaiter has no registered next node, or its next node is after this step,
-//                // then this awaiter can read this step as well.
-//                if (awaiter.next?.let { it.time isCausallyAfter stepNode.time } ?: true) {
-//                    stepNode.awaiters += awaiter
-//                    // TODO: Think carefully about this edge. It violates causal order!
-//                    awaiter.reads[stepNode] = stepNode.value
-//                }
-//                // Otherwise, the awaiter completed before this step happens, so don't connect it.
-//            }
-
             // Let the global cell map know about this node for quick lookup later
             thisCellsNodes[stepNode.time] = stepNode
             // TODO: Consider how (and when) to "collapse" step nodes together.
