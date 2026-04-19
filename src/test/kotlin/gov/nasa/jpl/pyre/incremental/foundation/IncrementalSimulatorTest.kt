@@ -739,6 +739,11 @@ class IncrementalSimulatorTest {
         tester.move(a2 to Instant.parse("2025-01-01T23:34:34.000000Z"))
     }
 
+    @Test
+    fun `repro by seed`() {
+        `random plan edits conform to fundamental incremental sim guarantee`(29)
+    }
+
     /**
      * Since incremental sim is complicated, and we have an "oracle" in the form of single-shot simulation,
      * we can randomly generate plans and plan edits and see if incremental sim works on them.
