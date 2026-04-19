@@ -7,6 +7,7 @@ import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
@@ -739,11 +740,6 @@ class IncrementalSimulatorTest {
         tester.move(a2 to Instant.parse("2025-01-01T23:34:34.000000Z"))
     }
 
-    @Test
-    fun `repro by seed`() {
-        `random plan edits conform to fundamental incremental sim guarantee`(29)
-    }
-
     /**
      * Since incremental sim is complicated, and we have an "oracle" in the form of single-shot simulation,
      * we can randomly generate plans and plan edits and see if incremental sim works on them.
@@ -977,16 +973,40 @@ private class IncrementalSimulationTester<M : Any>(
         // Plan bounds:
         assertEquals(baseResults.startTime, testResults.startTime)
         assertEquals(baseResults.endTime, testResults.endTime)
-        // TODO: We have some false test failures during fuzzing due to order of simultaneous messages.
-        //   Write a batch-and-match algorithm for messages on stdout, stderr, and activities
-        //   so that messages at the same time can be out-of-order without failing the test.
         // Resources:
         for ((resourceName, baselineResource) in baseResults.resources) {
             assert(resourceName in testResults.resources)
             val testResource = testResults.resources.getValue(resourceName)
             assertEquals(baselineResource.metadata, testResource.metadata)
-            for ((baselineReport, testReport) in baselineResource.data zip testResource.data) {
-                assertEquals(baselineReport, testReport)
+            if (resourceName in setOf("stdout", "stderr", "activities").map(::Name)) {
+                // For these channels, we tolerate some nondeterminism in the ordering of simultaneous messages.
+                // This should be "modded out" by a proper interpretation of the channel.
+                val remainingTestReports = testResource.data.toMutableList()
+                val testReportBatch: MutableSet<ChannelReport.ChannelData<*>> = mutableSetOf()
+                var batchTime = Instant.DISTANT_PAST
+                for (baselineReport in baselineResource.data) {
+                    // First, check if we've passed the last-collected batch time
+                    if (baselineReport.time > batchTime) {
+                        // If so, make sure we matched the full batch
+                        assert(testReportBatch.isEmpty())
+                        // Then collect the next batch
+                        batchTime = remainingTestReports.first().time
+                        while (remainingTestReports.firstOrNull()?.time == batchTime) {
+                            testReportBatch += remainingTestReports.removeFirst()
+                        }
+                    }
+                    // Then, match the report in this batch
+                    assert(testReportBatch.remove(baselineReport))
+                }
+                // Finally, ensure all the test reports were consumed
+                assert(testReportBatch.isEmpty())
+                assert(remainingTestReports.isEmpty())
+            } else {
+                // For general channels, demand a stricter correspondence - even reports at the same time must be in the same order.
+                // This is because a resource may change value multiple times in one instant, and must settle on the correct value.
+                for ((baselineReport, testReport) in baselineResource.data zip testResource.data) {
+                    assertEquals(baselineReport, testReport)
+                }
             }
             assertEquals(baselineResource.data.size, testResource.data.size)
         }
