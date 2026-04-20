@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.foundation.plans
 
+import gov.nasa.jpl.pyre.foundation.plans.model
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
@@ -41,26 +42,28 @@ object ActivityActions {
 
     context (scope: TaskScope)
     suspend fun <M> call(activity: FloatingActivity<M>, model: M) {
-        val startTime = now()
-        scope.activities.report(ActivityEvent(
-            activity.name,
-            activity.activity::class.simpleName!!,
-            startTime,
-            activity = activity.activity,
-        ))
-        // TODO: Wrap this in a block to add activity to the context name, somehow.
-        activity.activity.effectModel(model)
-        // Report both start and end time with the activity end event.
-        // This avoids needing to generate or persist unique IDs for activities.
-        // Instead, any start event which matches all three serialized fields can be paired with this end event;
-        // all such start events are exactly equivalent.
-        scope.activities.report(ActivityEvent(
-            activity.name,
-            activity.activity::class.simpleName!!,
-            startTime,
-            now(),
-            activity = activity.activity,
-        ))
+        // TODO: Should this be the full activity.name? Or just its simple name?
+        context (subSimulationScope(activity.name)) {
+            val startTime = now()
+            scope.activities.report(ActivityEvent(
+                activity.name,
+                activity.activity::class.simpleName!!,
+                startTime,
+                activity = activity.activity,
+            ))
+            activity.activity.effectModel(model)
+            // Report both start and end time with the activity end event.
+            // This avoids needing to generate or persist unique IDs for activities.
+            // Instead, any start event which matches all three serialized fields can be paired with this end event;
+            // all such start events are exactly equivalent.
+            scope.activities.report(ActivityEvent(
+                activity.name,
+                activity.activity::class.simpleName!!,
+                startTime,
+                now(),
+                activity = activity.activity,
+            ))
+        }
     }
 
     context (scope: TaskScope)

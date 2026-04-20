@@ -2,7 +2,9 @@ package gov.nasa.jpl.pyre.foundation.tasks
 
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
+import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stderr
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Condition
@@ -53,7 +55,16 @@ sealed interface TaskScopeResult {
 context (scope: SimulationScope)
 fun coroutineTask(block: suspend context (TaskScope) () -> TaskScopeResult): PureTaskStep =
     // Running the task step creates a new TaskBuilder, allowing for repeating tasks
-    { TaskBuilder(scope, block).runTask(it) }
+    {
+        TaskBuilder(scope) {
+            try {
+                block()
+            } catch (e: Throwable) {
+                stderr.report("Task ${scope.contextName} crashed:\n" + e.stackTraceToString())
+                TaskScopeResult.Complete
+            }
+        }.runTask(it)
+    }
 
 /**
  * Write a coroutine Pyre task which never repeats.
