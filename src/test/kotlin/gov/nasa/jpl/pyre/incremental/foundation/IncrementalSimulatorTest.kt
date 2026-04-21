@@ -988,7 +988,9 @@ private class IncrementalSimulationTester<M : Any>(
                     // First, check if we've passed the last-collected batch time
                     if (baselineReport.time > batchTime) {
                         // If so, make sure we matched the full batch
-                        assert(testReportBatch.isEmpty())
+                        assert(testReportBatch.isEmpty()) {
+                            "Extra reports on $resourceName: $testReportBatch"
+                        }
                         // Then collect the next batch
                         batchTime = remainingTestReports.first().time
                         while (remainingTestReports.firstOrNull()?.time == batchTime) {
@@ -996,11 +998,17 @@ private class IncrementalSimulationTester<M : Any>(
                         }
                     }
                     // Then, match the report in this batch
-                    assert(testReportBatch.remove(baselineReport))
+                    assert(testReportBatch.remove(baselineReport)) {
+                        "Missing report on $resourceName: $baselineReport"
+                    }
                 }
                 // Finally, ensure all the test reports were consumed
-                assert(testReportBatch.isEmpty())
-                assert(remainingTestReports.isEmpty())
+                assert(testReportBatch.isEmpty()) {
+                    "Extra reports on $resourceName: $testReportBatch"
+                }
+                assert(remainingTestReports.isEmpty()) {
+                    "Extra reports on $resourceName: $remainingTestReports"
+                }
             } else {
                 // For general channels, demand a stricter correspondence - even reports at the same time must be in the same order.
                 // This is because a resource may change value multiple times in one instant, and must settle on the correct value.

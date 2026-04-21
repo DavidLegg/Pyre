@@ -60,13 +60,19 @@ object Reactions {
      */
     context (scope: TaskScope)
     fun <V, D : Dynamics<V, D>> dynamicsChange(resource: Resource<D>): Condition {
-        val dynamics1 = resource.getDynamics()
+        val dynamics1 = Result.runCatching { resource.getDynamics() }
         val time1 = simulationClock.getValue()
         return condition {
-            val dynamics2 = resource.getDynamics()
+            val dynamics2 = Result.runCatching { resource.getDynamics() }
             val time2 = simulationClock.getValue()
-            if (dynamics1.data.step(time2 - time1) != dynamics2.data) SatisfiedAt(ZERO)
-            else dynamics2.expiry.time?.let(::SatisfiedAt) ?: UnsatisfiedUntil(null)
+            if (dynamics1.isFailure && dynamics2.isFailure) UnsatisfiedUntil(null)
+            else if (dynamics1.isFailure || dynamics2.isFailure) SatisfiedAt(ZERO)
+            else {
+                val dynamics1 = dynamics1.getOrThrow()
+                val dynamics2 = dynamics2.getOrThrow()
+                if (dynamics1.data.step(time2 - time1) != dynamics2.data) SatisfiedAt(ZERO)
+                else dynamics2.expiry.time?.let(::SatisfiedAt) ?: UnsatisfiedUntil(null)
+            }
         }.named { "When dynamics change for ($resource)" }
     }
 

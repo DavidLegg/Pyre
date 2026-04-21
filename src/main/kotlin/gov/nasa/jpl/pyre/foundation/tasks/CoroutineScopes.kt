@@ -22,6 +22,8 @@ import kotlin.coroutines.intrinsics.*
 
 context (scope: SimulationScope)
 fun condition(block: context (ConditionScope) () -> ConditionResult): Condition = { actions ->
+    // TODO: How should we handle a condition throwing an exception (e.g. by reading a faulted resource)?
+    //   Ideally, it would crash the awaiting task, not the simulator.
     block(object : ConditionScope, SimulationScope by scope {
         override fun <V> read(cell: Cell<V>): V = actions.read(cell)
     })

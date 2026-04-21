@@ -110,12 +110,14 @@ fun <D> autoEffects(resultsEqual: (FullDynamics<D>, FullDynamics<D>) -> Boolean 
     { left, right -> {
         // Eagerly throw exceptions if either ordering fails.
         // In cases where many things try to write simultaneously in a non-commuting way, this fails fast.
-        val result1 = left(right(it)).getOrThrow()
-        val result2 = right(left(it)).getOrThrow()
-        require(resultsEqual(result1, result2)) {
-            "Non-commuting concurrent effects: $left vs. $right - autoEffects detected different results: $result1 vs. $result2"
+        Result.runCatching {
+            val result1 = left(right(it)).getOrThrow()
+            val result2 = right(left(it)).getOrThrow()
+            require(resultsEqual(result1, result2)) {
+                "Non-commuting concurrent effects: $left vs. $right - autoEffects detected different results: $result1 vs. $result2"
+            }
+            result1
         }
-        Result.success(result1)
     }
 }
 
