@@ -30,9 +30,9 @@ object Reporting {
         metadata: Map<String, ChannelReport.Metadatum> = mapOf(),
     ) {
         val channel = scope.channel<D>(resource.name, metadata, dynamicsType)
-        channel.report(resource.getDynamics().data)
+        channel.report(resource.getDynamics().getOrThrow().data)
         spawn("Report resource ${resource.name.simpleName}", wheneverChanges(resource) {
-            channel.report(resource.getDynamics().data)
+            channel.report(resource.getDynamics().getOrThrow().data)
         })
     }
 

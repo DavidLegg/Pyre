@@ -68,7 +68,7 @@ object ProfileOperations {
     context (scope: InitScope)
     fun <D : Dynamics<*, D>> Profile<D>.asResource(): Resource<D> =
         ResourceMonad.bind(simulationClock) {
-            ThinResourceMonad.pure(this.getSegment(it.time))
+            ThinResourceMonad.pure(Result.success(this.getSegment(it.time)))
         }
 
     /**

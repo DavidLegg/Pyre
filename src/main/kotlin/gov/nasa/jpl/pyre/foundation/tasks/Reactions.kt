@@ -23,9 +23,10 @@ import kotlin.time.Duration.Companion.ZERO
 object Reactions {
     context (scope: SimulationScope)
     fun whenTrue(resource: BooleanResource): Condition = condition {
-        with (resource.getDynamics()) {
-            if (data.value) SatisfiedAt(ZERO) else UnsatisfiedUntil(expiry.time)
-        }
+        resource.getDynamics().fold(
+            { if (it.data.value) SatisfiedAt(ZERO) else UnsatisfiedUntil(it.expiry.time) },
+            { UnsatisfiedUntil(null) }
+        )
     }.named(resource::toString)
 
     context (scope: TaskScope)
@@ -65,8 +66,18 @@ object Reactions {
         return condition {
             val dynamics2 = resource.getDynamics()
             val time2 = simulationClock.getValue()
-            if (dynamics1.data.step(time2 - time1) != dynamics2.data) SatisfiedAt(ZERO)
-            else dynamics2.expiry.time?.let(::SatisfiedAt) ?: UnsatisfiedUntil(null)
+            // We don't distinguish different exceptions - all failures are the "same" dynamics
+            if (dynamics1.isFailure && dynamics2.isFailure) UnsatisfiedUntil(null)
+            // However, changing from failed to not or vice versa is a change in dynamics
+            else if (dynamics1.isFailure || dynamics2.isFailure) SatisfiedAt(ZERO)
+            // Otherwise, both getDynamics calls succeed, move on to checking the data within the result
+            else {
+                val dynamics1 = dynamics1.getOrThrow()
+                val dynamics2 = dynamics2.getOrThrow()
+                if (dynamics1.data.step(time2 - time1) != dynamics2.data) SatisfiedAt(ZERO)
+                else dynamics2.expiry.time?.let(::SatisfiedAt) ?: UnsatisfiedUntil(null)
+            }
+
         }.named { "When dynamics change for ($resource)" }
     }
 

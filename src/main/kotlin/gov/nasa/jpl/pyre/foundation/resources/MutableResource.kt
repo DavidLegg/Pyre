@@ -22,8 +22,8 @@ typealias ResourceEffect<D> = Effect<FullDynamics<D>>
 typealias MergeResourceEffect<D> = (ResourceEffect<D>, ResourceEffect<D>) -> ResourceEffect<D>
 
 context (scope: TaskScope)
-fun <D> MutableResource<D>.emit(effect: (D) -> D) = this.emit({ it: FullDynamics<D> ->
-    Expiring(effect(it.data), NEVER)
+fun <D> MutableResource<D>.emit(effect: (D) -> D) = this.emit({ dynamics: FullDynamics<D> ->
+    dynamics.mapCatching { Expiring(effect(it.data), NEVER) }
 }.named(effect::toString))
 
 context (scope: TaskScope)
@@ -55,7 +55,7 @@ fun <V, D : Dynamics<V, D>> resource(
         Name(name),
         initialDynamics,
         fullDynamicsType,
-        { d, t -> d.step(t) },
+        { d, t -> d.mapCatching { it.step(t) } },
         mergeConcurrentEffects,
     )
 
@@ -68,22 +68,24 @@ fun <V, D : Dynamics<V, D>> resource(
     }.named { name }
 }
 
-fun <D> commutingEffects(): MergeResourceEffect<D> = { left, right -> left andThen right }
+fun <D> commutingEffects(): MergeResourceEffect<D> = { left, right -> (left andThen right).named { "'$left' then '$right'" } }
 
 fun <D> noncommutingEffects(): MergeResourceEffect<D> = { left, right ->
     throw IllegalArgumentException("Non-commuting concurrent effects: $left vs. $right - Cell does not support concurrent effects.")
 }
 
 fun <D> autoEffects(resultsEqual: (FullDynamics<D>, FullDynamics<D>) -> Boolean = { r, s -> r == s }): MergeResourceEffect<D> =
-    { left, right -> {
-        val result1 = left(right(it))
-        val result2 = right(left(it))
-        require(resultsEqual(result1, result2)) {
-            "Non-commuting concurrent effects: $left vs. $right - autoEffects detected different results: $result1 vs. $result2"
+    { left, right ->
+        val combinedEffect: Effect<FullDynamics<D>> = {
+            val result1 = left(right(it))
+            val result2 = right(left(it))
+            require(resultsEqual(result1, result2)) {
+                "Non-commuting concurrent effects: $left vs. $right - autoEffects detected different results: $result1 vs. $result2"
+            }
+            result1
         }
-        result1
+        combinedEffect.named { "Merge '$left' and '$right'" }
     }
-}
 
 context (scope: SimulationScope)
 fun <D> MutableResource<D>.named(nameFn: () -> String) = fullyNamed { scope.contextName / nameFn() }

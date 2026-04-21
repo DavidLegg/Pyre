@@ -113,7 +113,7 @@ object TimerResourceOperations {
                     //   I'm likely to have introduced a bug.
                     Expiry((delta.time / delta.rate).absoluteValue)
                 }
-            ThinResourceMonad.pure(Expiring(Discrete(delta.time.compareTo(ZERO)), expiry))
+            ThinResourceMonad.pure(Result.success(Expiring(Discrete(delta.time.compareTo(ZERO)), expiry)))
         }.fullyNamed { Name("($this).compareTo($other)") }
     }
 

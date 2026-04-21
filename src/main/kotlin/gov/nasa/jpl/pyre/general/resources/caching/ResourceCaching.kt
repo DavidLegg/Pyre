@@ -27,12 +27,12 @@ object ResourceCaching {
         name: String,
         noinline equals: (D, D) -> Boolean = Any::equals,
     ): Resource<D> {
-        val cache: MutableResource<D> = resource(name, getDynamics().data)
+        val cache: MutableResource<D> = resource(name, getDynamics().getOrThrow().data)
         val cacheIsOutOfDate = ResourceMonad.map(this, cache) { t, c -> Discrete(!equals(t, c)) }
             .named { "$cache is out of date" }
         spawn("Update $name", whenever(cacheIsOutOfDate) {
-            val d = this.getDynamics().data
-            cache.emit({ _: FullDynamics<D> -> Expiring(d, NEVER) }.named { "Update cache to $d" })
+            val d = this.getDynamics().getOrThrow().data
+            cache.emit({ _: FullDynamics<D> -> Result.success(Expiring(d, NEVER)) }.named { "Update cache to $d" })
         })
         return cache
     }
@@ -80,7 +80,7 @@ object ResourceCaching {
         return ThinResource {
             val now = now()
             while (nextPoint != null && nextPoint!!.time <= now) advance()
-            Expiring(currentPoint.data, Expiry(nextPoint?.time?.let { it - now }))
+            Result.success(Expiring(currentPoint.data, Expiry(nextPoint?.time?.let { it - now })))
         }.fullyNamed { Name(name) }
     }
 }
