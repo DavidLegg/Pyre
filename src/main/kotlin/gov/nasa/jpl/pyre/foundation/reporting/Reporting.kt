@@ -1,12 +1,14 @@
 package gov.nasa.jpl.pyre.foundation.reporting
 
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
+import gov.nasa.jpl.pyre.foundation.resources.FaultedResourceException
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.wheneverChanges
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.channel
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stderr
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
@@ -32,7 +34,11 @@ object Reporting {
         val channel = scope.channel<D>(resource.name, metadata, dynamicsType)
         channel.report(resource.getDynamics().data)
         spawn("Report resource ${resource.name.simpleName}", wheneverChanges(resource) {
-            channel.report(resource.getDynamics().data)
+            try {
+                channel.report(resource.getDynamics().data)
+            } catch (e: FaultedResourceException) {
+                stderr.report("Resource ${resource.name} faulted: " + e.stackTraceToString())
+            }
         })
     }
 

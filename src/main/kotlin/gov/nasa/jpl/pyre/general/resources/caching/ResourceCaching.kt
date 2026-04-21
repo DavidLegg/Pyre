@@ -2,7 +2,6 @@ package gov.nasa.jpl.pyre.general.resources.caching
 
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.resources.*
-import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
@@ -11,7 +10,6 @@ import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.general.resources.caching.ResourceCaching.precomputedResource
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.utilities.Closeable
-import gov.nasa.jpl.pyre.utilities.named
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
@@ -31,8 +29,7 @@ object ResourceCaching {
         val cacheIsOutOfDate = ResourceMonad.map(this, cache) { t, c -> Discrete(!equals(t, c)) }
             .named { "$cache is out of date" }
         spawn("Update $name", whenever(cacheIsOutOfDate) {
-            val d = this.getDynamics().data
-            cache.emit({ _: FullDynamics<D> -> Expiring(d, NEVER) }.named { "Update cache to $d" })
+            cache.set(getDynamics().data)
         })
         return cache
     }

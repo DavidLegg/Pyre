@@ -23,6 +23,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.emit
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
@@ -189,7 +190,7 @@ class GeometryModel(
     context(scope: InitScope)
     private fun tickingClock(name: String, period: Duration) = discreteResource(name, ZERO).apply {
         spawn("update $name", every(period) {
-            emit((DiscreteDynamicsMonad.map(period::plus)).named { "Increase by $period" })
+            emit((period::plus).named { "Increase by $period" })
         })
     }
 }

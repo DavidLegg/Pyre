@@ -74,8 +74,17 @@ object PolynomialResourceOperations {
         spawn("Update $name", whenever(map(this@integral, integral) {
                 p, q -> Discrete(p.integral(q.value()) != q)
         }) {
-            val integrandDynamics = this@integral.getDynamics()
-            integral.emit { q -> DynamicsMonad.map(integrandDynamics) { it.integral(q.data.value()) } }
+            try {
+                val integrandDynamics = this@integral.getDynamics()
+                integral.emit({ r: Result<FullDynamics<Polynomial>> ->
+                    r.mapCatching { integralDynamics ->
+                        DynamicsMonad.map(integrandDynamics) { it.integral(integralDynamics.data.value())}
+                    }
+                }.named { "Integrate $integrandDynamics" })
+            } catch (e: FaultedResourceException) {
+                integral.emit({ _: Result<Expiring<Polynomial>> -> Result.failure<Expiring<Polynomial>>(e) }
+                    .named { "Propagate fault from integrand $this" })
+            }
         })
         return object : IntegralResource, PolynomialResource by integral {
             context(scope: TaskScope)
@@ -228,9 +237,9 @@ object PolynomialResourceOperations {
             var newOverflowDynamics = DynamicsMonad.map(result, ClampedIntegrateInternalResult::overflow)
             var newUnderflowDynamics = DynamicsMonad.map(result, ClampedIntegrateInternalResult::underflow)
 
-            integral.emit { newIntegralDynamics }
-            overflow.emit { newOverflowDynamics }
-            underflow.emit { newUnderflowDynamics }
+            integral.set(newIntegralDynamics)
+            overflow.set(newOverflowDynamics)
+            underflow.set(newUnderflowDynamics)
 
             // Await the condition on which to re-calculate the clamped integral
             await(result.data.rerunCondition)
