@@ -7,7 +7,7 @@ import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
@@ -48,14 +48,14 @@ import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.minus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.move
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.remove
-import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.unaryPlus
-import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
 import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.kernel.tasks.PureTask
+import gov.nasa.jpl.pyre.kernel.tasks.TaskHistory.Companion.valueEquals
 import gov.nasa.jpl.pyre.utilities.named
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.until
@@ -71,6 +71,7 @@ import kotlin.random.nextInt
 import kotlin.random.nextLong
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
@@ -982,7 +983,7 @@ private class IncrementalSimulationTester<M : Any>(
                 // For these channels, we tolerate some nondeterminism in the ordering of simultaneous messages.
                 // This should be "modded out" by a proper interpretation of the channel.
                 val remainingTestReports = testResource.data.toMutableList()
-                val testReportBatch: MutableSet<ChannelReport.ChannelData<*>> = mutableSetOf()
+                val testReportBatch: MutableSet<ChannelData<*>> = mutableSetOf()
                 var batchTime = Instant.DISTANT_PAST
                 for (baselineReport in baselineResource.data) {
                     // First, check if we've passed the last-collected batch time
@@ -998,8 +999,17 @@ private class IncrementalSimulationTester<M : Any>(
                         }
                     }
                     // Then, match the report in this batch
-                    assert(testReportBatch.remove(baselineReport)) {
-                        "Missing report on $resourceName: $baselineReport"
+                    if (resourceName == Name("stderr")) {
+                        // Special case - stderr reports may have stack traces.
+                        // We don't need to match stack frames. Fitler those out.
+                        val normalizedBaselineReport = normalizeErrorReport(baselineReport)
+                        assert(testReportBatch.removeIf { normalizeErrorReport(it) == normalizedBaselineReport }) {
+                            "Missing report on $resourceName: $baselineReport"
+                        }
+                    } else {
+                        assert(testReportBatch.remove(baselineReport)) {
+                            "Missing report on $resourceName: $baselineReport"
+                        }
                     }
                 }
                 // Finally, ensure all the test reports were consumed
@@ -1029,6 +1039,12 @@ private class IncrementalSimulationTester<M : Any>(
         assert(remainingTestActivities.isEmpty())
     }
 
+    @Suppress("UNCHECKED_CAST")
+    private fun normalizeErrorReport(report: ChannelData<*>): ChannelData<String> =
+        // Error messages are generally brittle, sensitive to minor changes in ordering that we can't / don't want to worry about.
+        // Normalize to just the first line of text, which tends to be more stable.
+        (report as ChannelData<String>).copy(data = report.data.split('\n', limit=2).first())
+
     override fun save(time: Instant): Checkpoint<M> {
         // Save checkpoints from both, and assert they're equivalent
         val baselineCheckpoint = baselineSimulation.save(time)
@@ -1036,7 +1052,23 @@ private class IncrementalSimulationTester<M : Any>(
 
         // Since a checkpoint is likely to have issues, do a fine-grained comparison to aid debugging
         assertEquals(baselineCheckpoint.time, testCheckpoint.time)
-        assert(baselineCheckpoint.cells valueEquals testCheckpoint.cells)
+        assert(baselineCheckpoint.cells.valueEquals(testCheckpoint.cells) { x, y ->
+            if (x is Result<*>) {
+                // Special handling for Result, so we can mod out the exceptions
+                y as Result<*>
+                // If both are successes, compare them
+                if (x.isSuccess && y.isSuccess) {
+                    x.getOrThrow() == y.getOrThrow()
+                } else {
+                    // If they're both failures, they're equal, because we don't introspect on the exceptions.
+                    // One failure and one success are not equal.
+                    x.isFailure && y.isFailure
+                }
+            } else {
+                // General case: just use regular object equality
+                x == y
+            }
+        })
 
         // Daemons are stored as a list, but order isn't relevant
         val remainingTestDaemons = testCheckpoint.daemons.toMutableList()
@@ -1051,7 +1083,29 @@ private class IncrementalSimulationTester<M : Any>(
             assertEquals(baselineDaemon.name, testDaemon.name)
             assertEquals(baselineDaemon.root, testDaemon.root)
             assertEquals(baselineDaemon.time, testDaemon.time)
-            assertEquals(baselineDaemon.history, testDaemon.history)
+            if (baselineDaemon.history == null) {
+                assert(testDaemon.history == null)
+            } else {
+                assertNotNull(testDaemon.history)
+                assert(baselineDaemon.history.valueEquals(testDaemon.history) { x, y ->
+                    if (x is PureTask.TaskHistoryStep.ReadMarker<*> && x.value is Result<*>) {
+                        // Special case for results, to mod out exceptions
+                        val xResult = x.value
+                        val yResult = (y as PureTask.TaskHistoryStep.ReadMarker<*>).value as Result<*>
+                        if (xResult.isSuccess && yResult.isSuccess) {
+                            // If both reads were successful, compare their value
+                            xResult.getOrThrow() == yResult.getOrThrow()
+                        } else {
+                            // Otherwise, they're equal if they're both failures; don't inspect the exceptions.
+                            // One failure and one success are never equal.
+                            xResult.isFailure && yResult.isFailure
+                        }
+                    } else {
+                        // General case: fall back on simple object equality
+                        x == y
+                    }
+                })
+            }
         }
         assert(remainingTestDaemons.isEmpty()) {
             "Checkpoint has unexpected daemons: " + remainingTestDaemons.joinToString(", ") { it.name.toString() }

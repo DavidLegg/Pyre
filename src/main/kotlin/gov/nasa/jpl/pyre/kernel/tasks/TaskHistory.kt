@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.kernel.tasks
 
+import gov.nasa.jpl.pyre.kernel.tasks.PureTask.TaskHistoryStep
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromJsonElement
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -127,6 +128,30 @@ sealed interface TaskHistory {
 
     companion object {
         internal fun construct(): MutableTaskHistory = MemoryTaskHistory()
+
+        fun TaskHistory.valueEquals(other: TaskHistory, valueComparator: (Any?, Any?) -> Boolean): Boolean {
+            when (this) {
+                is MemoryTaskHistory -> {
+                    // Use the type information in this history object to convert steps in other
+                    val otherProvider = other.provider()
+                    for ((thisStep, stepType) in steps) {
+                        if (!otherProvider.hasNext()) return false
+                        val otherStep = otherProvider.provide<Any>(stepType)
+                        if (!valueComparator(thisStep, otherStep)) return false
+                    }
+                    // Then make sure that other is also exhausted
+                    return !otherProvider.hasNext()
+                }
+                is SerializedTaskHistory -> when (other) {
+                    is MemoryTaskHistory -> return other.valueEquals(this, valueComparator)
+                    is SerializedTaskHistory -> {
+                        // Compare as JSON objects instead
+                        return steps.size == other.steps.size
+                                && steps.zip(other.steps).all { (x, y) -> valueComparator(x, y) }
+                    }
+                }
+            }
+        }
     }
 }
 

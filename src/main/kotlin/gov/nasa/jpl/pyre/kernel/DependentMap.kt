@@ -52,7 +52,7 @@ sealed interface DependentMap {
 
         internal fun construct(): MutableDependentMap = MemoryDependentMap()
 
-        infix fun DependentMap.valueEquals(other: DependentMap): Boolean {
+        fun DependentMap.valueEquals(other: DependentMap, valueComparator: (Any?, Any?) -> Boolean): Boolean {
             if (this.size() != other.size()) return false
 
             when (this) {
@@ -61,18 +61,18 @@ sealed interface DependentMap {
                     for ((name, valuePair) in base) {
                         val (value, type) = valuePair
                         val otherValue = other.get<Any>(name, type)
-                        if (value != otherValue) return false
+                        if (!valueComparator(value, otherValue)) return false
                     }
                     return true
                 }
                 is JsonDependentMap -> when (other) {
-                    is MemoryDependentMap -> return other valueEquals this
+                    is MemoryDependentMap -> return other.valueEquals(this, valueComparator)
                     is JsonDependentMap -> {
                         // If both are Json based, there's no type information to deserialize with,
                         // but we can directly compare the JsonElements instead.
                         for ((name, value) in base) {
                             val otherValue = other.base[name]
-                            if (value != otherValue) return false
+                            if (!valueComparator(value, otherValue)) return false
                         }
                         return true
                     }

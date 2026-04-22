@@ -97,7 +97,10 @@ fun <V, D : Dynamics<V, D>> resource(
         override fun getDynamics(): FullDynamics<D> = scope.read(cell).getOrElse {
             throw FaultedResourceException("Fault in resource $this", it)
         }
-    }.named { name }
+
+        override val name: Name = scope.contextName / name
+        override fun toString() = name
+    }
 }
 
 fun <D> commutingEffects(): MergeResourceEffect<D> = { left, right -> left andThen right }

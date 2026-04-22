@@ -32,7 +32,11 @@ object Reporting {
         metadata: Map<String, ChannelReport.Metadatum> = mapOf(),
     ) {
         val channel = scope.channel<D>(resource.name, metadata, dynamicsType)
-        channel.report(resource.getDynamics().data)
+        try {
+            channel.report(resource.getDynamics().data)
+        } catch (e: FaultedResourceException) {
+            stderr.report("Resource ${resource.name} faulted: " + e.stackTraceToString())
+        }
         spawn("Report resource ${resource.name.simpleName}", wheneverChanges(resource) {
             try {
                 channel.report(resource.getDynamics().data)
