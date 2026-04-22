@@ -88,9 +88,9 @@ object PolynomialResourceOperations {
         })
         return object : IntegralResource, PolynomialResource by integral {
             context(scope: TaskScope)
-            override suspend fun increase(amount: Double) = integral.increase(amount)
+            override fun increase(amount: Double) = integral.increase(amount)
             context(scope: TaskScope)
-            override suspend fun set(amount: Double) = integral.emit({ p: Polynomial ->
+            override fun set(amount: Double) = integral.emit({ p: Polynomial ->
                 p.setCoefficient(0, amount)
             }.named { "Set value of $this to $amount" })
         } named { name }
@@ -316,21 +316,21 @@ object PolynomialResourceOperations {
         min(max(this, lowerBound), upperBound).fullyNamed { Name("$this.clamp($lowerBound, $upperBound)") }
 
     context(scope: TaskScope)
-    suspend fun MutablePolynomialResource.increase(amount: Double) = emit({ p: Polynomial -> p + amount }.named { "Increase $this by $amount" })
+    fun MutablePolynomialResource.increase(amount: Double) = emit({ p: Polynomial -> p + amount }.named { "Increase $this by $amount" })
     context(scope: TaskScope)
-    suspend fun MutablePolynomialResource.decrease(amount: Double) = emit({ p: Polynomial -> p - amount }.named { "Decrease $this by $amount" })
+    fun MutablePolynomialResource.decrease(amount: Double) = emit({ p: Polynomial -> p - amount }.named { "Decrease $this by $amount" })
 
     context(scope: TaskScope)
-    suspend operator fun MutablePolynomialResource.plusAssign(amount: Double) = increase(amount)
+    operator fun MutablePolynomialResource.plusAssign(amount: Double) = increase(amount)
     context(scope: TaskScope)
-    suspend operator fun MutablePolynomialResource.minusAssign(amount: Double) = decrease(amount)
+    operator fun MutablePolynomialResource.minusAssign(amount: Double) = decrease(amount)
 
     context(scope: TaskScope)
-    suspend fun IntegralResource.decrease(amount: Double) = increase(-amount)
+    fun IntegralResource.decrease(amount: Double) = increase(-amount)
     context(scope: TaskScope)
-    suspend operator fun IntegralResource.plusAssign(amount: Double) = increase(amount)
+    operator fun IntegralResource.plusAssign(amount: Double) = increase(amount)
     context(scope: TaskScope)
-    suspend operator fun IntegralResource.minusAssign(amount: Double) = decrease(amount)
+    operator fun IntegralResource.minusAssign(amount: Double) = decrease(amount)
 }
 
 /**
@@ -341,9 +341,9 @@ object PolynomialResourceOperations {
  */
 interface IntegralResource : PolynomialResource {
     context(scope: TaskScope)
-    suspend fun increase(amount: Double)
+    fun increase(amount: Double)
     context(scope: TaskScope)
-    suspend fun set(amount: Double)
+    fun set(amount: Double)
 }
 
 context (scope: SimulationScope)

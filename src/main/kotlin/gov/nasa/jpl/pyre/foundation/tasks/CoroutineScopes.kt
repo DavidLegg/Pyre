@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.foundation.tasks
 
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
+import gov.nasa.jpl.pyre.foundation.resources.FaultedResourceException
 import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stderr
@@ -12,6 +13,7 @@ import gov.nasa.jpl.pyre.kernel.ConditionResult
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.kernel.UnsatisfiedUntil
 import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
 import gov.nasa.jpl.pyre.kernel.tasks.PureStepResult
@@ -22,11 +24,18 @@ import kotlin.coroutines.intrinsics.*
 
 context (scope: SimulationScope)
 fun condition(block: context (ConditionScope) () -> ConditionResult): Condition = { actions ->
-    // TODO: How should we handle a condition throwing an exception (e.g. by reading a faulted resource)?
-    //   Ideally, it would crash the awaiting task, not the simulator.
-    block(object : ConditionScope, SimulationScope by scope {
-        override fun <V> read(cell: Cell<V>): V = actions.read(cell)
-    })
+    try {
+        block(object : ConditionScope, SimulationScope by scope {
+            override fun <V> read(cell: Cell<V>): V = actions.read(cell)
+        })
+    } catch (_: Throwable) {
+        // By default, conditions simply aren't satisfied if they crash.
+        // Normally, this is because we're awaiting some state on the resources, and a resource is faulted.
+        // Conditions which care about handling faulted resources can add their own try/catch blocks,
+        // but most will just fall through to here.
+        // If the faulted resource clears its fault, that'll trip this condition to re-evaluate, and the blocked task may resume.
+        UnsatisfiedUntil(null)
+    }
 }
 
 sealed interface TaskScopeResult {
