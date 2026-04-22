@@ -741,6 +741,29 @@ class IncrementalSimulatorTest {
         tester.move(a2 to Instant.parse("2025-01-01T23:34:34.000000Z"))
     }
 
+    @Test
+    fun `repro by seed`() {
+        `random plan edits conform to fundamental incremental sim guarantee`(154)
+    }
+
+    @Test
+    fun `repro directly`() {
+        // Notes:
+        // These two activities conflict. They'll fault the integrand cell.
+        // That'll do something interesting to the clamped integral task, not sure what though.
+        // Finding: Both save/restore cycles are needed to repro the issue.
+        var tester = test(
+            GroundedActivity( Instant.parse("2025-01-01T00:00:00Z"), Name("417394956067"), SetIntegrand(number = 0.6165559727893921)),
+            GroundedActivity( Instant.parse("2025-01-01T00:00:00Z"), Name("818675801097"), SetIntegrand(number = -0.0037934538032007303)),
+        )
+        var inconTime = Instant.parse("2025-01-01T02:00:00.000000Z")
+        var incon = tester.save(inconTime)
+        tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
+        inconTime = Instant.parse("2025-01-01T03:00:00.000000Z")
+        incon = tester.save(inconTime)
+        tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
+    }
+
     /**
      * Since incremental sim is complicated, and we have an "oracle" in the form of single-shot simulation,
      * we can randomly generate plans and plan edits and see if incremental sim works on them.
