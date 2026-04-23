@@ -1,20 +1,24 @@
-package gov.nasa.jpl.pyre.incremental
+package gov.nasa.jpl.pyre.kernel.incremental
 
-import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator.FrontierAction.*
+import gov.nasa.jpl.pyre.incremental.IncrementalReportHandler
+import gov.nasa.jpl.pyre.incremental.KernelPlanEdits
+import gov.nasa.jpl.pyre.incremental.SGNode
 import gov.nasa.jpl.pyre.incremental.SGNode.*
+import gov.nasa.jpl.pyre.incremental.SimulationTime
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
-import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.KernelCheckpoint
 import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
 import gov.nasa.jpl.pyre.kernel.MutableDependentMap
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.ReadActions
 import gov.nasa.jpl.pyre.kernel.SatisfiedAt
+import gov.nasa.jpl.pyre.kernel.incremental.KernelIncrementalSimulator.FrontierAction.*
+import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
 import gov.nasa.jpl.pyre.kernel.tasks.KernelTask
 import gov.nasa.jpl.pyre.kernel.tasks.PureTask
+import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
 import gov.nasa.jpl.pyre.kernel.tasks.Task
 import gov.nasa.jpl.pyre.kernel.tasks.TaskStepResult
 import gov.nasa.jpl.pyre.utilities.compose
@@ -23,9 +27,12 @@ import java.io.File
 import java.util.PriorityQueue
 import java.util.TreeMap
 import java.util.TreeSet
-import kotlin.also
+import kotlin.collections.get
+import kotlin.collections.iterator
+import kotlin.collections.minusAssign
 import kotlin.collections.plusAssign
-import kotlin.let
+import kotlin.collections.remove
+import kotlin.collections.set
 import kotlin.reflect.KType
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
@@ -36,7 +43,7 @@ import kotlin.time.Instant.Companion.DISTANT_PAST
 // TODO: Look for opportunities to refactor node creation (e.g. an "insert after" operator that does the link modification).
 
 /**
- * Support for [IncrementalSimulatorImpl], which implements graph-based incremental simulation at the kernel level.
+ * Support for [gov.nasa.jpl.pyre.incremental.IncrementalSimulatorImpl], which implements graph-based incremental simulation at the kernel level.
  */
 class KernelIncrementalSimulator(
     private val planStart: Instant,

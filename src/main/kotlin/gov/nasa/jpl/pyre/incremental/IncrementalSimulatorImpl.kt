@@ -19,6 +19,7 @@ import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.kernel.KernelCheckpoint
 import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.incremental.KernelIncrementalSimulator
 import gov.nasa.jpl.pyre.kernel.tasks.KernelTask
 import java.util.*
 import kotlin.time.Instant
