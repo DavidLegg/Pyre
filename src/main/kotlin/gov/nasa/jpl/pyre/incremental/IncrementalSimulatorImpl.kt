@@ -14,7 +14,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
 import gov.nasa.jpl.pyre.general.results.ResourceResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.applyTo
-import gov.nasa.jpl.pyre.incremental.SGNode.ReportNode
+import gov.nasa.jpl.pyre.kernel.incremental.SGNode.ReportNode
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.kernel.KernelCheckpoint
 import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint

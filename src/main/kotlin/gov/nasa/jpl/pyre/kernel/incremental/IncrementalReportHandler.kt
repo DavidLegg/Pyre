@@ -1,7 +1,5 @@
 package gov.nasa.jpl.pyre.kernel.incremental
 
-import gov.nasa.jpl.pyre.incremental.SGNode
-
 /**
  * A generalization of [gov.nasa.jpl.pyre.kernel.ReportHandler] which allows the simulator to revoke a report it issued previously,
  * in response to incremental changes to the simulation.

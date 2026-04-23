@@ -2,7 +2,7 @@ package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.*
-import gov.nasa.jpl.pyre.incremental.SGNode.*
+import gov.nasa.jpl.pyre.kernel.incremental.SGNode.*
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.incremental.IncrementalReportHandler
 

@@ -1,8 +1,6 @@
 package gov.nasa.jpl.pyre.kernel.incremental
 
-import gov.nasa.jpl.pyre.incremental.SGNode
-import gov.nasa.jpl.pyre.incremental.SGNode.*
-import gov.nasa.jpl.pyre.incremental.SimulationTime
+import gov.nasa.jpl.pyre.kernel.incremental.SGNode.*
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
