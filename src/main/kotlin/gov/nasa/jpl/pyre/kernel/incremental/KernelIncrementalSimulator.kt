@@ -83,10 +83,9 @@ class KernelIncrementalSimulator(
     /** Root nodes with which we may merge restart requests, rather than re-running. */
     private val rootMergeOpportunities: MutableMap<Task, StartTaskNode> = mutableMapOf()
 
-    // TODO: Make these private again once testing is complete
-    public enum class DebugLevel { NONE, MAJOR, MINOR, ALL }
+    private enum class DebugLevel { NONE, MAJOR, MINOR, ALL }
     companion object {
-        public var DEBUG = DebugLevel.NONE
+        private val DEBUG = DebugLevel.NONE
         // Put step variables in companion object, so the numbers keep incrementing through save/restore cycles
         private var debugMajorStep = 0
         private var debugMinorStep = 0
