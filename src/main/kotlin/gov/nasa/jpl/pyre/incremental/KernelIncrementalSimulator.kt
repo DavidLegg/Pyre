@@ -54,6 +54,8 @@ class KernelIncrementalSimulator(
     private class TaskBranch(val root: StartTaskNode)
     /** A list of branch numbers which are no longer being used, and can safely be re-used. */
     private val recycledBranchNumbers: MutableList<Int> = mutableListOf()
+    /** A list of daemons that were complete in the incon, tracked only to report them as complete when saving. */
+    private val initiallyCompletedDaemons: MutableList<KernelTaskCheckpoint> = mutableListOf()
     /** The work list of actions to resolve the DAG. */
     private val frontier: TreeSet<FrontierAction> = TreeSet(
             // Primarily sort frontier actions by time, as incremental re-work is most efficient when done in time order.
@@ -197,6 +199,10 @@ class KernelIncrementalSimulator(
                                 base.restoreFrom(checkpoint).also { _base = null }
                         }
                         frontier += RunTask(restoringRoot.branchAt(SimulationTime(taskCheckpoint.time)))
+                    } else {
+                        // The task does not have history, it is stopped.
+                        // Record it so we can save it later; otherwise there's nothing to do with it.
+                        initiallyCompletedDaemons += taskCheckpoint
                     }
                 }
             }
@@ -295,7 +301,8 @@ class KernelIncrementalSimulator(
             // Filter down to root tasks - branches that are spawned in the future by other tasks shouldn't be directly saved.
             .filter { it.root.prior == null }
             .map { it.root.loadContinuation().save().copy(time = it.root.time.instant) }
-        return KernelCheckpoint(time, cellCheckpoint, runningTaskCheckpoints + notStartedTaskCheckpoints)
+        // Finally, include root tasks which were already complete in the incon
+        return KernelCheckpoint(time, cellCheckpoint, runningTaskCheckpoints + notStartedTaskCheckpoints + initiallyCompletedDaemons)
     }
 
     private fun resolve() {

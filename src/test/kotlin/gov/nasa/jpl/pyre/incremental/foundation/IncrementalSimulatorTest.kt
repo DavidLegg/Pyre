@@ -48,6 +48,7 @@ import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.minus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.move
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.remove
+import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
 import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
@@ -742,23 +743,17 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed`() {
-        `random plan edits conform to fundamental incremental sim guarantee`(154)
-    }
-
-    @Test
-    fun `repro directly`() {
-        // Notes:
-        // These two activities conflict. They'll fault the integrand cell.
-        // That'll do something interesting to the clamped integral task, not sure what though.
-        // Finding: Both save/restore cycles are needed to repro the issue.
+    fun `saving daemons which were completed in incon`() {
+        // Crash the "Compute integral" daemon by faulting the integrand cell
         var tester = test(
             GroundedActivity( Instant.parse("2025-01-01T00:00:00Z"), Name("417394956067"), SetIntegrand(number = 0.6165559727893921)),
             GroundedActivity( Instant.parse("2025-01-01T00:00:00Z"), Name("818675801097"), SetIntegrand(number = -0.0037934538032007303)),
         )
+        // Save and reload the completed daemon
         var inconTime = Instant.parse("2025-01-01T02:00:00.000000Z")
         var incon = tester.save(inconTime)
         tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
+        // Then save and reload the completed daemon again, to ensure it stays completed
         inconTime = Instant.parse("2025-01-01T03:00:00.000000Z")
         incon = tester.save(inconTime)
         tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
