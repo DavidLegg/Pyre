@@ -6,12 +6,18 @@ import gov.nasa.jpl.pyre.kernel.Effect
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.tasks.Task
 
-sealed interface SGNode {
+/**
+ * Any node in the DAG used to represent incremental simulation state.
+ */
+sealed interface IncSimNode {
     val serialId: Int
     val time: SimulationTime
 
 
-    sealed interface TaskNode : SGNode {
+    /**
+     * An [IncSimNode] representing something done by a simulation task.
+     */
+    sealed interface TaskNode : IncSimNode {
         val taskName: Name
         var prior: TaskNode?
         var next: TaskNode?
@@ -69,15 +75,14 @@ sealed interface SGNode {
         override fun toString(): String = "Write(${cell.effect}, ${cell.cell.name}) @ $time"
     }
 
-    // TODO: Add an interface IncrementalReport which only has (time, content)
     class ReportNode<T>(
         override val serialId: Int,
         override val taskName: Name,
         override val time: SimulationTime,
         override var prior: TaskNode?,
-        val content: T,
+        override val content: T,
         override var next: TaskNode? = null,
-    ) : NonYieldingStepNode {
+    ) : NonYieldingStepNode, IncrementalReport<T> {
         override fun toString(): String = "Report($content) @ $time"
     }
 
@@ -128,7 +133,7 @@ sealed interface SGNode {
         override fun toString(): String = "TaskComplete($taskName) @ $time"
     }
 
-    sealed interface CellNode<T> : SGNode {
+    sealed interface CellNode<T> : IncSimNode {
         val cell: Cell<T>
         var value: T
         val reads: MutableSet<ReadNode>

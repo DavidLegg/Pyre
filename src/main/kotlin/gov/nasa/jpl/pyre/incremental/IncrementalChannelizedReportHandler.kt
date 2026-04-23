@@ -2,8 +2,9 @@ package gov.nasa.jpl.pyre.incremental
 
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.*
-import gov.nasa.jpl.pyre.kernel.incremental.SGNode.*
+import gov.nasa.jpl.pyre.kernel.incremental.IncSimNode.*
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.incremental.IncrementalReport
 import gov.nasa.jpl.pyre.kernel.incremental.IncrementalReportHandler
 
 /**
@@ -33,26 +34,24 @@ abstract class BaseIncrementalChannelizedReportHandler : IncrementalChannelizedR
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun report(report: ReportNode<*>) =
+    override fun report(report: IncrementalReport<*>) =
         when (val channelReport = channelizedContent(report)) {
             is ChannelMetadata<*> -> initChannel(channelReport)
             is ChannelData<*> -> coerceAndReport(channelReport, report as ReportNode<ChannelData<*>>)
         }
     @Suppress("UNCHECKED_CAST")
-    override fun revoke(report: ReportNode<*>) =
+    override fun revoke(report: IncrementalReport<*>) =
         when (val channelReport = channelizedContent(report)) {
             is ChannelMetadata<*> -> Unit // Ignore; there's actually no meaning to "revoking" a channel initializer.
             is ChannelData<*> -> coerceAndRevoke(channelReport, report as ReportNode<ChannelData<*>>)
         }
 
-    private fun channelizedContent(report: ReportNode<*>): ChannelReport<*> {
-        require(report.content is ChannelReport<*>) {
+    private fun channelizedContent(report: IncrementalReport<*>): ChannelReport<*> =
+        requireNotNull(report.content as? ChannelReport<*>) {
             IncrementalChannelizedReportHandler::class.simpleName +
                     " expects all report content to be ${ChannelReport::class.simpleName}," +
                     " but this report is ${report.content?.let { it::class.simpleName } ?: "null"} instead."
         }
-        return report.content
-    }
 
     // These awkwardly-typed helper functions are a kludge around the generics system imposed by type erasure.
     // We need the type variable T to appear as a top-level type var in order to omit it above,

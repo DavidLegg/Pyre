@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.kernel.incremental
 
-import gov.nasa.jpl.pyre.kernel.incremental.SGNode.*
+import gov.nasa.jpl.pyre.kernel.incremental.IncSimNode.*
 import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Effect
@@ -91,7 +91,7 @@ class KernelIncrementalSimulator(
         private var debugMajorStep = 0
         private var debugMinorStep = 0
     }
-    private fun dumpDotToFile(debugLevel: DebugLevel, highlightNode: SGNode? = null, checkIntegrity: Boolean = true) {
+    private fun dumpDotToFile(debugLevel: DebugLevel, highlightNode: IncSimNode? = null, checkIntegrity: Boolean = true) {
         if (DEBUG >= debugLevel) {
             if (debugLevel <= DebugLevel.MAJOR) {
                 ++debugMajorStep
@@ -1219,7 +1219,7 @@ class KernelIncrementalSimulator(
         instant == other.instant && batch == other.batch && branch == other.branch
 
     private sealed interface FrontierAction {
-        val node: SGNode
+        val node: IncSimNode
         val time: SimulationTime get() = node.time
 
         data class RunTask(override val node: TaskNode) : FrontierAction
@@ -1228,14 +1228,14 @@ class KernelIncrementalSimulator(
         data class RevokeMergeOpportunity(override val node: StartTaskNode) : FrontierAction
     }
 
-    private var previouslyHighlightedNode: SGNode? = null
+    private var previouslyHighlightedNode: IncSimNode? = null
     /**
      * Debugging function which dumps the current simulation DAG as a Graphviz (dot) file
      *
      * @param checkIntegrity Raise an [IllegalStateException] if the graph doesn't meet standard integrity checks.
      */
     private fun dumpDot(
-        highlightNode: SGNode? = null,
+        highlightNode: IncSimNode? = null,
         checkIntegrity: Boolean = true,
     ): String {
         fun checkIntegrity(condition: Boolean, lazyMessage: () -> String) =
@@ -1247,12 +1247,12 @@ class KernelIncrementalSimulator(
         val cellDotId = mutableMapOf<CellNode<*>, String>()
         val taskDotId = mutableMapOf<TaskNode, String>()
         val cells = mutableMapOf<CellNode<*>, Cell<*>>()
-        val ranks = TreeMap<SimulationTime, MutableList<SGNode>>()
+        val ranks = TreeMap<SimulationTime, MutableList<IncSimNode>>()
         // The "rank" is just the time ignoring the branch
         fun SimulationTime.rank() = copy(branch = 0)
         // The "file" is the horizontal position within the rank
         fun SimulationTime.file() = branch
-        fun collect(node: SGNode) = ranks.computeIfAbsent(node.time.rank()) { mutableListOf() }.add(node)
+        fun collect(node: IncSimNode) = ranks.computeIfAbsent(node.time.rank()) { mutableListOf() }.add(node)
         val frontierModifier = frontier.groupBy { it.node }
             .mapValues { (_, actions) -> actions.joinToString(", ") { it::class.simpleName!! } }
         for ((cell, cellTree) in cellNodes) {
@@ -1269,7 +1269,7 @@ class KernelIncrementalSimulator(
             taskDotId[node] = "task${n++}"
             collect(node)
         }
-        val branchRootNodes = branchRoots.values.map { it.root as SGNode }.toSet()
+        val branchRootNodes = branchRoots.values.map { it.root as IncSimNode }.toSet()
 
         for ((i, rank) in ranks.values.withIndex()) {
             if (i > 0) {

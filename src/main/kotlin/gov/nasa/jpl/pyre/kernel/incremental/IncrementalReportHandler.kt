@@ -5,6 +5,6 @@ package gov.nasa.jpl.pyre.kernel.incremental
  * in response to incremental changes to the simulation.
  */
 interface IncrementalReportHandler {
-    fun report(report: SGNode.ReportNode<*>)
-    fun revoke(report: SGNode.ReportNode<*>)
+    fun report(report: IncrementalReport<*>)
+    fun revoke(report: IncrementalReport<*>)
 }
