@@ -271,7 +271,7 @@ class KernelIncrementalSimulator(
         val runningTaskCheckpoints = branchRoots.subMap(SimulationTime(DISTANT_PAST), simulationTime).values.mapNotNull { branch ->
             // branch starts before simulationTime, so it must have a last node before simulationTime.
             val tip = branch.root.thisAndNextNodes().takeWhile { it.time < simulationTime }.last()
-            if (tip is FinalStepNode) {
+            if (tip is TaskCompleteNode) {
                 // This branch has completed.
                 // TODO: Clean up this naming. "Root" is being overloaded with too many meanings, it's confusing.
                 val branchRootTask = branch.root.loadContinuation()
