@@ -42,7 +42,7 @@ import kotlin.time.Instant.Companion.DISTANT_PAST
 // TODO: Look for opportunities to refactor node creation (e.g. an "insert after" operator that does the link modification).
 
 /**
- * Support for [gov.nasa.jpl.pyre.incremental.IncrementalSimulatorImpl], which implements graph-based incremental simulation at the kernel level.
+ * Provides kernel-level incremental simulation with parity to [gov.nasa.jpl.pyre.kernel.KernelSimulator]
  */
 class KernelIncrementalSimulator(
     private val planStart: Instant,
