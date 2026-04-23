@@ -1015,7 +1015,7 @@ private class IncrementalSimulationTester<M : Any>(
                 // For these channels, we tolerate some nondeterminism in the ordering of simultaneous messages.
                 // This should be "modded out" by a proper interpretation of the channel.
                 val remainingTestReports = testResource.data.toMutableList()
-                val testReportBatch: MutableSet<ChannelData<*>> = mutableSetOf()
+                val testReportBatch: MutableList<ChannelData<*>> = mutableListOf()
                 var batchTime = Instant.DISTANT_PAST
                 for (baselineReport in baselineResource.data) {
                     // First, check if we've passed the last-collected batch time
@@ -1035,9 +1035,11 @@ private class IncrementalSimulationTester<M : Any>(
                         // Special case - stderr reports may have stack traces.
                         // We don't need to match stack frames. Fitler those out.
                         val normalizedBaselineReport = normalizeErrorReport(baselineReport)
-                        assert(testReportBatch.removeIf { normalizeErrorReport(it) == normalizedBaselineReport }) {
+                        val n = testReportBatch.indexOfFirst { normalizeErrorReport(it) == normalizedBaselineReport }
+                        assert(n >= 0) {
                             "Missing report on $resourceName: $baselineReport"
                         }
+                        testReportBatch.removeAt(n)
                     } else {
                         assert(testReportBatch.remove(baselineReport)) {
                             "Missing report on $resourceName: $baselineReport"
