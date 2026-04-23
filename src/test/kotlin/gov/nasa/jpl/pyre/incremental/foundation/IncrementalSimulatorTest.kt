@@ -759,12 +759,8 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed`() {
-        `random plan edits conform to fundamental incremental sim guarantee`(608)
-    }
-
-    @Test
-    fun `repro directly`() {
+    fun `duplicate error messages`() {
+        // These activities, combined, produce simultaneous identical error messages on stderr.
         test(
             GroundedActivity(Instant.parse("2025-01-01T01:00:00.000000Z"), Name("299125461284"), SetStandaloneCounter(number = 2)),
             GroundedActivity(Instant.parse("2025-01-01T01:00:00.000000Z"), Name("450785608609"), IncrementStandaloneCounter(number = 7)),
