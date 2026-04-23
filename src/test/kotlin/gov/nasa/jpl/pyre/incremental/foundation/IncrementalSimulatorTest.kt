@@ -48,7 +48,6 @@ import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.minus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.move
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.remove
-import gov.nasa.jpl.pyre.incremental.KernelIncrementalSimulator
 import gov.nasa.jpl.pyre.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
 import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
@@ -757,6 +756,21 @@ class IncrementalSimulatorTest {
         inconTime = Instant.parse("2025-01-01T03:00:00.000000Z")
         incon = tester.save(inconTime)
         tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
+    }
+
+    @Test
+    fun `repro by seed`() {
+        `random plan edits conform to fundamental incremental sim guarantee`(608)
+    }
+
+    @Test
+    fun `repro directly`() {
+        test(
+            GroundedActivity(Instant.parse("2025-01-01T01:00:00.000000Z"), Name("299125461284"), SetStandaloneCounter(number = 2)),
+            GroundedActivity(Instant.parse("2025-01-01T01:00:00.000000Z"), Name("450785608609"), IncrementStandaloneCounter(number = 7)),
+            GroundedActivity(Instant.parse("2025-01-01T12:00:00.000000Z"), Name("805465453894"), SpawnChild(child = AddJob(seed = 18))),
+            GroundedActivity(Instant.parse("2025-01-01T12:00:00.000000Z"), Name("428860376343"), ReportStandaloneCounter(id = "2168")),
+        )
     }
 
     /**
