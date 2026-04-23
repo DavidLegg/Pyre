@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.kernel
 
-import gov.nasa.jpl.pyre.foundation.plans.InstantSerializer
+import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
 import gov.nasa.jpl.pyre.kernel.tasks.TaskHistory
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant

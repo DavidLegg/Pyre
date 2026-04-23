@@ -2,6 +2,7 @@
 
 package gov.nasa.jpl.pyre.foundation.plans
 
+import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers

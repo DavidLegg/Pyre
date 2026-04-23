@@ -24,6 +24,8 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.plus
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
+import gov.nasa.jpl.pyre.foundation.serialization.ResultSerializer
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
@@ -120,8 +122,8 @@ class SimulatorTest {
         companion object {
             val JSON_FORMAT = Json {
                 serializersModule = SerializersModule {
-                    contextual(Instant::class, String.serializer().alias(
-                        InvertibleFunction.of(Instant::parse, Instant::toString)))
+                    contextual(Instant::class, InstantSerializer())
+                    contextual(Result::class) { ResultSerializer(it[0]) }
 
                     activities {
                         activity(DummyActivity::class)
@@ -292,8 +294,8 @@ class SimulatorTest {
         companion object {
             val JSON_FORMAT = Json {
                 serializersModule = SerializersModule {
-                    contextual(Instant::class, String.serializer().alias(
-                        InvertibleFunction.of(Instant::parse, Instant::toString)))
+                    contextual(Instant::class, InstantSerializer())
+                    contextual(Result::class) { ResultSerializer(it[0]) }
 
                     activities {
                         activity(DeviceBoot::class)

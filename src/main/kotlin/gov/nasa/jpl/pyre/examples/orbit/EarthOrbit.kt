@@ -1,11 +1,12 @@
 package gov.nasa.jpl.pyre.examples.orbit
 
 import gov.nasa.jpl.pyre.examples.orbit.OrbitalSimulation.Vector
-import gov.nasa.jpl.pyre.foundation.plans.InstantSerializer
+import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
 import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.serialization.ResultSerializer
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import kotlinx.serialization.json.Json
@@ -53,6 +54,7 @@ class EarthOrbit(
         val JSON_FORMAT = Json {
             serializersModule = SerializersModule {
                 contextual(Instant::class, InstantSerializer())
+                contextual(Result::class) { ResultSerializer(it[0]) }
                 activities<EarthOrbit> {}
             }
         }

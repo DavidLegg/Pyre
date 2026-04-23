@@ -5,6 +5,8 @@ import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
+import gov.nasa.jpl.pyre.foundation.serialization.ResultSerializer
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.jsonlReportHandler
@@ -15,6 +17,7 @@ import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.modules.SerializersModule
 import java.io.FileInputStream
 import kotlin.io.path.Path
+import kotlin.time.Instant
 
 /**
  * Run [BatteryModel] as a standalone simulation.
@@ -26,6 +29,8 @@ fun main(args: Array<String>) {
 
     val jsonFormat = Json {
         serializersModule = SerializersModule {
+            contextual(Instant::class, InstantSerializer())
+            contextual(Result::class) { ResultSerializer(it[0]) }
             activities {
                 activity(ChangePowerDemand::class)
             }

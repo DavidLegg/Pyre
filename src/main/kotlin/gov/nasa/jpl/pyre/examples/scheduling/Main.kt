@@ -49,6 +49,8 @@ import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.div
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
+import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
+import gov.nasa.jpl.pyre.foundation.serialization.ResultSerializer
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.general.results.discrete.BooleanProfile
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.Companion.compute
@@ -93,11 +95,8 @@ private val STANDARD_CONFIG = SystemModel.Config(
 )
 val JSON_FORMAT = Json {
     serializersModule = SerializersModule {
-        // Instant serialization
-        contextual<Instant>(String.serializer().alias(InvertibleFunction.of(
-            Instant::parse,
-            Instant::toString,
-        )))
+        contextual(Instant::class, InstantSerializer())
+        contextual(Result::class) { ResultSerializer(it[0]) }
         // Vector3D serialization
         contextual(DoubleArraySerializer().alias(InvertibleFunction.of(
             { Vector3D(it[0], it[1], it[2]) },
@@ -143,11 +142,8 @@ val JSON_FORMAT = Json {
 
 val GNC_JSON_FORMAT = Json {
     serializersModule = SerializersModule {
-        // Instant serialization
-        contextual<Instant>(String.serializer().alias(InvertibleFunction.of(
-            Instant::parse,
-            Instant::toString,
-        )))
+        contextual(Instant::class, InstantSerializer())
+        contextual(Result::class) { ResultSerializer(it[0]) }
         // Vector3D serialization
         contextual(DoubleArraySerializer().alias(InvertibleFunction.of(
             { Vector3D(it[0], it[1], it[2]) },

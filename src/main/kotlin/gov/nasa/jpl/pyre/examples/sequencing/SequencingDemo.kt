@@ -9,6 +9,8 @@ import gov.nasa.jpl.pyre.examples.sequencing.fsw.FswModel
 import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequencingModel
 import gov.nasa.jpl.pyre.examples.sequencing.telecom.TelecomModel
 import gov.nasa.jpl.pyre.foundation.plans.activities
+import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
+import gov.nasa.jpl.pyre.foundation.serialization.ResultSerializer
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.utilities.Serialization.alias
@@ -41,8 +43,8 @@ class SequencingDemo(
     companion object {
         val JSON_FORMAT = Json {
             serializersModule = SerializersModule {
-                contextual(Instant::class, String.serializer().alias(
-                    InvertibleFunction.of(Instant::parse, Instant::toString)))
+                contextual(Instant::class, InstantSerializer())
+                contextual(Result::class) { ResultSerializer(it[0]) }
                 activities {
                     // Planning activities
                     activity(LoadSequence::class)

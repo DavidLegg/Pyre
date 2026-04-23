@@ -1,5 +1,6 @@
 package gov.nasa.jpl.pyre.foundation.plans
 
+import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
 import gov.nasa.jpl.pyre.kernel.DependentMap
 import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
 import gov.nasa.jpl.pyre.kernel.Name

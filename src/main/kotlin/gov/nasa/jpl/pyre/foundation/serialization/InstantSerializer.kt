@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.foundation.plans
+package gov.nasa.jpl.pyre.foundation.serialization
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.utilities.Serialization.alias
