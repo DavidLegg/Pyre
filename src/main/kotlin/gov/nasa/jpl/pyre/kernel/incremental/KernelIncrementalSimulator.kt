@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.kernel.incremental
 
-import gov.nasa.jpl.pyre.incremental.IncrementalReportHandler
 import gov.nasa.jpl.pyre.incremental.KernelPlanEdits
 import gov.nasa.jpl.pyre.incremental.SGNode
 import gov.nasa.jpl.pyre.incremental.SGNode.*

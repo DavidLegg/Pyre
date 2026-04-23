@@ -4,9 +4,10 @@ import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.*
 import gov.nasa.jpl.pyre.incremental.SGNode.*
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.incremental.IncrementalReportHandler
 
 /**
- * The combination of [IncrementalReportHandler] and [gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler],
+ * The combination of [gov.nasa.jpl.pyre.kernel.incremental.IncrementalReportHandler] and [gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler],
  * a report handler which constructs channels during initialization,
  * and permits both issuing and revoking reports on those channels.
  */
