@@ -81,7 +81,7 @@ class KernelIncrementalSimulator(
     /** Root task nodes corresponding to activities in the plan, recorded to facilitate revoking tasks. */
     private val planTaskNodes: MutableMap<KernelTask, StartTaskNode> = mutableMapOf()
     /** Root nodes with which we may merge restart requests, rather than re-running. */
-    private val rootMergeOpportunities: MutableMap<Task, StartTaskNode> = mutableMapOf()
+    private val rootMergeOpportunities: MutableMap<Name, StartTaskNode> = mutableMapOf()
 
     private enum class DebugLevel { NONE, MAJOR, MINOR, ALL }
     companion object {
@@ -334,7 +334,7 @@ class KernelIncrementalSimulator(
                     // If we merge, we remove the RevokeMergeOpportunity action.
                     // Hence if we run the RevokeMergeOpportunity action, we failed to merge this root.
                     // Remove that root, but optimistically add its downstream repeat as a merge opportunity.
-                    rootMergeOpportunities.remove(action.node.continuation)
+                    rootMergeOpportunities.remove(action.node.taskName)
                     revokeWithMergeOpportunity(action.node)
                 }
 
@@ -533,11 +533,8 @@ class KernelIncrementalSimulator(
     private fun TaskNode.continueWith(continuation: (BasicTaskActions) -> TaskStepResult) {
         // Expand this task node
         var lastTaskStepNode: TaskNode = this
-        // Go find the root task, to look up root merge opportunities...
-        // TODO: Key off of something easier to find... taskName is a good candidate
-        val rootTask = (thisAndPriorNodes().first { it is StartTaskNode } as StartTaskNode).continuation
         // We can merge only if this action is happening on the same branch as the merge opportunity.
-        val mergeOpportunity: StartTaskNode? = rootMergeOpportunities[rootTask]?.takeIf { it.time sameBranchAs time }
+        val mergeOpportunity: StartTaskNode? = rootMergeOpportunities[taskName]?.takeIf { it.time sameBranchAs time }
         val basicTaskActions = object : BasicTaskActions {
             override fun <V> read(cell: Cell<V>): V {
                 // Look up the cell node
@@ -951,7 +948,7 @@ class KernelIncrementalSimulator(
         // giving any running tasks an opportunity to merge with it before the Revoke happens.
         renumberSteps(it, Int.MAX_VALUE / 2)
         frontier += RevokeMergeOpportunity(it)
-        rootMergeOpportunities[checkNotNull(it.continuation)] = it
+        rootMergeOpportunities[it.taskName] = it
     }
 
     /**
