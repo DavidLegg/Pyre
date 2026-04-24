@@ -312,31 +312,13 @@ class KernelIncrementalSimulator(
             dumpDotToFile(DebugLevel.MAJOR, frontier.firstOrNull()?.node)
             when (val action = frontier.pollFirst() ?: break) {
                 is RunTask -> {
-                    // TODO: Remove this special case and clean this up.
-                    //   When re-running a task, build RunTask around the node prior to that which should be revoked.
-                    //   Then, in this method, always revokeWithMO(next) and run from this
-                    val taskTip = if (action.node.next != null) {
-                        // We're re-running a task. Revoke the part of its future we're about to overwrite.
-                        // Leave an opportunity to merge back in if appropriate.
-                        if (action.node is AwaitCompleteNode) {
-                            // This indicates the end of a prior await that "occupies time".
-                            // The task did not take an action at this time, it completed an action at a prior time.
-                            // This should not be revoked; doing so would require re-doing the prior step, which wasn't requested.
-                            action.node.next?.let { revokeWithMergeOpportunity(it) }
-                            action.node
-                        } else {
-                            revokeWithMergeOpportunity(action.node)
-                            checkNotNull(action.node.prior) {
-                                "Internal error! Cannot rerun the first node in a task chain."
-                            }
-                        }
-                    } else {
-                        action.node
-                    }
+                    // We're about to run the task starting from action.node.
+                    // If it has a next, revoke next to re-do it.
+                    action.node.next?.let { revokeWithMergeOpportunity(it) }
                     // Invariant: All non-root task nodes are, or are preceded by, a yielding task node.
-                    val startFrom = taskTip.thisAndPriorNodes().first { it is YieldingStepNode } as YieldingStepNode
+                    val startFrom = action.node.thisAndPriorNodes().first { it is YieldingStepNode } as YieldingStepNode
                     // Continue the task graph from task tip
-                    taskTip.continueWith { realActions ->
+                    action.node.continueWith { realActions ->
                         // But do so by running from the most recent yielding action.
                         // Use replaying actions from startFrom through taskTip, then switch to realActions
                         // to start constructing graph nodes from that point forward.
@@ -511,7 +493,9 @@ class KernelIncrementalSimulator(
         // If the value they last saw for this cell differs from the value it has now, run it.
         for (read in node.reads) {
             if (read.value != node.value) {
-                frontier += RunTask(read)
+                frontier += RunTask(checkNotNull(read.prior) {
+                    "Internal error! Task read node not preceded by another task node."
+                })
             }
         }
         // Awaiters get a CheckCondition action instead of a RunTask action.
