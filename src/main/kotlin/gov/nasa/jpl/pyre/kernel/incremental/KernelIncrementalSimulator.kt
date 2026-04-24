@@ -448,9 +448,6 @@ class KernelIncrementalSimulator(
 
                     // If we have an interrupt, record that read edge.
                     // If the interrupting cell is revoked, this edge will remind us to re-run the original await.
-                    // TODO: Should we instead add the interruptCell as read by the original interrupted awaiter?
-                    //   Doing so would technically introduce an edge that goes backwards in time... But that's sort of implied anyways.
-                    //   If we do that, we should make the coupled change to *not* look at awaiter.prior when revoking a cell node.
                     interruptCell?.let {
                         (action.node.next as AwaitNode).reads.computeIfAbsent(it) { it.value }
                         it.awaiters += action.node.next as AwaitNode
@@ -1144,7 +1141,6 @@ class KernelIncrementalSimulator(
             cellNode.next += stepNode
             // Fix the edges leaving from this step node
             for (nextNode in stepNode.next) {
-                // TODO: Prove that only step nodes can be next.
                 check(nextNode is CellStepNode<V>) {
                     "Internal error! Node following an injected step node was not itself a step node."
                 }
