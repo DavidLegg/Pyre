@@ -10,6 +10,10 @@ import gov.nasa.jpl.pyre.kernel.MutableDependentMap
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.ReadActions
 import gov.nasa.jpl.pyre.kernel.SatisfiedAt
+import gov.nasa.jpl.pyre.kernel.incremental.IncSimNodeOperations.awaitGroup
+import gov.nasa.jpl.pyre.kernel.incremental.IncSimNodeOperations.priorNodes
+import gov.nasa.jpl.pyre.kernel.incremental.IncSimNodeOperations.thisAndNextNodes
+import gov.nasa.jpl.pyre.kernel.incremental.IncSimNodeOperations.thisAndPriorNodes
 import gov.nasa.jpl.pyre.kernel.incremental.KernelIncrementalSimulator.FrontierAction.*
 import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.batchStart
 import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.cellSteppingBatch
@@ -1157,15 +1161,6 @@ class KernelIncrementalSimulator(
             return cellNode
         }
     }
-
-    private fun TaskNode.thisAndPriorNodes() = generateSequence(this) { it.prior }
-    private fun TaskNode.thisAndNextNodes() = generateSequence(this) { it.next }
-    private fun TaskNode.priorNodes() = thisAndPriorNodes().drop(1)
-    private fun TaskNode.nextNodes() = thisAndNextNodes().drop(1)
-    private fun TaskNode.awaitGroup(): Sequence<YieldingStepNode> =
-        (priorNodes().takeWhile { it is AwaitNode } +
-                thisAndNextNodes().takeWhile { it is AwaitNode || it is AwaitCompleteNode })
-            .map { it as YieldingStepNode }
 
     private sealed interface FrontierAction {
         val node: IncSimNode
