@@ -11,6 +11,10 @@ import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.ReadActions
 import gov.nasa.jpl.pyre.kernel.SatisfiedAt
 import gov.nasa.jpl.pyre.kernel.incremental.KernelIncrementalSimulator.FrontierAction.*
+import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.isCausallyAfter
+import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.isCausallyBefore
+import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.isConcurrentWith
+import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.sameBranchAs
 import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
 import gov.nasa.jpl.pyre.kernel.tasks.KernelTask
 import gov.nasa.jpl.pyre.kernel.tasks.PureTask
@@ -23,11 +27,9 @@ import java.io.File
 import java.util.PriorityQueue
 import java.util.TreeMap
 import java.util.TreeSet
-import kotlin.collections.get
 import kotlin.collections.iterator
 import kotlin.collections.minusAssign
 import kotlin.collections.plusAssign
-import kotlin.collections.remove
 import kotlin.collections.set
 import kotlin.reflect.KType
 import kotlin.time.Duration
@@ -422,8 +424,6 @@ class KernelIncrementalSimulator(
                 awaitNode.time.nextStep()
             }
         }
-        fun SimulationTime.beforeResultTime(): Boolean =
-            resultTime?.let { this isCausallyBefore it } ?: true
         var isSatisfied = result is SatisfiedAt
 
         // Look for interruptions to this await
@@ -433,7 +433,9 @@ class KernelIncrementalSimulator(
         awaitNode.reads.keys.flatMapTo(frontierCellNodes) { it.next }
         while (true) {
             // Only explore until resultTime
-            val node = frontierCellNodes.poll()?.takeIf { it.time.beforeResultTime() } ?: break
+            val node = frontierCellNodes.poll()
+                ?.takeIf { resultTime == null || it.time isCausallyBefore resultTime }
+                ?: break
             when (node) {
                 is CellStepNode -> {
                     // Step nodes don't interrupt an await, so also explore its next nodes
@@ -531,7 +533,7 @@ class KernelIncrementalSimulator(
         // Expand this task node
         var lastTaskStepNode: TaskNode = this
         // We can merge only if this action is happening on the same branch as the merge opportunity.
-        val mergeOpportunity: StartTaskNode? = rootMergeOpportunities[taskName]?.takeIf { it.time sameBranchAs time }
+        val mergeOpportunity: StartTaskNode? = rootMergeOpportunities[taskName]?.takeIf { it sameBranchAs this }
         val basicTaskActions = object : BasicTaskActions {
             override fun <V> read(cell: Cell<V>): V {
                 // Look up the cell node
@@ -578,11 +580,11 @@ class KernelIncrementalSimulator(
                     }
                     1 -> {
                         val adjacentCellNode = priorCellNode.next.single()
-                        if (adjacentCellNode.time isConcurrentWith writeNode.time) {
+                        if (adjacentCellNode isConcurrentWith writeNode) {
                             // There's exactly one branch, and it's concurrent with this write node.
                             // Follow the concurrent branch to its tip
                             val concurrentTip = generateSequence(adjacentCellNode) { it.next.singleOrNull() }
-                                .first { it.next.singleOrNull()?.let { it.time isCausallyAfter writeNode.time } ?: true }
+                                .first { it.next.singleOrNull()?.let { it isCausallyAfter writeNode } ?: true }
                             // Then build and insert a merge node at the tip of that branch
                             val mergeNode = CellMergeNode(
                                 nextNodeId++,
@@ -769,7 +771,7 @@ class KernelIncrementalSimulator(
         val readIterator = from.reads.iterator()
         while (readIterator.hasNext()) {
             val read = readIterator.next()
-            if (read.time isCausallyAfter to.time) {
+            if (read isCausallyAfter to) {
                 // Switch the read over to this cell node
                 to.reads += read
                 read.cell = to
@@ -783,7 +785,7 @@ class KernelIncrementalSimulator(
         val fromAwaiters = from.awaiters.iterator()
         while (fromAwaiters.hasNext()) {
             val awaiter = fromAwaiters.next()
-            if (awaiter.time isCausallyAfter to.time) {
+            if (awaiter isCausallyAfter to) {
                 // Switch the awaiter over to this cell node
                 // Preserve the read value when switching it over;
                 // if the value the awaiter read disagrees with this write, it'll get re-checked by CheckCell.
@@ -799,7 +801,7 @@ class KernelIncrementalSimulator(
         // These are the nodes of this cell that an awaiter could have read, which may be interrupted by this write.
         for (awaiterSource in generateSequence(from) { (it as? CellStepNode)?.prior }) {
             for (awaiter in awaiterSource.awaiters) {
-                if (awaiter.next?.time?.let { it isCausallyAfter to.time } ?: true) {
+                if (awaiter.next?.let { it isCausallyAfter to } ?: true) {
                     // The awaiter is active when 'to' happens, either without a next node or with a next node after 'to'.
                     // Schedule the condition to be re-checked, to discover this possible interruption.
                     frontier += CheckCondition(awaiter)
@@ -813,7 +815,7 @@ class KernelIncrementalSimulator(
         var n = stepNumber
         while (node != null) {
             node.time.step = n++
-            node = node.next?.takeIf { it.time sameBranchAs task.time }
+            node = node.next?.takeIf { it sameBranchAs task }
         }
     }
 
@@ -1018,7 +1020,7 @@ class KernelIncrementalSimulator(
                         is CellMergeNode -> {
                             next.prior -= cell
                             when {
-                                prior.time sameBranchAs cell.time -> {
+                                prior sameBranchAs cell -> {
                                     // We're shortening this branch without removing it.
                                     // Link prior to next, then schedule next to be re-checked.
                                     next.prior += prior as CellWriteNode
@@ -1175,20 +1177,6 @@ class KernelIncrementalSimulator(
     private fun SimulationTime.cellSteppingBatch() =
         // Conceptually, cells are stepped in a special "batch", before any tasks are run
         copy(batch = -1, branch = 0, step = 0)
-
-    // TODO: Consider cleaning up time comparisons with overloads that work on SGNode
-
-    infix fun SimulationTime.isConcurrentWith(other: SimulationTime): Boolean =
-        instant == other.instant && batch == other.batch && branch != other.branch
-
-    infix fun SimulationTime.isCausallyBefore(other: SimulationTime): Boolean =
-        this < other && !(this isConcurrentWith other)
-
-    infix fun SimulationTime.isCausallyAfter(other: SimulationTime): Boolean =
-        this > other && !(this isConcurrentWith other)
-
-    infix fun SimulationTime.sameBranchAs(other: SimulationTime): Boolean =
-        instant == other.instant && batch == other.batch && branch == other.branch
 
     private sealed interface FrontierAction {
         val node: IncSimNode
