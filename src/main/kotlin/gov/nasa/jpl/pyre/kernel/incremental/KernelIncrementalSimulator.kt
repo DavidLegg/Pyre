@@ -11,9 +11,14 @@ import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.ReadActions
 import gov.nasa.jpl.pyre.kernel.SatisfiedAt
 import gov.nasa.jpl.pyre.kernel.incremental.KernelIncrementalSimulator.FrontierAction.*
+import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.batchStart
+import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.cellSteppingBatch
 import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.isCausallyAfter
 import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.isCausallyBefore
 import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.isConcurrentWith
+import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.nextCellBatch
+import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.nextStep
+import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.nextTaskBatch
 import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.sameBranchAs
 import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
 import gov.nasa.jpl.pyre.kernel.tasks.KernelTask
@@ -1161,22 +1166,6 @@ class KernelIncrementalSimulator(
         (priorNodes().takeWhile { it is AwaitNode } +
                 thisAndNextNodes().takeWhile { it is AwaitNode || it is AwaitCompleteNode })
             .map { it as YieldingStepNode }
-
-    private fun SimulationTime.nextStep() = copy(step = step + 1)
-
-    private fun SimulationTime.nextTaskBatch() =
-        // "Task batches" are always even, so add (batch + 1 mod 2) to correct if we're coming from an odd batch number
-        copy(batch = batch + 1 + ((batch + 1) % 2), step = 0)
-
-    private fun SimulationTime.nextCellBatch() =
-        // "Cell batches" are always odd, so add (batch mod 2) to correct if we're coming from an even batch number
-        copy(batch = batch + 1 + (batch % 2), step = 0)
-
-    private fun SimulationTime.batchStart() = copy(branch = 0, step = 0)
-
-    private fun SimulationTime.cellSteppingBatch() =
-        // Conceptually, cells are stepped in a special "batch", before any tasks are run
-        copy(batch = -1, branch = 0, step = 0)
 
     private sealed interface FrontierAction {
         val node: IncSimNode
