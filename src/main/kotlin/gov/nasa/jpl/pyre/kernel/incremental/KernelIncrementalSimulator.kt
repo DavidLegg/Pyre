@@ -54,7 +54,7 @@ class KernelIncrementalSimulator(
     /** The root of each task branch, keyed by time. */
     private val branchRoots: TreeMap<SimulationTime, TaskBranch> = TreeMap()
     // TODO: Add bookkeeping info like the end time for the branch, to improve performance
-    private class TaskBranch(val root: StartTaskNode)
+    private class TaskBranch(val start: StartTaskNode)
     /** A list of branch numbers which are no longer being used, and can safely be re-used. */
     private val recycledBranchNumbers: MutableList<Int> = mutableListOf()
     /** A list of daemons that were complete in the incon, tracked only to report them as complete when saving. */
@@ -269,15 +269,14 @@ class KernelIncrementalSimulator(
         // Save running tasks by finding the tip of that branch and saving an appropriate checkpoint
         val runningTaskCheckpoints = branchRoots.subMap(SimulationTime(DISTANT_PAST), simulationTime).values.mapNotNull { branch ->
             // branch starts before simulationTime, so it must have a last node before simulationTime.
-            val tip = branch.root.thisAndNextNodes().takeWhile { it.time < simulationTime }.last()
+            val tip = branch.start.thisAndNextNodes().takeWhile { it.time < simulationTime }.last()
             if (tip is TaskCompleteNode) {
                 // This branch has completed.
-                // TODO: Clean up this naming. "Root" is being overloaded with too many meanings, it's confusing.
-                val branchRootTask = branch.root.loadContinuation()
-                if (branchRootTask == branchRootTask.rootTask) {
+                val branchStart = branch.start.loadContinuation()
+                if (branchStart == branchStart.rootTask) {
                     // This task is its own root task. That makes it a daemon spawned directly from the model.
                     // We must save a "completed" checkpoint for it, to indicate not to restart it when restoring.
-                    KernelTaskCheckpoint(branchRootTask.name, branchRootTask.rootTask.name)
+                    KernelTaskCheckpoint(branchStart.name, branchStart.rootTask.name)
                 } else {
                     // This task was spawned by another; no task checkpoint is required.
                     null
@@ -287,12 +286,12 @@ class KernelIncrementalSimulator(
                 check(tip is YieldingStepNode) {
                     "Internal error! Task node for ${tip.taskName} at $simulationTime is not yielding."
                 }
-                // Load the continuation, and ask it to save a task checkpoint.
                 if (tip is AwaitNode) {
                     // AwaitNodes use the rewait, not the continuation, to save history.
                     // Additionally, we use the sim checkpoint time, not the node time.
                     tip.rewait.save().copy(time = time)
                 } else {
+                    // In general, load the continuation, and ask it to save a task checkpoint.
                     tip.loadContinuation().save().copy(time = tip.time.instant)
                 }
             }
@@ -301,8 +300,8 @@ class KernelIncrementalSimulator(
         val notStartedTaskCheckpoints = branchRoots.subMap(simulationTime, SimulationTime(DISTANT_FUTURE))
             .values
             // Filter down to root tasks - branches that are spawned in the future by other tasks shouldn't be directly saved.
-            .filter { it.root.prior == null }
-            .map { it.root.loadContinuation().save().copy(time = it.root.time.instant) }
+            .filter { it.start.prior == null }
+            .map { it.start.loadContinuation().save().copy(time = it.start.time.instant) }
         // Finally, include root tasks which were already complete in the incon
         return KernelCheckpoint(time, cellCheckpoint, runningTaskCheckpoints + notStartedTaskCheckpoints + initiallyCompletedDaemons)
     }
@@ -940,7 +939,7 @@ class KernelIncrementalSimulator(
     private fun fullyRevokeTask(task: TaskNode) {
         // If this node is a branch root, remove it and recycle the branch number
         branchRoots.remove(task.time)?.let {
-            recycledBranchNumbers += it.root.time.branch
+            recycledBranchNumbers += it.start.time.branch
         }
         var next: TaskNode? = task
         while (next != null) {
@@ -1246,13 +1245,13 @@ class KernelIncrementalSimulator(
             }
         }
         // Walk all the branches to collect all the task nodes, plus the merge opportunities, since those aren't necessarily connected to a branch.
-        val regularTaskNodes = branchRoots.values.flatMap { it.root.thisAndNextNodes() }
+        val regularTaskNodes = branchRoots.values.flatMap { it.start.thisAndNextNodes() }
         val mergeOpNodes = rootMergeOpportunities.values.flatMap { it.thisAndNextNodes() }
         for (node in regularTaskNodes + mergeOpNodes) {
             taskDotId[node] = "task${n++}"
             collect(node)
         }
-        val branchRootNodes = branchRoots.values.map { it.root as IncSimNode }.toSet()
+        val branchRootNodes = branchRoots.values.map { it.start as IncSimNode }.toSet()
 
         for ((i, rank) in ranks.values.withIndex()) {
             if (i > 0) {
