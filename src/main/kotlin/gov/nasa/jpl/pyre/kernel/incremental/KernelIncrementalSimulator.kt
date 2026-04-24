@@ -324,7 +324,6 @@ class KernelIncrementalSimulator(
                         startFrom.runContinuation(startFrom.replayingTaskActions(realActions))
                     }
                 }
-
                 is RevokeMergeOpportunity -> {
                     // We use the RevokeMergeOpportunity frontier action instead of directly calling fullyRevokeTask
                     // when we're doing incremental resimulation, hoping to merge an existing RootTaskNode
@@ -337,122 +336,8 @@ class KernelIncrementalSimulator(
                     rootMergeOpportunities.remove(action.node.taskName)
                     revokeWithMergeOpportunity(action.node)
                 }
-
-                is CheckCell -> {
-                    checkCell(action.node)
-                }
-
-                is CheckCondition -> {
-                    // Clear any read edges from a prior check
-                    for (read in action.node.reads.keys) {
-                        read.awaiters -= action.node
-                    }
-                    action.node.reads.clear()
-                    // Then set up a ReadActions to record the new read edges
-                    val readActions = object : ReadActions {
-                        override fun <V> read(cell: Cell<V>): V {
-                            // Get the appropriate cell node to read:
-                            val cellNode = getCellNode(cell, action.time)
-                            // Record bidirectionally that this read happened:
-                            cellNode.awaiters += action.node
-                            action.node.reads[cellNode] = cellNode.value
-                            // Finally, return the value we read
-                            return cellNode.value
-                        }
-                    }
-                    // Evaluate the condition
-                    val result = action.node.condition(readActions)
-                    // Compute when to schedule the next step, assuming no cell writes interrupt the await
-                    var resultTime = result.time?.let {
-                        if (it > ZERO) {
-                            SimulationTime(
-                                action.time.instant + it,
-                                branch = action.time.branch)
-                                // TODO: Remove this filter when building "mutable end time" feature
-                                // Filter out results after the end of the plan
-                                .takeIf { it.instant < planEnd }
-                        } else {
-                            action.time.nextStep()
-                        }
-                    }
-                    fun SimulationTime.beforeResultTime(): Boolean =
-                        resultTime?.let { this isCausallyBefore it } ?: true
-                    var isSatisfied = result is SatisfiedAt
-
-                    // Look for interruptions to this await
-                    var interruptCell: CellNode<*>? = null
-                    val frontierCellNodes = PriorityQueue<CellNode<*>>(compareBy { it.time })
-                    // Start exploring all cell nodes after the read cell nodes.
-                    action.node.reads.keys.flatMapTo(frontierCellNodes) { it.next }
-                    while (true) {
-                        // Only explore until resultTime
-                        val node = frontierCellNodes.poll()?.takeIf { it.time.beforeResultTime() } ?: break
-                        when (node) {
-                            is CellStepNode -> {
-                                // Step nodes don't interrupt an await, so also explore its next nodes
-                                frontierCellNodes += node.next
-                            }
-                            is CellMergeNode, is CellWriteNode -> {
-                                // If we find a write or merge, then the read cell changes while we're awaiting.
-                                // This cancels the await, causing re-evaluation in response to the write.
-                                // That's equivalent to just being unsatisfied until the time of this write
-                                isSatisfied = false
-                                // Set time to the task step reacting to the cell node.
-                                // Note that if there are concurrent cell writes, all of them have the same
-                                // nextTaskBatch, so it suffices to find any one of them and stop.
-                                resultTime = node.time.nextTaskBatch().copy(branch = action.time.branch)
-                                interruptCell = node
-                            }
-                        }
-                    }
-
-                    action.node.next?.let {
-                        // If we have a next node, and we shouldn't, revoke it.
-                        val correctType = if (isSatisfied) it is AwaitCompleteNode else it is AwaitNode
-                        if (resultTime == null || !correctType || it.time != resultTime) {
-                            // TODO: There may be an opportunity to improve performance, through "await-repair"
-                            //   Instead of fully revoking the rest of this task run, we could check if any await
-                            //   in the await-chain of action.node is correct, and only revoke the await nodes up to that point.
-                            //   If the condition winds up evaluating identically, we don't need to re-run the task.
-                            revokeWithMergeOpportunity(it)
-                        }
-                    }
-
-                    // If we want a next node and still have one, it passed the filter above, so just re-use it.
-                    // Otherwise, if we want a next node but don't have one, build it.
-                    if (resultTime != null && action.node.next == null) {
-                        action.node.next = if (isSatisfied) {
-                            AwaitCompleteNode(
-                                nextNodeId++,
-                                action.node.taskName,
-                                resultTime,
-                                action.node,
-                                action.node.continuation,
-                            ).also {
-                                frontier += RunTask(it)
-                            }
-                        } else {
-                            AwaitNode(
-                                nextNodeId++,
-                                action.node.taskName,
-                                resultTime,
-                                action.node,
-                                action.node.condition,
-                                rewait = action.node.rewait,
-                                continuation = action.node.continuation
-                            ).also {
-                                frontier += CheckCondition(it)
-                            }
-                        }
-                    }
-
-                    // If we have an interrupt, record that read edge.
-                    // If the interrupting cell is revoked, this edge will remind us to re-run the original await.
-                    interruptCell?.let {
-                        (action.node.next as AwaitNode).reads.computeIfAbsent(it) { it.value }
-                        it.awaiters += action.node.next as AwaitNode
-                    }
-                }
+                is CheckCell -> checkCell(action.node)
+                is CheckCondition -> checkCondition(action.node)
             }
         }
     }
@@ -501,6 +386,118 @@ class KernelIncrementalSimulator(
             if (awaiter.reads.getValue(node) != node.value) {
                 frontier += CheckCondition(awaiter)
             }
+        }
+    }
+
+    private fun checkCondition(awaitNode: AwaitNode) {
+        // Clear any read edges from a prior check
+        for (read in awaitNode.reads.keys) {
+            read.awaiters -= awaitNode
+        }
+        awaitNode.reads.clear()
+        // Then set up a ReadActions to record the new read edges
+        val readActions = object : ReadActions {
+            override fun <V> read(cell: Cell<V>): V {
+                // Get the appropriate cell node to read:
+                val cellNode = getCellNode(cell, awaitNode.time)
+                // Record bidirectionally that this read happened:
+                cellNode.awaiters += awaitNode
+                awaitNode.reads[cellNode] = cellNode.value
+                // Finally, return the value we read
+                return cellNode.value
+            }
+        }
+        // Evaluate the condition
+        val result = awaitNode.condition(readActions)
+        // Compute when to schedule the next step, assuming no cell writes interrupt the await
+        var resultTime = result.time?.let {
+            if (it > ZERO) {
+                SimulationTime(
+                    awaitNode.time.instant + it,
+                    branch = awaitNode.time.branch)
+                    // TODO: Remove this filter when building "mutable end time" feature
+                    // Filter out results after the end of the plan
+                    .takeIf { it.instant < planEnd }
+            } else {
+                awaitNode.time.nextStep()
+            }
+        }
+        fun SimulationTime.beforeResultTime(): Boolean =
+            resultTime?.let { this isCausallyBefore it } ?: true
+        var isSatisfied = result is SatisfiedAt
+
+        // Look for interruptions to this await
+        var interruptCell: CellNode<*>? = null
+        val frontierCellNodes = PriorityQueue<CellNode<*>>(compareBy { it.time })
+        // Start exploring all cell nodes after the read cell nodes.
+        awaitNode.reads.keys.flatMapTo(frontierCellNodes) { it.next }
+        while (true) {
+            // Only explore until resultTime
+            val node = frontierCellNodes.poll()?.takeIf { it.time.beforeResultTime() } ?: break
+            when (node) {
+                is CellStepNode -> {
+                    // Step nodes don't interrupt an await, so also explore its next nodes
+                    frontierCellNodes += node.next
+                }
+                is CellMergeNode, is CellWriteNode -> {
+                    // If we find a write or merge, then the read cell changes while we're awaiting.
+                    // This cancels the await, causing re-evaluation in response to the write.
+                    // That's equivalent to just being unsatisfied until the time of this write
+                    isSatisfied = false
+                    // Set time to the task step reacting to the cell node.
+                    // Note that if there are concurrent cell writes, all of them have the same
+                    // nextTaskBatch, so it suffices to find any one of them and stop.
+                    resultTime = node.time.nextTaskBatch().copy(branch = awaitNode.time.branch)
+                    interruptCell = node
+                }
+            }
+        }
+
+        awaitNode.next?.let {
+            // If we have a next node, and we shouldn't, revoke it.
+            val correctType = if (isSatisfied) it is AwaitCompleteNode else it is AwaitNode
+            if (resultTime == null || !correctType || it.time != resultTime) {
+                // TODO: There may be an opportunity to improve performance, through "await-repair"
+                //   Instead of fully revoking the rest of this task run, we could check if any await
+                //   in the await-chain of awaitNode is correct, and only revoke the await nodes up to that point.
+                //   If the condition winds up evaluating identically, we don't need to re-run the task.
+                revokeWithMergeOpportunity(it)
+            }
+        }
+
+        // If we want a next node and still have one, it passed the filter above, so just re-use it.
+        // Otherwise, if we want a next node but don't have one, build it.
+        if (resultTime != null && awaitNode.next == null) {
+            awaitNode.next = if (isSatisfied) {
+                AwaitCompleteNode(
+                    nextNodeId++,
+                    awaitNode.taskName,
+                    resultTime,
+                    awaitNode,
+                    awaitNode.continuation,
+                ).also {
+                    frontier += RunTask(it)
+                }
+            } else {
+                AwaitNode(
+                    nextNodeId++,
+                    awaitNode.taskName,
+                    resultTime,
+                    awaitNode,
+                    awaitNode.condition,
+                    rewait = awaitNode.rewait,
+                    continuation = awaitNode.continuation
+                ).also {
+                    frontier += CheckCondition(it)
+                }
+            }
+        }
+
+        // If we have an interrupt, record that read edge.
+        // If the interrupting cell is revoked, this edge will remind us to re-run the original await.
+        interruptCell?.let {
+            (awaitNode.next as AwaitNode).reads.computeIfAbsent(it) { it.value }
+            it.awaiters += awaitNode.next as AwaitNode
         }
     }
 
