@@ -887,8 +887,8 @@ class KernelIncrementalSimulator(
     private fun TaskNode.replayingTaskActions(continuationActions: BasicTaskActions): BasicTaskActions {
         // Find the root node from which to replay this task
         val root = this
-        var next: TaskNode? = root.next
-        // TODO: Tip optimization - if next == null, return continuationActions directly.
+        // Tip optimization - in the common case that we're not actually replaying, don't wrap continuation actions.
+        var next: TaskNode? = root.next ?: return continuationActions
 
         return object : BasicTaskActions {
             override fun <V> read(cell: Cell<V>): V = if (next != null) {
