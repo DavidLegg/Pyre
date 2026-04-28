@@ -772,6 +772,26 @@ class IncrementalSimulatorTest {
         test(SpawnChildPair(child1 = SetDerivationSource(number = 0), child2 = SetDerivationSource(number = 1)) at 1.hours)
     }
 
+    @Test
+    fun `repro by seed`() {
+        `random plan edits conform to fundamental incremental sim guarantee`(2)
+    }
+
+    @Test
+    fun `repro directly`() {
+        var tester = test(
+            GroundedActivity(Instant.parse("2025-01-01T16:00:00Z"), SpawnChildPair(
+                child1=SetIntegrand(number=0.1),
+                child2=SetIntegrand(number=0.2)))
+        )
+        var inconTime = Instant.parse("2025-01-01T12:00:00Z")
+        var incon = tester.save(inconTime)
+        tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
+        inconTime = Instant.parse("2025-01-01T20:00:00Z")
+        incon = tester.save(inconTime)
+        tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
+    }
+
     /**
      * Since incremental sim is complicated, and we have an "oracle" in the form of single-shot simulation,
      * we can randomly generate plans and plan edits and see if incremental sim works on them.

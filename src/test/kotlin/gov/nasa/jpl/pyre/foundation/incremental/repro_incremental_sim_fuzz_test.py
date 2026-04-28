@@ -3,11 +3,11 @@ from pathlib import Path
 import re
 
 ROUND_PATTERN = re.compile(r'Running round (?P<round>\d+)')
-ACTIVITY_PATTERN = r"""GroundedActivity\(\s*time=(?P<time>[^,)]*)\s*,\s*name=(?P<name>[^,)]*)\s*,\s*activity=(?P<activity>.*)\s*\)"""
+ACTIVITY_PATTERN = r"GroundedActivity\(\s*time=(?P<time>[^,)]*)\s*,\s*name=(?P<name>[^,)]*)\s*,\s*activity=(?P<activity>.*)\s*\)"
 ADD_PATTERN = re.compile(f'Add {ACTIVITY_PATTERN}')
 REMOVE_PATTERN = re.compile(f'Remove {ACTIVITY_PATTERN}')
-MOVE_PATTERN = re.compile(fr'Move {ACTIVITY_PATTERN} to\s*(?P<new_time>\S+)')
-EDIT_PATTERN = re.compile(fr'Edit {ACTIVITY_PATTERN} to\s*(?P<new_activity>\S+)\s*')
+MOVE_PATTERN = re.compile(fr'Move {ACTIVITY_PATTERN} to\s*(?P<new_time>.+?)\s*$')
+EDIT_PATTERN = re.compile(fr'Edit {ACTIVITY_PATTERN} to\s*(?P<new_activity>.+?)\s*$')
 
 START_SAVE_PATTERN = re.compile(r'Checkpoint time =\s*(?P<time>\S+)')
 END_SAVE_PATTERN = re.compile(r'Save/restore cycle complete')
