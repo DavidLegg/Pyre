@@ -767,6 +767,16 @@ class IncrementalSimulatorTest {
         )
     }
 
+    @Test
+    fun `faulting derivation source with concurrent child activities`() {
+        test(SpawnChildPair(child1 = SetDerivationSource(number = 0), child2 = SetDerivationSource(number = 1)) at 1.hours)
+    }
+
+    @Test
+    fun `repro by seed`() {
+        `random plan edits conform to fundamental incremental sim guarantee`(1)
+    }
+
     /**
      * Since incremental sim is complicated, and we have an "oracle" in the form of single-shot simulation,
      * we can randomly generate plans and plan edits and see if incremental sim works on them.
@@ -1020,6 +1030,9 @@ private class IncrementalSimulationTester<M : Any>(
                             "Extra reports on $resourceName: $testReportBatch"
                         }
                         // Then collect the next batch
+                        assert(remainingTestReports.isNotEmpty()) {
+                            "Missing report on $resourceName: $baselineReport"
+                        }
                         batchTime = remainingTestReports.first().time
                         while (remainingTestReports.firstOrNull()?.time == batchTime) {
                             testReportBatch += remainingTestReports.removeFirst()
