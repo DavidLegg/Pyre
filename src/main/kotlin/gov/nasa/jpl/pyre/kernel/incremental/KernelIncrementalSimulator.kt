@@ -47,8 +47,6 @@ import kotlin.time.Instant
 import kotlin.time.Instant.Companion.DISTANT_FUTURE
 import kotlin.time.Instant.Companion.DISTANT_PAST
 
-// TODO: Look for opportunities to refactor node creation (e.g. an "insert after" operator that does the link modification).
-
 /**
  * Provides kernel-level incremental simulation with parity to [gov.nasa.jpl.pyre.kernel.KernelSimulator]
  */
@@ -401,7 +399,6 @@ class KernelIncrementalSimulator(
 
         // If this cell node is a step node, isn't directly read by anything, and is followed by another step node,
         // then it's redundant. Remove such nodes to simplify the DAG.
-        // TODO: Optimize this
         if (node is CellStepNode
             && node.reads.isEmpty()
             && node.awaiters.isEmpty()
@@ -616,9 +613,6 @@ class KernelIncrementalSimulator(
                             )
                             cellNodes.getValue(cell)[mergeNode.time] = mergeNode
                             // If the concurrent branch tip has a next node, link that next node to the merge instead
-                            // TODO: Is it possible for the concurrent branch tip to have multiple next nodes?
-                            //    I think so, in the case of spawning a parallel child task...
-                            //    Reproduce this situation in a test.
                             concurrentTip.next.forEach { afterWrite ->
                                 mergeNode.next += afterWrite
                                 when (afterWrite) {
@@ -979,9 +973,6 @@ class KernelIncrementalSimulator(
         // Remove any frontier action(s) related to this node
         frontier -= RunTask(task)
         if (task is AwaitNode) frontier -= CheckCondition(task)
-        // TODO: Should we remove any RevokeMergeOpportunity tasks? Is it possible to have these on a task we're already revoking?
-        //   If we do have one, should we run it anyways? Probably not...
-        // if (task is StartTaskNode) frontier -= RevokeMergeOpportunity(task)
         // Unlink this node from its prior
         // The 'if' is in case we're unlinking a root node from a spawn.
         // In that case, task is the spawn's child, not its next.
@@ -1110,6 +1101,13 @@ class KernelIncrementalSimulator(
                 }
             }
         }
+
+        // Only check the prior cell if we're actually re-assigning readers and/or awaiters
+        if (cell.reads.isNotEmpty() || cell.awaiters.isNotEmpty()) {
+            // Schedule the prior cell node to be re-checked, to check the reads and awaits we're about to re-assign.
+            frontier += CheckCell(prior)
+        }
+
         // Any reads on the revoked cell node should instead point at the prior cell node.
         cell.reads.forEach {
             it.cell = prior
@@ -1131,8 +1129,6 @@ class KernelIncrementalSimulator(
             }
         }
         cell.awaiters.clear()
-        // Finally, schedule the prior cell node to be re-checked, to check the reads and awaits we just re-assigned.
-        frontier += CheckCell(prior)
     }
 
     private class IncrementalCellImpl<T>(
