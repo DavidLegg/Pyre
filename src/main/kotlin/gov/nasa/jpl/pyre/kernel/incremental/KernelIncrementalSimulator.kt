@@ -398,6 +398,16 @@ class KernelIncrementalSimulator(
                 frontier += CheckCondition(awaiter)
             }
         }
+
+        // If this cell node is a step node, isn't directly read by anything, and is followed by another step node,
+        // then it's redundant. Remove such nodes to simplify the DAG.
+        // TODO: Optimize this
+        if (node is CellStepNode
+            && node.reads.isEmpty()
+            && node.awaiters.isEmpty()
+            && node.next.all { it is CellStepNode }) {
+            revokeCell(node)
+        }
     }
 
     private fun checkCondition(awaitNode: AwaitNode) {
@@ -1050,7 +1060,28 @@ class KernelIncrementalSimulator(
                 }
                 // A CellWriteNode is revoked only when the writer is revoked. Nothing to do for cell.writer
             }
-            is CellStepNode -> TODO("Revoking cell step nodes")
+            is CellStepNode -> {
+                check(cell.reads.isEmpty() && cell.awaiters.isEmpty()) {
+                    "Cannot revoke step node with reads nor awaiters!"
+                }
+                // Just stitch together next and prior pointers
+                // Removing an unused step node doesn't change the semantics of the DAG
+                prior = cell.prior
+                prior.next -= cell
+                for (next in cell.next) {
+                    when (next) {
+                        is CellWriteNode -> {
+                            next.prior = prior
+                            prior.next += next
+                        }
+                        is CellStepNode -> {
+                            next.prior = prior
+                            prior.next += next
+                        }
+                        is CellMergeNode -> throw IllegalStateException("Internal error! Merge nodes cannot follow step nodes!")
+                    }
+                }
+            }
             is CellMergeNode -> {
                 prior = checkNotNull(cell.prior.singleOrNull()) {
                     "Internal error! Only single-branch merge nodes can be revoked."
@@ -1154,7 +1185,6 @@ class KernelIncrementalSimulator(
 
             // Let the global cell map know about this node for quick lookup later
             thisCellsNodes[stepNode.time] = stepNode
-            // TODO: Consider how (and when) to "collapse" step nodes together.
             return stepNode
         } else {
             // Since no stepping is required, return the node we found
