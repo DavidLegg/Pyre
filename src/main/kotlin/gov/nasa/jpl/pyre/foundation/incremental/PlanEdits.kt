@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.incremental
+package gov.nasa.jpl.pyre.foundation.incremental
 
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 

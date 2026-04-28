@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.incremental
+package gov.nasa.jpl.pyre.foundation.incremental
 
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.kernelTaskName
@@ -13,7 +13,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
 import gov.nasa.jpl.pyre.general.results.ResourceResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
-import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.applyTo
+import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.applyTo
 import gov.nasa.jpl.pyre.kernel.incremental.IncSimNode.ReportNode
 import gov.nasa.jpl.pyre.kernel.BasicInitScope.Companion.spawn
 import gov.nasa.jpl.pyre.kernel.KernelCheckpoint

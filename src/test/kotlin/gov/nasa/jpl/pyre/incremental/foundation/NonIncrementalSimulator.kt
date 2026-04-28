@@ -11,13 +11,13 @@ import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
-import gov.nasa.jpl.pyre.incremental.IncrementalSimulator
-import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.plus
-import gov.nasa.jpl.pyre.incremental.PlanEdits
+import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulator
+import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.plus
+import gov.nasa.jpl.pyre.foundation.incremental.PlanEdits
 import kotlin.time.Instant
 
 /**
- * Not-actually-incremental implementation of [gov.nasa.jpl.pyre.incremental.IncrementalSimulator].
+ * Not-actually-incremental implementation of [IncrementalSimulator].
  * This is the baseline correct behavior for an incremental simulator, without the complexity of actually being incremental.
  */
 class NonIncrementalSimulator<M : Any>(

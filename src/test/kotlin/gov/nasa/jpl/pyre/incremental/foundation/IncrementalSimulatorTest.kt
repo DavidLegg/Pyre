@@ -40,15 +40,15 @@ import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperatio
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.polynomialResource
 import gov.nasa.jpl.pyre.general.results.SimulationResults
-import gov.nasa.jpl.pyre.incremental.IncrementalSimulator
-import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorImpl
-import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.add
-import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.edit
-import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.minus
-import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.move
-import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.plus
-import gov.nasa.jpl.pyre.incremental.IncrementalSimulatorOperations.remove
-import gov.nasa.jpl.pyre.incremental.PlanEdits
+import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulator
+import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorImpl
+import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.add
+import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.edit
+import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.minus
+import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.move
+import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.plus
+import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.remove
+import gov.nasa.jpl.pyre.foundation.incremental.PlanEdits
 import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
 import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
@@ -902,7 +902,7 @@ class IncrementalSimulatorTest {
             // Now run those randomly-chosen edits, asserting the single-shot and incremental simulators agree
             tester.run(edits)
             // Also apply the edits to our list of activities, to know what we can edit next round
-            activities -= edits.removals.toSet() // TODO: I think this line is unnecessary, because we remove as we go.
+            // Removals are done in-place as we go
             activities += edits.additions
             endBlock()
         }
