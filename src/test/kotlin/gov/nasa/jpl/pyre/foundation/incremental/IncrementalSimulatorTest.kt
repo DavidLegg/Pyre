@@ -1,4 +1,4 @@
-package gov.nasa.jpl.pyre.incremental.foundation
+package gov.nasa.jpl.pyre.foundation.incremental
 
 import gov.nasa.jpl.pyre.examples.scheduling.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Activity
@@ -40,16 +40,13 @@ import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperatio
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.polynomialResource
 import gov.nasa.jpl.pyre.general.results.SimulationResults
-import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulator
-import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorImpl
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.add
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.edit
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.minus
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.move
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.remove
-import gov.nasa.jpl.pyre.foundation.incremental.PlanEdits
-import gov.nasa.jpl.pyre.incremental.foundation.TestModel.*
+import gov.nasa.jpl.pyre.foundation.incremental.TestModel.*
 import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
 import gov.nasa.jpl.pyre.kernel.Name
@@ -62,6 +59,7 @@ import kotlinx.datetime.until
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.IntStream
+import kotlin.collections.iterator
 import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.ln
