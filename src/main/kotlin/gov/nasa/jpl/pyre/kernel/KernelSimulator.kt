@@ -258,7 +258,9 @@ class KernelSimulator(
                     break
                 }
                 is Spawn -> {
+                    // The spawned child will start in the next batch of tasks.
                     tasks += TaskEntry(time, stepResult.child)
+                    // Spawns are handled without yielding. This allows a task to spawn exactly-concurrent sub-tasks.
                     nextTask = stepResult.continuation
                 }
                 is Restart -> {

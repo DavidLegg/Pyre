@@ -756,12 +756,12 @@ class KernelIncrementalSimulator(
                 }
             }
             is TaskStepResult.Spawn -> {
-                // Spawning is a yielding action, so add our continuation to the next batch.
+                // Spawning is not a yielding action, so add our continuation to the next step.
                 // Also add the child task to the next batch, and build a new task branch for it.
                 lastTaskStepNode = SpawnNode(
                     nextNodeId++,
                     lastTaskStepNode.taskName,
-                    lastTaskStepNode.time.nextTaskBatch(),
+                    lastTaskStepNode.time.nextStep(),
                     lastTaskStepNode,
                     result.child.branchAt(lastTaskStepNode.time.nextTaskBatch()).also {
                         frontier += RunTask(it)
