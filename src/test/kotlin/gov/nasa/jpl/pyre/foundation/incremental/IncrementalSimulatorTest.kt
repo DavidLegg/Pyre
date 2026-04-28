@@ -793,7 +793,6 @@ class IncrementalSimulatorTest {
             indentLevel--
         }
 
-        // TODO - bias the randomization slightly towards plan bounds and concurrency
         val rng = Random(seed)
         val numberOfInitialActivities = 10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()
         val roundsOfEdits = 100
@@ -913,7 +912,7 @@ class IncrementalSimulatorTest {
 
     private fun Random.nextActivity(): Activity<TestModel> =
         // Choose randomly among the activity types, then choose random arguments for them
-        when (nextInt(1..8)) {
+        when (nextInt(1..9)) {
             1 -> SetStandaloneCounter(0)
             2 -> IncrementStandaloneCounter(0)
             3 -> ReportStandaloneCounter("")
@@ -922,6 +921,7 @@ class IncrementalSimulatorTest {
             6 -> SetIntegrand(0.0)
             7 -> SpawnChildren("")
             8 -> SpawnChild(SetStandaloneCounter(0))
+            9 -> SpawnChildPair(SetStandaloneCounter(0), SetStandaloneCounter(0))
             else -> throw AssertionError("Code path should never run")
         }.randomArgs(this)
 
@@ -934,6 +934,7 @@ class IncrementalSimulatorTest {
         is SetIntegrand -> copy(number = rng.nextDouble(-1.0, 1.0))
         is SpawnChildren -> copy(id = "SC-" + rng.nextInt(1000, 9999))
         is SpawnChild -> copy(child = rng.nextActivity())
+        is SpawnChildPair -> copy(child1 = rng.nextActivity(), child2 = rng.nextActivity())
         else -> throw AssertionError("Code path should never run")
     }
 
@@ -1286,6 +1287,15 @@ class TestModel(scope: InitScope) {
         override suspend fun effectModel(model: TestModel) {
             delay(model.standaloneCounter.getValue().seconds)
             call(child, model)
+        }
+    }
+
+    // Designed to easily force simultaneous activities, to flush out problems caused by concurrency.
+    data class SpawnChildPair(val child1: Activity<TestModel>, val child2: Activity<TestModel>) : Activity<TestModel> {
+        context(scope: TaskScope)
+        override suspend fun effectModel(model: TestModel) {
+            spawn(child1, model)
+            spawn(child2, model)
         }
     }
 }
