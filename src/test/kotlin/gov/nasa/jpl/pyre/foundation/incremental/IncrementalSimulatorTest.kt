@@ -773,12 +773,7 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed`() {
-        `random plan edits conform to fundamental incremental sim guarantee`(2)
-    }
-
-    @Test
-    fun `repro directly`() {
+    fun `saving a daemon that has stopped after restoring from an incon`() {
         var tester = test(
             GroundedActivity(Instant.parse("2025-01-01T16:00:00Z"), SpawnChildPair(
                 child1=SetIntegrand(number=0.1),

@@ -198,7 +198,7 @@ class KernelIncrementalSimulator(
 
                             // Name and rootTask can just be saved from the first time we restore the base
                             override val name: Name = base.name
-                            override val rootTask: Task = base.rootTask
+                            override val rootTask: Task = this
                             // Running the task unloads base. The next time we do something with it, we'll re-restore it.
                             override fun runStep(actions: BasicTaskActions) =
                                 base.runStep(actions).also { _base = null }
