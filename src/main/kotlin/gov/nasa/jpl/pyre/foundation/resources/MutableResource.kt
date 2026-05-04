@@ -77,6 +77,9 @@ fun <V, D : Dynamics<V, D>> resource(
 context (scope: InitScope)
 fun <V, D : Dynamics<V, D>> resource(
     name: String,
+    // TODO: Should this actually remove the Expiring<> layer?
+    //   Rationale - if a cell's dynamics expire, so what? There's nothing it can intrinsically do about it.
+    //   OTOH, if a task writes to the cell no later than that expiry, that triggers re-evaluations already.
     initialDynamics: FullDynamics<D>,
     fullDynamicsType: KType,
     mergeConcurrentEffects: MergeResourceEffect<D> = autoEffects(),
