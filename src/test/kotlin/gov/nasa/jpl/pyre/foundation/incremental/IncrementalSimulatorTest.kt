@@ -788,25 +788,23 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed`() {
-        `random plan edits conform to fundamental incremental sim guarantee`(54)
-    }
-
-    @Test
-    fun `repro directly`() {
+    fun `inserting a write node just before a merge node`() {
+        // This odd pattern of spawns forces a merge node in a relatively late batch at this time.
         val tester = test(
             GroundedActivity(Instant.parse("2025-01-01T11:00:00.000000Z"),
                 SpawnChildPair(
-                    child1 = AddJob(seed = 11),
+                    child1 = AddJob(seed = 2),
                     child2 = SpawnChildPair(
-                        child1 = AddJob(seed = 5),
+                        child1 = AddJob(seed = 8),
                         child2 = AddJob(seed = 4)
                     )
                 )
             ),
         )
+        // This add then forces an update which generates a new write node close to that merge node,
+        // in a way that invalidated some bookkeeping in an earlier version of the code.
         tester.add(
-            GroundedActivity(Instant.parse("2025-01-01T10:00:00.000000Z"), AddJob(seed = 3)),
+            GroundedActivity(Instant.parse("2025-01-01T10:00:00.000000Z"), AddJob(seed = 2)),
         )
     }
 
