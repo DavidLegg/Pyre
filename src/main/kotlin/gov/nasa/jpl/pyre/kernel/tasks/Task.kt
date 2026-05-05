@@ -17,7 +17,7 @@ interface Task {
      *
      * This is either the daemon originally spawned by the model, or the activity first given to the simulator.
      */
-    val rootTask: Task
+    val rootTaskName: Name
 
     /**
      * Run the next step of this task.

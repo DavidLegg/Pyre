@@ -19,14 +19,14 @@ import kotlin.reflect.KType
 class PureTask private constructor(
     override val name: Name,
     startTask: Task?,
-    rootTask: Task?,
+    rootTaskName: Name?,
     private val pureStepFunction: PureTaskStep,
     private val collectPriorHistory: TaskHistoryCollector.() -> Unit,
 ) : Task {
     /** The start of this task; what should be run when a task restarts */
     private val startTask: Task = startTask ?: this
     /** The root task from which this task descends; what should be used to restore this task from a checkpoint. */
-    override val rootTask: Task = rootTask ?: this
+    override val rootTaskName: Name = rootTaskName ?: name
 
     // public users of this class can build root tasks, and only root tasks build non-root tasks
     constructor(name: Name, pureStepFunction: PureTaskStep) :
@@ -55,7 +55,7 @@ class PureTask private constructor(
                 PureTask(
                     name,
                     startTask,
-                    rootTask,
+                    rootTaskName,
                     { stepResult },
                     // Capture history here without an AwaitMarker; rewaiting implies the await is unfinished.
                     { collectHistory() }
@@ -64,7 +64,7 @@ class PureTask private constructor(
                 PureTask(
                     name,
                     startTask,
-                    rootTask,
+                    rootTaskName,
                     stepResult.continuation,
                     // Add an AwaitMarker to this history, since continuing implies the await is finished.
                     { collectHistory(); report<TaskHistoryStep>(AwaitMarker) }
@@ -74,14 +74,14 @@ class PureTask private constructor(
                 PureTask(
                     stepResult.childName,
                     null,
-                    rootTask,
+                    rootTaskName,
                     stepResult.child,
                     { collectHistory(); report<TaskHistoryStep>(SpawnMarker(SpawnMarkerBranch.Child)) }
                 ),
                 PureTask(
                     name,
                     startTask,
-                    rootTask,
+                    rootTaskName,
                     stepResult.continuation,
                     { collectHistory(); report<TaskHistoryStep>(SpawnMarker(SpawnMarkerBranch.Parent)) }
                 )
@@ -91,7 +91,7 @@ class PureTask private constructor(
     }
 
     override fun save(): KernelTaskCheckpoint =
-        KernelTaskCheckpoint(name, rootTask.name, history=MutableTaskHistory().apply(collectPriorHistory))
+        KernelTaskCheckpoint(name, rootTaskName, history=MutableTaskHistory().apply(collectPriorHistory))
 
     override fun restoreFrom(checkpoint: KernelTaskCheckpoint): Task {
         require(checkpoint.root == name) {

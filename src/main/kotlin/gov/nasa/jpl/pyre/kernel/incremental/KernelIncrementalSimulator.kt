@@ -198,7 +198,7 @@ class KernelIncrementalSimulator(
 
                             // Name and rootTask can just be saved from the first time we restore the base
                             override val name: Name = base.name
-                            override val rootTask: Task = this
+                            override val rootTaskName: Name = rootName
                             // Running the task unloads base. The next time we do something with it, we'll re-restore it.
                             override fun runStep(actions: BasicTaskActions) =
                                 base.runStep(actions).also { _base = null }
@@ -282,10 +282,10 @@ class KernelIncrementalSimulator(
             if (tip is TaskCompleteNode) {
                 // This branch has completed.
                 val branchStart = branch.start.loadContinuation()
-                if (branchStart == branchStart.rootTask) {
+                if (branchStart.name == branchStart.rootTaskName) {
                     // This task is its own root task. That makes it a daemon spawned directly from the model.
                     // We must save a "completed" checkpoint for it, to indicate not to restart it when restoring.
-                    KernelTaskCheckpoint(branchStart.name, branchStart.rootTask.name)
+                    KernelTaskCheckpoint(branchStart.name, branchStart.rootTaskName)
                 } else {
                     // This task was spawned by another; no task checkpoint is required.
                     null
