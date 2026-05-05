@@ -162,7 +162,6 @@ sealed interface IncSimNode {
         override val time: SimulationTime,
         override val cell: Cell<T>,
         override var value: T,
-        var batchStart: CellNode<T>,
         var prior: MutableList<CellWriteNode<T>>,
         override val next: MutableList<CellNode<T>> = mutableListOf(),
         override val reads: MutableSet<ReadNode> = mutableSetOf(),

@@ -46,7 +46,7 @@ object SimulationTimeOperations {
     internal fun SimulationTime.nextCellBatch() =
         copy(batch = batch + 1 + (batch % 2), step = 0)
 
-    /** The earliest time of this branch, where branch and step are zero. */
+    /** The earliest time of this batch, where branch and step are zero. */
     internal fun SimulationTime.batchStart() = copy(branch = 0, step = 0)
 
     /** Batch -1 of this time, when cells are stepped up in preparation for tasks starting in batch 0. */

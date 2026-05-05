@@ -354,12 +354,20 @@ class KernelIncrementalSimulator(
     private fun <T> checkCell(node: CellNode<T>) {
         val computedValue = when (node) {
             is CellMergeNode<T> -> {
+                // Find the node at the end of the prior batch, which will be the start of this batch
+                val firstBranchTip = node.prior.first()
+                val batchStartTime = firstBranchTip.time.batchStart()
+                val batchStart = generateSequence<CellNode<T>>(firstBranchTip) { firstBranchTip.prior }
+                    // It's safe to use lexical order instead of the more expensive causal order here,
+                    // because batchStartTime has branch and step set to 0; causal and lexical "less than" agree.
+                    // Further, such a node must exist because initial writes cannot participate in a merge.
+                    .first { it.time < batchStartTime }
                 // Roll up the net effect of each branch, and merge according to this cell's merge rule.
                 val netEffect = node.prior
-                    .map { it.branchNetEffect(node.batchStart) }
+                    .map { it.branchNetEffect(batchStart) }
                     .reduce(node.cell.mergeConcurrentEffects)
                 // Compute the value this node should have
-                netEffect(node.batchStart.value)
+                netEffect(batchStart.value)
             }
             is CellStepNode<T> -> {
                 // Stepping many small increments can accrue numerical error in complex dynamics.
@@ -608,7 +616,6 @@ class KernelIncrementalSimulator(
                                 cell,
                                 // Use the concurrent tip's value, which was the value observed at this time before this insertion.
                                 concurrentTip.value,
-                                priorCellNode,
                                 mutableListOf(),
                             )
                             cellNodes.getValue(cell)[mergeNode.time] = mergeNode
