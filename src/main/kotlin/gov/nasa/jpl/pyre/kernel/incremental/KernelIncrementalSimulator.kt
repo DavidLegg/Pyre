@@ -72,14 +72,18 @@ class KernelIncrementalSimulator(
     private val frontier: TreeSet<FrontierAction> = TreeSet(
             // Primarily sort frontier actions by time, as incremental re-work is most efficient when done in time order.
         compareBy<FrontierAction>(FrontierAction::time)
-            // Secondarily assign an arbitrary priority to each kind of action, to allow different actions on a single node,
+            // Secondarily assign a priority to each kind of action, to allow different actions on a single node,
             // while de-duplicating instances of the same action on the same node.
             .thenBy {
                 when (it) {
-                    is CheckCell -> 1
-                    is CheckCondition -> 2
-                    is RunTask -> 3
-                    is RevokeMergeOpportunity -> 4
+                    // RevokeMergeOpportunity is highest priority.
+                    // When this action is present on a node, any other action would not be sensible.
+                    is RevokeMergeOpportunity -> 1
+                    // The relative priority of CheckCell, CheckCondition, and RunTask shouldn't matter,
+                    // as these should be attached to mutually exclusive kinds of nodes: cell, await, and non-await tasks, respectively.
+                    is CheckCell -> 2
+                    is CheckCondition -> 3
+                    is RunTask -> 4
                 }
             }
             // Finally, use the serial ID to permit the same action at the same time on different nodes.
