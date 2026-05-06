@@ -51,6 +51,7 @@ import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.kernel.incremental.KernelIncrementalSimulator
 import gov.nasa.jpl.pyre.kernel.tasks.PureTask
 import gov.nasa.jpl.pyre.kernel.tasks.TaskHistory.Companion.valueEquals
 import gov.nasa.jpl.pyre.utilities.named
@@ -816,16 +817,10 @@ class IncrementalSimulatorTest {
     @Test
     fun `repro directly`() {
         val tester = test(
-            GroundedActivity(Instant.parse("2025-01-01T00:49:11.894567Z"), Name("648082297317"), SetStandaloneCounter(number = 89)),
-            GroundedActivity(Instant.parse("2025-01-01T00:24:24.053883Z"), Name("955098674396"), SpawnChild(child = SpawnChildPair(child1 = SetIntegrand(number = 0.02441465393776876), child2 = AddJob(seed = 10)))),
+            GroundedActivity(Instant.parse("2025-01-01T00:42:57.044664Z"), Name("648082297317"), SetStandaloneCounter(number = 89)),
+            GroundedActivity(Instant.parse("2025-01-01T00:32:09.774321Z"), Name("955098674396"), SpawnChild(child = SpawnChildPair(child1 = SetIntegrand(number = 0.02441465393776876), child2 = AddJob(seed = 10)))),
             GroundedActivity(Instant.parse("2025-01-01T00:18:29.871348Z"), Name("621239380419"), SetStandaloneCounter(number = 73)),
-        )
-        tester.move(GroundedActivity(Instant.parse("2025-01-01T00:49:11.894567Z"), Name("648082297317"), SetStandaloneCounter(number = 89)) to Instant.parse("2025-01-01T00:42:57.044664Z"))
-        tester.run(
-            add(GroundedActivity(Instant.parse("2025-01-01T00:15:38.582738Z"), Name("290049624682"), IncrementStandaloneCounter(number = 8)))
-                    + move(GroundedActivity(Instant.parse("2025-01-01T00:24:24.053883Z"), Name("955098674396"), SpawnChild(child = SpawnChildPair(child1 = SetIntegrand(number = 0.02441465393776876), child2 = AddJob(seed = 10)))) to Instant.parse("2025-01-01T00:32:09.774321Z"))
-        )
-        tester.add(
+            GroundedActivity(Instant.parse("2025-01-01T00:15:38.582738Z"), Name("290049624682"), IncrementStandaloneCounter(number = 8)),
             GroundedActivity(Instant.parse("2025-01-01T00:44:22.245964Z"), Name("860206493060"), SpawnChild(child = SpawnChildPair(child1 = SpawnChildPair(child1 = AddJob(seed = 19), child2 = AddJob(seed = 19)), child2 = AddJob(seed = 24)))),
             GroundedActivity(Instant.parse("2025-01-01T00:30:26.314861Z"), Name("478368078296"), SpawnChildPair(child1 = IncrementStandaloneCounter(number = -6), child2 = AddJob(seed = 5))),
         )
