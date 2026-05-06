@@ -816,6 +816,16 @@ class IncrementalSimulatorTest {
 
     @Test
     fun `repro directly`() {
+        // Finding - In this test, we set up a situation where a task interrupts itself (!)
+        // - The job daemon awaits a job with await node A.
+        // - An activity submits a job.
+        // - The job daemon spawns that job, writing a "pop" P to the queue at time T.
+        // - An edit removes the job prior to spawning, causing us to re-evaluate "A".
+        // - A returns "never satisfied", but is interrupted by P (itself!).
+        // - Since this write is later than the evaluation A' that causes it, we revoke A'.
+        // - In revoking A', we revoke the write at T.
+        // - Finally, we record the interruption of A with a node A'', which reads P.
+        //   And therein lies the problem - P is revoked, but nevertheless linked by the graph.
         val tester = test(
             GroundedActivity(Instant.parse("2025-01-01T00:42:57.044664Z"), Name("648082297317"), SetStandaloneCounter(number = 89)),
             GroundedActivity(Instant.parse("2025-01-01T00:32:09.774321Z"), Name("955098674396"), SpawnChild(child = SpawnChildPair(child1 = SetIntegrand(number = 0.02441465393776876), child2 = AddJob(seed = 10)))),
