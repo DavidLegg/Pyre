@@ -479,6 +479,7 @@ class KernelIncrementalSimulator(
                     // nextTaskBatch, so it suffices to find any one of them and stop.
                     resultTime = node.time.nextTaskBatch().copy(branch = awaitNode.time.branch)
                     interruptCell = node
+                    break
                 }
             }
         }
@@ -525,9 +526,9 @@ class KernelIncrementalSimulator(
 
         // If we have an interrupt, record that read edge.
         // If the interrupting cell is revoked, this edge will remind us to re-run the original await.
-        interruptCell?.let {
-            (awaitNode.next as AwaitNode).reads.computeIfAbsent(it) { it.value }
-            it.awaiters += awaitNode.next as AwaitNode
+        if (interruptCell != null) {
+            (awaitNode.next as AwaitNode).reads.computeIfAbsent(interruptCell) { it.value }
+            interruptCell.awaiters += awaitNode.next as AwaitNode
         }
     }
 
