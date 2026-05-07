@@ -816,6 +816,9 @@ class IncrementalSimulatorTest {
 
     @Test
     fun `repro directly`() {
+        // Finding: Step 101 introduces a new write node emptying the daemonTaskQueue,
+        // but that write node is connected as a branch to the merge node two nodes later.
+        // That's wrong. It should be connected to the two write nodes that are branches of that merge.
 //        KernelIncrementalSimulator.DEBUG = KernelIncrementalSimulator.DebugLevel.MAJOR
         val a5 = GroundedActivity(Instant.parse("2025-01-01T00:42:10.000000Z"), AddJob(seed = 1))
         val a6 = GroundedActivity(Instant.parse("2025-01-01T00:45:22.000000Z"), SpawnChildPair(child1 = SpawnChildPair(child1 = AddJob(seed = 1), child2 = AddJob(seed = 1)), child2 = AddJob(seed = 2)))
