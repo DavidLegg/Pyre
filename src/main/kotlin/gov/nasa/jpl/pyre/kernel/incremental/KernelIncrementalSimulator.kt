@@ -449,6 +449,8 @@ class KernelIncrementalSimulator(
                     // Filter out results after the end of the plan
                     .takeIf { it.instant < planEnd }
             } else {
+                // TODO: nextStep() produces more correct results here, but I think it should be nextTaskBatch()
+                //   The single-shot simulator appears to continue an immediately-satisfied await in the next batch...
                 awaitNode.time.nextStep()
             }
         }
