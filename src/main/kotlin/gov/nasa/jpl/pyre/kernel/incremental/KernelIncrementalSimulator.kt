@@ -449,8 +449,11 @@ class KernelIncrementalSimulator(
                     // Filter out results after the end of the plan
                     .takeIf { it.instant < planEnd }
             } else {
-                // TODO: nextStep() produces more correct results here, but I think it should be nextTaskBatch()
-                //   The single-shot simulator appears to continue an immediately-satisfied await in the next batch...
+                // The await node is first scheduled in the next task batch from the awaiting task step.
+                // If interrupted, it is scheduled in the next task batch after the interrupting write.
+                // This mirrors how awaiters are first checked after the batch that set them,
+                // and also checked after the batch that interrupts them.
+                // If satisfied, these awaits should continue in the next step after they're checked, not the next batch.
                 awaitNode.time.nextStep()
             }
         }
