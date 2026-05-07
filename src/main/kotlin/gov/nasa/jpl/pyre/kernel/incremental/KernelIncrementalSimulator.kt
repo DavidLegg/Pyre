@@ -470,9 +470,24 @@ class KernelIncrementalSimulator(
                     frontierCellNodes += node.next
                 }
                 is CellMergeNode, is CellWriteNode -> {
-                    // If we find a write or merge, then the read cell changes while we're awaiting.
-                    // This cancels the await, causing re-evaluation in response to the write.
-                    // That's equivalent to just being unsatisfied until the time of this write
+                    if (node is CellWriteNode) {
+                        val writer = checkNotNull(node.writer) {
+                            "Internal error! Cell write node not linked to a task write node"
+                        }
+                        // Edge case: if this is a write by the awaiting task itself, it doesn't count.
+                        // This can happen when a task is being re-evaluated.
+                        // A version of this task we're probably about to revoke writes to this cell in the future.
+                        // Detect this edge case by scanning back along the task nodes, looking for awaitNode.
+                        // Since we have unambiguous times, we only have to look as far back as awaitNode in time, and only to compare the one node.
+                        if (writer.priorNodes().firstOrNull { it.time <= awaitNode.time } === awaitNode) {
+                            // When we hit this edge case, continue scanning forward as though we haven't hit it.
+                            frontierCellNodes += node.next
+                            continue
+                        }
+                    }
+                    // In the general case, any write or merge node interrupts the await,
+                    // causing re-evaluation in response to the write.
+                    // That's equivalent to just being unsatisfied until the time of this write.
                     isSatisfied = false
                     // Set time to the task step reacting to the cell node.
                     // Note that if there are concurrent cell writes, all of them have the same
