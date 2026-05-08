@@ -820,6 +820,16 @@ class IncrementalSimulatorTest {
         tester.move(a1 to a1.time + 1.seconds)
     }
 
+    @Test
+    fun `repro by seed 1`() {
+        `random plan edits conform to fundamental incremental sim guarantee`(2149)
+    }
+
+    @Test
+    fun `repro by seed 2`() {
+        `random plan edits conform to fundamental incremental sim guarantee`(2762)
+    }
+
     /**
      * Since incremental sim is complicated, and we have an "oracle" in the form of single-shot simulation,
      * we can randomly generate plans and plan edits and see if incremental sim works on them.
