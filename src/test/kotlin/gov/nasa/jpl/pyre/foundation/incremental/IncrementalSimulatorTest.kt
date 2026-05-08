@@ -828,21 +828,24 @@ class IncrementalSimulatorTest {
 
     @Test
     fun `repro directly`() {
-        var inconTime = Instant.parse("2025-01-03T10:22:10.519971Z")
-        var tester = test(startTime = inconTime, endTime = inconTime + 1.days, activities = listOf(
-            GroundedActivity(Instant.parse("2025-01-04T02:16:44.120689Z"), Name("290543589157"), SpawnChildPair(
-                child1 = SpawnChild(child = SpawnChildPair(
-                    child1 = SetDerivationSource(number = 8),
-                    child2 = SpawnChild(child = IncrementStandaloneCounter(number = 5)))),
-                child2 = SetStandaloneCounter(number = 6))),
-        ))
+        // This appears to be the minimally-complex way to provoke this bug.
+        val a1 = GroundedActivity(Instant.parse("2025-01-01T12:00:00Z"), Name("A1"), SpawnChildPair(
+            child1 = IncrementStandaloneCounter(number = 5),
+            child2 = SetStandaloneCounter(number = 6))
+        )
+        var tester = test(activities = listOf(a1))
 
         tester.run(
-            add(GroundedActivity(Instant.parse("2025-01-03T13:24:40.898720Z"), Name("852288535991"), SpawnChildPair(child1 = SpawnChildren(id = "SC-7231"), child2 = SpawnChildren(id = "SC-9308"))))
-            + remove(GroundedActivity(Instant.parse("2025-01-04T02:16:44.120689Z"), Name("290543589157"), SpawnChildPair(child1 = SpawnChild(child = SpawnChildPair(child1 = SetDerivationSource(number = 8), child2 = SpawnChild(child = IncrementStandaloneCounter(number = 5)))), child2 = SetStandaloneCounter(number = 6))))
+            GroundedActivity(Instant.parse("2025-01-01T01:00:00Z"), Name("A2"),
+                SpawnChildPair(
+                    child1 = SpawnChildren(id = "A2.a"),
+                    child2 = SpawnChildren(id = "A2.b")
+                )
+            )
+            - a1
         )
 
-        inconTime = Instant.parse("2025-01-03T13:24:41.319848Z")
+        val inconTime = Instant.parse("2025-01-01T01:00:01Z")
         val incon = tester.save(inconTime)
         tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
     }
