@@ -23,6 +23,7 @@ import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.isConcurren
 import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.nextCellBatch
 import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.nextStep
 import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.nextTaskBatch
+import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.sameBatchAs
 import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.sameBranchAs
 import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
 import gov.nasa.jpl.pyre.kernel.tasks.KernelTask
@@ -668,9 +669,6 @@ class KernelIncrementalSimulator(
                             mergeNode.prior += concurrentTip as CellWriteNode
                             writeNode.next += mergeNode
                             mergeNode.prior += writeNode
-                            // Finally, schedule mergeNode to be checked once this branch is done,
-                            // which will actually merge the branches' net effects.
-                            frontier += CheckCell(mergeNode)
                         } else {
                             // We're not adding a concurrent branch, so just insert the write directly.
                             when (adjacentCellNode) {
@@ -687,22 +685,37 @@ class KernelIncrementalSimulator(
                             }
                             priorCellNode.next -= adjacentCellNode
                             writeNode.next += adjacentCellNode
-                            // Finally, add an action to re-check adjacent, as we've inserted a write node ahead of it.
-                            frontier += CheckCell(adjacentCellNode)
                         }
                     }
                     else -> {
-                        // TODO: Handle the case when priorCellNode.next is actually after, not adjacent to, this write.
-                        val merge = generateSequence(priorCellNode.next.first()) { it.next.single() }
-                            .first { it is CellMergeNode } as CellMergeNode
-                        // Link write in as a new branch of the merge node
-                        writeNode.next += merge
-                        merge.prior += writeNode
-                        // Then schedule the merge node to be re-checked
-                        frontier += CheckCell(merge)
+                        if (priorCellNode.next.first() sameBatchAs writeNode) {
+                            // This write node will join the merge, either as a new branch or a new head to an existing branch.
+                            val branchStart = priorCellNode.next.firstOrNull { it sameBranchAs writeNode } as CellWriteNode?
+                            if (branchStart != null) {
+                                // writeNode is a new start for this branch.
+                                branchStart.prior = writeNode
+                                priorCellNode.next -= branchStart
+                                writeNode.next += branchStart
+                            } else {
+                                // writeNode is the entirety of a new branch.
+                                val merge = generateSequence(priorCellNode.next.first()) { it.next.single() }
+                                    .first { it is CellMergeNode } as CellMergeNode
+                                // Link write in as a new branch of the merge node
+                                writeNode.next += merge
+                                merge.prior += writeNode
+                            }
+                        } else {
+                            // This write node is causally before the branches coming off of priorCellNode.
+                            // Link all the branches back to writeNode
+                            priorCellNode.next.forEach { (it as CellWriteNode).prior = writeNode }
+                            writeNode.next += priorCellNode.next
+                            priorCellNode.next.clear()
+                        }
                     }
                 }
                 priorCellNode.next += writeNode
+                // Schedule anything directly after writeNode to be re-checked, since we just inserted a write before it
+                writeNode.next.forEach { frontier += CheckCell(it) }
 
                 // Having constructed the cell's write node, now construct the next step node for the task.
                 lastTaskStepNode = WriteNode(

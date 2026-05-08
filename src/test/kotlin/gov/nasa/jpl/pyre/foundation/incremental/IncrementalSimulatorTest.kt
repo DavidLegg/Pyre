@@ -51,7 +51,6 @@ import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import gov.nasa.jpl.pyre.kernel.incremental.KernelIncrementalSimulator
 import gov.nasa.jpl.pyre.kernel.tasks.PureTask
 import gov.nasa.jpl.pyre.kernel.tasks.TaskHistory.Companion.valueEquals
 import gov.nasa.jpl.pyre.utilities.named
@@ -810,21 +809,14 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed`() {
-        `random plan edits conform to fundamental incremental sim guarantee`(299)
-    }
-
-    @Test
-    fun `repro directly`() {
-        // Finding: Step 101 introduces a new write node emptying the daemonTaskQueue,
-        // but that write node is connected as a branch to the merge node two nodes later.
-        // That's wrong. It should be connected to the two write nodes that are branches of that merge.
-//        KernelIncrementalSimulator.DEBUG = KernelIncrementalSimulator.DebugLevel.MAJOR
-        val a5 = GroundedActivity(Instant.parse("2025-01-01T00:42:10.000000Z"), AddJob(seed = 1))
-        val a6 = GroundedActivity(Instant.parse("2025-01-01T00:45:22.000000Z"), SpawnChildPair(child1 = SpawnChildPair(child1 = AddJob(seed = 1), child2 = AddJob(seed = 1)), child2 = AddJob(seed = 2)))
-        val tester = test(a5, a6)
-//        println("debugMajorStep = $debugMajorStep")
-        tester.move(a5 to a5.time + 1.seconds)
+    fun `add a write immediately before a concurrent write`() {
+        // This somewhat complicated pattern of concurrent activities winds up forcing us to add a write node
+        // one task step before a batch of concurrent writes.
+        // This is an unusual edge case in the handling of write nodes, and careless handling of it led to a malformed DAG.
+        val a1 = GroundedActivity(Instant.parse("2025-01-01T00:42:10.000000Z"), AddJob(seed = 1))
+        val a2 = GroundedActivity(Instant.parse("2025-01-01T00:45:22.000000Z"), SpawnChildPair(child1 = SpawnChildPair(child1 = AddJob(seed = 1), child2 = AddJob(seed = 1)), child2 = AddJob(seed = 2)))
+        val tester = test(a1, a2)
+        tester.move(a1 to a1.time + 1.seconds)
     }
 
     /**

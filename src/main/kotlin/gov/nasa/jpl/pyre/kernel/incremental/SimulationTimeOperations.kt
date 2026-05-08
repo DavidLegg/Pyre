@@ -13,6 +13,9 @@ object SimulationTimeOperations {
     infix fun SimulationTime.isCausallyAfter(other: SimulationTime): Boolean =
         this > other && !(this isConcurrentWith other)
 
+    infix fun SimulationTime.sameBatchAs(other: SimulationTime): Boolean =
+        instant == other.instant && batch == other.batch
+
     infix fun SimulationTime.sameBranchAs(other: SimulationTime): Boolean =
         instant == other.instant && batch == other.batch && branch == other.branch
 
@@ -26,6 +29,9 @@ object SimulationTimeOperations {
 
     infix fun IncSimNode.isCausallyAfter(other: IncSimNode): Boolean =
         time isCausallyAfter other.time
+
+    infix fun IncSimNode.sameBatchAs(other: IncSimNode): Boolean =
+        time sameBatchAs other.time
 
     infix fun IncSimNode.sameBranchAs(other: IncSimNode): Boolean =
         time sameBranchAs other.time
