@@ -692,6 +692,7 @@ class KernelIncrementalSimulator(
                         }
                     }
                     else -> {
+                        // TODO: Handle the case when priorCellNode.next is actually after, not adjacent to, this write.
                         val merge = generateSequence(priorCellNode.next.first()) { it.next.single() }
                             .first { it is CellMergeNode } as CellMergeNode
                         // Link write in as a new branch of the merge node
