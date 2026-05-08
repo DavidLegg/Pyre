@@ -56,6 +56,7 @@ import gov.nasa.jpl.pyre.kernel.tasks.TaskHistory.Companion.valueEquals
 import gov.nasa.jpl.pyre.utilities.named
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.until
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.util.stream.IntStream
@@ -828,6 +829,7 @@ class IncrementalSimulatorTest {
      * ideally with as much superfluous detail stripped out as possible.
      * This prevents regression on unusual edge cases.
      */
+    @Tag("long-test")
     @ParameterizedTest
     @MethodSource("fuzzingSeeds")
     fun `random plan edits conform to fundamental incremental sim guarantee`(seed: Int) {
@@ -957,6 +959,17 @@ class IncrementalSimulatorTest {
         }
     }
 
+    /**
+     * Identical to [`random plan edits conform to fundamental incremental sim guarantee`],
+     * but seeded with a smaller set of seeds.
+     * This provides some coverage on every build, with the option to run the more-intensive version only on request.
+     */
+    @ParameterizedTest
+    @MethodSource("fuzzingSeeds -- lightweight")
+    fun `random plan edits conform to fundamental incremental sim guarantee -- lightweight`(seed: Int) {
+        `random plan edits conform to fundamental incremental sim guarantee`(seed)
+    }
+
     private fun Random.nextInstant(range: ClosedRange<Instant>): Instant =
         range.start + nextLong(0..range.start.until(range.endInclusive, DateTimeUnit.MICROSECOND)).microseconds
 
@@ -995,7 +1008,9 @@ class IncrementalSimulatorTest {
 
     companion object {
         @JvmStatic
-        fun fuzzingSeeds(): IntStream = IntStream.rangeClosed(1, 1000)
+        fun fuzzingSeeds(): IntStream = IntStream.rangeClosed(1, 10_000)
+        @JvmStatic
+        fun `fuzzingSeeds -- lightweight`(): IntStream = IntStream.rangeClosed(1, 100)
     }
 
     // Private test-ism to quickly and legibly write out a plan

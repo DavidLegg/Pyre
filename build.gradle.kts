@@ -23,8 +23,16 @@ dependencies {
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags("long-test")
+    }
 }
+tasks.register<Test>("long-tests") {
+    useJUnitPlatform {
+        includeTags("long-test")
+    }
+}
+
 kotlin {
     jvmToolchain(21)
     compilerOptions {
