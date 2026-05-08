@@ -46,6 +46,7 @@ import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.m
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.move
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.remove
+import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.unaryPlus
 import gov.nasa.jpl.pyre.foundation.incremental.TestModel.*
 import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
@@ -823,6 +824,27 @@ class IncrementalSimulatorTest {
     @Test
     fun `repro by seed 1`() {
         `random plan edits conform to fundamental incremental sim guarantee`(2149)
+    }
+
+    @Test
+    fun `repro directly`() {
+        var inconTime = Instant.parse("2025-01-03T10:22:10.519971Z")
+        var tester = test(startTime = inconTime, endTime = inconTime + 1.days, activities = listOf(
+            GroundedActivity(Instant.parse("2025-01-04T02:16:44.120689Z"), Name("290543589157"), SpawnChildPair(
+                child1 = SpawnChild(child = SpawnChildPair(
+                    child1 = SetDerivationSource(number = 8),
+                    child2 = SpawnChild(child = IncrementStandaloneCounter(number = 5)))),
+                child2 = SetStandaloneCounter(number = 6))),
+        ))
+
+        tester.run(
+            add(GroundedActivity(Instant.parse("2025-01-03T13:24:40.898720Z"), Name("852288535991"), SpawnChildPair(child1 = SpawnChildren(id = "SC-7231"), child2 = SpawnChildren(id = "SC-9308"))))
+            + remove(GroundedActivity(Instant.parse("2025-01-04T02:16:44.120689Z"), Name("290543589157"), SpawnChildPair(child1 = SpawnChild(child = SpawnChildPair(child1 = SetDerivationSource(number = 8), child2 = SpawnChild(child = IncrementStandaloneCounter(number = 5)))), child2 = SetStandaloneCounter(number = 6))))
+        )
+
+        inconTime = Instant.parse("2025-01-03T13:24:41.319848Z")
+        val incon = tester.save(inconTime)
+        tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
     }
 
     @Test
