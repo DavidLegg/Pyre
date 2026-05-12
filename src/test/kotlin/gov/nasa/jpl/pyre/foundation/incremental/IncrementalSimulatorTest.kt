@@ -46,7 +46,6 @@ import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.m
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.move
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.remove
-import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.unaryPlus
 import gov.nasa.jpl.pyre.foundation.incremental.TestModel.*
 import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
@@ -822,13 +821,10 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed 1`() {
-        `random plan edits conform to fundamental incremental sim guarantee`(2149)
-    }
-
-    @Test
-    fun `repro directly`() {
-        // This appears to be the minimally-complex way to provoke this bug.
+    fun `saving sibling activities with the same name`() {
+        // This is actually an edge case less for the simulator and more for the test harness.
+        // It's permitted for sibling activities to have the same name, which doesn't tend to trip up the simulator,
+        // but did trip up the test harness at one point.
         val a1 = GroundedActivity(Instant.parse("2025-01-01T12:00:00Z"), Name("A1"), SpawnChildPair(
             child1 = IncrementStandaloneCounter(number = 5),
             child2 = SetStandaloneCounter(number = 6))
@@ -848,11 +844,6 @@ class IncrementalSimulatorTest {
         val inconTime = Instant.parse("2025-01-01T01:00:01Z")
         val incon = tester.save(inconTime)
         tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
-    }
-
-    @Test
-    fun `repro by seed 2`() {
-        `random plan edits conform to fundamental incremental sim guarantee`(2762)
     }
 
     /**
@@ -1248,14 +1239,28 @@ private class IncrementalSimulationTester<M : Any>(
         // Activities are stored as a list, but order isn't relevant
         val remainingTestActivities = testCheckpoint.activities.toMutableList()
         for (baselineActivity in baselineCheckpoint.activities) {
-            val n = remainingTestActivities.indexOfFirst { it.name == baselineActivity.name }
-            require(n >= 0) { "No activity named ${baselineActivity.name}" }
-            val testActivity = remainingTestActivities.removeAt(n)
-            // Assert that each field is equal separately to aid debugging
-            assertEquals(baselineActivity.name, testActivity.name)
-            assertEquals(baselineActivity.time, testActivity.time)
-            assertEquals(baselineActivity.activity, testActivity.activity)
-            assertEquals(baselineActivity.history, testActivity.history)
+            // Non-root activities might not have unique names.
+            // This is an expected situation, though it makes debugging the tests a little awkward.
+            val candidates = remainingTestActivities
+                .withIndex()
+                .filter { it.value.name == baselineActivity.name }
+            require(candidates.isNotEmpty()) { "No activity named ${baselineActivity.name}" }
+            if (candidates.size == 1) {
+                val (n, testActivity) = candidates.single()
+                // In the very common case of a single candidate,
+                // assert that each field is equal separately to aid debugging
+                assertEquals(baselineActivity.name, testActivity.name)
+                assertEquals(baselineActivity.time, testActivity.time)
+                assertEquals(baselineActivity.activity, testActivity.activity)
+                assertEquals(baselineActivity.history, testActivity.history)
+                remainingTestActivities.removeAt(n)
+            } else {
+                // Otherwise, perform the harder-to-debug but still correct filtering of candidates
+                val candidate = candidates.firstOrNull { (_, testActivity) -> baselineActivity == testActivity }
+                assertNotNull(candidate) { "No checkpoint matching $baselineActivity" }
+                remainingTestActivities.removeAt(candidate.index)
+            }
+
         }
         assert(remainingTestActivities.isEmpty())
 
