@@ -1034,7 +1034,7 @@ class IncrementalSimulatorTest {
 
     companion object {
         @JvmStatic
-        fun fuzzingSeeds(): IntStream = IntStream.rangeClosed(1, 10_000)
+        fun fuzzingSeeds(): IntStream = IntStream.rangeClosed(1, 100_000)
         @JvmStatic
         fun `fuzzingSeeds -- lightweight`(): IntStream = IntStream.rangeClosed(1, 100)
     }
