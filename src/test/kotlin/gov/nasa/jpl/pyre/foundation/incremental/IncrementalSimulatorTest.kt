@@ -854,7 +854,7 @@ class IncrementalSimulatorTest {
     @Test
     fun `repro directly`() {
         val a0 = GroundedActivity(Instant.parse("2025-01-01T12:32:11.857785Z"), Name("A0"), SpawnChildren(id = "SC-5721"))
-        val a1 = GroundedActivity(Instant.parse("2025-01-01T06:02:01.532494Z"), Name("A1"), SetStandaloneCounter(number = 46))
+        val a1 = GroundedActivity(Instant.parse("2025-01-01T06:02:01.532494Z"), Name("A1"), SetStandaloneCounter(number = 4))
         val a2 = GroundedActivity(Instant.parse("2025-01-01T08:02:06.431419Z"), Name("A2"), SpawnChildren(id = "SC-9505"))
         val a3 = GroundedActivity(Instant.parse("2025-01-01T19:28:17.079597Z"), Name("A3"), SpawnChildPair(
             child1 = SpawnChildPair(
