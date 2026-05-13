@@ -51,6 +51,8 @@ import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.kernel.incremental.KernelIncrementalSimulator
+import gov.nasa.jpl.pyre.kernel.incremental.KernelIncrementalSimulator.Companion.debugMajorStep
 import gov.nasa.jpl.pyre.kernel.tasks.PureTask
 import gov.nasa.jpl.pyre.kernel.tasks.TaskHistory.Companion.valueEquals
 import gov.nasa.jpl.pyre.utilities.named
@@ -853,10 +855,10 @@ class IncrementalSimulatorTest {
 
     @Test
     fun `repro directly`() {
-        val a0 = GroundedActivity(Instant.parse("2025-01-01T12:32:11.857785Z"), Name("A0"), SpawnChildren(id = "SC-5721"))
-        val a1 = GroundedActivity(Instant.parse("2025-01-01T06:02:01.532494Z"), Name("A1"), SetStandaloneCounter(number = 4))
-        val a2 = GroundedActivity(Instant.parse("2025-01-01T08:02:06.431419Z"), Name("A2"), SpawnChildren(id = "SC-9505"))
-        val a3 = GroundedActivity(Instant.parse("2025-01-01T19:28:17.079597Z"), Name("A3"), SpawnChildPair(
+        val a0 = GroundedActivity(Instant.parse("2025-01-01T12:00:00Z"), Name("A0"), SpawnChildren(id = "SC-5721"))
+        val a1 = GroundedActivity(Instant.parse("2025-01-01T06:00:00Z"), Name("A1"), SetStandaloneCounter(number = 4))
+        val a2 = GroundedActivity(Instant.parse("2025-01-01T08:00:00Z"), Name("A2"), SpawnChildren(id = "SC-9505"))
+        val a3 = GroundedActivity(Instant.parse("2025-01-01T19:00:00Z"), Name("A3"), SpawnChildPair(
             child1 = SpawnChildPair(
                 child1 = IncrementStandaloneCounter(number = 1),
                 child2 = ReportStandaloneCounter("RSC-1"),
@@ -867,10 +869,7 @@ class IncrementalSimulatorTest {
             )
         ))
 
-        var tester = test(a0, a1)
-        val inconTime = Instant.parse("2025-01-01T02:10:49.321948Z")
-        val incon = tester.save(inconTime)
-        tester = test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon)
+        val tester = test(a0, a1)
         tester.add(a2)
         tester.add(a3)
     }
