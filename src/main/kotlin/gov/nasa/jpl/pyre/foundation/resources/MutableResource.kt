@@ -5,6 +5,7 @@ import gov.nasa.jpl.pyre.utilities.andThen
 import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.kernel.*
 import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
+import gov.nasa.jpl.pyre.foundation.resources.AutoEffect.Companion.autoMerge
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.allocate
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
@@ -63,7 +64,7 @@ context (scope: InitScope)
 inline fun <V, reified D : Dynamics<V, D>> resource(
     name: String,
     initialDynamics: D,
-    noinline mergeConcurrentEffects: MergeResourceEffect<D> = autoEffects(),
+    noinline mergeConcurrentEffects: MergeResourceEffect<D> = ::autoMerge,
 ) = resource(name, initialDynamics, typeOf<D>(), mergeConcurrentEffects)
 
 context (scope: InitScope)
@@ -71,7 +72,7 @@ fun <V, D : Dynamics<V, D>> resource(
     name: String,
     initialDynamics: D,
     dynamicsType: KType,
-    mergeConcurrentEffects: MergeResourceEffect<D> = autoEffects(),
+    mergeConcurrentEffects: MergeResourceEffect<D> = ::autoMerge,
 ) = resource(name, DynamicsMonad.pure(initialDynamics), FullDynamics::class.withArg(dynamicsType), mergeConcurrentEffects)
 
 context (scope: InitScope)
@@ -82,7 +83,7 @@ fun <V, D : Dynamics<V, D>> resource(
     //   OTOH, if a task writes to the cell no later than that expiry, that triggers re-evaluations already.
     initialDynamics: FullDynamics<D>,
     fullDynamicsType: KType,
-    mergeConcurrentEffects: MergeResourceEffect<D> = autoEffects(),
+    mergeConcurrentEffects: MergeResourceEffect<D> = ::autoMerge,
 ): MutableResource<D> {
     val cell = allocate(
         Name(name),
@@ -110,21 +111,6 @@ fun <D> commutingEffects(): MergeResourceEffect<D> = { left, right -> left andTh
 
 fun <D> noncommutingEffects(): MergeResourceEffect<D> = { left, right ->
     throw IllegalArgumentException("Non-commuting concurrent effects: $left vs. $right - Cell does not support concurrent effects.")
-}
-
-fun <D> autoEffects(resultsEqual: (FullDynamics<D>, FullDynamics<D>) -> Boolean = { r, s -> r == s }): MergeResourceEffect<D> =
-    { left, right -> {
-        // Eagerly throw exceptions if either ordering fails.
-        // In cases where many things try to write simultaneously in a non-commuting way, this fails fast.
-        Result.runCatching {
-            val result1 = left(right(it)).getOrThrow()
-            val result2 = right(left(it)).getOrThrow()
-            require(resultsEqual(result1, result2)) {
-                "Non-commuting concurrent effects: $left vs. $right - autoEffects detected different results: $result1 vs. $result2"
-            }
-            result1
-        }
-    }
 }
 
 context (scope: SimulationScope)

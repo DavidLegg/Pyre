@@ -51,8 +51,6 @@ import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import gov.nasa.jpl.pyre.kernel.incremental.KernelIncrementalSimulator
-import gov.nasa.jpl.pyre.kernel.incremental.KernelIncrementalSimulator.Companion.debugMajorStep
 import gov.nasa.jpl.pyre.kernel.tasks.PureTask
 import gov.nasa.jpl.pyre.kernel.tasks.TaskHistory.Companion.valueEquals
 import gov.nasa.jpl.pyre.utilities.named
@@ -849,16 +847,22 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed`() {
-        `random plan edits conform to fundamental incremental sim guarantee`(12173)
-    }
+    fun `effects that commute but don't associate`() {
+        // This test case provoked a bug in how I automatically resolved concurrent effects.
+        // I used to simply say that the merge of two concurrent effect e and f is a new effect,
+        // which runs e(f(value)) and f(e(value)), and demands those agree.
+        // This checks that the effects commute, but not that they associate!
+        // That's only 2^n of the n! orderings.
+        // To be fully correct, we need to demand that all concurrent effects commute and associate.
+        // To deal with this, the AutoEffects type was introduced, which explicitly runs through all permutations of effects.
+        // The exact way that this combination of effects provokes the single-shot and incremental simulators
+        // to associate effects differently is still unknown. It's some minor detail of map ordering I don't have the patience to track down.
+        // In fact, this test will probably degrade quickly and stop testing the bug it originally indicated.
 
-    @Test
-    fun `repro directly`() {
-        // Finding: The issue here is actually in "autoEffects" - it's not actually associative.
         // Consider the three effects on standalone counter in A3.
-        // If associated as (+1 | -1) | set 5, both orderings compute the same answer, merge succeeds.
+        // If associated as (+1 | -1) | set 5, all four commutations compute the same answer.
         // If associated as +1 | (-1 | set 5), orderings compute different answers, merge fails.
+        // Hence, this is a set of effects which commute but do not associate.
         val a0 = GroundedActivity(Instant.parse("2025-01-01T12:00:00Z"), Name("A0"), SpawnChildren(id = "SC-5721"))
         val a1 = GroundedActivity(Instant.parse("2025-01-01T06:00:00Z"), Name("A1"), SetStandaloneCounter(number = 4))
         val a2 = GroundedActivity(Instant.parse("2025-01-01T08:00:00Z"), Name("A2"), SpawnChildren(id = "SC-9505"))
