@@ -855,6 +855,10 @@ class IncrementalSimulatorTest {
 
     @Test
     fun `repro directly`() {
+        // Finding: The issue here is actually in "autoEffects" - it's not actually associative.
+        // Consider the three effects on standalone counter in A3.
+        // If associated as (+1 | -1) | set 5, both orderings compute the same answer, merge succeeds.
+        // If associated as +1 | (-1 | set 5), orderings compute different answers, merge fails.
         val a0 = GroundedActivity(Instant.parse("2025-01-01T12:00:00Z"), Name("A0"), SpawnChildren(id = "SC-5721"))
         val a1 = GroundedActivity(Instant.parse("2025-01-01T06:00:00Z"), Name("A1"), SetStandaloneCounter(number = 4))
         val a2 = GroundedActivity(Instant.parse("2025-01-01T08:00:00Z"), Name("A2"), SpawnChildren(id = "SC-9505"))
