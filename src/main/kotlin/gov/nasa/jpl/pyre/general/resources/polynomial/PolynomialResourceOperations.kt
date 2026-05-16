@@ -10,6 +10,7 @@ import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.grea
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
+import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResource
 import gov.nasa.jpl.pyre.foundation.tasks.*
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
@@ -25,6 +26,8 @@ import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.let
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 object PolynomialResourceOperations {
     context(scope: InitScope)
@@ -36,6 +39,11 @@ object PolynomialResourceOperations {
 
     fun DoubleResource.asPolynomial(): PolynomialResource =
         map(this) { polynomial(it.value) }.fullyNamed { name }
+
+    fun TimerResource.asPolynomial(unit: Duration): PolynomialResource {
+        val rateScale = 1.seconds / unit
+        return map(this) { polynomial(it.time / unit, it.rate * rateScale) }.fullyNamed { name }
+    }
 
     operator fun PolynomialResource.unaryPlus() = this
     operator fun PolynomialResource.unaryMinus() =

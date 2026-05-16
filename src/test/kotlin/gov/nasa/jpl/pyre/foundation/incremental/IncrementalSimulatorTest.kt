@@ -1,7 +1,19 @@
 package gov.nasa.jpl.pyre.foundation.incremental
 
 import gov.nasa.jpl.pyre.examples.scheduling.GroundedActivity
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.BooleanExpression.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.BooleanResourceExpression.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.DoubleExpression.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.DoubleResourceExpression.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.DurationExpression.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.IntExpression.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.IntResourceExpression.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.PolynomialResourceExpression.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.TimerResourceExpression.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.*
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
@@ -135,7 +147,15 @@ class IncrementalSimulatorTest {
         startTime: Instant = day0,
         endTime: Instant = day1,
         incon: Checkpoint<TestModel>? = null,
-    ) = IncrementalSimulationTester(::TestModel, Plan(startTime, endTime, activities.toList()), incon)
+    ) = test(::TestModel, activities, startTime, endTime, incon)
+
+    private fun <M : Any> test(
+        constructModel: (InitScope) -> M,
+        activities: List<GroundedActivity<M>>,
+        startTime: Instant = day0,
+        endTime: Instant = day1,
+        incon: Checkpoint<M>? = null,
+    ) = IncrementalSimulationTester(constructModel, Plan(startTime, endTime, activities.toList()), incon)
 
     @Test
     fun `empty model`() {
@@ -914,6 +934,257 @@ class IncrementalSimulatorTest {
         tester.add(a3)
     }
 
+    @Tag("long-test")
+    @ParameterizedTest
+    @MethodSource("fuzzingSeeds")
+    fun `random plan edits conform to fundamental incremental sim guarantee -- model 1`(seed: Int) {
+        `random plan edits conform to fundamental incremental sim guarantee`(seed) { rng ->
+            object : RandomActivityGenerator<TestModel> {
+                override fun constructModel(initScope: InitScope): TestModel = TestModel(initScope)
+
+                override fun nextActivity(): Activity<TestModel> = randomizeArgs(rng.choose(
+                    { SetStandaloneCounter(0) },
+                    { IncrementStandaloneCounter(0) },
+                    { ReportStandaloneCounter("") },
+                    { SetDerivationSource(0) },
+                    { AddJob(0) },
+                    { SetIntegrand(0.0) },
+                    { SpawnChildren("") },
+                    { SpawnChild(SetStandaloneCounter(0)) },
+                    { SpawnChildPair(SetStandaloneCounter(0), SetStandaloneCounter(0)) },
+                ))
+
+                override fun randomizeArgs(activity: Activity<TestModel>): Activity<TestModel> = when (activity) {
+                    is SetStandaloneCounter -> activity.copy(number = rng.nextInt(-10..100))
+                    is IncrementStandaloneCounter -> activity.copy(number = rng.nextInt(-10..10))
+                    is ReportStandaloneCounter -> activity.copy(id = rng.nextInt(1000..9999).toString())
+                    is SetDerivationSource -> activity.copy(number = rng.nextInt(-10..10))
+                    is AddJob -> activity.copy(seed = rng.nextInt(2..30))
+                    is SetIntegrand -> activity.copy(number = rng.nextDouble(-1.0, 1.0))
+                    is SpawnChildren -> activity.copy(id = "SC-" + rng.nextInt(1000, 9999))
+                    is SpawnChild -> activity.copy(child = nextActivity())
+                    is SpawnChildPair -> activity.copy(child1 = nextActivity(), child2 = nextActivity())
+                    else -> throw AssertionError("Code path should never run")
+                }
+            }
+        }
+    }
+
+    /**
+     * Identical to [`random plan edits conform to fundamental incremental sim guarantee -- model 1`],
+     * but seeded with a smaller set of seeds.
+     * This provides some coverage on every build, with the option to run the more-intensive version only on request.
+     */
+    @ParameterizedTest
+    @MethodSource("fuzzingSeeds -- lightweight")
+    fun `random plan edits conform to fundamental incremental sim guarantee -- model 1 lightweight`(seed: Int) {
+        `random plan edits conform to fundamental incremental sim guarantee -- model 1`(seed)
+    }
+
+    @Tag("long-test")
+    @ParameterizedTest
+    @MethodSource("fuzzingSeeds")
+    fun `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed: Int) {
+        `random plan edits conform to fundamental incremental sim guarantee`(seed) { rng ->
+            object : RandomActivityGenerator<BlockTestModel> {
+                override fun constructModel(initScope: InitScope): BlockTestModel = BlockTestModel(initScope)
+
+                override fun nextActivity(): Activity<BlockTestModel> = BlockActivity(nextStatementList())
+
+                /**
+                 * Number of statements in each activity.
+                 * More statements provides more opportunities for interesting edge case interactions,
+                 * but requires more time and power to run.
+                 */
+                val STATEMENTS_PER_ACTIVITY = 10
+
+                /**
+                 * To keep expressions from growing unreasonably large, expression generation is biased towards constants.
+                 * Each expression has this chance of being a constant instead of a compound expression.
+                 *
+                 * Recommended to keep this set to 0.5 or higher.
+                 */
+                val CHANCE_OF_CONSTANT_EXPRESSION = 0.5
+
+                override fun randomizeArgs(activity: Activity<BlockTestModel>): Activity<BlockTestModel> {
+                    // To keep the idea of an activity "edit" being less severe than fully replacing the activity,
+                    // let's change only one of the statements in this activity.
+                    activity as BlockActivity
+                    val i = rng.nextInt(0..<activity.statements.size)
+                    val newStatements = activity.statements.toMutableList()
+                    newStatements[i] = nextStatementBlock()
+                    return BlockActivity(newStatements)
+                }
+
+                private fun nextStatementList(): List<StatementBlock> =
+                    (1..STATEMENTS_PER_ACTIVITY).map { nextStatementBlock() }
+
+                private fun nextStatementBlock(): StatementBlock = rng.choose(
+                    0.30 to ::nextEffectBlock,
+                    0.25 to ::nextSaveValue,
+                    0.20 to ::nextReportBlock,
+                    0.20 to ::nextAwaitBlock,
+                    // Spawn blocks create a disproportionately large fan-out in the AST.
+                    // Bias the randomization away from them to keep AST's bounded.
+                    0.02 to ::nextSpawnBlock
+                )
+
+                private fun nextEffectBlock(): EffectBlock = rng.choose(
+                    ::nextSwitchEffectBlock,
+                    ::nextTimerEffectBlock,
+                    ::nextCounterEffectBlock,
+                    ::nextSlopeEffectBlock,
+                )
+
+                private fun nextSwitchEffectBlock() = rng.choose(
+                    { SwitchEffectBlock.SetSwitch(nextIntExpression(), nextBooleanExpression()) },
+                    { SwitchEffectBlock.ToggleSwitch(nextIntExpression()) },
+                )
+
+                private fun nextTimerEffectBlock() = rng.choose(
+                    { TimerEffectBlock.PauseTimer(nextIntExpression()) },
+                    { TimerEffectBlock.ResumeTimer(nextIntExpression()) },
+                    { TimerEffectBlock.ResetTimer(nextIntExpression()) },
+                    { TimerEffectBlock.RestartTimer(nextIntExpression()) },
+                )
+
+                private fun nextCounterEffectBlock() = rng.choose(
+                    { CounterEffectBlock.SetCounter(nextIntExpression(), nextIntExpression()) },
+                    { CounterEffectBlock.IncrementCounter(nextIntExpression(), nextIntExpression()) },
+                )
+
+                private fun nextSlopeEffectBlock() = rng.choose(
+                    { SlopeEffectBlock.SetSlope(nextIntExpression(), nextDoubleExpression()) },
+                    { SlopeEffectBlock.IncreaseSlope(nextIntExpression(), nextDoubleExpression()) },
+                )
+
+                private fun nextAwaitBlock() = Await(nextBooleanResourceExpression())
+
+                private fun nextSpawnBlock() = Spawn(nextStatementList())
+
+                private fun nextReportBlock() = rng.choose(
+                    { ReportBlock.ReportBoolean(nextBooleanExpression()) },
+                    { ReportBlock.ReportInt(nextIntExpression()) },
+                    { ReportBlock.ReportDouble(nextDoubleExpression()) },
+                    { ReportBlock.ReportDuration(nextDurationExpression()) },
+                )
+
+                private fun nextSaveValue() = rng.choose(
+                    { SaveValue.SaveBoolean(nextBooleanExpression()) },
+                    { SaveValue.SaveInt(nextIntExpression()) },
+                    { SaveValue.SaveDouble(nextDoubleExpression()) },
+                    { SaveValue.SaveDuration(nextDurationExpression()) },
+                )
+
+                private fun nextBooleanExpression(): BooleanExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                    ConstantBoolean(rng.chance())
+                } else rng.choose(
+                    { ReadSavedBoolean },
+                    { ReadSwitch(nextIntExpression()) },
+                    { CompareInt(nextIntExpression(), nextIntExpression()) },
+                    { CompareDouble(nextDoubleExpression(), nextDoubleExpression()) },
+                    { CompareDuration(nextDurationExpression(), nextDurationExpression()) },
+                    { And(nextBooleanExpression(), nextBooleanExpression()) },
+                    { Or(nextBooleanExpression(), nextBooleanExpression()) },
+                    { Not(nextBooleanExpression()) },
+                )
+
+                private fun nextIntExpression(): IntExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                    ConstantInt(rng.nextInt(-100, 100))
+                } else rng.choose(
+                    { ReadSavedInt },
+                    { ReadCounter(nextIntExpression()) },
+                    { AddInts(nextIntExpression(), nextIntExpression()) },
+                    { SubtractInts(nextIntExpression(), nextIntExpression()) },
+                    { IntFromDouble(nextDoubleExpression()) },
+                )
+
+                private fun nextDoubleExpression(): DoubleExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                    ConstantDouble(rng.nextDouble(-100.0, 100.0))
+                } else rng.choose(
+                    { ReadSavedDouble },
+                    { ReadSlope(nextIntExpression()) },
+                    { ReadIntegral(nextIntExpression()) },
+                    { AddDoubles(nextDoubleExpression(), nextDoubleExpression()) },
+                    { SubtractDoubles(nextDoubleExpression(), nextDoubleExpression()) },
+                    { DoubleFromInt(nextIntExpression()) },
+                )
+
+                private fun nextDurationExpression(): DurationExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                    ConstantDuration(rng.nextDouble(-100.0, 100.0).seconds)
+                } else rng.choose(
+                    { ReadSavedDuration },
+                    { ReadTimer(nextIntExpression()) },
+                    { DurationFromDouble(nextDoubleExpression()) },
+                )
+
+                private fun nextBooleanResourceExpression(): BooleanResourceExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                    ConstantBooleanResource(nextBooleanExpression())
+                } else rng.choose(
+                    { Switch(nextIntExpression()) },
+                    { AndResource(nextBooleanResourceExpression(), nextBooleanResourceExpression()) },
+                    { OrResource(nextBooleanResourceExpression(), nextBooleanResourceExpression()) },
+                    { NotResource(nextBooleanResourceExpression()) },
+                    { CompareIntResource(nextIntResourceExpression(), nextIntResourceExpression()) },
+                    { CompareDoubleResource(nextDoubleResourceExpression(), nextDoubleResourceExpression()) },
+                    { CompareTimerResource(nextTimerResourceExpression(), nextTimerResourceExpression()) },
+                    { ComparePolynomialResource(nextPolynomialResourceExpression(), nextPolynomialResourceExpression()) },
+                )
+
+                private fun nextIntResourceExpression(): IntResourceExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                    ConstantIntResource(nextIntExpression())
+                } else rng.choose(
+                    { Counter(nextIntExpression()) },
+                    { AddIntResources(nextIntResourceExpression(), nextIntResourceExpression()) },
+                    { SubtractIntResources(nextIntResourceExpression(), nextIntResourceExpression()) },
+                )
+
+                private fun nextDoubleResourceExpression(): DoubleResourceExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                    ConstantDoubleResource(nextDoubleExpression())
+                } else rng.choose(
+                    { Slope(nextIntExpression()) },
+                    { AddDoubleResources(nextDoubleResourceExpression(), nextDoubleResourceExpression()) },
+                    { SubtractDoubleResources(nextDoubleResourceExpression(), nextDoubleResourceExpression()) },
+                )
+
+                private fun nextTimerResourceExpression(): TimerResourceExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                    ConstantTimerResource(nextDurationExpression())
+                } else rng.choose(
+                    { Timer(nextIntExpression()) },
+                    { AddTimerResources(nextTimerResourceExpression(), nextTimerResourceExpression()) },
+                    { SubtractTimerResources(nextTimerResourceExpression(), nextTimerResourceExpression()) },
+                )
+
+                private fun nextPolynomialResourceExpression(): PolynomialResourceExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                    ConstantPolynomialResourceExpression(nextDoubleExpression())
+                } else rng.choose(
+                    { Integral(nextIntExpression()) },
+                    { AddPolynomialResources(nextPolynomialResourceExpression(), nextPolynomialResourceExpression()) },
+                    { SubtractPolynomialResources(nextPolynomialResourceExpression(), nextPolynomialResourceExpression()) },
+                    { PolynomialFromDoubleResource(nextDoubleResourceExpression()) },
+                    { PolynomialFromTimerResource(nextTimerResourceExpression()) },
+                )
+            }
+        }
+    }
+
+    /**
+     * Identical to [`random plan edits conform to fundamental incremental sim guarantee -- model 2`],
+     * but seeded with a smaller set of seeds.
+     * This provides some coverage on every build, with the option to run the more-intensive version only on request.
+     */
+    @ParameterizedTest
+    @MethodSource("fuzzingSeeds -- lightweight")
+    fun `random plan edits conform to fundamental incremental sim guarantee -- model 2 lightweight`(seed: Int) {
+        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed)
+    }
+
+    interface RandomActivityGenerator<M> {
+        fun constructModel(initScope: InitScope) : M
+        fun nextActivity(): Activity<M>
+        fun randomizeArgs(activity: Activity<M>): Activity<M>
+    }
+
     /**
      * Since incremental sim is complicated, and we have an "oracle" in the form of single-shot simulation,
      * we can randomly generate plans and plan edits and see if incremental sim works on them.
@@ -923,10 +1194,10 @@ class IncrementalSimulatorTest {
      * ideally with as much superfluous detail stripped out as possible.
      * This prevents regression on unusual edge cases.
      */
-    @Tag("long-test")
-    @ParameterizedTest
-    @MethodSource("fuzzingSeeds")
-    fun `random plan edits conform to fundamental incremental sim guarantee`(seed: Int) {
+    fun <M : Any> `random plan edits conform to fundamental incremental sim guarantee`(
+        seed: Int,
+        randomActivityGeneratorConstructor: (Random) -> RandomActivityGenerator<M>,
+        ) {
         var indentLevel = 0
         fun println(msg: String) {
             repeat(indentLevel) { print("  ") }
@@ -942,6 +1213,7 @@ class IncrementalSimulatorTest {
         }
 
         val rng = Random(seed)
+        val activityGenerator = randomActivityGeneratorConstructor(rng)
         val numberOfInitialActivities = 10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()
         val roundsOfEdits = 100
         println("Running $numberOfInitialActivities activities through $roundsOfEdits rounds of edits...")
@@ -961,16 +1233,16 @@ class IncrementalSimulatorTest {
         // Choose an initial plan
         // We'll maintain this list of activities, separate from simulator.plan, since we don't yet trust the simulator.
         startBlock("Building initial plan")
-        val activities = mutableListOf<GroundedActivity<TestModel>>()
+        val activities = mutableListOf<GroundedActivity<M>>()
         repeat(numberOfInitialActivities) {
             activities += GroundedActivity(
                 rng.nextInstant(startTime..endTime),
                 rng.nextActivityId(),
-                rng.nextActivity()).also { println("Add $it") }
+                activityGenerator.nextActivity()).also { println("Add $it") }
         }
         endBlock()
         // Verify the incremental simulator can handle that initial plan
-        var tester = test(activities)
+        var tester = test(activityGenerator::constructModel, activities)
         println("Initial simulation complete")
 
         // For as many rounds of edits as we've decided to do...
@@ -986,15 +1258,16 @@ class IncrementalSimulatorTest {
                 // Activities that were saved through the checkpoint can't then be changed incrementally,
                 // so choose a new set of activities to work with instead.
                 // TODO: Think through whether this must be the case... If an activity comes from an incon, can it be incrementally edited?
-                val newActivities = mutableListOf<GroundedActivity<TestModel>>()
+                val newActivities = mutableListOf<GroundedActivity<M>>()
                 repeat (10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()) {
                     newActivities += GroundedActivity(
                         rng.nextInstant(startTime..endTime),
                         rng.nextActivityId(),
-                        rng.nextActivity()).also { println("Add $it") }
+                        activityGenerator.nextActivity()).also { println("Add $it") }
                 }
                 // Then build a new incremental tester with those time bounds, saving and restoring from a checkpoint
                 tester = test(
+                    constructModel = activityGenerator::constructModel,
                     activities = newActivities,
                     startTime = startTime,
                     endTime = endTime,
@@ -1007,7 +1280,7 @@ class IncrementalSimulatorTest {
             // Choose a number of activities to edit, up to the entire plan, with a bias towards small edits.
             val numberOfEdits = if (activities.size <= 1) activities.size else
                 exp(rng.nextDouble(0.0, ln(activities.size.toDouble()))).toInt()
-            var edits = PlanEdits<TestModel>()
+            var edits = PlanEdits<M>()
             startBlock("Choosing $numberOfEdits random edits")
             // Pick random edits to make. If we edit an activity, remove it from activities so it doesn't get edited twice.
             repeat (numberOfEdits) {
@@ -1017,7 +1290,7 @@ class IncrementalSimulatorTest {
                         edits += GroundedActivity(
                             rng.nextInstant(startTime..endTime),
                             rng.nextActivityId(),
-                            rng.nextActivity()
+                            activityGenerator.nextActivity()
                         ).also { println("Add $it") }
                     }
                     2 -> {
@@ -1035,7 +1308,7 @@ class IncrementalSimulatorTest {
                     4 -> {
                         // Edit an activity's arguments
                         val activity = activities.randomRemove(rng)
-                        val newActivity = activity.activity.randomArgs(rng)
+                        val newActivity = activityGenerator.randomizeArgs(activity.activity)
                         println("Edit $activity to $newActivity")
                         edits += edit(activity to newActivity)
                     }
@@ -1053,48 +1326,24 @@ class IncrementalSimulatorTest {
         }
     }
 
-    /**
-     * Identical to [`random plan edits conform to fundamental incremental sim guarantee`],
-     * but seeded with a smaller set of seeds.
-     * This provides some coverage on every build, with the option to run the more-intensive version only on request.
-     */
-    @ParameterizedTest
-    @MethodSource("fuzzingSeeds -- lightweight")
-    fun `random plan edits conform to fundamental incremental sim guarantee -- lightweight`(seed: Int) {
-        `random plan edits conform to fundamental incremental sim guarantee`(seed)
-    }
-
     private fun Random.nextInstant(range: ClosedRange<Instant>): Instant =
         range.start + nextLong(0..range.start.until(range.endInclusive, DateTimeUnit.MICROSECOND)).microseconds
 
     private fun Random.chance(p: Double = 0.5): Boolean = nextDouble() < p
 
-    private fun Random.nextActivity(): Activity<TestModel> =
-        // Choose randomly among the activity types, then choose random arguments for them
-        when (nextInt(1..9)) {
-            1 -> SetStandaloneCounter(0)
-            2 -> IncrementStandaloneCounter(0)
-            3 -> ReportStandaloneCounter("")
-            4 -> SetDerivationSource(0)
-            5 -> AddJob(0)
-            6 -> SetIntegrand(0.0)
-            7 -> SpawnChildren("")
-            8 -> SpawnChild(SetStandaloneCounter(0))
-            9 -> SpawnChildPair(SetStandaloneCounter(0), SetStandaloneCounter(0))
-            else -> throw AssertionError("Code path should never run")
-        }.randomArgs(this)
+    private fun <R> Random.choose(vararg branches: () -> R): R {
+        return branches[nextInt(branches.indices)]()
+    }
 
-    private fun Activity<TestModel>.randomArgs(rng: Random): Activity<TestModel> = when (this) {
-        is SetStandaloneCounter -> copy(number = rng.nextInt(-10..100))
-        is IncrementStandaloneCounter -> copy(number = rng.nextInt(-10..10))
-        is ReportStandaloneCounter -> copy(id = rng.nextInt(1000..9999).toString())
-        is SetDerivationSource -> copy(number = rng.nextInt(-10..10))
-        is AddJob -> copy(seed = rng.nextInt(2..30))
-        is SetIntegrand -> copy(number = rng.nextDouble(-1.0, 1.0))
-        is SpawnChildren -> copy(id = "SC-" + rng.nextInt(1000, 9999))
-        is SpawnChild -> copy(child = rng.nextActivity())
-        is SpawnChildPair -> copy(child1 = rng.nextActivity(), child2 = rng.nextActivity())
-        else -> throw AssertionError("Code path should never run")
+    private fun <R> Random.choose(vararg branches: Pair<Double, () -> R>): R {
+        val totalWeight = branches.sumOf { it.first }
+        var p = nextDouble(0.0, totalWeight)
+        for ((weight, branch) in branches) {
+            if (p < weight) return branch()
+            else p -= weight
+        }
+        // Edge case, likely due to FP error. Run the last branch as a fallback.
+        return branches.last().second()
     }
 
     private fun <T> MutableList<T>.randomRemove(rng: Random): T =
@@ -1505,7 +1754,7 @@ class BlockTestModel(initScope: InitScope) {
         const val BLOCK_TEST_MODEL_SIZE = 3
     }
 
-    data class BlockActivity(val block: StatementBlock) : Activity<BlockTestModel> {
+    data class BlockActivity(val statements: List<StatementBlock>) : Activity<BlockTestModel> {
         var savedBoolean: Boolean = false
         var savedInt: Int = 0
         var savedDouble: Double = 0.0
@@ -1513,7 +1762,7 @@ class BlockTestModel(initScope: InitScope) {
 
         context(scope: TaskScope)
         override suspend fun effectModel(model: BlockTestModel) {
-            block.run(model, this)
+            statements.forEach { it.run(model, this) }
         }
     }
 
@@ -1597,7 +1846,7 @@ class BlockTestModel(initScope: InitScope) {
                 await(condition.evaluate(model, activity))
             }
         }
-        data class Spawn(val body: StatementBlock) : StatementBlock {
+        data class Spawn(val body: List<StatementBlock>) : StatementBlock {
             context(_: TaskScope)
             override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
                 val child = BlockActivity(body)
@@ -1608,6 +1857,32 @@ class BlockTestModel(initScope: InitScope) {
                 child.savedDuration = activity.savedDuration
                 spawn(child, model)
                 // However, the parent may not modify the child after the child is spawned.
+            }
+        }
+        sealed interface ReportBlock : StatementBlock {
+            data class ReportBoolean(val expression: BooleanExpression) : ReportBlock {
+                context(_: TaskScope)
+                override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
+                    stdout.report(expression.evaluate(model, activity).toString())
+                }
+            }
+            data class ReportInt(val expression: IntExpression) : ReportBlock {
+                context(_: TaskScope)
+                override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
+                    stdout.report(expression.evaluate(model, activity).toString())
+                }
+            }
+            data class ReportDouble(val expression: DoubleExpression) : ReportBlock {
+                context(_: TaskScope)
+                override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
+                    stdout.report(expression.evaluate(model, activity).toString())
+                }
+            }
+            data class ReportDuration(val expression: DurationExpression) : ReportBlock {
+                context(_: TaskScope)
+                override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
+                    stdout.report(expression.evaluate(model, activity).toString())
+                }
             }
         }
         sealed interface SaveValue : StatementBlock {
@@ -1642,7 +1917,7 @@ class BlockTestModel(initScope: InitScope) {
         fun evaluate(model: BlockTestModel, activity: BlockActivity): R
 
         sealed interface BooleanExpression : ExpressionBlock<Boolean> {
-            data class Constant(val value: Boolean) : BooleanExpression {
+            data class ConstantBoolean(val value: Boolean) : BooleanExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Boolean = value
             }
@@ -1700,17 +1975,17 @@ class BlockTestModel(initScope: InitScope) {
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Int =
                     model.counters[indexExpression.evaluate(model, activity) % model.counters.size].getValue()
             }
-            data class Add(val left: IntExpression, val right: IntExpression) : ExpressionBlock<Int> {
+            data class AddInts(val left: IntExpression, val right: IntExpression) : IntExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Int =
                     left.evaluate(model, activity) + right.evaluate(model, activity)
             }
-            data class Subtract(val left: IntExpression, val right: IntExpression) : ExpressionBlock<Int> {
+            data class SubtractInts(val left: IntExpression, val right: IntExpression) : IntExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Int =
                     left.evaluate(model, activity) - right.evaluate(model, activity)
             }
-            data class FromDouble(val doubleExpression: DoubleExpression) : ExpressionBlock<Int> {
+            data class IntFromDouble(val doubleExpression: DoubleExpression) : IntExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Int =
                     doubleExpression.evaluate(model, activity).toInt()
@@ -1735,17 +2010,17 @@ class BlockTestModel(initScope: InitScope) {
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Double =
                     model.integrals[indexExpression.evaluate(model, activity) % model.integrals.size].getValue()
             }
-            data class Add(val left: DoubleExpression, val right: DoubleExpression) : ExpressionBlock<Double> {
+            data class AddDoubles(val left: DoubleExpression, val right: DoubleExpression) : DoubleExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Double =
                     left.evaluate(model, activity) + right.evaluate(model, activity)
             }
-            data class Subtract(val left: DoubleExpression, val right: DoubleExpression) : ExpressionBlock<Double> {
+            data class SubtractDoubles(val left: DoubleExpression, val right: DoubleExpression) : DoubleExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Double =
                     left.evaluate(model, activity) - right.evaluate(model, activity)
             }
-            data class FromInt(val intExpression: IntExpression) : ExpressionBlock<Double> {
+            data class DoubleFromInt(val intExpression: IntExpression) : DoubleExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Double =
                     intExpression.evaluate(model, activity).toDouble()
@@ -1765,14 +2040,14 @@ class BlockTestModel(initScope: InitScope) {
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Duration =
                     model.timers[indexExpression.evaluate(model, activity) % model.timers.size].getValue()
             }
-            data class FromDouble(val doubleExpression: DoubleExpression) : DurationExpression {
+            data class DurationFromDouble(val doubleExpression: DoubleExpression) : DurationExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Duration =
                     doubleExpression.evaluate(model, activity).seconds
             }
         }
         sealed interface BooleanResourceExpression : ExpressionBlock<BooleanResource> {
-            data class Constant(val value: BooleanExpression) : BooleanResourceExpression {
+            data class ConstantBooleanResource(val value: BooleanExpression) : BooleanResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): BooleanResource =
                     DiscreteResourceMonad.pure(value.evaluate(model, activity))
@@ -1782,44 +2057,44 @@ class BlockTestModel(initScope: InitScope) {
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): BooleanResource =
                     model.switches[indexExpression.evaluate(model, activity) % model.switches.size]
             }
-            data class And(val left: BooleanResourceExpression, val right: BooleanResourceExpression) : BooleanResourceExpression {
+            data class AndResource(val left: BooleanResourceExpression, val right: BooleanResourceExpression) : BooleanResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): BooleanResource =
                     left.evaluate(model, activity) and right.evaluate(model, activity)
             }
-            data class Or(val left: BooleanResourceExpression, val right: BooleanResourceExpression) : BooleanResourceExpression {
+            data class OrResource(val left: BooleanResourceExpression, val right: BooleanResourceExpression) : BooleanResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): BooleanResource =
                     left.evaluate(model, activity) or right.evaluate(model, activity)
             }
-            data class Not(val expression: BooleanResourceExpression) : BooleanResourceExpression {
+            data class NotResource(val expression: BooleanResourceExpression) : BooleanResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): BooleanResource =
                     expression.evaluate(model, activity).not()
             }
-            data class CompareInt(val left: IntResourceExpression, val right: IntResourceExpression) : BooleanResourceExpression {
+            data class CompareIntResource(val left: IntResourceExpression, val right: IntResourceExpression) : BooleanResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): BooleanResource =
                     left.evaluate(model, activity) greaterThan right.evaluate(model, activity)
             }
-            data class CompareDouble(val left: DoubleResourceExpression, val right: DoubleResourceExpression) : BooleanResourceExpression {
+            data class CompareDoubleResource(val left: DoubleResourceExpression, val right: DoubleResourceExpression) : BooleanResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): BooleanResource =
                     left.evaluate(model, activity) greaterThan right.evaluate(model, activity)
             }
-            data class CompareTimer(val left: TimerResourceExpression, val right: TimerResourceExpression) : BooleanResourceExpression {
+            data class CompareTimerResource(val left: TimerResourceExpression, val right: TimerResourceExpression) : BooleanResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): BooleanResource =
                     left.evaluate(model, activity) greaterThan right.evaluate(model, activity)
             }
-            data class ComparePolynomial(val left: PolynomialResourceExpression, val right: PolynomialResourceExpression) : BooleanResourceExpression {
+            data class ComparePolynomialResource(val left: PolynomialResourceExpression, val right: PolynomialResourceExpression) : BooleanResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): BooleanResource =
                     left.evaluate(model, activity) greaterThan right.evaluate(model, activity)
             }
         }
         sealed interface IntResourceExpression : ExpressionBlock<IntResource> {
-            data class Constant(val value: IntExpression) : IntResourceExpression {
+            data class ConstantIntResource(val value: IntExpression) : IntResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): IntResource =
                     DiscreteResourceMonad.pure(value.evaluate(model, activity))
@@ -1829,19 +2104,19 @@ class BlockTestModel(initScope: InitScope) {
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): IntResource =
                     model.counters[indexExpression.evaluate(model, activity) % model.counters.size]
             }
-            data class Add(val left: IntResourceExpression, val right: IntResourceExpression) : IntResourceExpression {
+            data class AddIntResources(val left: IntResourceExpression, val right: IntResourceExpression) : IntResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): IntResource =
                     left.evaluate(model, activity) + right.evaluate(model, activity)
             }
-            data class Subtract(val left: IntResourceExpression, val right: IntResourceExpression) : IntResourceExpression {
+            data class SubtractIntResources(val left: IntResourceExpression, val right: IntResourceExpression) : IntResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): IntResource =
                     left.evaluate(model, activity) - right.evaluate(model, activity)
             }
         }
         sealed interface DoubleResourceExpression : ExpressionBlock<DoubleResource> {
-            data class Constant(val value: DoubleExpression) : DoubleResourceExpression {
+            data class ConstantDoubleResource(val value: DoubleExpression) : DoubleResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): DoubleResource =
                     DiscreteResourceMonad.pure(value.evaluate(model, activity))
@@ -1851,19 +2126,19 @@ class BlockTestModel(initScope: InitScope) {
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): DoubleResource =
                     model.slopes[indexExpression.evaluate(model, activity) % model.slopes.size]
             }
-            data class Add(val left: DoubleResourceExpression, val right: DoubleResourceExpression) : DoubleResourceExpression {
+            data class AddDoubleResources(val left: DoubleResourceExpression, val right: DoubleResourceExpression) : DoubleResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): DoubleResource =
                     left.evaluate(model, activity) + right.evaluate(model, activity)
             }
-            data class Subtract(val left: DoubleResourceExpression, val right: DoubleResourceExpression) : DoubleResourceExpression {
+            data class SubtractDoubleResources(val left: DoubleResourceExpression, val right: DoubleResourceExpression) : DoubleResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): DoubleResource =
                     left.evaluate(model, activity) - right.evaluate(model, activity)
             }
         }
         sealed interface TimerResourceExpression : ExpressionBlock<TimerResource> {
-            data class Constant(val value: DurationExpression) : TimerResourceExpression {
+            data class ConstantTimerResource(val value: DurationExpression) : TimerResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): TimerResource =
                     TimerResourceOperations.constant(value.evaluate(model, activity))
@@ -1873,42 +2148,47 @@ class BlockTestModel(initScope: InitScope) {
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): TimerResource =
                     model.timers[indexExpression.evaluate(model, activity) % model.timers.size]
             }
-            data class Add(val left: TimerResourceExpression, val right: TimerResourceExpression) : TimerResourceExpression {
+            data class AddTimerResources(val left: TimerResourceExpression, val right: TimerResourceExpression) : TimerResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): TimerResource =
                     left.evaluate(model, activity) + right.evaluate(model, activity)
             }
-            data class Subtract(val left: TimerResourceExpression, val right: TimerResourceExpression) : TimerResourceExpression {
+            data class SubtractTimerResources(val left: TimerResourceExpression, val right: TimerResourceExpression) : TimerResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): TimerResource =
                     left.evaluate(model, activity) - right.evaluate(model, activity)
             }
         }
         sealed interface PolynomialResourceExpression : ExpressionBlock<PolynomialResource> {
-            data class Constant(val value: Double) : PolynomialResourceExpression {
+            data class ConstantPolynomialResourceExpression(val value: DoubleExpression) : PolynomialResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): PolynomialResource =
-                    constant(value)
+                    constant(value.evaluate(model, activity))
             }
-            data class Slope(val indexExpression: IntExpression) : PolynomialResourceExpression {
+            data class Integral(val indexExpression: IntExpression) : PolynomialResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): PolynomialResource =
                     model.integrals[indexExpression.evaluate(model, activity) % model.integrals.size]
             }
-            data class Add(val left: PolynomialResourceExpression, val right: PolynomialResourceExpression) : PolynomialResourceExpression {
+            data class AddPolynomialResources(val left: PolynomialResourceExpression, val right: PolynomialResourceExpression) : PolynomialResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): PolynomialResource =
                     left.evaluate(model, activity) + right.evaluate(model, activity)
             }
-            data class Subtract(val left: PolynomialResourceExpression, val right: PolynomialResourceExpression) : PolynomialResourceExpression {
+            data class SubtractPolynomialResources(val left: PolynomialResourceExpression, val right: PolynomialResourceExpression) : PolynomialResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): PolynomialResource =
                     left.evaluate(model, activity) - right.evaluate(model, activity)
             }
-            data class FromDouble(val doubleResourceExpression: DoubleResourceExpression) : PolynomialResourceExpression {
+            data class PolynomialFromDoubleResource(val doubleResourceExpression: DoubleResourceExpression) : PolynomialResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): PolynomialResource =
                     doubleResourceExpression.evaluate(model, activity).asPolynomial()
+            }
+            data class PolynomialFromTimerResource(val timerResourceExpression: TimerResourceExpression) : PolynomialResourceExpression {
+                context(_: TaskScope)
+                override fun evaluate(model: BlockTestModel, activity: BlockActivity): PolynomialResource =
+                    timerResourceExpression.evaluate(model, activity).asPolynomial(1.seconds)
             }
         }
     }
