@@ -14,6 +14,12 @@ import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.P
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.TimerResourceExpression.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.CounterEffectBlock.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SlopeEffectBlock.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SwitchEffectBlock.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.TimerEffectBlock.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.ReportBlock.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.SaveValue.*
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
@@ -934,6 +940,11 @@ class IncrementalSimulatorTest {
         tester.add(a3)
     }
 
+    @Test
+    fun `repro by seed`() {
+        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(1)
+    }
+
     @Tag("long-test")
     @ParameterizedTest
     @MethodSource("fuzzingSeeds")
@@ -1037,25 +1048,25 @@ class IncrementalSimulatorTest {
                 )
 
                 private fun nextSwitchEffectBlock() = rng.choose(
-                    { SwitchEffectBlock.SetSwitch(nextIntExpression(), nextBooleanExpression()) },
-                    { SwitchEffectBlock.ToggleSwitch(nextIntExpression()) },
+                    { SetSwitch(nextIntExpression(), nextBooleanExpression()) },
+                    { ToggleSwitch(nextIntExpression()) },
                 )
 
                 private fun nextTimerEffectBlock() = rng.choose(
-                    { TimerEffectBlock.PauseTimer(nextIntExpression()) },
-                    { TimerEffectBlock.ResumeTimer(nextIntExpression()) },
-                    { TimerEffectBlock.ResetTimer(nextIntExpression()) },
-                    { TimerEffectBlock.RestartTimer(nextIntExpression()) },
+                    { PauseTimer(nextIntExpression()) },
+                    { ResumeTimer(nextIntExpression()) },
+                    { ResetTimer(nextIntExpression()) },
+                    { RestartTimer(nextIntExpression()) },
                 )
 
                 private fun nextCounterEffectBlock() = rng.choose(
-                    { CounterEffectBlock.SetCounter(nextIntExpression(), nextIntExpression()) },
-                    { CounterEffectBlock.IncrementCounter(nextIntExpression(), nextIntExpression()) },
+                    { SetCounter(nextIntExpression(), nextIntExpression()) },
+                    { IncrementCounter(nextIntExpression(), nextIntExpression()) },
                 )
 
                 private fun nextSlopeEffectBlock() = rng.choose(
-                    { SlopeEffectBlock.SetSlope(nextIntExpression(), nextDoubleExpression()) },
-                    { SlopeEffectBlock.IncreaseSlope(nextIntExpression(), nextDoubleExpression()) },
+                    { SetSlope(nextIntExpression(), nextDoubleExpression()) },
+                    { IncreaseSlope(nextIntExpression(), nextDoubleExpression()) },
                 )
 
                 private fun nextAwaitBlock() = Await(nextBooleanResourceExpression())
@@ -1063,17 +1074,17 @@ class IncrementalSimulatorTest {
                 private fun nextSpawnBlock() = Spawn(nextStatementList())
 
                 private fun nextReportBlock() = rng.choose(
-                    { ReportBlock.ReportBoolean(nextBooleanExpression()) },
-                    { ReportBlock.ReportInt(nextIntExpression()) },
-                    { ReportBlock.ReportDouble(nextDoubleExpression()) },
-                    { ReportBlock.ReportDuration(nextDurationExpression()) },
+                    { ReportBoolean(nextBooleanExpression()) },
+                    { ReportInt(nextIntExpression()) },
+                    { ReportDouble(nextDoubleExpression()) },
+                    { ReportDuration(nextDurationExpression()) },
                 )
 
                 private fun nextSaveValue() = rng.choose(
-                    { SaveValue.SaveBoolean(nextBooleanExpression()) },
-                    { SaveValue.SaveInt(nextIntExpression()) },
-                    { SaveValue.SaveDouble(nextDoubleExpression()) },
-                    { SaveValue.SaveDuration(nextDurationExpression()) },
+                    { SaveBoolean(nextBooleanExpression()) },
+                    { SaveInt(nextIntExpression()) },
+                    { SaveDouble(nextDoubleExpression()) },
+                    { SaveDuration(nextDurationExpression()) },
                 )
 
                 private fun nextBooleanExpression(): BooleanExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
