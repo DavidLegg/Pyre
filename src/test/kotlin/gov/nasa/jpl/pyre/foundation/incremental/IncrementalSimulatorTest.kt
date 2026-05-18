@@ -108,6 +108,7 @@ import kotlinx.datetime.until
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import java.lang.Math.floorMod
 import java.util.stream.IntStream
 import kotlin.collections.iterator
 import kotlin.math.PI
@@ -957,36 +958,12 @@ class IncrementalSimulatorTest {
     @Test
     fun `repro directly`() {
         test(::BlockTestModel,
-            GroundedActivity(Instant.parse("2025-01-01T22:13:52.938713Z"), Name("321923042996"), BlockActivity(statements=listOf(
-                ReportDouble(
-                    expression = AddDoubles(
-                        left = ReadSavedDouble,
-                        right = ReadSlope(
-                            indexExpression = AddInts(
-                                left = AddInts(
-                                    left = ReadSavedInt,
-                                    right = ConstantInt(value = -68)
-                                ),
-                                right = IntFromDouble(
-                                    doubleExpression = AddDoubles(
-                                        left = ConstantDouble(value = -64.45010789197256),
-                                        right = DoubleFromInt(intExpression = ConstantInt(value = 76))
-                                    )
-                                )
-                            )
-                        )
-                    )
-                ),
-                SaveInt(
-                    expression = SubtractInts(
-                        left = ConstantInt(value = -12),
-                        right = IntFromDouble(doubleExpression = ConstantDouble(value = -47.84327284878604))
-                    )
-                ),
+            GroundedActivity(Instant.parse("2025-01-01T12:00:00Z"), BlockActivity(listOf(
+                ReportInt(ReadSavedInt),
+                SaveInt(ConstantInt(1)),
             ))),
         )
     }
-
 
     @Tag("long-test")
     @ParameterizedTest
@@ -1861,13 +1838,13 @@ class BlockTestModel(initScope: InitScope) {
                 data class SetSwitch(val index: IntExpression, val value: BooleanExpression) : SwitchEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
-                        model.switches[index.evaluate(model, activity) % model.switches.size].set(value.evaluate(model, activity))
+                        model.switches[floorMod(index.evaluate(model, activity), model.switches.size)].set(value.evaluate(model, activity))
                     }
                 }
                 data class ToggleSwitch(val index: IntExpression) : SwitchEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
-                        model.switches[index.evaluate(model, activity) % model.switches.size].toggle()
+                        model.switches[floorMod(index.evaluate(model, activity), model.switches.size)].toggle()
                     }
                 }
             }
@@ -1875,25 +1852,25 @@ class BlockTestModel(initScope: InitScope) {
                 data class PauseTimer(val index: IntExpression) : TimerEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
-                        model.timers[index.evaluate(model, activity) % model.timers.size].pause()
+                        model.timers[floorMod(index.evaluate(model, activity), model.timers.size)].pause()
                     }
                 }
                 data class ResumeTimer(val index: IntExpression) : TimerEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
-                        model.timers[index.evaluate(model, activity) % model.timers.size].resume()
+                        model.timers[floorMod(index.evaluate(model, activity), model.timers.size)].resume()
                     }
                 }
                 data class ResetTimer(val index: IntExpression) : TimerEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
-                        model.timers[index.evaluate(model, activity) % model.timers.size].reset()
+                        model.timers[floorMod(index.evaluate(model, activity), model.timers.size)].reset()
                     }
                 }
                 data class RestartTimer(val index: IntExpression) : TimerEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
-                        model.timers[index.evaluate(model, activity) % model.timers.size].restart()
+                        model.timers[floorMod(index.evaluate(model, activity), model.timers.size)].restart()
                     }
                 }
             }
@@ -1901,13 +1878,13 @@ class BlockTestModel(initScope: InitScope) {
                 data class SetCounter(val index: IntExpression, val value: IntExpression) : CounterEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
-                        model.counters[index.evaluate(model, activity) % model.counters.size].set(value.evaluate(model, activity))
+                        model.counters[floorMod(index.evaluate(model, activity), model.counters.size)].set(value.evaluate(model, activity))
                     }
                 }
                 data class IncrementCounter(val index: IntExpression, val amount: IntExpression) : CounterEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
-                        model.counters[index.evaluate(model, activity) % model.counters.size].increment(amount.evaluate(model, activity))
+                        model.counters[floorMod(index.evaluate(model, activity), model.counters.size)].increment(amount.evaluate(model, activity))
                     }
                 }
             }
@@ -1915,13 +1892,13 @@ class BlockTestModel(initScope: InitScope) {
                 data class SetSlope(val index: IntExpression, val value: DoubleExpression) : SlopeEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
-                        model.slopes[index.evaluate(model, activity) % model.slopes.size].set(value.evaluate(model, activity))
+                        model.slopes[floorMod(index.evaluate(model, activity), model.slopes.size)].set(value.evaluate(model, activity))
                     }
                 }
                 data class IncreaseSlope(val index: IntExpression, val amount: DoubleExpression) : SlopeEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, activity: BlockActivity) {
-                        model.slopes[index.evaluate(model, activity) % model.slopes.size].increase(amount.evaluate(model, activity))
+                        model.slopes[floorMod(index.evaluate(model, activity), model.slopes.size)].increase(amount.evaluate(model, activity))
                     }
                 }
             }
@@ -2016,7 +1993,7 @@ class BlockTestModel(initScope: InitScope) {
             data class ReadSwitch(val indexExpression: IntExpression) : BooleanExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Boolean =
-                    model.switches[indexExpression.evaluate(model, activity) % model.switches.size].getValue()
+                    model.switches[floorMod(indexExpression.evaluate(model, activity), model.switches.size)].getValue()
             }
             data class CompareInt(val left: IntExpression, val right: IntExpression) : BooleanExpression {
                 context(_: TaskScope)
@@ -2061,7 +2038,7 @@ class BlockTestModel(initScope: InitScope) {
             data class ReadCounter(val indexExpression: IntExpression) : IntExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Int =
-                    model.counters[indexExpression.evaluate(model, activity) % model.counters.size].getValue()
+                    model.counters[floorMod(indexExpression.evaluate(model, activity), model.counters.size)].getValue()
             }
             data class AddInts(val left: IntExpression, val right: IntExpression) : IntExpression {
                 context(_: TaskScope)
@@ -2091,12 +2068,12 @@ class BlockTestModel(initScope: InitScope) {
             data class ReadSlope(val indexExpression: IntExpression) : DoubleExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Double =
-                    model.slopes[indexExpression.evaluate(model, activity) % model.slopes.size].getValue()
+                    model.slopes[floorMod(indexExpression.evaluate(model, activity), model.slopes.size)].getValue()
             }
             data class ReadIntegral(val indexExpression: IntExpression) : DoubleExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Double =
-                    model.integrals[indexExpression.evaluate(model, activity) % model.integrals.size].getValue()
+                    model.integrals[floorMod(indexExpression.evaluate(model, activity), model.integrals.size)].getValue()
             }
             data class AddDoubles(val left: DoubleExpression, val right: DoubleExpression) : DoubleExpression {
                 context(_: TaskScope)
@@ -2130,7 +2107,7 @@ class BlockTestModel(initScope: InitScope) {
             data class ReadTimer(val indexExpression: IntExpression) : DurationExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): Duration =
-                    model.timers[indexExpression.evaluate(model, activity) % model.timers.size].getValue()
+                    model.timers[floorMod(indexExpression.evaluate(model, activity), model.timers.size)].getValue()
             }
             data class DurationFromDouble(val doubleExpression: DoubleExpression) : DurationExpression {
                 context(_: TaskScope)
@@ -2147,7 +2124,7 @@ class BlockTestModel(initScope: InitScope) {
             data class Switch(val indexExpression: IntExpression) : BooleanResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): BooleanResource =
-                    model.switches[indexExpression.evaluate(model, activity) % model.switches.size]
+                    model.switches[floorMod(indexExpression.evaluate(model, activity), model.switches.size)]
             }
             data class AndResource(val left: BooleanResourceExpression, val right: BooleanResourceExpression) : BooleanResourceExpression {
                 context(_: TaskScope)
@@ -2194,7 +2171,7 @@ class BlockTestModel(initScope: InitScope) {
             data class Counter(val indexExpression: IntExpression) : IntResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): IntResource =
-                    model.counters[indexExpression.evaluate(model, activity) % model.counters.size]
+                    model.counters[floorMod(indexExpression.evaluate(model, activity), model.counters.size)]
             }
             data class AddIntResources(val left: IntResourceExpression, val right: IntResourceExpression) : IntResourceExpression {
                 context(_: TaskScope)
@@ -2216,7 +2193,7 @@ class BlockTestModel(initScope: InitScope) {
             data class Slope(val indexExpression: IntExpression) : DoubleResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): DoubleResource =
-                    model.slopes[indexExpression.evaluate(model, activity) % model.slopes.size]
+                    model.slopes[floorMod(indexExpression.evaluate(model, activity), model.slopes.size)]
             }
             data class AddDoubleResources(val left: DoubleResourceExpression, val right: DoubleResourceExpression) : DoubleResourceExpression {
                 context(_: TaskScope)
@@ -2238,7 +2215,7 @@ class BlockTestModel(initScope: InitScope) {
             data class Timer(val indexExpression: IntExpression) : TimerResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): TimerResource =
-                    model.timers[indexExpression.evaluate(model, activity) % model.timers.size]
+                    model.timers[floorMod(indexExpression.evaluate(model, activity), model.timers.size)]
             }
             data class AddTimerResources(val left: TimerResourceExpression, val right: TimerResourceExpression) : TimerResourceExpression {
                 context(_: TaskScope)
@@ -2260,7 +2237,7 @@ class BlockTestModel(initScope: InitScope) {
             data class Integral(val indexExpression: IntExpression) : PolynomialResourceExpression {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, activity: BlockActivity): PolynomialResource =
-                    model.integrals[indexExpression.evaluate(model, activity) % model.integrals.size]
+                    model.integrals[floorMod(indexExpression.evaluate(model, activity), model.integrals.size)]
             }
             data class AddPolynomialResources(val left: PolynomialResourceExpression, val right: PolynomialResourceExpression) : PolynomialResourceExpression {
                 context(_: TaskScope)
