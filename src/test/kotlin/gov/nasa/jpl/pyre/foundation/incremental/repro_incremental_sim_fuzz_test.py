@@ -66,26 +66,30 @@ def translate_activity_instance_str(activity_str):
 
 
 def translate_batch_fn(batch, edit_round, incon_time):
+    if any('BlockActivity' in ln for ln in batch):
+        model = 'BlockTestModel'
+    else:
+        model = 'TestModel'
     if edit_round == 0:
         contents = '\n'.join([
             'println("Building initial plan")',
-            'return test(\n    ' + ',\n    '.join(batch) + '\n)',
+            f'return test(::{model},\n    ' + ',\n    '.join(batch) + '\n)',
         ])
-        return f'private fun buildInitialTester(): IncrementalSimulationTester<TestModel> {{\n{indent(contents)}\n}}', 'var tester = buildInitialTester()'
+        return f'private fun buildInitialTester(): IncrementalSimulationTester<{model}> {{\n{indent(contents)}\n}}', 'var tester = buildInitialTester()'
     elif incon_time is not None:
         contents = '\n'.join([
             'println("Doing a save/restore cycle")',
             f'val inconTime = Instant.parse("{incon_time}")',
             'val incon = tester.save(inconTime)',
-            'return test(startTime = inconTime, endTime = inconTime + 1.days, incon = incon, activities = listOf(\n    ' + ',\n    '.join(batch) + '\n)).also { println("Save/restore cycle complete") }',
+            f'return test(::{model}, startTime = inconTime, endTime = inconTime + 1.days, incon = incon, activities = listOf(\n    ' + ',\n    '.join(batch) + '\n)).also { println("Save/restore cycle complete") }',
             ])
-        return f'private fun saveRestore{edit_round}(tester: IncrementalSimulationTester<TestModel>): IncrementalSimulationTester<TestModel> {{\n{indent(contents)}\n}}', f'tester = saveRestore{edit_round}(tester)'
+        return f'private fun saveRestore{edit_round}(tester: IncrementalSimulationTester<{model}>): IncrementalSimulationTester<{model}> {{\n{indent(contents)}\n}}', f'tester = saveRestore{edit_round}(tester)'
     else:
         contents = '\n'.join([
             'println("Running edits")',
             'tester.run(\n    ' + '\n    + '.join(batch) + '\n)',
         ])
-        return f'private fun runEdits{edit_round}(tester: IncrementalSimulationTester<TestModel>) {{\n{indent(contents)}\n}}', f'runEdits{edit_round}(tester)'
+        return f'private fun runEdits{edit_round}(tester: IncrementalSimulationTester<{model}>) {{\n{indent(contents)}\n}}', f'runEdits{edit_round}(tester)'
 
 
 INDENT = '    '
