@@ -4,6 +4,7 @@ import gov.nasa.jpl.pyre.examples.scheduling.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.Companion.log
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.Companion.logSamples
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.CounterEffectBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SlopeEffectBlock.*
@@ -58,6 +59,8 @@ import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.m
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.remove
 import gov.nasa.jpl.pyre.foundation.incremental.TestModel.*
+import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
+import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
@@ -71,6 +74,7 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.minus
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.plus
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
+import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.resources.timer.MutableTimerResource
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResource
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations
@@ -83,6 +87,7 @@ import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.rest
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.resume
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.timer
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
 import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.integral
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.minus
@@ -118,6 +123,7 @@ import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.microseconds
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlin.time.times
@@ -957,12 +963,10 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed`() {
-        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(1)
-    }
-
-    @Test
-    fun `repro directly`() {
+    fun `fine-grained timer intercepts`() {
+        // Similar to some other later tests in this file, this is more of a test for foundation itself than for incremental sim in particular.
+        // This tests the way we calculate timer comparisons for rates and values that don't precisely hit 0.
+        // Sloppy intercept calculation stalled the single-shot simulator at one point.
         test(::BlockTestModel, endTime = day4, activities = listOf(
             GroundedActivity(Instant.parse("2025-01-01T01:00:00Z"), Name("Awaiter"), BlockActivity(listOf(
                 Await(CompareTimerResource(
@@ -970,7 +974,7 @@ class IncrementalSimulatorTest {
                         left = Timer(ConstantInt(2)),
                         right = Timer(ConstantInt(2)),
                     ),
-                    right = ConstantTimerResource(ConstantDuration(1e-9.seconds)),
+                    right = ConstantTimerResource(ConstantDuration(1.nanoseconds)),
                 )),
             ))),
             GroundedActivity(Instant.parse("2025-01-01T02:00:00Z"), Name("Start Timer"), BlockActivity(listOf(
@@ -979,6 +983,10 @@ class IncrementalSimulatorTest {
         ))
     }
 
+    @Test
+    fun `repro by seed`() {
+        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(1)
+    }
 
     @Tag("long-test")
     @ParameterizedTest
@@ -2278,12 +2286,22 @@ class BlockTestModel(initScope: InitScope) {
 
         companion object {
             private var logIndex = 0
-            fun <R> Expression<R>.log(name: String? = null): Expression<R> = object : Expression<R> {
+            fun <R> Expression<R>.log(name: String? = null) = object : Expression<R> {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, locals: BlockLocals): R =
                     this@log.evaluate(model, locals).also { result ->
                         println("Log ${++logIndex}: ${name?.let { "$it = " } ?: ""}$result")
                     }
+            }
+
+            fun <V> Expression<Resource<V>>.logSamples(name: String? = null) = object : Expression<Resource<V>> {
+                context(_: TaskScope)
+                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Resource<V> {
+                    val originalResource = this@logSamples.evaluate(model, locals)
+                    return Resource { originalResource.getDynamics().also { result ->
+                        println("Log sample ${++logIndex}: ${name ?: originalResource.toString()} = $result")
+                    }}.fullyNamed { originalResource.name }
+                }
             }
         }
     }

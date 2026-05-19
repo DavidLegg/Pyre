@@ -26,6 +26,7 @@ import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
 import gov.nasa.jpl.pyre.kernel.Name
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
+import kotlin.time.times
 
 typealias TimerResource = Resource<Timer>
 typealias MutableTimerResource = MutableResource<Timer>
@@ -111,10 +112,21 @@ object TimerResourceOperations {
                     // Otherwise, the -EPSILON doesn't change the quotient floor(|time| / rate),
                     // so the +EPSILON corrects it up to ceil(|time| / rate).
                     // Expiry(((delta.time.absoluteValue - EPSILON) / abs(delta.rate).toLong()) + EPSILON)
-                    // TODO: Review this change.
-                    //   I've switched from integer rate scaling and careful math to double rate scaling and not-so-careful math.
-                    //   I'm likely to have introduced a bug.
-                    Expiry((delta.time / delta.rate).absoluteValue)
+
+                    // Since the estimated root may be off by at most +/- epsilon (we think),
+                    // brute-force the problem of finding the exact crossing time by bracketing the estimated root
+                    // with a +/- 2-epsilon search window, taking the earliest time that actually crosses.
+                    // TODO: Think through ways to analytically reach this solution with fewer operations
+                    val estimatedRoot = (delta.time / delta.rate).absoluteValue
+                    var result: Duration? = null
+                    for (offset in -2..2) {
+                        val possibleRoot = estimatedRoot + offset * EPSILON
+                        if ((delta.time + delta.rate * possibleRoot) > ZERO != delta.time > ZERO) {
+                            result = possibleRoot
+                            break
+                        }
+                    }
+                    Expiry(checkNotNull(result) { "Root finding failed on resource $this"})
                 }
             ThinResourceMonad.pure(Expiring(Discrete(delta.time.compareTo(ZERO)), expiry))
         }.fullyNamed { Name("($this).compareTo($other)") }
