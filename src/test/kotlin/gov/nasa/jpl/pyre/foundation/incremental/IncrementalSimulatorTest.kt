@@ -137,6 +137,7 @@ class IncrementalSimulatorTest {
     private val day1 = day0 + 1.days
     private val day2 = day1 + 1.days
     private val day3 = day2 + 1.days
+    private val day4 = day3 + 1.days
     private fun <M : Any> testModel(
         startTime: Instant = day0,
         endTime: Instant = day1,
@@ -972,66 +973,47 @@ class IncrementalSimulatorTest {
 
     @Test
     fun `repro directly`() {
-        var tester = test(::BlockTestModel, startTime = day0, endTime = day3, activities = listOf(
-            GroundedActivity(Instant.parse("2025-01-01T14:17:41.447131Z"), Name("837261189620"), BlockActivity(statements=listOf(
+        test(::BlockTestModel, startTime = day0, endTime = day4, activities = listOf(
+            GroundedActivity(Instant.parse("2025-01-01T14:17:41.447131Z"), Name("837261189620"), BlockActivity(listOf(
                 IncreaseSlope(
                     index = ConstantInt(0),
                     amount = ConstantDouble(-50.06568663919735)
                 ),
             ))),
-            GroundedActivity(Instant.parse("2025-01-01T00:13:08.586389Z"), Name("932404337583"), BlockActivity(statements=listOf(
-                Await(condition = Switch(indexExpression = ConstantInt(0))),
-                ResetTimer(index = ConstantInt(value = 2)),
+            GroundedActivity(Instant.parse("2025-01-01T00:13:08.586389Z"), Name("932404337583"), BlockActivity(listOf(
+                Await(Switch(ConstantInt(0))),
+                ResetTimer(ConstantInt(2)),
                 SetCounter(
-                    index = IntFromDouble(doubleExpression = AddDoubles(
-                            left = ReadIntegral(indexExpression = ConstantInt(value = 0)),
-                            right = ConstantDouble(value = -0.8222882702965393)
+                    index = IntFromDouble(AddDoubles(
+                        left = ReadIntegral(ConstantInt(value = 0)),
+                        right = ConstantDouble(-0.8222882702965393)
+                    )),
+                    value = ConstantInt(43)
+                ),
+            ))),
+            GroundedActivity(Instant.parse("2025-01-02T12:57:22.033555Z"), Name("311298831536"), BlockActivity(listOf(
+                Await(CompareTimerResource(
+                    left = SubtractTimerResources(
+                        left = Timer(ConstantInt(2)),
+                        right = AddTimerResources(
+                            left = ConstantTimerResource(ConstantDuration(66.91303382501195.seconds)),
+                            right = SubtractTimerResources(
+                                left = ConstantTimerResource(ReadTimer(ConstantInt(0))),
+                                right = Timer(SubtractInts(
+                                    left = ConstantInt(-189),
+                                    right = ReadCounter(ConstantInt(-46))
+                                ))
+                            )
                         )
                     ),
-                    value = ConstantInt(value = 43)
-                ),
+                    right = ConstantTimerResource(ConstantDuration(0.seconds))
+                )),
             ))),
-            GroundedActivity(Instant.parse("2025-01-02T12:57:22.033555Z"), Name("311298831536"), BlockActivity(statements=listOf(
-                Await(
-                    condition = CompareTimerResource(
-                        left = SubtractTimerResources(
-                            left = Timer(indexExpression = ConstantInt(2)),
-                            right = AddTimerResources(
-                                left = ConstantTimerResource(ConstantDuration((-23.570594184988053).seconds)),
-                                right = SubtractTimerResources(
-                                    left = SubtractTimerResources(
-                                        left = ConstantTimerResource(ReadTimer(indexExpression = ConstantInt(0))),
-                                        right = Timer(
-                                            indexExpression = AddInts(
-                                                left = ConstantInt(value = -65),
-                                                right = SubtractInts(
-                                                    left = SubtractInts(
-                                                        left = ConstantInt(value = -31),
-                                                        right = SubtractInts(
-                                                            left = ConstantInt(value = 70),
-                                                            right = ConstantInt(value = -23)
-                                                        )
-                                                    ), right = ReadCounter(indexExpression = ConstantInt(value = -46))
-                                                )
-                                            )
-                                        )
-                                    ),
-                                    right = ConstantTimerResource(value = ConstantDuration(value = "-01:30.483628010".toDuration()))
-                                )
-                            )
-                        ), right = ConstantTimerResource(value = DurationFromDouble(doubleExpression = ReadSavedDouble))
-                    )
-                ),
-            )))
-        ))
-        val inconTime = Instant.parse("2025-01-02T11:20:06.838601Z")
-        val incon = tester.save(inconTime)
-        tester = test(::BlockTestModel, startTime = inconTime, endTime = inconTime + 1.days, incon = incon, activities = listOf(
-            GroundedActivity(Instant.parse("2025-01-02T12:44:33.518901Z"), Name("757558613893"), BlockActivity(statements=listOf(
-                ToggleSwitch(index = ConstantInt(0)),
+            GroundedActivity(Instant.parse("2025-01-02T12:44:33.518901Z"), Name("757558613893"), BlockActivity(listOf(
+                ToggleSwitch(ConstantInt(0)),
             ))),
-            GroundedActivity(Instant.parse("2025-01-03T03:53:45.511007Z"), Name("671704728625"), BlockActivity(statements=listOf(
-                ResumeTimer(index = ConstantInt(2)),
+            GroundedActivity(Instant.parse("2025-01-03T03:53:45.511007Z"), Name("671704728625"), BlockActivity(listOf(
+                ResumeTimer(ConstantInt(2)),
             ))),
         ))
     }
