@@ -963,46 +963,17 @@ class IncrementalSimulatorTest {
 
     @Test
     fun `repro directly`() {
-        test(::BlockTestModel, startTime = day0, endTime = day4, activities = listOf(
-            GroundedActivity(Instant.parse("2025-01-01T14:17:41.447131Z"), Name("837261189620"), BlockActivity(listOf(
-                IncreaseSlope(
-                    index = ConstantInt(0),
-                    amount = ConstantDouble(-50.06568663919735)
-                ),
-            ))),
-            GroundedActivity(Instant.parse("2025-01-01T00:13:08.586389Z"), Name("932404337583"), BlockActivity(listOf(
-                Await(Switch(ConstantInt(0))),
-                ResetTimer(ConstantInt(2)),
-                SetCounter(
-                    index = IntFromDouble(AddDoubles(
-                        left = ReadIntegral(ConstantInt(value = 0)),
-                        right = ConstantDouble(-0.8222882702965393)
-                    )),
-                    value = ConstantInt(43)
-                ),
-            ))),
-            GroundedActivity(Instant.parse("2025-01-02T12:57:22.033555Z"), Name("311298831536"), BlockActivity(listOf(
+        test(::BlockTestModel, endTime = day4, activities = listOf(
+            GroundedActivity(Instant.parse("2025-01-01T01:00:00Z"), Name("Awaiter"), BlockActivity(listOf(
                 Await(CompareTimerResource(
-                    left = SubtractTimerResources(
+                    left = AddTimerResources(
                         left = Timer(ConstantInt(2)),
-                        right = AddTimerResources(
-                            left = ConstantTimerResource(ConstantDuration(66.91303382501195.seconds)),
-                            right = SubtractTimerResources(
-                                left = ConstantTimerResource(ReadTimer(ConstantInt(0))),
-                                right = Timer(SubtractInts(
-                                    left = ConstantInt(-189),
-                                    right = ReadCounter(ConstantInt(-46))
-                                ))
-                            )
-                        )
+                        right = Timer(ConstantInt(2)),
                     ),
-                    right = ConstantTimerResource(ConstantDuration(0.seconds))
+                    right = ConstantTimerResource(ConstantDuration(1e-9.seconds)),
                 )),
             ))),
-            GroundedActivity(Instant.parse("2025-01-02T12:44:33.518901Z"), Name("757558613893"), BlockActivity(listOf(
-                ToggleSwitch(ConstantInt(0)),
-            ))),
-            GroundedActivity(Instant.parse("2025-01-03T03:53:45.511007Z"), Name("671704728625"), BlockActivity(listOf(
+            GroundedActivity(Instant.parse("2025-01-01T02:00:00Z"), Name("Start Timer"), BlockActivity(listOf(
                 ResumeTimer(ConstantInt(2)),
             ))),
         ))
