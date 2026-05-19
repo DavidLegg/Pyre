@@ -362,7 +362,7 @@ class KernelIncrementalSimulator(
                 // Find the node at the end of the prior batch, which will be the start of this batch
                 val firstBranchTip = node.prior.first()
                 val batchStartTime = firstBranchTip.time.batchStart()
-                val batchStart = generateSequence<CellNode<T>>(firstBranchTip) { firstBranchTip.prior }
+                val batchStart = generateSequence<CellNode<T>>(firstBranchTip) { (it as CellWriteNode).prior }
                     // It's safe to use lexical order instead of the more expensive causal order here,
                     // because batchStartTime has branch and step set to 0; causal and lexical "less than" agree.
                     // Further, such a node must exist because initial writes cannot participate in a merge.

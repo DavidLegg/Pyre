@@ -3,8 +3,6 @@ package gov.nasa.jpl.pyre.foundation.incremental
 import gov.nasa.jpl.pyre.examples.scheduling.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.Companion.log
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.Companion.logSamples
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.CounterEffectBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SlopeEffectBlock.*
@@ -59,7 +57,6 @@ import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.m
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.remove
 import gov.nasa.jpl.pyre.foundation.incremental.TestModel.*
-import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
@@ -87,7 +84,6 @@ import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.rest
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.resume
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.timer
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
 import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.integral
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.minus
@@ -993,7 +989,11 @@ class IncrementalSimulatorTest {
     @MethodSource("fuzzingSeeds")
     fun `random plan edits conform to fundamental incremental sim guarantee -- model 1`(seed: Int) {
         `random plan edits conform to fundamental incremental sim guarantee`(seed) { rng ->
-            object : RandomActivityGenerator<TestModel> {
+            object : FuzzTestSettings<TestModel> {
+                override val numberOfRounds: Int = 100
+
+                override fun numberOfInitialActivities(): Int = 10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()
+
                 override fun constructModel(initScope: InitScope): TestModel = TestModel(initScope)
 
                 override fun nextActivity(): Activity<TestModel> = randomizeArgs(rng.choose(
@@ -1040,7 +1040,11 @@ class IncrementalSimulatorTest {
     @MethodSource("fuzzingSeeds")
     fun `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed: Int) {
         `random plan edits conform to fundamental incremental sim guarantee`(seed) { rng ->
-            object : RandomActivityGenerator<BlockTestModel> {
+            object : FuzzTestSettings<BlockTestModel> {
+                override val numberOfRounds: Int = 100
+
+                override fun numberOfInitialActivities(): Int = 10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()
+
                 override fun constructModel(initScope: InitScope): BlockTestModel = BlockTestModel(initScope)
 
                 override fun nextActivity(): Activity<BlockTestModel> = BlockActivity(nextStatementList())
@@ -1233,7 +1237,9 @@ class IncrementalSimulatorTest {
         `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed)
     }
 
-    interface RandomActivityGenerator<M> {
+    interface FuzzTestSettings<M> {
+        val numberOfRounds: Int
+        fun numberOfInitialActivities(): Int
         fun constructModel(initScope: InitScope) : M
         fun nextActivity(): Activity<M>
         fun randomizeArgs(activity: Activity<M>): Activity<M>
@@ -1250,7 +1256,7 @@ class IncrementalSimulatorTest {
      */
     fun <M : Any> `random plan edits conform to fundamental incremental sim guarantee`(
         seed: Int,
-        randomActivityGeneratorConstructor: (Random) -> RandomActivityGenerator<M>,
+        settingsConstructor: (Random) -> FuzzTestSettings<M>,
         ) {
         var indentLevel = 0
         fun println(msg: String) {
@@ -1267,10 +1273,9 @@ class IncrementalSimulatorTest {
         }
 
         val rng = Random(seed)
-        val activityGenerator = randomActivityGeneratorConstructor(rng)
-        val numberOfInitialActivities = 10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()
-        val roundsOfEdits = 100
-        println("Running $numberOfInitialActivities activities through $roundsOfEdits rounds of edits...")
+        val settings = settingsConstructor(rng)
+        val numberOfInitialActivities = settings.numberOfInitialActivities()
+        println("Running $numberOfInitialActivities activities through ${settings.numberOfRounds} rounds of edits...")
 
         val usedActivityIds = mutableSetOf<Long>()
         fun Random.nextActivityId(): Name {
@@ -1292,15 +1297,15 @@ class IncrementalSimulatorTest {
             activities += GroundedActivity(
                 rng.nextInstant(startTime..endTime),
                 rng.nextActivityId(),
-                activityGenerator.nextActivity()).also { println("Add $it") }
+                settings.nextActivity()).also { println("Add $it") }
         }
         endBlock()
         // Verify the incremental simulator can handle that initial plan
-        var tester = test(activityGenerator::constructModel, activities)
+        var tester = test(settings::constructModel, activities)
         println("Initial simulation complete")
 
         // For as many rounds of edits as we've decided to do...
-        for (roundNumber in 1..roundsOfEdits) {
+        for (roundNumber in 1..settings.numberOfRounds) {
             startBlock("Running round $roundNumber of edits...")
             // In some rounds, do a save/restore cycle
             if (rng.chance(0.05)) {
@@ -1317,11 +1322,11 @@ class IncrementalSimulatorTest {
                     newActivities += GroundedActivity(
                         rng.nextInstant(startTime..endTime),
                         rng.nextActivityId(),
-                        activityGenerator.nextActivity()).also { println("Add $it") }
+                        settings.nextActivity()).also { println("Add $it") }
                 }
                 // Then build a new incremental tester with those time bounds, saving and restoring from a checkpoint
                 tester = test(
-                    constructModel = activityGenerator::constructModel,
+                    constructModel = settings::constructModel,
                     activities = newActivities,
                     startTime = startTime,
                     endTime = endTime,
@@ -1344,7 +1349,7 @@ class IncrementalSimulatorTest {
                         edits += GroundedActivity(
                             rng.nextInstant(startTime..endTime),
                             rng.nextActivityId(),
-                            activityGenerator.nextActivity()
+                            settings.nextActivity()
                         ).also { println("Add $it") }
                     }
                     2 -> {
@@ -1362,7 +1367,7 @@ class IncrementalSimulatorTest {
                     4 -> {
                         // Edit an activity's arguments
                         val activity = activities.randomRemove(rng)
-                        val newActivity = activityGenerator.randomizeArgs(activity.activity)
+                        val newActivity = settings.randomizeArgs(activity.activity)
                         println("Edit $activity to $newActivity")
                         edits += edit(activity to newActivity)
                     }
@@ -1370,7 +1375,7 @@ class IncrementalSimulatorTest {
                 }
             }
             endBlock()
-            println("Running edits")
+            println("Running edits (${activities.size} activities total)")
             // Now run those randomly-chosen edits, asserting the single-shot and incremental simulators agree
             tester.run(edits)
             // Also apply the edits to our list of activities, to know what we can edit next round
