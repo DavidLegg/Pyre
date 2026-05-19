@@ -2,18 +2,9 @@ package gov.nasa.jpl.pyre.foundation.incremental
 
 import gov.nasa.jpl.pyre.examples.scheduling.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.BooleanExpression.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.BooleanResourceExpression.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.DoubleExpression.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.DoubleResourceExpression.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.DurationExpression.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.IntExpression.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.IntResourceExpression.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.PolynomialResourceExpression.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.ExpressionBlock.TimerResourceExpression.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.Companion.log
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.CounterEffectBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SlopeEffectBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SwitchEffectBlock.*
@@ -66,7 +57,6 @@ import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.m
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.move
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.plus
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.remove
-import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.unaryPlus
 import gov.nasa.jpl.pyre.foundation.incremental.TestModel.*
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
@@ -1161,7 +1151,7 @@ class IncrementalSimulatorTest {
                     { SaveDuration(nextDurationExpression()) },
                 )
 
-                private fun nextBooleanExpression(): BooleanExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                private fun nextBooleanExpression(): Expression<Boolean> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
                     ConstantBoolean(rng.chance())
                 } else rng.choose(
                     { ReadSavedBoolean },
@@ -1174,7 +1164,7 @@ class IncrementalSimulatorTest {
                     { Not(nextBooleanExpression()) },
                 )
 
-                private fun nextIntExpression(): IntExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                private fun nextIntExpression(): Expression<Int> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
                     ConstantInt(rng.nextInt(-100, 100))
                 } else rng.choose(
                     { ReadSavedInt },
@@ -1184,7 +1174,7 @@ class IncrementalSimulatorTest {
                     { IntFromDouble(nextDoubleExpression()) },
                 )
 
-                private fun nextDoubleExpression(): DoubleExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                private fun nextDoubleExpression(): Expression<Double> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
                     ConstantDouble(rng.nextDouble(-100.0, 100.0))
                 } else rng.choose(
                     { ReadSavedDouble },
@@ -1195,7 +1185,7 @@ class IncrementalSimulatorTest {
                     { DoubleFromInt(nextIntExpression()) },
                 )
 
-                private fun nextDurationExpression(): DurationExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                private fun nextDurationExpression(): Expression<Duration> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
                     ConstantDuration(rng.nextDouble(-100.0, 100.0).seconds)
                 } else rng.choose(
                     { ReadSavedDuration },
@@ -1203,7 +1193,7 @@ class IncrementalSimulatorTest {
                     { DurationFromDouble(nextDoubleExpression()) },
                 )
 
-                private fun nextBooleanResourceExpression(): BooleanResourceExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                private fun nextBooleanResourceExpression(): Expression<BooleanResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
                     ConstantBooleanResource(nextBooleanExpression())
                 } else rng.choose(
                     { Switch(nextIntExpression()) },
@@ -1216,7 +1206,7 @@ class IncrementalSimulatorTest {
                     { ComparePolynomialResource(nextPolynomialResourceExpression(), nextPolynomialResourceExpression()) },
                 )
 
-                private fun nextIntResourceExpression(): IntResourceExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                private fun nextIntResourceExpression(): Expression<IntResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
                     ConstantIntResource(nextIntExpression())
                 } else rng.choose(
                     { Counter(nextIntExpression()) },
@@ -1224,7 +1214,7 @@ class IncrementalSimulatorTest {
                     { SubtractIntResources(nextIntResourceExpression(), nextIntResourceExpression()) },
                 )
 
-                private fun nextDoubleResourceExpression(): DoubleResourceExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                private fun nextDoubleResourceExpression(): Expression<DoubleResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
                     ConstantDoubleResource(nextDoubleExpression())
                 } else rng.choose(
                     { Slope(nextIntExpression()) },
@@ -1232,7 +1222,7 @@ class IncrementalSimulatorTest {
                     { SubtractDoubleResources(nextDoubleResourceExpression(), nextDoubleResourceExpression()) },
                 )
 
-                private fun nextTimerResourceExpression(): TimerResourceExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                private fun nextTimerResourceExpression(): Expression<TimerResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
                     ConstantTimerResource(nextDurationExpression())
                 } else rng.choose(
                     { Timer(nextIntExpression()) },
@@ -1240,7 +1230,7 @@ class IncrementalSimulatorTest {
                     { SubtractTimerResources(nextTimerResourceExpression(), nextTimerResourceExpression()) },
                 )
 
-                private fun nextPolynomialResourceExpression(): PolynomialResourceExpression = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                private fun nextPolynomialResourceExpression(): Expression<PolynomialResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
                     ConstantPolynomialResourceExpression(nextDoubleExpression())
                 } else rng.choose(
                     { Integral(nextIntExpression()) },
@@ -1894,13 +1884,13 @@ class BlockTestModel(initScope: InitScope) {
 
         sealed interface EffectBlock : StatementBlock {
             sealed interface SwitchEffectBlock : EffectBlock {
-                data class SetSwitch(val index: IntExpression, val value: BooleanExpression) : SwitchEffectBlock {
+                data class SetSwitch(val index: Expression<Int>, val value: Expression<Boolean>) : SwitchEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                         model.switches[floorMod(index.evaluate(model, locals), model.switches.size)].set(value.evaluate(model, locals))
                     }
                 }
-                data class ToggleSwitch(val index: IntExpression) : SwitchEffectBlock {
+                data class ToggleSwitch(val index: Expression<Int>) : SwitchEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                         model.switches[floorMod(index.evaluate(model, locals), model.switches.size)].toggle()
@@ -1908,25 +1898,25 @@ class BlockTestModel(initScope: InitScope) {
                 }
             }
             sealed interface TimerEffectBlock : EffectBlock {
-                data class PauseTimer(val index: IntExpression) : TimerEffectBlock {
+                data class PauseTimer(val index: Expression<Int>) : TimerEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                         model.timers[floorMod(index.evaluate(model, locals), model.timers.size)].pause()
                     }
                 }
-                data class ResumeTimer(val index: IntExpression) : TimerEffectBlock {
+                data class ResumeTimer(val index: Expression<Int>) : TimerEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                         model.timers[floorMod(index.evaluate(model, locals), model.timers.size)].resume()
                     }
                 }
-                data class ResetTimer(val index: IntExpression) : TimerEffectBlock {
+                data class ResetTimer(val index: Expression<Int>) : TimerEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                         model.timers[floorMod(index.evaluate(model, locals), model.timers.size)].reset()
                     }
                 }
-                data class RestartTimer(val index: IntExpression) : TimerEffectBlock {
+                data class RestartTimer(val index: Expression<Int>) : TimerEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                         model.timers[floorMod(index.evaluate(model, locals), model.timers.size)].restart()
@@ -1934,13 +1924,13 @@ class BlockTestModel(initScope: InitScope) {
                 }
             }
             sealed interface CounterEffectBlock : EffectBlock {
-                data class SetCounter(val index: IntExpression, val value: IntExpression) : CounterEffectBlock {
+                data class SetCounter(val index: Expression<Int>, val value: Expression<Int>) : CounterEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                         model.counters[floorMod(index.evaluate(model, locals), model.counters.size)].set(value.evaluate(model, locals))
                     }
                 }
-                data class IncrementCounter(val index: IntExpression, val amount: IntExpression) : CounterEffectBlock {
+                data class IncrementCounter(val index: Expression<Int>, val amount: Expression<Int>) : CounterEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                         model.counters[floorMod(index.evaluate(model, locals), model.counters.size)].increment(amount.evaluate(model, locals))
@@ -1948,13 +1938,13 @@ class BlockTestModel(initScope: InitScope) {
                 }
             }
             sealed interface SlopeEffectBlock : EffectBlock {
-                data class SetSlope(val index: IntExpression, val value: DoubleExpression) : SlopeEffectBlock {
+                data class SetSlope(val index: Expression<Int>, val value: Expression<Double>) : SlopeEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                         model.slopes[floorMod(index.evaluate(model, locals), model.slopes.size)].set(value.evaluate(model, locals))
                     }
                 }
-                data class IncreaseSlope(val index: IntExpression, val amount: DoubleExpression) : SlopeEffectBlock {
+                data class IncreaseSlope(val index: Expression<Int>, val amount: Expression<Double>) : SlopeEffectBlock {
                     context(_: TaskScope)
                     override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                         model.slopes[floorMod(index.evaluate(model, locals), model.slopes.size)].increase(amount.evaluate(model, locals))
@@ -1962,7 +1952,7 @@ class BlockTestModel(initScope: InitScope) {
                 }
             }
         }
-        data class Await(val condition: BooleanResourceExpression) : StatementBlock {
+        data class Await(val condition: Expression<BooleanResource>) : StatementBlock {
             context(_: TaskScope)
             override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                 await(condition.evaluate(model, locals))
@@ -1980,25 +1970,25 @@ class BlockTestModel(initScope: InitScope) {
             override fun toString(): String = "Spawn(body=listOf(${body.joinToString()}))"
         }
         sealed interface ReportBlock : StatementBlock {
-            data class ReportBoolean(val expression: BooleanExpression) : ReportBlock {
+            data class ReportBoolean(val expression: Expression<Boolean>) : ReportBlock {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                     stdout.report(expression.evaluate(model, locals).toString())
                 }
             }
-            data class ReportInt(val expression: IntExpression) : ReportBlock {
+            data class ReportInt(val expression: Expression<Int>) : ReportBlock {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                     stdout.report(expression.evaluate(model, locals).toString())
                 }
             }
-            data class ReportDouble(val expression: DoubleExpression) : ReportBlock {
+            data class ReportDouble(val expression: Expression<Double>) : ReportBlock {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                     stdout.report(expression.evaluate(model, locals).toString())
                 }
             }
-            data class ReportDuration(val expression: DurationExpression) : ReportBlock {
+            data class ReportDuration(val expression: Expression<Duration>) : ReportBlock {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                     stdout.report(expression.evaluate(model, locals).toString())
@@ -2006,25 +1996,25 @@ class BlockTestModel(initScope: InitScope) {
             }
         }
         sealed interface SaveValue : StatementBlock {
-            data class SaveBoolean(val expression: BooleanExpression) : SaveValue {
+            data class SaveBoolean(val expression: Expression<Boolean>) : SaveValue {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                     locals.savedBoolean = expression.evaluate(model, locals)
                 }
             }
-            data class SaveInt(val expression: IntExpression) : SaveValue {
+            data class SaveInt(val expression: Expression<Int>) : SaveValue {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                     locals.savedInt = expression.evaluate(model, locals)
                 }
             }
-            data class SaveDouble(val expression: DoubleExpression) : SaveValue {
+            data class SaveDouble(val expression: Expression<Double>) : SaveValue {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                     locals.savedDouble = expression.evaluate(model, locals)
                 }
             }
-            data class SaveDuration(val expression: DurationExpression) : SaveValue {
+            data class SaveDuration(val expression: Expression<Duration>) : SaveValue {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
                     locals.savedDuration = expression.evaluate(model, locals)
@@ -2032,287 +2022,297 @@ class BlockTestModel(initScope: InitScope) {
             }
         }
     }
-    sealed interface ExpressionBlock<R> {
+    interface Expression<R> {
         context(_: TaskScope)
         fun evaluate(model: BlockTestModel, locals: BlockLocals): R
 
-        sealed interface BooleanExpression : ExpressionBlock<Boolean> {
-            data class ConstantBoolean(val value: Boolean) : BooleanExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean = value
-            }
-            data object ReadSavedBoolean : BooleanExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean = locals.savedBoolean
-            }
-            data class ReadSwitch(val indexExpression: IntExpression) : BooleanExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
-                    model.switches[floorMod(indexExpression.evaluate(model, locals), model.switches.size)].getValue()
-            }
-            data class CompareInt(val left: IntExpression, val right: IntExpression) : BooleanExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
-                    left.evaluate(model, locals) > right.evaluate(model, locals)
-            }
-            data class CompareDouble(val left: DoubleExpression, val right: DoubleExpression) : BooleanExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
-                    left.evaluate(model, locals) > right.evaluate(model, locals)
-            }
-            data class CompareDuration(val left: DurationExpression, val right: DurationExpression) : BooleanExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
-                    left.evaluate(model, locals) > right.evaluate(model, locals)
-            }
-            data class And(val left: BooleanExpression, val right: BooleanExpression) : BooleanExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
-                    left.evaluate(model, locals) && right.evaluate(model, locals)
-            }
-            data class Or(val left: BooleanExpression, val right: BooleanExpression) : BooleanExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
-                    left.evaluate(model, locals) || right.evaluate(model, locals)
-            }
-            data class Not(val expression: BooleanExpression) : BooleanExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
-                    !expression.evaluate(model, locals)
-            }
+        // Boolean
+        data class ConstantBoolean(val value: Boolean) : Expression<Boolean> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean = value
         }
-        sealed interface IntExpression : ExpressionBlock<Int> {
-            data class ConstantInt(val value: Int) : IntExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int = value
-            }
-            data object ReadSavedInt : IntExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int = locals.savedInt
-            }
-            data class ReadCounter(val indexExpression: IntExpression) : IntExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int =
-                    model.counters[floorMod(indexExpression.evaluate(model, locals), model.counters.size)].getValue()
-            }
-            data class AddInts(val left: IntExpression, val right: IntExpression) : IntExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int =
-                    left.evaluate(model, locals) + right.evaluate(model, locals)
-            }
-            data class SubtractInts(val left: IntExpression, val right: IntExpression) : IntExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int =
-                    left.evaluate(model, locals) - right.evaluate(model, locals)
-            }
-            data class IntFromDouble(val doubleExpression: DoubleExpression) : IntExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int =
-                    doubleExpression.evaluate(model, locals).toInt()
-            }
+        data object ReadSavedBoolean : Expression<Boolean> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean = locals.savedBoolean
         }
-        sealed interface DoubleExpression : ExpressionBlock<Double> {
-            data class ConstantDouble(val value: Double) : DoubleExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double = value
-            }
-            data object ReadSavedDouble : DoubleExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double = locals.savedDouble
-            }
-            data class ReadSlope(val indexExpression: IntExpression) : DoubleExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double =
-                    model.slopes[floorMod(indexExpression.evaluate(model, locals), model.slopes.size)].getValue()
-            }
-            data class ReadIntegral(val indexExpression: IntExpression) : DoubleExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double =
-                    model.integrals[floorMod(indexExpression.evaluate(model, locals), model.integrals.size)].getValue()
-            }
-            data class AddDoubles(val left: DoubleExpression, val right: DoubleExpression) : DoubleExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double =
-                    left.evaluate(model, locals) + right.evaluate(model, locals)
-            }
-            data class SubtractDoubles(val left: DoubleExpression, val right: DoubleExpression) : DoubleExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double =
-                    left.evaluate(model, locals) - right.evaluate(model, locals)
-            }
-            data class DoubleFromInt(val intExpression: IntExpression) : DoubleExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double =
-                    intExpression.evaluate(model, locals).toDouble()
-            }
+        data class ReadSwitch(val indexExpression: Expression<Int>) : Expression<Boolean> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
+                model.switches[floorMod(indexExpression.evaluate(model, locals), model.switches.size)].getValue()
         }
-        sealed interface DurationExpression : ExpressionBlock<Duration> {
-            data class ConstantDuration(val value: Duration) : DurationExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Duration = value
+        data class CompareInt(val left: Expression<Int>, val right: Expression<Int>) : Expression<Boolean> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
+                left.evaluate(model, locals) > right.evaluate(model, locals)
+        }
+        data class CompareDouble(val left: Expression<Double>, val right: Expression<Double>) : Expression<Boolean> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
+                left.evaluate(model, locals) > right.evaluate(model, locals)
+        }
+        data class CompareDuration(val left: Expression<Duration>, val right: Expression<Duration>) : Expression<Boolean> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
+                left.evaluate(model, locals) > right.evaluate(model, locals)
+        }
+        data class And(val left: Expression<Boolean>, val right: Expression<Boolean>) : Expression<Boolean> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
+                left.evaluate(model, locals) && right.evaluate(model, locals)
+        }
+        data class Or(val left: Expression<Boolean>, val right: Expression<Boolean>) : Expression<Boolean> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
+                left.evaluate(model, locals) || right.evaluate(model, locals)
+        }
+        data class Not(val expression: Expression<Boolean>) : Expression<Boolean> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
+                !expression.evaluate(model, locals)
+        }
 
-                override fun toString(): String {
-                    return "ConstantDuration(value=${value.repr()})"
-                }
-            }
-            data object ReadSavedDuration : DurationExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Duration = locals.savedDuration
-            }
-            data class ReadTimer(val indexExpression: IntExpression) : DurationExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Duration =
-                    model.timers[floorMod(indexExpression.evaluate(model, locals), model.timers.size)].getValue()
-            }
-            data class DurationFromDouble(val doubleExpression: DoubleExpression) : DurationExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): Duration =
-                    doubleExpression.evaluate(model, locals).seconds
+        // Int
+        data class ConstantInt(val value: Int) : Expression<Int> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int = value
+        }
+        data object ReadSavedInt : Expression<Int> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int = locals.savedInt
+        }
+        data class ReadCounter(val indexExpression: Expression<Int>) : Expression<Int> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int =
+                model.counters[floorMod(indexExpression.evaluate(model, locals), model.counters.size)].getValue()
+        }
+        data class AddInts(val left: Expression<Int>, val right: Expression<Int>) : Expression<Int> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int =
+                left.evaluate(model, locals) + right.evaluate(model, locals)
+        }
+        data class SubtractInts(val left: Expression<Int>, val right: Expression<Int>) : Expression<Int> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int =
+                left.evaluate(model, locals) - right.evaluate(model, locals)
+        }
+        data class IntFromDouble(val doubleExpression: Expression<Double>) : Expression<Int> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int =
+                doubleExpression.evaluate(model, locals).toInt()
+        }
+
+        // Double
+        data class ConstantDouble(val value: Double) : Expression<Double> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double = value
+        }
+        data object ReadSavedDouble : Expression<Double> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double = locals.savedDouble
+        }
+        data class ReadSlope(val indexExpression: Expression<Int>) : Expression<Double> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double =
+                model.slopes[floorMod(indexExpression.evaluate(model, locals), model.slopes.size)].getValue()
+        }
+        data class ReadIntegral(val indexExpression: Expression<Int>) : Expression<Double> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double =
+                model.integrals[floorMod(indexExpression.evaluate(model, locals), model.integrals.size)].getValue()
+        }
+        data class AddDoubles(val left: Expression<Double>, val right: Expression<Double>) : Expression<Double> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double =
+                left.evaluate(model, locals) + right.evaluate(model, locals)
+        }
+        data class SubtractDoubles(val left: Expression<Double>, val right: Expression<Double>) : Expression<Double> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double =
+                left.evaluate(model, locals) - right.evaluate(model, locals)
+        }
+        data class DoubleFromInt(val intExpression: Expression<Int>) : Expression<Double> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double =
+                intExpression.evaluate(model, locals).toDouble()
+        }
+
+        // Duration
+        data class ConstantDuration(val value: Duration) : Expression<Duration> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Duration = value
+
+            override fun toString(): String {
+                return "ConstantDuration(value=${value.repr()})"
             }
         }
-        sealed interface BooleanResourceExpression : ExpressionBlock<BooleanResource> {
-            data class ConstantBooleanResource(val value: BooleanExpression) : BooleanResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
-                    DiscreteResourceMonad.pure(value.evaluate(model, locals))
-            }
-            data class Switch(val indexExpression: IntExpression) : BooleanResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
-                    model.switches[floorMod(indexExpression.evaluate(model, locals), model.switches.size)]
-            }
-            data class AndResource(val left: BooleanResourceExpression, val right: BooleanResourceExpression) : BooleanResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
-                    left.evaluate(model, locals) and right.evaluate(model, locals)
-            }
-            data class OrResource(val left: BooleanResourceExpression, val right: BooleanResourceExpression) : BooleanResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
-                    left.evaluate(model, locals) or right.evaluate(model, locals)
-            }
-            data class NotResource(val expression: BooleanResourceExpression) : BooleanResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
-                    expression.evaluate(model, locals).not()
-            }
-            data class CompareIntResource(val left: IntResourceExpression, val right: IntResourceExpression) : BooleanResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
-                    left.evaluate(model, locals) greaterThan right.evaluate(model, locals)
-            }
-            data class CompareDoubleResource(val left: DoubleResourceExpression, val right: DoubleResourceExpression) : BooleanResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
-                    left.evaluate(model, locals) greaterThan right.evaluate(model, locals)
-            }
-            data class CompareTimerResource(val left: TimerResourceExpression, val right: TimerResourceExpression) : BooleanResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
-                    left.evaluate(model, locals) greaterThan right.evaluate(model, locals)
-            }
-            data class ComparePolynomialResource(val left: PolynomialResourceExpression, val right: PolynomialResourceExpression) : BooleanResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
-                    left.evaluate(model, locals) greaterThan right.evaluate(model, locals)
-            }
+        data object ReadSavedDuration : Expression<Duration> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Duration = locals.savedDuration
         }
-        sealed interface IntResourceExpression : ExpressionBlock<IntResource> {
-            data class ConstantIntResource(val value: IntExpression) : IntResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): IntResource =
-                    DiscreteResourceMonad.pure(value.evaluate(model, locals))
-            }
-            data class Counter(val indexExpression: IntExpression) : IntResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): IntResource =
-                    model.counters[floorMod(indexExpression.evaluate(model, locals), model.counters.size)]
-            }
-            data class AddIntResources(val left: IntResourceExpression, val right: IntResourceExpression) : IntResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): IntResource =
-                    left.evaluate(model, locals) + right.evaluate(model, locals)
-            }
-            data class SubtractIntResources(val left: IntResourceExpression, val right: IntResourceExpression) : IntResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): IntResource =
-                    left.evaluate(model, locals) - right.evaluate(model, locals)
-            }
+        data class ReadTimer(val indexExpression: Expression<Int>) : Expression<Duration> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Duration =
+                model.timers[floorMod(indexExpression.evaluate(model, locals), model.timers.size)].getValue()
         }
-        sealed interface DoubleResourceExpression : ExpressionBlock<DoubleResource> {
-            data class ConstantDoubleResource(val value: DoubleExpression) : DoubleResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): DoubleResource =
-                    DiscreteResourceMonad.pure(value.evaluate(model, locals))
-            }
-            data class Slope(val indexExpression: IntExpression) : DoubleResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): DoubleResource =
-                    model.slopes[floorMod(indexExpression.evaluate(model, locals), model.slopes.size)]
-            }
-            data class AddDoubleResources(val left: DoubleResourceExpression, val right: DoubleResourceExpression) : DoubleResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): DoubleResource =
-                    left.evaluate(model, locals) + right.evaluate(model, locals)
-            }
-            data class SubtractDoubleResources(val left: DoubleResourceExpression, val right: DoubleResourceExpression) : DoubleResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): DoubleResource =
-                    left.evaluate(model, locals) - right.evaluate(model, locals)
-            }
+        data class DurationFromDouble(val doubleExpression: Expression<Double>) : Expression<Duration> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): Duration =
+                doubleExpression.evaluate(model, locals).seconds
         }
-        sealed interface TimerResourceExpression : ExpressionBlock<TimerResource> {
-            data class ConstantTimerResource(val value: DurationExpression) : TimerResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): TimerResource =
-                    TimerResourceOperations.constant(value.evaluate(model, locals))
-            }
-            data class Timer(val indexExpression: IntExpression) : TimerResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): TimerResource =
-                    model.timers[floorMod(indexExpression.evaluate(model, locals), model.timers.size)]
-            }
-            data class AddTimerResources(val left: TimerResourceExpression, val right: TimerResourceExpression) : TimerResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): TimerResource =
-                    left.evaluate(model, locals) + right.evaluate(model, locals)
-            }
-            data class SubtractTimerResources(val left: TimerResourceExpression, val right: TimerResourceExpression) : TimerResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): TimerResource =
-                    left.evaluate(model, locals) - right.evaluate(model, locals)
-            }
+
+        // BooleanResource
+        data class ConstantBooleanResource(val value: Expression<Boolean>) : Expression<BooleanResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
+                DiscreteResourceMonad.pure(value.evaluate(model, locals))
         }
-        sealed interface PolynomialResourceExpression : ExpressionBlock<PolynomialResource> {
-            data class ConstantPolynomialResourceExpression(val value: DoubleExpression) : PolynomialResourceExpression {
+        data class Switch(val indexExpression: Expression<Int>) : Expression<BooleanResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
+                model.switches[floorMod(indexExpression.evaluate(model, locals), model.switches.size)]
+        }
+        data class AndResource(val left: Expression<BooleanResource>, val right: Expression<BooleanResource>) : Expression<BooleanResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
+                left.evaluate(model, locals) and right.evaluate(model, locals)
+        }
+        data class OrResource(val left: Expression<BooleanResource>, val right: Expression<BooleanResource>) : Expression<BooleanResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
+                left.evaluate(model, locals) or right.evaluate(model, locals)
+        }
+        data class NotResource(val expression: Expression<BooleanResource>) : Expression<BooleanResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
+                expression.evaluate(model, locals).not()
+        }
+        data class CompareIntResource(val left: Expression<IntResource>, val right: Expression<IntResource>) : Expression<BooleanResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
+                left.evaluate(model, locals) greaterThan right.evaluate(model, locals)
+        }
+        data class CompareDoubleResource(val left: Expression<DoubleResource>, val right: Expression<DoubleResource>) : Expression<BooleanResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
+                left.evaluate(model, locals) greaterThan right.evaluate(model, locals)
+        }
+        data class CompareTimerResource(val left: Expression<TimerResource>, val right: Expression<TimerResource>) : Expression<BooleanResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
+                left.evaluate(model, locals) greaterThan right.evaluate(model, locals)
+        }
+        data class ComparePolynomialResource(val left: Expression<PolynomialResource>, val right: Expression<PolynomialResource>) : Expression<BooleanResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
+                left.evaluate(model, locals) greaterThan right.evaluate(model, locals)
+        }
+
+        // IntResource
+        data class ConstantIntResource(val value: Expression<Int>) : Expression<IntResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): IntResource =
+                DiscreteResourceMonad.pure(value.evaluate(model, locals))
+        }
+        data class Counter(val indexExpression: Expression<Int>) : Expression<IntResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): IntResource =
+                model.counters[floorMod(indexExpression.evaluate(model, locals), model.counters.size)]
+        }
+        data class AddIntResources(val left: Expression<IntResource>, val right: Expression<IntResource>) : Expression<IntResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): IntResource =
+                left.evaluate(model, locals) + right.evaluate(model, locals)
+        }
+        data class SubtractIntResources(val left: Expression<IntResource>, val right: Expression<IntResource>) : Expression<IntResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): IntResource =
+                left.evaluate(model, locals) - right.evaluate(model, locals)
+        }
+
+        // DoubleResource
+        data class ConstantDoubleResource(val value: Expression<Double>) : Expression<DoubleResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): DoubleResource =
+                DiscreteResourceMonad.pure(value.evaluate(model, locals))
+        }
+        data class Slope(val indexExpression: Expression<Int>) : Expression<DoubleResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): DoubleResource =
+                model.slopes[floorMod(indexExpression.evaluate(model, locals), model.slopes.size)]
+        }
+        data class AddDoubleResources(val left: Expression<DoubleResource>, val right: Expression<DoubleResource>) : Expression<DoubleResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): DoubleResource =
+                left.evaluate(model, locals) + right.evaluate(model, locals)
+        }
+        data class SubtractDoubleResources(val left: Expression<DoubleResource>, val right: Expression<DoubleResource>) : Expression<DoubleResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): DoubleResource =
+                left.evaluate(model, locals) - right.evaluate(model, locals)
+        }
+
+        // TimerResource
+        data class ConstantTimerResource(val value: Expression<Duration>) : Expression<TimerResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): TimerResource =
+                TimerResourceOperations.constant(value.evaluate(model, locals))
+        }
+        data class Timer(val indexExpression: Expression<Int>) : Expression<TimerResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): TimerResource =
+                model.timers[floorMod(indexExpression.evaluate(model, locals), model.timers.size)]
+        }
+        data class AddTimerResources(val left: Expression<TimerResource>, val right: Expression<TimerResource>) : Expression<TimerResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): TimerResource =
+                left.evaluate(model, locals) + right.evaluate(model, locals)
+        }
+        data class SubtractTimerResources(val left: Expression<TimerResource>, val right: Expression<TimerResource>) : Expression<TimerResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): TimerResource =
+                left.evaluate(model, locals) - right.evaluate(model, locals)
+        }
+
+        // PolynomialResource
+        data class ConstantPolynomialResourceExpression(val value: Expression<Double>) : Expression<PolynomialResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
+                constant(value.evaluate(model, locals))
+        }
+        data class Integral(val indexExpression: Expression<Int>) : Expression<PolynomialResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
+                model.integrals[floorMod(indexExpression.evaluate(model, locals), model.integrals.size)]
+        }
+        data class AddPolynomialResources(val left: Expression<PolynomialResource>, val right: Expression<PolynomialResource>) : Expression<PolynomialResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
+                left.evaluate(model, locals) + right.evaluate(model, locals)
+        }
+        data class SubtractPolynomialResources(val left: Expression<PolynomialResource>, val right: Expression<PolynomialResource>) : Expression<PolynomialResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
+                left.evaluate(model, locals) - right.evaluate(model, locals)
+        }
+        data class PolynomialFromDoubleResource(val doubleResourceExpression: Expression<DoubleResource>) : Expression<PolynomialResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
+                doubleResourceExpression.evaluate(model, locals).asPolynomial()
+        }
+        data class PolynomialFromTimerResource(val timerResourceExpression: Expression<TimerResource>) : Expression<PolynomialResource> {
+            context(_: TaskScope)
+            override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
+                timerResourceExpression.evaluate(model, locals).asPolynomial(1.seconds)
+        }
+
+        companion object {
+            private var logIndex = 0
+            fun <R> Expression<R>.log(name: String? = null): Expression<R> = object : Expression<R> {
                 context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
-                    constant(value.evaluate(model, locals))
-            }
-            data class Integral(val indexExpression: IntExpression) : PolynomialResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
-                    model.integrals[floorMod(indexExpression.evaluate(model, locals), model.integrals.size)]
-            }
-            data class AddPolynomialResources(val left: PolynomialResourceExpression, val right: PolynomialResourceExpression) : PolynomialResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
-                    left.evaluate(model, locals) + right.evaluate(model, locals)
-            }
-            data class SubtractPolynomialResources(val left: PolynomialResourceExpression, val right: PolynomialResourceExpression) : PolynomialResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
-                    left.evaluate(model, locals) - right.evaluate(model, locals)
-            }
-            data class PolynomialFromDoubleResource(val doubleResourceExpression: DoubleResourceExpression) : PolynomialResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
-                    doubleResourceExpression.evaluate(model, locals).asPolynomial()
-            }
-            data class PolynomialFromTimerResource(val timerResourceExpression: TimerResourceExpression) : PolynomialResourceExpression {
-                context(_: TaskScope)
-                override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
-                    timerResourceExpression.evaluate(model, locals).asPolynomial(1.seconds)
+                override fun evaluate(model: BlockTestModel, locals: BlockLocals): R =
+                    this@log.evaluate(model, locals).also { result ->
+                        println("Log ${++logIndex}: ${name?.let { "$it = " } ?: ""}$result")
+                    }
             }
         }
     }
