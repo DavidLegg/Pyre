@@ -65,31 +65,67 @@ def translate_activity_instance_str(activity_str):
     return activity_str
 
 
+MAX_BATCH_SIZE_PER_FN = 32
 def translate_batch_fn(batch, edit_round, incon_time):
     if any('BlockActivity' in ln for ln in batch):
         model = 'BlockTestModel'
     else:
         model = 'TestModel'
     if edit_round == 0:
-        contents = '\n'.join([
-            'println("Building initial plan")',
-            f'return test(::{model},\n    ' + ',\n    '.join(batch) + '\n)',
-        ])
-        return f'private fun buildInitialTester(): IncrementalSimulationTester<{model}> {{\n{indent(contents)}\n}}', 'var tester = buildInitialTester()'
-    elif incon_time is not None:
-        contents = '\n'.join([
-            'println("Doing a save/restore cycle")',
-            f'val inconTime = Instant.parse("{incon_time}")',
-            'val incon = tester.save(inconTime)',
-            f'return test(::{model}, startTime = inconTime, endTime = inconTime + 1.days, incon = incon, activities = listOf(\n    ' + ',\n    '.join(batch) + '\n)).also { println("Save/restore cycle complete") }',
+        if len(batch) < MAX_BATCH_SIZE_PER_FN:
+            contents = '\n'.join([
+                'println("Building initial plan")',
+                f'return test(::{model},\n    ' + ',\n    '.join(batch) + '\n)',
             ])
-        return f'private fun saveRestore{edit_round}(tester: IncrementalSimulationTester<{model}>): IncrementalSimulationTester<{model}> {{\n{indent(contents)}\n}}', f'tester = saveRestore{edit_round}(tester)'
+            return f'private fun buildInitialTester(): IncrementalSimulationTester<{model}> {{\n{indent(contents)}\n}}', 'var tester = buildInitialTester()'
+        else:
+            part_functions = []
+            while batch:
+                batch_part, batch = batch[:MAX_BATCH_SIZE_PER_FN], batch[MAX_BATCH_SIZE_PER_FN:]
+                part_functions.append(f'private fun buildInitialTester_part{len(part_functions) + 1}() = listOf(\n{indent(',\n'.join(batch_part))}\n)')
+            contents = '\n'.join([
+                'println("Building initial plan")',
+                f'return test(::{model}, activities = \n' + '\n+ '.join(f'buildInitialTester_part{i}()' for i in range(1, len(part_functions) + 1)) + '\n)',
+            ])
+            return f'private fun buildInitialTester(): IncrementalSimulationTester<{model}> {{\n{indent(contents)}\n}}\n\n' + '\n\n'.join(part_functions), 'var tester = buildInitialTester()'
+    elif incon_time is not None:
+        if len(batch) < MAX_BATCH_SIZE_PER_FN:
+            contents = '\n'.join([
+                'println("Doing a save/restore cycle")',
+                f'val inconTime = Instant.parse("{incon_time}")',
+                'val incon = tester.save(inconTime)',
+                f'return test(::{model}, startTime = inconTime, endTime = inconTime + 1.days, incon = incon, activities = listOf(\n    ' + ',\n    '.join(batch) + '\n)).also { println("Save/restore cycle complete") }',
+            ])
+            return f'private fun saveRestore{edit_round}(tester: IncrementalSimulationTester<{model}>): IncrementalSimulationTester<{model}> {{\n{indent(contents)}\n}}', f'tester = saveRestore{edit_round}(tester)'
+        else:
+            part_functions = []
+            while batch:
+                batch_part, batch = batch[:MAX_BATCH_SIZE_PER_FN], batch[MAX_BATCH_SIZE_PER_FN:]
+                part_functions.append(f'private fun saveRestore{edit_round}_part{len(part_functions) + 1}() = listOf(\n{indent(',\n'.join(batch_part))}\n)')
+            contents = '\n'.join([
+                'println("Doing a save/restore cycle")',
+                f'val inconTime = Instant.parse("{incon_time}")',
+                'val incon = tester.save(inconTime)',
+                f'return test(::{model}, startTime = inconTime, endTime = inconTime + 1.days, incon = incon, activities = \n' + indent('\n+ '.join(f'saveRestore{edit_round}_part{i}()' for i in range(1, len(part_functions) + 1))) + '\n).also { println("Save/restore cycle complete") }',
+            ])
+            return f'private fun saveRestore{edit_round}(tester: IncrementalSimulationTester<{model}>): IncrementalSimulationTester<{model}> {{\n{indent(contents)}\n}}\n\n' + '\n\n'.join(part_functions), f'tester = saveRestore{edit_round}(tester)'
     else:
-        contents = '\n'.join([
-            'println("Running edits")',
-            'tester.run(\n    ' + '\n    + '.join(batch) + '\n)',
-        ])
-        return f'private fun runEdits{edit_round}(tester: IncrementalSimulationTester<{model}>) {{\n{indent(contents)}\n}}', f'runEdits{edit_round}(tester)'
+        if len(batch) < MAX_BATCH_SIZE_PER_FN:
+            contents = '\n'.join([
+                'println("Running edits")',
+                'tester.run(\n    ' + '\n    + '.join(batch) + '\n)',
+            ])
+            return f'private fun runEdits{edit_round}(tester: IncrementalSimulationTester<{model}>) {{\n{indent(contents)}\n}}', f'runEdits{edit_round}(tester)'
+        else:
+            part_functions = []
+            while batch:
+                batch_part, batch = batch[:MAX_BATCH_SIZE_PER_FN], batch[MAX_BATCH_SIZE_PER_FN:]
+                part_functions.append(f'private fun runEdits{edit_round}_part{len(part_functions) + 1}() = (\n{indent('\n+ '.join(batch_part))}\n)')
+            contents = '\n'.join([
+                'println("Running edits")',
+                'tester.run(\n' + indent('\n+ '.join(f'runEdits{edit_round}_part{i}()' for i in range(1, len(part_functions) + 1))) + '\n)',
+            ])
+            return f'private fun runEdits{edit_round}(tester: IncrementalSimulationTester<{model}>) {{\n{indent(contents)}\n}}\n\n' + '\n\n'.join(part_functions), f'runEdits{edit_round}(tester)'
 
 
 INDENT = '    '
