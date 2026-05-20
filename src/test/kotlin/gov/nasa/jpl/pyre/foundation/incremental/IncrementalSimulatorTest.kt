@@ -4,6 +4,7 @@ import gov.nasa.jpl.pyre.examples.scheduling.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.Companion.log
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.Companion.logSamples
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.CounterEffectBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SlopeEffectBlock.*
@@ -988,24 +989,58 @@ class IncrementalSimulatorTest {
 
     @Test
     fun `repro directly`() {
-        val activity = GroundedActivity(Instant.parse("2025-01-02T17:02:01.634103Z"), Name("927975692092"), BlockActivity(listOf(
-            IncrementCounter(ConstantInt(1), ConstantInt(32)),
-            IncreaseSlope(ConstantInt(0), ConstantDouble(89.88759374438453)),
-            ToggleSwitch(ConstantInt(2)),
+        val activity = GroundedActivity(Instant.parse("2025-01-02T17:00:00Z"), Name("927975692092"), BlockActivity(listOf(
+            IncrementCounter(ConstantInt(1), ConstantInt(2)),
+            IncreaseSlope(ConstantInt(0), ConstantDouble(1e-3)),
         )))
         val tester = test(::BlockTestModel,
             endTime = day4,
             activities = listOf(
-                GroundedActivity(Instant.parse("2025-01-01T20:09:46.963637Z"), Name("857176700904"), BlockActivity(listOf(IncreaseSlope(ConstantInt(0), ConstantDouble(-5.155636268088495E9))))),
-                GroundedActivity(Instant.parse("2025-01-02T21:35:21.234466Z"), Name("784073460995"), BlockActivity(listOf(Spawn(listOf(Spawn(listOf(IncrementCounter(IntFromDouble(ReadIntegral(ConstantInt(0))), ConstantInt(87)), SetCounter(ReadCounter(ConstantInt(2)), ReadCounter(ConstantInt(53))))), Await(ConstantBooleanResource(CompareDouble(ConstantDouble(63.0), ReadIntegral(ConstantInt(2))))), Await(ConstantBooleanResource(ConstantBoolean(true))), IncrementCounter(ConstantInt(0), ConstantInt(0))))))),
-                GroundedActivity(Instant.parse("2025-01-02T20:15:47.431712Z"), Name("990763531528"), BlockActivity(listOf(SetSlope(ConstantInt(2), ReadIntegral(ConstantInt(0)))))),
-                GroundedActivity(Instant.parse("2025-01-02T21:07:41.979867Z"), Name("209233331359"), BlockActivity(listOf(IncrementCounter(ConstantInt(1), ConstantInt(16)), SetSlope(ConstantInt(1), ConstantDouble(-45.52119478532883))))),
-                GroundedActivity(Instant.parse("2025-01-02T21:21:39.838987Z"), Name("911899878423"), BlockActivity(listOf(IncrementCounter(ConstantInt(2), AddInts(ReadCounter(SubtractInts(IntFromDouble(ReadSlope(AddInts(ReadCounter(ConstantInt(0)), ReadCounter(ReadCounter(ConstantInt(1)))))), ConstantInt(0))), ReadCounter(ConstantInt(2))))))),
+                GroundedActivity(Instant.parse("2025-01-01T20:00:00Z"), Name("857176700904"), BlockActivity(listOf(
+                    IncreaseSlope(ConstantInt(0), ConstantDouble(-5E9))
+                ))),
+                GroundedActivity(Instant.parse("2025-01-02T21:00:00Z"), Name("209233331359"), BlockActivity(listOf(
+                    SetSlope(ConstantInt(1), ConstantDouble(-1.0)),
+                    SetSlope(ConstantInt(2), ReadIntegral(ConstantInt(0))),
+                    IncrementCounter(ConstantInt(1), ConstantInt(1)),
+                    IncrementCounter(
+                        ConstantInt(2),
+                        ReadCounter(
+                            IntFromDouble(
+                                ReadSlope(
+                                    AddInts(
+                                        ReadCounter(ConstantInt(0)),
+                                        ReadCounter(ReadCounter(ConstantInt(1)))
+                                    )
+                                )
+                            )
+                        ),
+                    )
+                ))),
+                GroundedActivity(Instant.parse("2025-01-02T22:00:00Z"), Name("784073460995"), BlockActivity(listOf(
+                    Spawn(listOf(
+                        Spawn(
+                            listOf(
+                                SetCounter(ReadCounter(ConstantInt(2)), ReadCounter(ConstantInt(2))),
+                            )
+                        ),
+                        Await(
+                            ConstantBooleanResource(
+                                CompareDouble(
+                                    ConstantDouble(0.0),
+                                    ReadIntegral(ConstantInt(2)),
+                                )
+                            )
+                        ),
+                        Await(ConstantBooleanResource(ConstantBoolean(true))),
+                        IncrementCounter(ConstantInt(0), ConstantInt(0))
+                    ))
+                ))),
                 activity,
             )
         )
-        tester.add(GroundedActivity(Instant.parse("2025-01-02T20:41:10.824345Z"), Name("820842477867"), BlockActivity(listOf(
-            IncreaseSlope(ConstantInt(0), ConstantDouble(-46.59462598937543)),
+        tester.add(GroundedActivity(Instant.parse("2025-01-02T20:30:00Z"), Name("820842477867"), BlockActivity(listOf(
+            IncreaseSlope(ConstantInt(0), ConstantDouble(-1.0)),
         ))))
         tester.remove(activity)
     }
