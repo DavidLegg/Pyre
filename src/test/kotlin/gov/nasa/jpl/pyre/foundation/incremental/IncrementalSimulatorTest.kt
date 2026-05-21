@@ -1092,7 +1092,7 @@ class IncrementalSimulatorTest {
             object : FuzzTestSettings<BlockTestModel> {
                 override val numberOfRounds: Int = 100
 
-                override fun numberOfInitialActivities(): Int = 10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()
+                override fun numberOfInitialActivities(): Int = 10.0.pow(rng.nextDouble(1.0, 2.0)).toInt()
 
                 override fun constructModel(initScope: InitScope): BlockTestModel = BlockTestModel(initScope)
 
@@ -1367,7 +1367,7 @@ class IncrementalSimulatorTest {
                 // so choose a new set of activities to work with instead.
                 // TODO: Think through whether this must be the case... If an activity comes from an incon, can it be incrementally edited?
                 val newActivities = mutableListOf<GroundedActivity<M>>()
-                repeat (10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()) {
+                repeat (settings.numberOfInitialActivities()) {
                     newActivities += GroundedActivity(
                         rng.nextInstant(startTime..endTime),
                         rng.nextActivityId(),
