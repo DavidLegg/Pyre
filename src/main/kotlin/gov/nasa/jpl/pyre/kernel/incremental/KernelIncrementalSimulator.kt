@@ -499,7 +499,15 @@ class KernelIncrementalSimulator(
                     // Note that if there are concurrent cell writes, all of them have the same
                     // nextTaskBatch, so it suffices to find any one of them and stop.
                     resultTime = node.time.nextTaskBatch().copy(branch = awaitNode.time.branch)
-                    interruptCell = node
+                    // In case we're recomputing an await that was already interrupted by a merge,
+                    // we should fast-forward the interruption to the last cell node before resultTime.
+                    // That's the cell node any existing await node would have read,
+                    // which avoids adding an extraneous read into the interruption await node.
+                    // Having two reads of one cell (through different cell nodes) isn't just wasteful.
+                    // It can trip up the cell awaiter update logic and cause incorrect results.
+                    interruptCell = generateSequence(node) {
+                        (it as? CellWriteNode)?.next?.singleOrNull()?.takeIf { it.time < resultTime }
+                    }.last()
                     break
                 }
             }
@@ -1326,11 +1334,14 @@ class KernelIncrementalSimulator(
                     }
                     is TaskNode -> {
                         label = when (node) {
-                            is ReadNode -> "Read ${node.cell.cell.name}"
+                            is ReadNode -> "Read ${node.cell.cell.name} = ${node.value}"
                             is ReportNode<*> -> "Report ${node.content}"
                             is WriteNode -> "Write '${node.cell.effect}'"
                             is StartTaskNode -> "Root ${node.taskName}"
-                            is AwaitNode -> "Await ${node.condition}" + (if (node.continuation != null) " ++" else "")
+                            is AwaitNode -> (
+                                    "Await ${node.condition}" + (if (node.continuation != null) " ++" else "")
+                                    + (node.reads.map { (cell, value) -> "\\l- $cell -> $value" }.joinToString())
+                                    )
                             is AwaitCompleteNode -> "AwaitComplete" + (if (node.continuation != null) " ++" else "")
                             is SpawnNode -> "Spawn" + (if (node.continuation != null) " ++" else "")
                             is TaskCompleteNode -> "TaskComplete ${node.taskName}"

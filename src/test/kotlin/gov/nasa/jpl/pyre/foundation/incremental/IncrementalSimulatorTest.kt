@@ -3,8 +3,6 @@ package gov.nasa.jpl.pyre.foundation.incremental
 import gov.nasa.jpl.pyre.examples.scheduling.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.Companion.log
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.Companion.logSamples
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.CounterEffectBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SlopeEffectBlock.*
@@ -983,16 +981,20 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed`() {
-        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(1)
-    }
-
-    @Test
-    fun `repro directly`() {
-        val activity = GroundedActivity(Instant.parse("2025-01-02T17:00:00Z"), Name("927975692092"), BlockActivity(listOf(
+    fun `await interrupts for merge nodes`() {
+        // This test sets up (rather obtusely) a situation where an await is interrupted by a merge node.
+        // Updates are then made to cell writes feeding into that await node.
+        // Incorrect handling of re-computed await interruptions led to an extraneous "read" edge, from one of those writes
+        // feeding the cell merge, to the interrupting await node.
+        // This in turn tripped up some cell read update logic on further re-working of the cell nodes,
+        // eventually fooling the system into not re-evaluating a condition it ought to.
+        // There is almost certainly a better way to detect this situation than this test,
+        // and this test will likely stop testing this case if the incremental simulator is changed much.
+        // For now it's worth keeping, since I have neither the time nor interest in designing a more streamlined test case.
+        val activity = GroundedActivity(Instant.parse("2025-01-02T17:00:00Z"), Name("slope_0 += 1e-3"), BlockActivity(listOf(
             IncreaseSlope(ConstantInt(0), ConstantDouble(1e-3)),
         )))
-        val activity2 = GroundedActivity(Instant.parse("2025-01-02T21:00:00Z"), Name("A2"), BlockActivity(listOf(
+        val activity2 = GroundedActivity(Instant.parse("2025-01-02T21:00:00Z"), Name("counter_2 += 3"), BlockActivity(listOf(
             IncrementCounter(ConstantInt(2), ConstantInt(3))
         )))
         val tester = test(::BlockTestModel,
@@ -1000,10 +1002,10 @@ class IncrementalSimulatorTest {
             activities = listOf(
                 activity,
                 activity2,
-                GroundedActivity(Instant.parse("2025-01-02T21:00:00Z"), Name("209233331359"), BlockActivity(listOf(
+                GroundedActivity(Instant.parse("2025-01-02T21:00:00Z"), Name("slope_0 = integral_0.value()"), BlockActivity(listOf(
                     SetSlope(ConstantInt(2), ReadIntegral(ConstantInt(0))),
                 ))),
-                GroundedActivity(Instant.parse("2025-01-02T22:00:00Z"), Name("784073460995"), BlockActivity(listOf(
+                GroundedActivity(Instant.parse("2025-01-02T22:00:00Z"), Name("bump counters"), BlockActivity(listOf(
                     Spawn(
                         listOf(
                             SetCounter(ReadCounter(ConstantInt(2)), ReadCounter(ConstantInt(2))),
@@ -1022,7 +1024,7 @@ class IncrementalSimulatorTest {
                 ))),
             )
         )
-        tester.add(GroundedActivity(Instant.parse("2025-01-02T20:30:00Z"), Name("820842477867"), BlockActivity(listOf(
+        tester.add(GroundedActivity(Instant.parse("2025-01-02T20:30:00Z"), Name("slope_0 -= 1"), BlockActivity(listOf(
             IncreaseSlope(ConstantInt(0), ConstantDouble(-1.0)),
         ))))
         tester.run(
