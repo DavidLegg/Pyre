@@ -137,4 +137,6 @@ object IncrementalSimulatorOperations {
     operator fun <M> IncrementalSimulator<M>.plusAssign(activity: GroundedActivity<M>) = add(activity)
     operator fun <M> IncrementalSimulator<M>.minusAssign(edits: PlanEdits<M>) = run(-edits)
     operator fun <M> IncrementalSimulator<M>.minusAssign(activity: GroundedActivity<M>) = remove(activity)
+
+    fun <M> PlanEdits<M>.isEmpty() = additions.isEmpty() && removals.isEmpty()
 }
