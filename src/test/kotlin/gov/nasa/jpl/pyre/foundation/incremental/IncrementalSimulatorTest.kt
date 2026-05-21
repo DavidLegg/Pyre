@@ -1004,23 +1004,21 @@ class IncrementalSimulatorTest {
                     SetSlope(ConstantInt(2), ReadIntegral(ConstantInt(0))),
                 ))),
                 GroundedActivity(Instant.parse("2025-01-02T22:00:00Z"), Name("784073460995"), BlockActivity(listOf(
-                    Spawn(listOf(
-                        Spawn(
-                            listOf(
-                                SetCounter(ReadCounter(ConstantInt(2)), ReadCounter(ConstantInt(2))),
+                    Spawn(
+                        listOf(
+                            SetCounter(ReadCounter(ConstantInt(2)), ReadCounter(ConstantInt(2))),
+                        )
+                    ),
+                    Await(
+                        ConstantBooleanResource(
+                            CompareDouble(
+                                ConstantDouble(0.0),
+                                ReadIntegral(ConstantInt(2)),
                             )
-                        ),
-                        Await(
-                            ConstantBooleanResource(
-                                CompareDouble(
-                                    ConstantDouble(0.0),
-                                    ReadIntegral(ConstantInt(2)),
-                                )
-                            )
-                        ),
-                        Await(ConstantBooleanResource(ConstantBoolean(true))),
-                        IncrementCounter(ConstantInt(0), ConstantInt(0))
-                    ))
+                        )
+                    ),
+                    Await(ConstantBooleanResource(ConstantBoolean(true))),
+                    IncrementCounter(ConstantInt(0), ConstantInt(0))
                 ))),
             )
         )
