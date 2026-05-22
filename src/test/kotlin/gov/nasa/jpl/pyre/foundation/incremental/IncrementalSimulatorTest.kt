@@ -1590,7 +1590,7 @@ class IncrementalSimulatorTest {
             System.out.flush()
         }
 
-        print("Simplifying intiial plan, starting with ${result.initialPlan.activities.size} activities ")
+        print("Simplifying initial plan, starting with ${result.initialPlan.activities.size} activities ")
         for (i in result.initialPlan.activities.indices.reversed()) {
             val candidate = result.copy(initialPlan = result.initialPlan.copy(activities =
                 result.initialPlan.activities.toMutableList().also { it.removeAt(i) }))
