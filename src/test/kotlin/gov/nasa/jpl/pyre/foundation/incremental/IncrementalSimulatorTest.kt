@@ -1497,6 +1497,8 @@ class IncrementalSimulatorTest {
             result = result.simplifyByRemovingEmptyRounds(constructModel)
             result = result.simplifyByCondensingEdits(constructModel)
             result = result.simplifyByRemovingEmptyRounds(constructModel)
+            result = result.simplifyActivities(constructModel)
+            result = result.simplifyByRemovingEmptyRounds(constructModel)
         } while (result != lastResult)
         return result
     }
@@ -1617,6 +1619,93 @@ class IncrementalSimulatorTest {
 
             val finalEdits = (result.rounds.first() as FuzzTestRound.RunEdit).edits
             println("\nSimplified first round by condensing into initial plan, ending with ${finalEdits.condensedEdits().toList().size} edits")
+        }
+        println("Simplified transcript to ${result.rounds.size} rounds and ${result.totalEdits()} total edits.")
+        return result
+    }
+
+    private fun <M : Any> FuzzTestTranscript<M>.simplifyActivities(constructModel: (InitScope) -> M): FuzzTestTranscript<M> {
+        println("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits, by simplifying activities themselves.")
+        var result = this
+
+        // This way of doing activity replacement is a little inefficient, but it's simple and effective.
+        // Since we tend to optimize activities later, when the transcript is already smaller, performance doesn't matter.
+        fun Plan<M>.replace(from: GroundedActivity<M>, to: GroundedActivity<M>) =
+            copy(activities = activities.map { if (it == from) to else it })
+        fun PlanEdits<M>.replace(from: GroundedActivity<M>, to: GroundedActivity<M>) = PlanEdits(
+            additions = additions.map { if (it == from) to else it },
+            removals = removals.map { if (it == from) to else it },
+        )
+        fun FuzzTestTranscript<M>.replace(from: GroundedActivity<M>, to: GroundedActivity<M>) = FuzzTestTranscript(
+            initialPlan = initialPlan.replace(from, to),
+            rounds = rounds.map {
+                when (it) {
+                    is FuzzTestRound.RunEdit -> FuzzTestRound.RunEdit(edits = it.edits.replace(from, to))
+                    is FuzzTestRound.SaveRestore -> FuzzTestRound.SaveRestore(nextPlan = it.nextPlan.replace(from, to))
+                }
+            },
+        )
+
+        if (result.initialPlan.activities.firstOrNull()?.activity is BlockActivity) {
+            // Try to simplify these activities by just removing statements from them.
+
+            @Suppress("UNCHECKED_CAST")
+            fun GroundedActivity<M>.withoutStatementAt(n: Int): GroundedActivity<M> =
+                copy(activity = (activity as BlockActivity)
+                    .copy(statements = activity.statements.toMutableList()
+                        .also { it.removeAt(n) }) as Activity<M>)
+
+            // mutates result instead of returning a value
+            fun GroundedActivity<M>.removeRedundantStatements() {
+                if (activity is BlockActivity) {
+                    var workingActivity = this
+                    for (i in activity.statements.indices.reversed()) {
+                        val candidateActivity = workingActivity.withoutStatementAt(i)
+                        val candidate = result.replace(workingActivity, candidateActivity)
+
+                        if (candidate.exposesSomeBug(constructModel)) {
+                            result = candidate
+                            workingActivity = candidateActivity
+                            print(".")
+                        } else {
+                            print("X")
+                        }
+                        System.out.flush()
+                    }
+                }
+            }
+
+            print("Simplifying ${result.initialPlan.activities.size} activities in initial plan ")
+            System.out.flush()
+
+            for (activity in result.initialPlan.activities) {
+                activity.removeRedundantStatements()
+            }
+            println()
+            System.out.flush()
+
+            for (roundIndex in result.rounds.indices) {
+                when (val round = result.rounds[roundIndex]) {
+                    is FuzzTestRound.RunEdit -> {
+                        print("Simplifying ${round.edits.additions.size} activities in round $roundIndex ")
+                        System.out.flush()
+                        // No need to look at removals - anything we remove we must have added earlier
+                        for (activity in round.edits.additions) {
+                            activity.removeRedundantStatements()
+                        }
+                        println()
+                        System.out.flush()
+                    }
+                    is FuzzTestRound.SaveRestore -> {
+                        println("Simplifying ${round.nextPlan.activities.size} activities in round $roundIndex ")
+                        for (activity in round.nextPlan.activities) {
+                            activity.removeRedundantStatements()
+                        }
+                        println()
+                        System.out.flush()
+                    }
+                }
+            }
         }
         println("Simplified transcript to ${result.rounds.size} rounds and ${result.totalEdits()} total edits.")
         return result
