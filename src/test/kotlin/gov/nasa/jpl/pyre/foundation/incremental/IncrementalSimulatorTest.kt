@@ -102,6 +102,7 @@ import kotlinx.datetime.until
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import java.io.File
 import java.lang.Math.floorMod
 import java.util.stream.IntStream
 import kotlin.collections.iterator
@@ -1459,7 +1460,11 @@ class IncrementalSimulatorTest {
             }
         } catch (e: Throwable) {
             // If transcription was enabled, simplify and print the code to directly reproduce this failure.
-            transcript?.simplify(settings::constructModel)?.printAsCode()
+            transcript?.simplify(settings::constructModel)?.let {
+                val file = File("inc-sim-debug/test-repro.kt")
+                println("Writing final code to $file")
+                it.printAsCode(file)
+            }
             throw e
         }
     }
@@ -1488,25 +1493,30 @@ class IncrementalSimulatorTest {
         removeAt(rng.nextInt(indices))
 
     private fun <M : Any> FuzzTestTranscript<M>.simplify(constructModel: (InitScope) -> M): FuzzTestTranscript<M> {
-        println("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits.")
-        var result = this
-        var lastResult: FuzzTestTranscript<M>
-        do {
-            lastResult = result
-            result = result.simplifyByRemovingEdits(constructModel)
-            result = result.simplifyByRemovingEmptyRounds(constructModel)
-            result = result.simplifyByCondensingEdits(constructModel)
-            result = result.simplifyByRemovingEmptyRounds(constructModel)
-            result = result.simplifyActivities(constructModel)
-            result = result.simplifyByRemovingEmptyRounds(constructModel)
-        } while (result != lastResult)
-        return result
+        context (constructModel) {
+            println("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits.")
+            var result = this
+            var lastResult: FuzzTestTranscript<M>
+            do {
+                lastResult = result
+                result = result.simplifyByRemovingEdits()
+                result = result.simplifyByRemovingEmptyRounds()
+                result = result.simplifyByCondensingEdits()
+                result = result.simplifyByRemovingEmptyRounds()
+                result = result.simplifyByRemovingSaveRestore()
+                result = result.simplifyByRemovingEmptyRounds()
+                result = result.simplifyActivities(constructModel)
+                result = result.simplifyByRemovingEmptyRounds()
+            } while (result != lastResult)
+            return result
+        }
     }
 
     /**
      * Most edits in a fuzz test aren't necessary. Try removing each one individually.
      */
-    private fun <M : Any> FuzzTestTranscript<M>.simplifyByRemovingEdits(constructModel: (InitScope) -> M): FuzzTestTranscript<M> {
+    context (constructModel: (InitScope) -> M)
+    private fun <M : Any> FuzzTestTranscript<M>.simplifyByRemovingEdits(): FuzzTestTranscript<M> {
         println("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits, by removing edits.")
         var result = this
         for ((roundIndex, round) in rounds.withIndex().reversed()) {
@@ -1561,7 +1571,8 @@ class IncrementalSimulatorTest {
     /**
      * Intermediate edits are often unnecessary. Try combining edits into just their net effect.
      */
-    private fun <M : Any> FuzzTestTranscript<M>.simplifyByCondensingEdits(constructModel: (InitScope) -> M): FuzzTestTranscript<M> {
+    context (constructModel: (InitScope) -> M)
+    private fun <M : Any> FuzzTestTranscript<M>.simplifyByCondensingEdits(): FuzzTestTranscript<M> {
         println("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits, by condensing edits.")
         var result = this
         for (i in rounds.indices.drop(1).reversed()) {
@@ -1624,6 +1635,60 @@ class IncrementalSimulatorTest {
         return result
     }
 
+    context (constructModel: (InitScope) -> M)
+    private fun <M : Any> FuzzTestTranscript<M>.simplifyByRemovingSaveRestore(): FuzzTestTranscript<M> {
+        println("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits, by removing save/restore cycles.")
+        var result = this
+
+        val saveRestoreIndices = rounds.withIndex()
+            .filter { (_, round) -> round is FuzzTestRound.SaveRestore }
+            .map { it.index }
+        print("Simplifying ${saveRestoreIndices.size} save/restore cycles ")
+        System.out.flush()
+
+        for ((priorIndex, thisIndex) in saveRestoreIndices.zipWithNext().reversed()) {
+            val candidate = result.copy(rounds = result.rounds.toMutableList().also {
+                val round = it[thisIndex] as FuzzTestRound.SaveRestore
+                // Turn this save/restore round into an edit round where we just add in these activities
+                it[thisIndex] = FuzzTestRound.RunEdit(PlanEdits(additions = round.nextPlan.activities))
+                // Then bump up the end time for the prior save/restore round to permit these edits
+                val priorRound = it[priorIndex] as FuzzTestRound.SaveRestore
+                it[priorIndex] = priorRound.copy(nextPlan = priorRound.nextPlan.copy(endTime = round.nextPlan.endTime))
+            })
+
+            if (candidate.exposesSomeBug(constructModel)) {
+                result = candidate
+                print(".")
+            } else {
+                print("X")
+            }
+            System.out.flush()
+        }
+
+        saveRestoreIndices.firstOrNull()?.let { firstSaveIndex ->
+            val firstSaveRestore = result.rounds[firstSaveIndex] as FuzzTestRound.SaveRestore
+            val candidate = result.copy(
+                // Change the first save/restore round to a edit round where we add in these activities
+                rounds = result.rounds.toMutableList().also {
+                    it[firstSaveIndex] = FuzzTestRound.RunEdit(PlanEdits(additions = firstSaveRestore.nextPlan.activities))
+                },
+                // Then bump up the end time for the initial plan to permit these edits
+                initialPlan = result.initialPlan.copy(endTime = firstSaveRestore.nextPlan.endTime),
+            )
+
+            if (candidate.exposesSomeBug(constructModel)) {
+                result = candidate
+                print(".")
+            } else {
+                print("X")
+            }
+            System.out.flush()
+        }
+
+        println("\nSimplified transcript to ${result.rounds.size} rounds and ${result.totalEdits()} total edits.")
+        return result
+    }
+
     private fun <M : Any> FuzzTestTranscript<M>.simplifyActivities(constructModel: (InitScope) -> M): FuzzTestTranscript<M> {
         println("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits, by simplifying activities themselves.")
         var result = this
@@ -1646,6 +1711,22 @@ class IncrementalSimulatorTest {
             },
         )
 
+        fun Plan<M>.remove(activity: GroundedActivity<M>) =
+            copy(activities = activities.toMutableList().also { it.remove(activity) })
+        fun PlanEdits<M>.remove(activity: GroundedActivity<M>) = PlanEdits(
+            additions = additions.toMutableList().also { it.remove(activity) },
+            removals = removals.toMutableList().also { it.remove(activity) },
+        )
+        fun FuzzTestTranscript<M>.remove(activity: GroundedActivity<M>) = FuzzTestTranscript(
+            initialPlan = initialPlan.remove(activity),
+            rounds = rounds.map {
+                when (it) {
+                    is FuzzTestRound.RunEdit -> FuzzTestRound.RunEdit(edits = it.edits.remove(activity))
+                    is FuzzTestRound.SaveRestore -> FuzzTestRound.SaveRestore(nextPlan = it.nextPlan.remove(activity))
+                }
+            },
+        )
+
         if (result.initialPlan.activities.firstOrNull()?.activity is BlockActivity) {
             // Try to simplify these activities by just removing statements from them.
 
@@ -1659,6 +1740,7 @@ class IncrementalSimulatorTest {
             fun GroundedActivity<M>.removeRedundantStatements() {
                 if (activity is BlockActivity) {
                     var workingActivity = this
+                    var anyStatementLeft = false
                     for (i in activity.statements.indices.reversed()) {
                         val candidateActivity = workingActivity.withoutStatementAt(i)
                         val candidate = result.replace(workingActivity, candidateActivity)
@@ -1668,6 +1750,18 @@ class IncrementalSimulatorTest {
                             workingActivity = candidateActivity
                             print(".")
                         } else {
+                            anyStatementLeft = true
+                            print("X")
+                        }
+                        System.out.flush()
+                    }
+
+                    if (!anyStatementLeft) {
+                        val candidate = result.remove(workingActivity)
+                        if (candidate.exposesSomeBug(constructModel)) {
+                            result = candidate
+                            print(".")
+                        } else {
                             print("X")
                         }
                         System.out.flush()
@@ -1675,7 +1769,7 @@ class IncrementalSimulatorTest {
                 }
             }
 
-            print("Simplifying ${result.initialPlan.activities.size} activities in initial plan ")
+            print("\nSimplifying ${result.initialPlan.activities.size} activities in initial plan ")
             System.out.flush()
 
             for (activity in result.initialPlan.activities) {
@@ -1707,25 +1801,35 @@ class IncrementalSimulatorTest {
                 }
             }
         }
-        println("Simplified transcript to ${result.rounds.size} rounds and ${result.totalEdits()} total edits.")
+        println("\nSimplified transcript to ${result.rounds.size} rounds and ${result.totalEdits()} total edits.")
+        System.out.flush()
         return result
     }
 
-    private fun <M : Any> FuzzTestTranscript<M>.simplifyByRemovingEmptyRounds(constructModel: (InitScope) -> M): FuzzTestTranscript<M> {
-        println("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits, by removing empty rounds.")
+    context (constructModel: (InitScope) -> M)
+    private fun <M : Any> FuzzTestTranscript<M>.simplifyByRemovingEmptyRounds(): FuzzTestTranscript<M> {
+        print("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits, by removing empty rounds ")
+        System.out.flush()
         var result = this
         for ((i, round) in result.rounds.withIndex().reversed()) {
             when (round) {
                 is FuzzTestRound.RunEdit -> if (round.edits.isEmpty()) {
                     val candidate = result.copy(rounds = result.rounds.toMutableList().also { it.removeAt(i) })
-                    if (candidate.exposesSomeBug(constructModel)) result = candidate
+                    if (candidate.exposesSomeBug(constructModel)) {
+                        result = candidate
+                        print(".")
+                    } else {
+                        print("X")
+                    }
+                    System.out.flush()
                 }
                 is FuzzTestRound.SaveRestore -> {
                     // Nothing to do, continue
                 }
             }
         }
-        println("Simplified transcript to ${result.rounds.size} rounds and ${result.totalEdits()} total edits.")
+        println("\nSimplified transcript to ${result.rounds.size} rounds and ${result.totalEdits()} total edits.")
+        System.out.flush()
         return result
     }
 
@@ -1779,75 +1883,86 @@ class IncrementalSimulatorTest {
         yieldAll(remainingAdditions.map { +it })
     }
 
-    private fun <M> FuzzTestTranscript<M>.printAsCode() {
-        val model =
-            if (initialPlan.activities.first().activity is BlockActivity) BlockTestModel::class.simpleName
-            else TestModel::class.simpleName
-        val istName = "${IncrementalSimulationTester::class.simpleName}<$model>"
+    private fun <M> FuzzTestTranscript<M>.printAsCode(file: File) {
+        file.printWriter().use { out ->
+            val model =
+                if (initialPlan.activities.first().activity is BlockActivity) BlockTestModel::class.simpleName
+                else TestModel::class.simpleName
+            val istName = "${IncrementalSimulationTester::class.simpleName}<$model>"
 
-        println("""
-            @Test
-            fun `repro directly`() {
-                var tester = test(::$model,
-                    startTime = ${initialPlan.startTime.repr()},
-                    endTime = ${initialPlan.endTime.repr()},
-                    activities = listOf(
-        """.trimIndent())
-        initialPlan.activities.forEach { println("            ${it.repr()},") }
-        println("        )")
-        println("    )")
-        println("    // Split each round into a separate method to avoid \"method too large\" errors")
-        for (roundNumber in (1..rounds.size)) {
-            println("    println(\"Running round $roundNumber...\")")
-            println("    tester = round$roundNumber(tester)")
-        }
-        println("}")
-
-        for ((roundIndex, round) in rounds.withIndex()) {
-            val roundNumber = roundIndex + 1
-            println("\nprivate fun round$roundNumber(tester: $istName): $istName {")
-            when (round) {
-                is FuzzTestRound.RunEdit -> {
-                    println("    tester.run(")
-                    for (edit in round.edits.condensedEdits()) {
-                        println(if (edit.additions.isEmpty()) {
-                            "        + remove(${edit.removals.single().repr()})"
-                        } else if (edit.removals.isEmpty()) {
-                            "        + add(${edit.additions.single().repr()})"
-                        } else {
-                            val addition = edit.additions.single()
-                            val removal = edit.removals.single()
-                            when (addition) {
-                                removal.copy(time = addition.time) ->
-                                    "        + move(${removal.repr()} to ${addition.time.repr()})"
-                                removal.copy(activity = addition.activity) ->
-                                    "        + edit(${removal.repr()} to ${addition.activity})"
-                                else ->
-                                    "        + add(${addition.repr()}) + remove(${removal.repr()})"
-                            }
-                        })
-                    }
-                    println("    )")
-                    println("    return tester")
-                }
-                is FuzzTestRound.SaveRestore -> {
-                    println("""
-                        val inconTime = ${round.nextPlan.startTime.repr()}
-                        val incon = tester.save(inconTime)
-                        return test(::$model,
-                            startTime = inconTime,
-                            endTime = ${round.nextPlan.endTime.repr()},
-                            incon = incon,
-                            activities = listOf(
-                    """.trimIndent().prependIndent())
-                    for (activity in round.nextPlan.activities) {
-                        println("        ${activity.repr()},")
-                    }
-                    println("        )")
-                    println("    )")
-                }
+            out.println(
+                """
+                @Test
+                fun `repro directly`() {
+                    var tester = test(::$model,
+                        startTime = ${initialPlan.startTime.repr()},
+                        endTime = ${initialPlan.endTime.repr()},
+                        activities = listOf(
+            """.trimIndent()
+            )
+            initialPlan.activities.forEach { out.println("            ${it.repr()},") }
+            out.println("        )")
+            out.println("    )")
+            out.println("    // Split each round into a separate method to avoid \"method too large\" errors")
+            for (roundNumber in (1..rounds.size)) {
+                out.println("    println(\"Running round $roundNumber...\")")
+                out.println("    tester = round$roundNumber(tester)")
             }
-            println("}")
+            out.println("}")
+
+            for ((roundIndex, round) in rounds.withIndex()) {
+                val roundNumber = roundIndex + 1
+                out.println("\nprivate fun round$roundNumber(tester: $istName): $istName {")
+                when (round) {
+                    is FuzzTestRound.RunEdit -> {
+                        out.println("    tester.run(")
+                        for (edit in round.edits.condensedEdits()) {
+                            out.println(
+                                if (edit.additions.isEmpty()) {
+                                    "        + remove(${edit.removals.single().repr()})"
+                                } else if (edit.removals.isEmpty()) {
+                                    "        + add(${edit.additions.single().repr()})"
+                                } else {
+                                    val addition = edit.additions.single()
+                                    val removal = edit.removals.single()
+                                    when (addition) {
+                                        removal.copy(time = addition.time) ->
+                                            "        + move(${removal.repr()} to ${addition.time.repr()})"
+
+                                        removal.copy(activity = addition.activity) ->
+                                            "        + edit(${removal.repr()} to ${addition.activity})"
+
+                                        else ->
+                                            "        + add(${addition.repr()}) + remove(${removal.repr()})"
+                                    }
+                                }
+                            )
+                        }
+                        out.println("    )")
+                        out.println("    return tester")
+                    }
+
+                    is FuzzTestRound.SaveRestore -> {
+                        out.println(
+                            """
+                            val inconTime = ${round.nextPlan.startTime.repr()}
+                            val incon = tester.save(inconTime)
+                            return test(::$model,
+                                startTime = inconTime,
+                                endTime = ${round.nextPlan.endTime.repr()},
+                                incon = incon,
+                                activities = listOf(
+                        """.trimIndent().prependIndent()
+                        )
+                        for (activity in round.nextPlan.activities) {
+                            out.println("        ${activity.repr()},")
+                        }
+                        out.println("        )")
+                        out.println("    )")
+                    }
+                }
+                out.println("}")
+            }
         }
     }
 
