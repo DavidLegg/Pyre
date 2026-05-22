@@ -1617,6 +1617,22 @@ class IncrementalSimulatorTest {
             }
             System.out.flush()
         }
+
+        print("Simplifying intiial plan, starting with ${result.initialPlan.activities.size} activities ")
+        for (i in result.initialPlan.activities.indices.reversed()) {
+            val candidate = result.copy(initialPlan = result.initialPlan.copy(activities =
+                result.initialPlan.activities.toMutableList().also { it.removeAt(i) }))
+
+            if (candidate.exposesSomeBug()) {
+                result = candidate
+                print(".")
+            } else {
+                print("X")
+            }
+            System.out.flush()
+        }
+        println("\nSimplified initial plan, ending with ${result.initialPlan.activities.size} activities")
+
         println("Simplified transcript to ${result.rounds.size} rounds and ${result.totalEdits()} total edits.")
         return result
     }
@@ -1784,7 +1800,8 @@ class IncrementalSimulatorTest {
         // mutates result instead of returning a value
         tailrec fun GroundedActivity<M>.simplify() {
             var successfulSimplification: GroundedActivity<M>? = null
-            for (simplification in simplifications()) {
+            // Use exposesSomeBug to run the activity for instrumentation, if needed.
+            for (simplification in simplifications(runActivity = { result.replace(this, it).exposesSomeBug() })) {
                 val candidate =
                     if (simplification == null) result.remove(this)
                     else result.replace(this, simplification)
@@ -1829,12 +1846,64 @@ class IncrementalSimulatorTest {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun <M> GroundedActivity<M>.simplifications(): Sequence<GroundedActivity<M>?> = sequence {
+    private fun <M> GroundedActivity<M>.simplifications(runActivity: (GroundedActivity<M>) -> Unit): Sequence<GroundedActivity<M>?> = sequence {
         if (activity is BlockActivity) {
-            yieldAll(activity.simplifications().map { it?.let { copy(activity = it as Activity<M>) } })
+            val instumentationLoader: Lazy<BlockInstrumentation> = lazy {
+                // Build the instrumentation object and run an instrumented activity to fill it.
+                BlockInstrumentation().also {
+                    context (it) { runActivity(copy(activity = activity.instrument() as Activity<M>)) }
+                }
+            }
+
+            // Now we can do simplifications with the option to collect instrumentation on the activity if needed.
+            // By making it lazy, we avoid the performance cost if we can try simplifications that don't need instrumentation,
+            // and we can avoid paying the performance penalty twice if we try multiple simplifications that do need it.
+            context (instumentationLoader) {
+                yieldAll(activity.simplifications().map { it?.let { copy(activity = it as Activity<M>) } })
+            }
         }
     }
 
+    private data class BlockInstrumentation(
+        val expressionResults: MutableMap<Expression<*>, MutableList<Any?>> = mutableMapOf(),
+    )
+
+    context (instrumentation: BlockInstrumentation)
+    private fun BlockActivity.instrument() = copy(statements = statements.map { it.instrument() })
+    context (instrumentation: BlockInstrumentation)
+    private fun StatementBlock.instrument(): StatementBlock = when (this) {
+        is Await -> copy(condition = condition.instrument())
+        is IncrementCounter -> copy(index = index.instrument(), amount = amount.instrument())
+        is SetCounter -> copy(index = index.instrument(), value = value.instrument())
+        is IncreaseSlope -> copy(index = index.instrument(), amount = amount.instrument())
+        is SetSlope -> copy(index = index.instrument(), value = value.instrument())
+        is SetSwitch -> copy(index = index.instrument(), value = value.instrument())
+        is ToggleSwitch -> copy(index = index.instrument())
+        is PauseTimer -> copy(index = index.instrument())
+        is ResetTimer -> copy(index = index.instrument())
+        is RestartTimer -> copy(index = index.instrument())
+        is ResumeTimer -> copy(index = index.instrument())
+        is ReportBoolean -> copy(value = value.instrument())
+        is ReportDouble -> copy(value = value.instrument())
+        is ReportDuration -> copy(value = value.instrument())
+        is ReportInt -> copy(value = value.instrument())
+        is SaveBoolean -> copy(value = value.instrument())
+        is SaveDouble -> copy(value = value.instrument())
+        is SaveDuration -> copy(value = value.instrument())
+        is SaveInt -> copy(value = value.instrument())
+        is Spawn -> copy(body = body.map { it.instrument() })
+    }
+    context (instrumentation: BlockInstrumentation)
+    private fun <R> Expression<R>.instrument() = object : Expression<R> {
+        context(_: TaskScope)
+        override fun evaluate(model: BlockTestModel, locals: BlockLocals): R =
+            this@instrument.evaluate(model, locals).also {
+                instrumentation.expressionResults.computeIfAbsent(this@instrument) { mutableListOf() }.add(it)
+            }
+    }
+
+
+    context (instrumentation: Lazy<BlockInstrumentation>)
     private fun BlockActivity.simplifications(): Sequence<BlockActivity?> = sequence {
         if (statements.isEmpty()) {
             // Try removing this activity entirely
@@ -1852,6 +1921,7 @@ class IncrementalSimulatorTest {
         }
     }
 
+    context (instrumentation: Lazy<BlockInstrumentation>)
     private fun StatementBlock.simplifications(): Sequence<StatementBlock> = sequence {
         when (this@simplifications) {
             is Spawn -> {
@@ -1864,8 +1934,71 @@ class IncrementalSimulatorTest {
                     })
                 }
             }
-            // TODO: Think of ways we might be able to simplify other kinds of statements
-            else -> {}
+            is IncrementCounter -> {
+                yieldAll(index.simplifications().map { copy(index = it) })
+                yieldAll(amount.simplifications().map { copy(amount = it) })
+            }
+            is SetCounter -> {
+                yieldAll(index.simplifications().map { copy(index = it) })
+                yieldAll(value.simplifications().map { copy(value = it) })
+            }
+            is IncreaseSlope -> {
+                yieldAll(index.simplifications().map { copy(index = it) })
+                yieldAll(amount.simplifications().map { copy(amount = it) })
+            }
+            is SetSlope -> {
+                yieldAll(index.simplifications().map { copy(index = it) })
+                yieldAll(value.simplifications().map { copy(value = it) })
+            }
+            is SetSwitch -> {
+                yieldAll(index.simplifications().map { copy(index = it) })
+                yieldAll(value.simplifications().map { copy(value = it) })
+            }
+            is ToggleSwitch -> yieldAll(index.simplifications().map { copy(index = it) })
+            is PauseTimer -> yieldAll(index.simplifications().map { copy(index = it) })
+            is ResetTimer -> yieldAll(index.simplifications().map { copy(index = it) })
+            is RestartTimer -> yieldAll(index.simplifications().map { copy(index = it) })
+            is ResumeTimer -> yieldAll(index.simplifications().map { copy(index = it) })
+            is ReportBoolean -> yieldAll(value.simplifications().map { copy(value = it) })
+            is ReportDouble -> yieldAll(value.simplifications().map { copy(value = it) })
+            is ReportDuration -> yieldAll(value.simplifications().map { copy(value = it) })
+            is ReportInt -> yieldAll(value.simplifications().map { copy(value = it) })
+            is SaveBoolean -> yieldAll(value.simplifications().map { copy(value = it) })
+            is SaveDouble -> yieldAll(value.simplifications().map { copy(value = it) })
+            is SaveDuration -> yieldAll(value.simplifications().map { copy(value = it) })
+            is SaveInt -> yieldAll(value.simplifications().map { copy(value = it) })
+            is Await -> yieldAll(condition.simplifications().map { copy(condition = it) })
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    context (instrumentation: Lazy<BlockInstrumentation>)
+    private fun <R> Expression<R>.simplifications(): Sequence<Expression<R>> = sequence {
+        if (this@simplifications is ConstantBoolean
+            || this@simplifications is ConstantInt
+            || this@simplifications is ConstantDouble
+            || this@simplifications is ConstantDuration
+            ) {
+            // Already as simple as it gets, do nothing
+        } else {
+            val evaluations = instrumentation.value.expressionResults[this@simplifications]
+            if (evaluations.isNullOrEmpty()) {
+                // This expression didn't get run! We can't simplify this at this level.
+            } else {
+                // If instrumentation suggests this expression is effectively-constant, try substituting a constant
+                evaluations.distinct().singleOrNull()?.let {
+                    when (it) {
+                        is Boolean -> ConstantBoolean(it)
+                        is Int -> ConstantInt(it)
+                        is Double -> ConstantDouble(it)
+                        is Duration -> ConstantDuration(it)
+                        else -> null
+                    }
+                }?.let {
+                    yield(it as Expression<R>)
+                }
+            }
+
         }
     }
 
@@ -2582,54 +2715,54 @@ class BlockTestModel(initScope: InitScope) {
             override fun toString(): String = "Spawn(body=listOf(${body.joinToString()}))"
         }
         sealed interface ReportBlock : StatementBlock {
-            data class ReportBoolean(val expression: Expression<Boolean>) : ReportBlock {
+            data class ReportBoolean(val value: Expression<Boolean>) : ReportBlock {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
-                    stdout.report(expression.evaluate(model, locals).toString())
+                    stdout.report(value.evaluate(model, locals).toString())
                 }
             }
-            data class ReportInt(val expression: Expression<Int>) : ReportBlock {
+            data class ReportInt(val value: Expression<Int>) : ReportBlock {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
-                    stdout.report(expression.evaluate(model, locals).toString())
+                    stdout.report(value.evaluate(model, locals).toString())
                 }
             }
-            data class ReportDouble(val expression: Expression<Double>) : ReportBlock {
+            data class ReportDouble(val value: Expression<Double>) : ReportBlock {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
-                    stdout.report(expression.evaluate(model, locals).toString())
+                    stdout.report(value.evaluate(model, locals).toString())
                 }
             }
-            data class ReportDuration(val expression: Expression<Duration>) : ReportBlock {
+            data class ReportDuration(val value: Expression<Duration>) : ReportBlock {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
-                    stdout.report(expression.evaluate(model, locals).toString())
+                    stdout.report(value.evaluate(model, locals).toString())
                 }
             }
         }
         sealed interface SaveValue : StatementBlock {
-            data class SaveBoolean(val expression: Expression<Boolean>) : SaveValue {
+            data class SaveBoolean(val value: Expression<Boolean>) : SaveValue {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
-                    locals.savedBoolean = expression.evaluate(model, locals)
+                    locals.savedBoolean = value.evaluate(model, locals)
                 }
             }
-            data class SaveInt(val expression: Expression<Int>) : SaveValue {
+            data class SaveInt(val value: Expression<Int>) : SaveValue {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
-                    locals.savedInt = expression.evaluate(model, locals)
+                    locals.savedInt = value.evaluate(model, locals)
                 }
             }
-            data class SaveDouble(val expression: Expression<Double>) : SaveValue {
+            data class SaveDouble(val value: Expression<Double>) : SaveValue {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
-                    locals.savedDouble = expression.evaluate(model, locals)
+                    locals.savedDouble = value.evaluate(model, locals)
                 }
             }
-            data class SaveDuration(val expression: Expression<Duration>) : SaveValue {
+            data class SaveDuration(val value: Expression<Duration>) : SaveValue {
                 context(_: TaskScope)
                 override suspend fun run(model: BlockTestModel, locals: BlockLocals) {
-                    locals.savedDuration = expression.evaluate(model, locals)
+                    locals.savedDuration = value.evaluate(model, locals)
                 }
             }
         }
@@ -2935,6 +3068,14 @@ class BlockTestModel(initScope: InitScope) {
                         println("Log sample ${++logIndex}: ${name ?: originalResource.toString()} = $result")
                     }}.fullyNamed { originalResource.name }
                 }
+            }
+
+            // Like log above, this lets us inspect the results of an expression.
+            // This version is intended primarily for automatic simplification, though.
+            fun <R> Expression<R>.capture(block: (R) -> Unit) = object : Expression<R> {
+                context(_: TaskScope)
+                override fun evaluate(model: BlockTestModel, locals: BlockLocals): R =
+                    this@capture.evaluate(model, locals).also(block)
             }
         }
     }
