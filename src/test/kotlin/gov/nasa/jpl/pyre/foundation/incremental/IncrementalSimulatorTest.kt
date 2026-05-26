@@ -1050,93 +1050,27 @@ class IncrementalSimulatorTest {
         )
         val tester = test(
             ::BlockTestModel,
-            startTime = Instant.parse("2025-01-01T00:00:00Z"),
-            endTime = Instant.parse("2025-01-03T00:12:04.322638Z"),
+            startTime = day0,
+            endTime = day4,
             activities = listOf(
+                GroundedActivity(Instant.parse("2025-01-01T23:00:00Z"), Name("A3"), BlockActivity(listOf(SetSlope(ConstantInt(0), ConstantDouble(-1e16))))),
+                GroundedActivity(Instant.parse("2025-01-02T00:00:00Z"), Name("A4"), BlockActivity(listOf(SetSlope(ConstantInt(0), ConstantDouble(1018810.0))))),
                 GroundedActivity(
-                    Instant.parse("2025-01-01T21:27:50.034961Z"),
-                    Name("A1"),
-                    BlockActivity(listOf(ToggleSwitch(ConstantInt(2))))
-                ),
-                GroundedActivity(
-                    Instant.parse("2025-01-01T22:58:02.355312Z"),
-                    Name("A2"),
-                    BlockActivity(listOf(ToggleSwitch(ConstantInt(2))))
-                ),
-                GroundedActivity(
-                    Instant.parse("2025-01-01T23:19:26.478898Z"),
-                    Name("A3"),
-                    BlockActivity(
-                        listOf(
-                            IncreaseSlope(
-                                ConstantInt(0),
-                                ConstantDouble(-1.3099852473623498E17)
-                            )
-                        )
-                    )
-                ),
-                GroundedActivity(
-                    Instant.parse("2025-01-02T00:42:12.133Z"),
-                    Name("A4"),
-                    BlockActivity(
-                        listOf(
-                            SetSlope(
-                                ConstantInt(0),
-                                ConstantDouble(1018819.1136304578)
-                            )
-                        )
-                    )
-                ),
-                GroundedActivity(
-                    Instant.parse("2025-01-02T03:06:05.231838Z"),
+                    Instant.parse("2025-01-02T03:00:00Z"),
                     Name("A5"),
                     BlockActivity(
                         listOf(
                             Await(Switch(ConstantInt(2))),
-                            IncreaseSlope(ConstantInt(0), ConstantDouble(10.474136831022818))
+                            IncreaseSlope(ConstantInt(0), ConstantDouble(1.0))
                         )
                     )
                 ),
                 a6,
-                GroundedActivity(
-                    Instant.parse("2025-01-02T04:07:39.728694Z"),
-                    Name("A7"),
-                    BlockActivity(
-                        listOf(
-                            SaveBoolean(
-                                CompareInt(
-                                    AddInts(
-                                        ReadCounter(ConstantInt(2)),
-                                        SubtractInts(
-                                            ConstantInt(141),
-                                            ReadCounter(
-                                                IntFromDouble(
-                                                    ReadIntegral(ReadSavedInt)
-                                                )
-                                            )
-                                        )
-                                    ),
-                                    ConstantInt(-73),
-                                )
-                            )
-                        )
-                    )
-                ),
-                GroundedActivity(
-                    Instant.parse("2025-01-02T04:24:02.230089Z"),
-                    Name("A8"),
-                    BlockActivity(
-                        listOf(
-                            SetSlope(
-                                ConstantInt(2),
-                                ReadIntegral(ReadSavedInt)
-                            )
-                        )
-                    )
-                ),
+                GroundedActivity(Instant.parse("2025-01-02T04:07:39.728694Z"), Name("A7"), BlockActivity(listOf(SaveDouble(ReadIntegral(ConstantInt(0)))))),
+                GroundedActivity(Instant.parse("2025-01-02T04:24:02Z"), Name("A8"), BlockActivity(listOf(SetSlope(ConstantInt(2), ReadIntegral(ConstantInt(0)))))),
             )
         )
-        tester.move(a6 to Instant.parse("2025-01-02T03:40:14.549194Z"))
+        tester.move(a6 to Instant.parse("2025-01-02T03:40:00Z"))
     }
 
     @Tag("long-test")
