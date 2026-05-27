@@ -390,7 +390,7 @@ class KernelIncrementalSimulator(
         // If the value actually changed, update the value and check all next cell nodes to propagate the change
         if (computedValue != node.value) {
             node.value = computedValue
-            node.next.forEach { frontier += CheckCell(it) }
+            checkCellsAfter(node)
         }
         // Regardless of whether the value changed, check all reads and awaiters.
         // If the value they last saw for this cell differs from the value it has now, run it.
@@ -417,6 +417,19 @@ class KernelIncrementalSimulator(
             && node.awaiters.isEmpty()
             && node.next.all { it is CellStepNode }) {
             revokeCell(node)
+        }
+    }
+
+    private fun <T> checkCellsAfter(cell: CellNode<T>) {
+        // Subtle changes to dynamics may result in identical dynamics at small steps in the future, which then diverge again.
+        // For the highest-precision simulation, check all consecutive step nodes and one non-step node after cell.
+        val nodesToCheck = cell.next.toMutableList()
+        while (true) {
+            val nodeToCheck = nodesToCheck.removeLastOrNull() ?: break
+            frontier += CheckCell(nodeToCheck)
+            if (nodeToCheck is CellStepNode) {
+                nodesToCheck += nodeToCheck.next
+            }
         }
     }
 
@@ -723,7 +736,7 @@ class KernelIncrementalSimulator(
                 }
                 priorCellNode.next += writeNode
                 // Schedule anything directly after writeNode to be re-checked, since we just inserted a write before it
-                writeNode.next.forEach { frontier += CheckCell(it) }
+                checkCellsAfter(writeNode)
 
                 // Having constructed the cell's write node, now construct the next step node for the task.
                 lastTaskStepNode = WriteNode(
@@ -1069,17 +1082,19 @@ class KernelIncrementalSimulator(
                     "Cannot revoke initial cell write node!"
                 }
                 prior.next -= cell
+                // Regardless of how we're updating cell.next nodes, schedule them (and potentially a block of step nodes) to be re-checked.
+                // If we revoke a merge node below, that function will schedule nodes after the merge to be re-checked,
+                // and remove the CheckCell action on the merge itself from the frontier.
+                checkCellsAfter(cell)
                 for (next in cell.next) {
                     when (next) {
                         is CellWriteNode -> {
                             next.prior = prior
                             prior.next += next
-                            frontier += CheckCell(next)
                         }
                         is CellStepNode -> {
                             next.prior = prior
                             prior.next += next
-                            frontier += CheckCell(next)
                         }
                         is CellMergeNode -> {
                             next.prior -= cell
@@ -1089,7 +1104,6 @@ class KernelIncrementalSimulator(
                                     // Link prior to next, then schedule next to be re-checked.
                                     next.prior += prior as CellWriteNode
                                     prior.next += next
-                                    frontier += CheckCell(next)
                                 }
                                 next.prior.size <= 1 -> {
                                     // We've removed the second-to-last branch, revoke the merge itself too.
@@ -1097,7 +1111,6 @@ class KernelIncrementalSimulator(
                                 }
                                 else -> {
                                     // We removed a branch, leaving at least two branches. Keep the merge.
-                                    frontier += CheckCell(next)
                                 }
                             }
                         }
@@ -1139,12 +1152,10 @@ class KernelIncrementalSimulator(
                         is CellWriteNode -> {
                             next.prior = prior
                             prior.next += next
-                            frontier += CheckCell(next)
                         }
                         is CellStepNode -> {
                             next.prior = prior
                             prior.next += next
-                            frontier += CheckCell(next)
                         }
                         is CellMergeNode -> {
                             check(false) {
@@ -1153,6 +1164,7 @@ class KernelIncrementalSimulator(
                         }
                     }
                 }
+                checkCellsAfter(cell)
             }
         }
 

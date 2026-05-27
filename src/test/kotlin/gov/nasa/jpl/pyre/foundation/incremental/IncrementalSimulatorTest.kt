@@ -1036,13 +1036,14 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed`() {
-         // simplifyTranscriptOnFailure = true
-        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(2)
-    }
-
-    @Test
-    fun `repro directly`() {
+    fun `subtle dynamics changes`() {
+        // This test provokes a situation where the dynamics of integral_0 change very subtly.
+        // A small shift in slope, on an integral with a huge value, changes in time only very slightly.
+        // The exact timing is important - at some step-up times of the new dynamics, precision losses wipe out the change in dynamics,
+        // so the cell appears to have merged with the prior simulation.
+        // However, this is a loss of precision illusion. If one plays out the dynamics longer, the dynamics diverge again.
+        // To deal with this surprising situation, when a cell changes and needs its next cell nodes checked, we need to check
+        // all consecutive step nodes and one non-step node, not just the immediate next node.
         val a6 = GroundedActivity(
             Instant.parse("2025-01-02T03:41:20.235635Z"),
             Name("A6"),
