@@ -1067,7 +1067,7 @@ class IncrementalSimulatorTest {
                 ),
                 a6,
                 GroundedActivity(Instant.parse("2025-01-02T04:07:39.728694Z"), Name("A7"), BlockActivity(listOf(SaveDouble(ReadIntegral(ConstantInt(0)))))),
-                GroundedActivity(Instant.parse("2025-01-02T04:24:02Z"), Name("A8"), BlockActivity(listOf(SetSlope(ConstantInt(2), ReadIntegral(ConstantInt(0)))))),
+                GroundedActivity(Instant.parse("2025-01-02T04:24:02Z"), Name("A8"), BlockActivity(listOf(ReportDouble(ReadIntegral(ConstantInt(0)))))),
             )
         )
         tester.move(a6 to Instant.parse("2025-01-02T03:40:00Z"))
