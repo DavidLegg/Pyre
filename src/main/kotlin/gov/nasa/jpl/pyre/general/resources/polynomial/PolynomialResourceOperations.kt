@@ -81,7 +81,7 @@ object PolynomialResourceOperations {
         val integral = polynomialResource(name, startingValue)
         spawn("Update $name", whenever(map(this@integral, integral) {
                 p, q -> Discrete(p.integral(q.value()) != q)
-        }) {
+        }.fullyNamed { Name("Rate ${this@integral} of integral $integral changed") }) {
             try {
                 val integrandDynamics = this@integral.getDynamics()
                 integral.emit({ r: Result<FullDynamics<Polynomial>> ->
