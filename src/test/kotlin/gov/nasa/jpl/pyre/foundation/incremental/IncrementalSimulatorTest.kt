@@ -1075,6 +1075,12 @@ class IncrementalSimulatorTest {
         tester.move(a6 to Instant.parse("2025-01-02T03:40:00Z"))
     }
 
+    @Test
+    fun `repro by seed`() {
+        // simplifyTranscriptOnFailure = true
+        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(88)
+    }
+
     @Tag("long-test")
     @ParameterizedTest
     @MethodSource("fuzzingSeeds")
