@@ -3,6 +3,7 @@ package gov.nasa.jpl.pyre.foundation.incremental
 import gov.nasa.jpl.pyre.examples.scheduling.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.Companion.capture
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.CounterEffectBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SlopeEffectBlock.*
@@ -1880,14 +1881,9 @@ class IncrementalSimulatorTest {
         is Spawn -> copy(body = body.map { it.instrument() })
     }
     context (instrumentation: BlockInstrumentation)
-    private fun <R> Expression<R>.instrument() = object : Expression<R> {
-        context(_: TaskScope)
-        override fun evaluate(model: BlockTestModel, locals: BlockLocals): R =
-            this@instrument.evaluate(model, locals).also {
-                instrumentation.expressionResults.computeIfAbsent(this@instrument) { mutableListOf() }.add(it)
-            }
+    private fun <R> Expression<R>.instrument() = capture {
+        instrumentation.expressionResults.computeIfAbsent(this@instrument) { mutableListOf() }.add(it)
     }
-
 
     context (instrumentation: Lazy<BlockInstrumentation>)
     private fun BlockActivity.simplifications(): Sequence<BlockActivity?> = sequence {
@@ -2024,6 +2020,7 @@ class IncrementalSimulatorTest {
 
     context (constructModel: (InitScope) -> M)
     private fun <M : Any> FuzzTestTranscript<M>.exposesSomeBug(): Boolean {
+        val startMillis = System.currentTimeMillis()
         try {
             // Run the transcript
             var tester = test(
@@ -2052,6 +2049,12 @@ class IncrementalSimulatorTest {
         } catch (e: Throwable) {
             // This particular exception indicates a bad plan; anything else is exposing a bug
             return !(e is IllegalArgumentException && "activities which were not part of this plan" in (e.message ?: ""))
+        } finally {
+            val endMillis = System.currentTimeMillis()
+            val elapsedSeconds = (endMillis - startMillis) / 1e3
+            if (elapsedSeconds > 5) {
+                System.err.println("Warning! Running transcript took $elapsedSeconds seconds")
+            }
         }
     }
 
