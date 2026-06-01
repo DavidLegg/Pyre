@@ -1036,7 +1036,7 @@ class KernelIncrementalSimulator(
      *
      * @return RootTaskNodes following [task]
      */
-    private fun revokeSingleTask(task: TaskNode): StartTaskNode? {
+    private tailrec fun revokeSingleTask(task: TaskNode): StartTaskNode? {
         // Remove any frontier action(s) related to this node
         frontier -= RunTask(task)
         if (task is AwaitNode) frontier -= CheckCondition(task)
@@ -1065,8 +1065,12 @@ class KernelIncrementalSimulator(
         }
         // Don't check integrity now, we're purposely breaking the integrity of the next node by removing this node.
         dumpDotToFile(DebugLevel.MINOR, task.next, checkIntegrity = false)
-        // Continue revoking the rest of this task
-        return task.next?.let { it as? StartTaskNode ?: revokeSingleTask(it) }
+        // Continue revoking the rest of this task using a tail-recursive call.
+        // Doing this as tail recursion allows the compiler to rewrite this as a loop, avoiding stack-overflow errors.
+        return when (val next = task.next) {
+            is StartTaskNode? -> next
+            else -> revokeSingleTask(next)
+        }
     }
 
     private fun <T> revokeCell(cell: CellNode<T>) {

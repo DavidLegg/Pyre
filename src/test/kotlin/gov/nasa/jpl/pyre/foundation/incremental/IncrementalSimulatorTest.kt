@@ -1075,12 +1075,6 @@ class IncrementalSimulatorTest {
         tester.move(a6 to Instant.parse("2025-01-02T03:40:00Z"))
     }
 
-    @Test
-    fun `repro by seed`() {
-        // simplifyTranscriptOnFailure = true
-        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(88)
-    }
-
     @Tag("long-test")
     @ParameterizedTest
     @MethodSource("fuzzingSeeds")
@@ -2070,7 +2064,12 @@ class IncrementalSimulatorTest {
         for (removal in removals) {
             val addition = remainingAdditions.singleOrNull { it.name == removal.name }
                 ?.also(remainingAdditions::remove)
-            yield((addition?.let { +it } ?: PlanEdits()) - removal)
+            val result = (addition?.let { +it } ?: PlanEdits()) - removal
+            if (!result.isEmpty()) {
+                yield(result)
+            } else {
+                System.out.println("WARNING! Empty condensed edit found within a single PlanEdits object!")
+            }
         }
         yieldAll(remainingAdditions.map { +it })
     }
