@@ -101,6 +101,7 @@ import gov.nasa.jpl.pyre.utilities.named
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.until
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.assertTimeoutPreemptively
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
@@ -127,6 +128,7 @@ import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlin.time.times
+import kotlin.time.toJavaDuration
 
 class IncrementalSimulatorTest {
     private val day0 = Instant.parse("2025-01-01T00:00:00Z")
@@ -1083,6 +1085,8 @@ class IncrementalSimulatorTest {
             object : FuzzTestSettings<TestModel> {
                 override val numberOfRounds: Int = 100
 
+                override val maxTimePerTest: Duration = 1.minutes
+
                 override fun numberOfInitialActivities(): Int = 10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()
 
                 override fun constructModel(initScope: InitScope): TestModel = TestModel(initScope)
@@ -1133,6 +1137,8 @@ class IncrementalSimulatorTest {
         `random plan edits conform to fundamental incremental sim guarantee`(seed) { rng ->
             object : FuzzTestSettings<BlockTestModel> {
                 override val numberOfRounds: Int = 100
+
+                override val maxTimePerTest: Duration = 1.minutes
 
                 override fun numberOfInitialActivities(): Int = 10.0.pow(rng.nextDouble(1.0, 2.0)).toInt()
 
@@ -1330,6 +1336,7 @@ class IncrementalSimulatorTest {
 
     interface FuzzTestSettings<M> {
         val numberOfRounds: Int
+        val maxTimePerTest: Duration
         fun numberOfInitialActivities(): Int
         fun constructModel(initScope: InitScope) : M
         fun nextActivity(): Activity<M>
@@ -1385,122 +1392,124 @@ class IncrementalSimulatorTest {
         val settings = settingsConstructor(rng)
 
         try {
-            val numberOfInitialActivities = settings.numberOfInitialActivities()
-            println("Running $numberOfInitialActivities activities through ${settings.numberOfRounds} rounds of edits...")
+            assertTimeoutPreemptively(settings.maxTimePerTest.toJavaDuration()) {
+                val numberOfInitialActivities = settings.numberOfInitialActivities()
+                println("Running $numberOfInitialActivities activities through ${settings.numberOfRounds} rounds of edits...")
 
-            val usedActivityIds = mutableSetOf<Long>()
-            fun Random.nextActivityId(): Name {
-                var activityId: Long
-                do {
-                    activityId = nextLong(100_000_000_000, 1_000_000_000_000)
-                } while (!usedActivityIds.add(activityId))
-                return Name(activityId.toString())
-            }
-
-            var startTime = day0
-            var endTime = day1
-
-            // Choose an initial plan
-            // We'll maintain this list of activities, separate from simulator.plan, since we don't yet trust the simulator.
-            startBlock("Building initial plan")
-            val activities = mutableListOf<GroundedActivity<M>>()
-            repeat(numberOfInitialActivities) {
-                activities += GroundedActivity(
-                    rng.nextInstant(startTime..endTime),
-                    rng.nextActivityId(),
-                    settings.nextActivity())
-            }
-            endBlock()
-
-            if (simplifyTranscriptOnFailure) {
-                // When requested, start a transcript to record what this test is doing as it does it.
-                transcript = FuzzTestTranscript(Plan(startTime, endTime, activities.toList()))
-            }
-
-            // Verify the incremental simulator can handle that initial plan
-            var tester = test(settings::constructModel, activities)
-            println("Initial simulation complete")
-
-            // For as many rounds of edits as we've decided to do...
-            for (roundNumber in 1..settings.numberOfRounds) {
-                startBlock("Running round $roundNumber of edits...")
-                // In some rounds, do a save/restore cycle
-                if (rng.chance(0.05)) {
-                    startBlock("Doing a save/restore cycle")
-                    // Pick a new random start time, and slide the end time with it
-                    startTime = rng.nextInstant(startTime..endTime)
-                    endTime = startTime + 1.days
-                    // Activities that were saved through the checkpoint can't then be changed incrementally,
-                    // so choose a new set of activities to work with instead.
-                    // TODO: Think through whether this must be the case... If an activity comes from an incon, can it be incrementally edited?
-                    val newActivities = mutableListOf<GroundedActivity<M>>()
-                    repeat (settings.numberOfInitialActivities()) {
-                        newActivities += GroundedActivity(
-                            rng.nextInstant(startTime..endTime),
-                            rng.nextActivityId(),
-                            settings.nextActivity())
-                    }
-                    transcript += FuzzTestRound.SaveRestore(Plan(startTime, endTime, newActivities))
-                    // Then build a new incremental tester with those time bounds, saving and restoring from a checkpoint
-                    tester = test(
-                        constructModel = settings::constructModel,
-                        activities = newActivities,
-                        startTime = startTime,
-                        endTime = endTime,
-                        incon = tester.save(startTime),
-                    )
-                    activities.clear()
-                    activities += newActivities
-                    endBlock("Save/restore cycle complete")
+                val usedActivityIds = mutableSetOf<Long>()
+                fun Random.nextActivityId(): Name {
+                    var activityId: Long
+                    do {
+                        activityId = nextLong(100_000_000_000, 1_000_000_000_000)
+                    } while (!usedActivityIds.add(activityId))
+                    return Name(activityId.toString())
                 }
-                // Choose a number of activities to edit, up to the entire plan, with a bias towards small edits.
-                val numberOfEdits = if (activities.size <= 1) activities.size else
-                    exp(rng.nextDouble(0.0, ln(activities.size.toDouble()))).toInt()
-                var edits = PlanEdits<M>()
-                startBlock("Choosing $numberOfEdits random edits")
-                // Pick random edits to make. If we edit an activity, remove it from activities so it doesn't get edited twice.
-                repeat (numberOfEdits) {
-                    rng.choose(
-                        {
-                            // Add an activity
-                            edits += GroundedActivity(
+
+                var startTime = day0
+                var endTime = day1
+
+                // Choose an initial plan
+                // We'll maintain this list of activities, separate from simulator.plan, since we don't yet trust the simulator.
+                startBlock("Building initial plan")
+                val activities = mutableListOf<GroundedActivity<M>>()
+                repeat(numberOfInitialActivities) {
+                    activities += GroundedActivity(
+                        rng.nextInstant(startTime..endTime),
+                        rng.nextActivityId(),
+                        settings.nextActivity())
+                }
+                endBlock()
+
+                if (simplifyTranscriptOnFailure) {
+                    // When requested, start a transcript to record what this test is doing as it does it.
+                    transcript = FuzzTestTranscript(Plan(startTime, endTime, activities.toList()))
+                }
+
+                // Verify the incremental simulator can handle that initial plan
+                var tester = test(settings::constructModel, activities)
+                println("Initial simulation complete")
+
+                // For as many rounds of edits as we've decided to do...
+                for (roundNumber in 1..settings.numberOfRounds) {
+                    startBlock("Running round $roundNumber of edits...")
+                    // In some rounds, do a save/restore cycle
+                    if (rng.chance(0.05)) {
+                        startBlock("Doing a save/restore cycle")
+                        // Pick a new random start time, and slide the end time with it
+                        startTime = rng.nextInstant(startTime..endTime)
+                        endTime = startTime + 1.days
+                        // Activities that were saved through the checkpoint can't then be changed incrementally,
+                        // so choose a new set of activities to work with instead.
+                        // TODO: Think through whether this must be the case... If an activity comes from an incon, can it be incrementally edited?
+                        val newActivities = mutableListOf<GroundedActivity<M>>()
+                        repeat (settings.numberOfInitialActivities()) {
+                            newActivities += GroundedActivity(
                                 rng.nextInstant(startTime..endTime),
                                 rng.nextActivityId(),
-                                settings.nextActivity()
-                            )
-                        },
-                        {
-                            // Remove an activity
-                            edits -= activities.randomRemove(rng)
-                        },
-                        {
-                            // Move an activity (by up to 10 minutes)
-                            val activity = activities.randomRemove(rng)
-                            val time = rng.nextInstant(activity.time - 10.minutes..activity.time + 10.minutes)
-                                .coerceIn(startTime..endTime - 1.microseconds)
-                            edits += move(activity to time)
-                        },
-                        {
-                            // Edit an activity's arguments
-                            val activity = activities.randomRemove(rng)
-                            val newActivity = settings.randomizeArgs(activity.activity)
-                            edits += edit(activity to newActivity)
+                                settings.nextActivity())
                         }
-                    )
+                        transcript += FuzzTestRound.SaveRestore(Plan(startTime, endTime, newActivities))
+                        // Then build a new incremental tester with those time bounds, saving and restoring from a checkpoint
+                        tester = test(
+                            constructModel = settings::constructModel,
+                            activities = newActivities,
+                            startTime = startTime,
+                            endTime = endTime,
+                            incon = tester.save(startTime),
+                        )
+                        activities.clear()
+                        activities += newActivities
+                        endBlock("Save/restore cycle complete")
+                    }
+                    // Choose a number of activities to edit, up to the entire plan, with a bias towards small edits.
+                    val numberOfEdits = if (activities.size <= 1) activities.size else
+                        exp(rng.nextDouble(0.0, ln(activities.size.toDouble()))).toInt()
+                    var edits = PlanEdits<M>()
+                    startBlock("Choosing $numberOfEdits random edits")
+                    // Pick random edits to make. If we edit an activity, remove it from activities so it doesn't get edited twice.
+                    repeat (numberOfEdits) {
+                        rng.choose(
+                            {
+                                // Add an activity
+                                edits += GroundedActivity(
+                                    rng.nextInstant(startTime..endTime),
+                                    rng.nextActivityId(),
+                                    settings.nextActivity()
+                                )
+                            },
+                            {
+                                // Remove an activity
+                                edits -= activities.randomRemove(rng)
+                            },
+                            {
+                                // Move an activity (by up to 10 minutes)
+                                val activity = activities.randomRemove(rng)
+                                val time = rng.nextInstant(activity.time - 10.minutes..activity.time + 10.minutes)
+                                    .coerceIn(startTime..endTime - 1.microseconds)
+                                edits += move(activity to time)
+                            },
+                            {
+                                // Edit an activity's arguments
+                                val activity = activities.randomRemove(rng)
+                                val newActivity = settings.randomizeArgs(activity.activity)
+                                edits += edit(activity to newActivity)
+                            }
+                        )
+                    }
+                    endBlock()
+                    println("Running edits (${activities.size} activities total)")
+                    transcript += FuzzTestRound.RunEdit(edits)
+                    // Now run those randomly-chosen edits, asserting the single-shot and incremental simulators agree
+                    tester.run(edits)
+                    // Also apply the edits to our list of activities, to know what we can edit next round
+                    // Removals are done in-place as we go
+                    activities += edits.additions
+                    endBlock()
                 }
-                endBlock()
-                println("Running edits (${activities.size} activities total)")
-                transcript += FuzzTestRound.RunEdit(edits)
-                // Now run those randomly-chosen edits, asserting the single-shot and incremental simulators agree
-                tester.run(edits)
-                // Also apply the edits to our list of activities, to know what we can edit next round
-                // Removals are done in-place as we go
-                activities += edits.additions
-                endBlock()
             }
         } catch (e: Throwable) {
             // If transcription was enabled, simplify and print the code to directly reproduce this failure.
-            transcript?.simplify(settings::constructModel)?.let {
+            transcript?.simplify(settings)?.let {
                 val file = File("inc-sim-debug/test-repro.kt")
                 println("Writing final code to $file")
                 it.printAsCode(file)
@@ -1532,8 +1541,8 @@ class IncrementalSimulatorTest {
     private fun <T> MutableList<T>.randomRemove(rng: Random): T =
         removeAt(rng.nextInt(indices))
 
-    private fun <M : Any> FuzzTestTranscript<M>.simplify(constructModel: (InitScope) -> M): FuzzTestTranscript<M> {
-        context (constructModel) {
+    private fun <M : Any> FuzzTestTranscript<M>.simplify(settings: FuzzTestSettings<M>): FuzzTestTranscript<M> =
+        context(settings) {
             println("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits.")
             var result = this
             var lastResult: FuzzTestTranscript<M>
@@ -1548,14 +1557,13 @@ class IncrementalSimulatorTest {
                 result = result.simplifyActivities()
                 result = result.simplifyByRemovingEmptyRounds()
             } while (result != lastResult)
-            return result
+            result
         }
-    }
 
     /**
      * Most edits in a fuzz test aren't necessary. Try removing each one individually.
      */
-    context (constructModel: (InitScope) -> M)
+    context (settings: FuzzTestSettings<M>)
     private fun <M : Any> FuzzTestTranscript<M>.simplifyByRemovingEdits(): FuzzTestTranscript<M> {
         println("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits, by removing edits.")
         var result = this
@@ -1627,7 +1635,7 @@ class IncrementalSimulatorTest {
     /**
      * Intermediate edits are often unnecessary. Try combining edits into just their net effect.
      */
-    context (constructModel: (InitScope) -> M)
+    context (settings: FuzzTestSettings<M>)
     private fun <M : Any> FuzzTestTranscript<M>.simplifyByCondensingEdits(): FuzzTestTranscript<M> {
         println("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits, by condensing edits.")
         var result = this
@@ -1691,7 +1699,7 @@ class IncrementalSimulatorTest {
         return result
     }
 
-    context (constructModel: (InitScope) -> M)
+    context (settings: FuzzTestSettings<M>)
     private fun <M : Any> FuzzTestTranscript<M>.simplifyByRemovingSaveRestore(): FuzzTestTranscript<M> {
         println("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits, by removing save/restore cycles.")
         var result = this
@@ -1745,7 +1753,7 @@ class IncrementalSimulatorTest {
         return result
     }
 
-    context (constructModel: (InitScope) -> M)
+    context (settings: FuzzTestSettings<M>)
     private fun <M : Any> FuzzTestTranscript<M>.simplifyActivities(): FuzzTestTranscript<M> {
         println("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits, by simplifying activities themselves.")
         var result = this
@@ -1984,7 +1992,7 @@ class IncrementalSimulatorTest {
         }
     }
 
-    context (constructModel: (InitScope) -> M)
+    context (settings: FuzzTestSettings<M>)
     private fun <M : Any> FuzzTestTranscript<M>.simplifyByRemovingEmptyRounds(): FuzzTestTranscript<M> {
         print("Simplifying a transcript with ${rounds.size} rounds and ${totalEdits()} total edits, by removing empty rounds ")
         System.out.flush()
@@ -2018,34 +2026,36 @@ class IncrementalSimulatorTest {
         }
     }
 
-    context (constructModel: (InitScope) -> M)
+    context (settings: FuzzTestSettings<M>)
     private fun <M : Any> FuzzTestTranscript<M>.exposesSomeBug(): Boolean {
         val startMillis = System.currentTimeMillis()
         try {
-            // Run the transcript
-            var tester = test(
-                constructModel,
-                startTime = initialPlan.startTime,
-                endTime = initialPlan.endTime,
-                activities = initialPlan.activities
-            )
-            for (round in rounds) {
-                when (round) {
-                    is FuzzTestRound.RunEdit -> tester.run(round.edits)
-                    is FuzzTestRound.SaveRestore -> {
-                        val incon = tester.save(round.nextPlan.startTime)
-                        tester = test(
-                            constructModel,
-                            startTime = round.nextPlan.startTime,
-                            endTime = round.nextPlan.endTime,
-                            activities = round.nextPlan.activities,
-                            incon = incon,
-                        )
+            return assertTimeoutPreemptively(settings.maxTimePerTest.toJavaDuration()) {
+                // Run the transcript
+                var tester = test(
+                    settings::constructModel,
+                    startTime = initialPlan.startTime,
+                    endTime = initialPlan.endTime,
+                    activities = initialPlan.activities
+                )
+                for (round in rounds) {
+                    when (round) {
+                        is FuzzTestRound.RunEdit -> tester.run(round.edits)
+                        is FuzzTestRound.SaveRestore -> {
+                            val incon = tester.save(round.nextPlan.startTime)
+                            tester = test(
+                                settings::constructModel,
+                                startTime = round.nextPlan.startTime,
+                                endTime = round.nextPlan.endTime,
+                                activities = round.nextPlan.activities,
+                                incon = incon,
+                            )
+                        }
                     }
                 }
+                // No exception thrown means we didn't expose any bugs
+                false
             }
-            // No exception thrown means we didn't expose any bugs
-            return false
         } catch (e: Throwable) {
             // This particular exception indicates a bad plan; anything else is exposing a bug
             return !(e is IllegalArgumentException && "activities which were not part of this plan" in (e.message ?: ""))
