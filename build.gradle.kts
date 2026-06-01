@@ -26,6 +26,12 @@ tasks.test {
     useJUnitPlatform {
         excludeTags("long-test")
     }
+
+    minHeapSize = "1024m"
+    maxHeapSize = "16g"
+    jvmArgs = listOf(
+        "-XX:MaxMetaspaceSize=16g",
+    )
 }
 tasks.register<Test>("long-tests") {
     useJUnitPlatform {
