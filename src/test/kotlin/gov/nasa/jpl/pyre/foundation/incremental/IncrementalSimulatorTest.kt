@@ -1077,6 +1077,39 @@ class IncrementalSimulatorTest {
         tester.move(a6 to Instant.parse("2025-01-02T03:40:00Z"))
     }
 
+    @Test
+    fun `repro by seed`() {
+        // simplifyTranscriptOnFailure = true
+        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(74)
+    }
+
+    @Test
+    fun `repro directly`() {
+        // Finding: the large constant is crucial to reproducing this bug
+        // I suspect we're facing precision issues, where technically 1 nanosecond is enough to change the duration and change the comparison,
+        // but in fact the precision loss means we must go further than 1 nano into the future to actually see the numbers change.
+        // Indeed, 1e10 seconds is approximately 316 years, well after the roughly 146 year cutoff of MAX_PRECISE_DURATION.
+        // In some ways, I'd rather just tolerate this misbehavior rather than code around it, but I'd also like the code to deal with this better...
+        // This isn't limited to durations; polynomials and other mixed-precision data types will also suffer from this bug.
+        // KernelIncrementalSimulator.DEBUG = KernelIncrementalSimulator.DebugLevel.MAJOR
+        assertTimeoutPreemptively(5.seconds.toJavaDuration()) {
+            test(::BlockTestModel, activities = listOf(
+                GroundedActivity(Instant.parse("2025-01-01T08:00:00Z"), Name("A1"), BlockActivity(listOf(
+                    Await(CompareTimerResource(
+                        ConstantTimerResource(ConstantDuration(1E10.seconds)),
+                        SubtractTimerResources(
+                            ConstantTimerResource(ConstantDuration(1E10.seconds)),
+                            Timer(ConstantInt(2)),
+                        ),
+                    )),
+                ))),
+                GroundedActivity(Instant.parse("2025-01-01T16:00:00Z"), Name("A2"), BlockActivity(listOf(
+                    ResumeTimer(ConstantInt(2)),
+                ))),
+            ))
+        }
+    }
+
     @Tag("long-test")
     @ParameterizedTest
     @MethodSource("fuzzingSeeds")
