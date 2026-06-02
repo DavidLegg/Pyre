@@ -22,7 +22,11 @@ import gov.nasa.jpl.pyre.foundation.resources.timer.TimerOperations.minus
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerOperations.plus
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.kernel.Durations.COARSE_EPSILON
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
+import gov.nasa.jpl.pyre.kernel.Durations.MAX_PRECISE_DURATION
+import gov.nasa.jpl.pyre.kernel.Durations.epsilon
+import gov.nasa.jpl.pyre.kernel.Durations.isPrecise
 import gov.nasa.jpl.pyre.kernel.Name
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
@@ -95,12 +99,13 @@ object TimerResourceOperations {
         ResourceMonad.pure(Timer(time, 0.0)).fullyNamed { Name(time.toString()) }
 
     fun TimerResource.compareTo(other: TimerResource): IntResource {
-        return bind(this - other) { delta ->
+        return bind(this, other) { t, o ->
+            val delta = t - o
             val expiry =
                 // If the delta isn't changing, comparison never changes
                 if (delta.rate == 0.0) NEVER
                 // If delta is exactly zero and changing, it changes "immediately"
-                else if (delta.time == ZERO) Expiry(EPSILON)
+                else if (delta.time == ZERO) Expiry(t.time.epsilon)
                 // If delta is moving away from zero, it never changes sign
                 else if (delta.time > ZERO == delta.rate > 0) NEVER
                 // Otherwise delta is moving towards zero. Compute the intercept
@@ -120,6 +125,7 @@ object TimerResourceOperations {
                     val estimatedRoot = (delta.time / delta.rate).absoluteValue
                     var result: Duration? = null
                     for (offset in -2..2) {
+                        // TODO: Think through whether we need to handle coarse epsilon here, and if so, how
                         val possibleRoot = estimatedRoot + offset * EPSILON
                         if ((delta.time + delta.rate * possibleRoot) > ZERO != delta.time > ZERO) {
                             result = possibleRoot

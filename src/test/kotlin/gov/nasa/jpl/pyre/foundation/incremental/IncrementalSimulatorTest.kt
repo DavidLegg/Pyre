@@ -1078,20 +1078,13 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed`() {
-        // simplifyTranscriptOnFailure = true
-        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(74)
-    }
-
-    @Test
-    fun `repro directly`() {
-        // Finding: the large constant is crucial to reproducing this bug
-        // I suspect we're facing precision issues, where technically 1 nanosecond is enough to change the duration and change the comparison,
-        // but in fact the precision loss means we must go further than 1 nano into the future to actually see the numbers change.
-        // Indeed, 1e10 seconds is approximately 316 years, well after the roughly 146 year cutoff of MAX_PRECISE_DURATION.
-        // In some ways, I'd rather just tolerate this misbehavior rather than code around it, but I'd also like the code to deal with this better...
-        // This isn't limited to durations; polynomials and other mixed-precision data types will also suffer from this bug.
-        // KernelIncrementalSimulator.DEBUG = KernelIncrementalSimulator.DebugLevel.MAJOR
+    fun `compare durations with coarse precision`() {
+        // The large constant below is crucial to reproducing this bug.
+        // 1e10 seconds is approximately 316 years, well after the roughly 146 year cutoff of MAX_PRECISE_DURATION.
+        // Although in theory this condition ought to be satisfied after EPSILON, because of the loss of precision,
+        // it's actually satisfied only after COARSE_EPSILON.
+        // This is more of a bug in the Timer comparisons code than incremental sim,
+        // but it manifests as making incremental sim crawl and chew through memory creating thousands of nodes.
         assertTimeoutPreemptively(5.seconds.toJavaDuration()) {
             test(::BlockTestModel, activities = listOf(
                 GroundedActivity(Instant.parse("2025-01-01T08:00:00Z"), Name("A1"), BlockActivity(listOf(
