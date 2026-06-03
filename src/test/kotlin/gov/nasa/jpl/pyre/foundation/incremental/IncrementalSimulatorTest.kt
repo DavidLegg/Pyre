@@ -1103,6 +1103,47 @@ class IncrementalSimulatorTest {
         }
     }
 
+    @Test
+    fun `repro by seed`() {
+        // simplifyTranscriptOnFailure = true
+        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(88)
+    }
+
+    @Test
+    fun `repro directly`() {
+        // Finding: The SubtractPolynomialResource below is crucial to this test, as are both slopes below.
+        // I suspect the problem is a precision issue, similar to that in `compare durations with coarse precision`
+        // We could potentially try to fix this, though I'm not sure how, given the dynamics in question will report
+        // a value of 0 and slope 55, which is more than enough to change in one epsilon of time.
+        // It's only because that dynamics is derived from a more coarse precision, giving a false sense of precision,
+        // that we wind up in a tight-stepping loop and time out.
+        // That said, this is sufficiently narrow edge-case behavior that I'm also willing to just accept it.
+        // We'd have to find a way to ignore tests that fail for this reason (and ideally no others).
+        assertTimeoutPreemptively(5.seconds.toJavaDuration()) {
+            test(::BlockTestModel,
+                GroundedActivity(Instant.parse("2025-01-01T07:00:00Z"), Name("A1"), BlockActivity(listOf(
+                    SetSlope(ConstantInt(2), ConstantDouble(1E20))
+                ))),
+                GroundedActivity(Instant.parse("2025-01-01T09:00:00Z"), Name("A2"), BlockActivity(listOf(
+                    SetSlope(ConstantInt(2), ConstantDouble(55.0))
+                ))),
+                GroundedActivity(Instant.parse("2025-01-01T15:00:00Z"), Name("A3"), BlockActivity(listOf(
+                    Await(ComparePolynomialResource(
+                        SubtractPolynomialResources(
+                            Integral(ConstantInt(2)),
+                            ConstantPolynomialResourceExpression(
+                                ReadIntegral(ConstantInt(2)),
+                            ),
+                        ),
+                        ConstantPolynomialResourceExpression(
+                            ConstantDouble(0.0)
+                        )
+                    ))
+                ))),
+            )
+        }
+    }
+
     @Tag("long-test")
     @ParameterizedTest
     @MethodSource("fuzzingSeeds")
