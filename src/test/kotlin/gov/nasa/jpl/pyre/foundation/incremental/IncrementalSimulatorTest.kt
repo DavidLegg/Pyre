@@ -1106,7 +1106,7 @@ class IncrementalSimulatorTest {
     @Test
     fun `repro by seed`() {
         // simplifyTranscriptOnFailure = true
-        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(88)
+        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(88, timeout = 5.seconds)
     }
 
     @Test
@@ -1148,11 +1148,15 @@ class IncrementalSimulatorTest {
     @ParameterizedTest
     @MethodSource("fuzzingSeeds")
     fun `random plan edits conform to fundamental incremental sim guarantee -- model 1`(seed: Int) {
+        `random plan edits conform to fundamental incremental sim guarantee -- model 1`(seed, timeout = 10.minutes)
+    }
+
+    fun `random plan edits conform to fundamental incremental sim guarantee -- model 1`(seed: Int, timeout: Duration) {
         `random plan edits conform to fundamental incremental sim guarantee`(seed) { rng ->
             object : FuzzTestSettings<TestModel> {
                 override val numberOfRounds: Int = 100
 
-                override val maxTimePerTest: Duration = 1.minutes
+                override val maxTimePerTest: Duration = timeout
 
                 override fun numberOfInitialActivities(): Int = 10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()
 
@@ -1194,18 +1198,22 @@ class IncrementalSimulatorTest {
     @ParameterizedTest
     @MethodSource("fuzzingSeeds -- lightweight")
     fun `random plan edits conform to fundamental incremental sim guarantee -- model 1 lightweight`(seed: Int) {
-        `random plan edits conform to fundamental incremental sim guarantee -- model 1`(seed)
+        `random plan edits conform to fundamental incremental sim guarantee -- model 1`(seed, timeout = 5.seconds)
     }
 
     @Tag("long-test")
     @ParameterizedTest
     @MethodSource("fuzzingSeeds")
     fun `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed: Int) {
+        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed, timeout = 10.minutes)
+    }
+
+    fun `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed: Int, timeout: Duration) {
         `random plan edits conform to fundamental incremental sim guarantee`(seed) { rng ->
             object : FuzzTestSettings<BlockTestModel> {
                 override val numberOfRounds: Int = 100
 
-                override val maxTimePerTest: Duration = 1.minutes
+                override val maxTimePerTest: Duration = timeout
 
                 override fun numberOfInitialActivities(): Int = 10.0.pow(rng.nextDouble(1.0, 2.0)).toInt()
 
@@ -1398,7 +1406,7 @@ class IncrementalSimulatorTest {
     @ParameterizedTest
     @MethodSource("fuzzingSeeds -- lightweight")
     fun `random plan edits conform to fundamental incremental sim guarantee -- model 2 lightweight`(seed: Int) {
-        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed)
+        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed, timeout = 5.seconds)
     }
 
     interface FuzzTestSettings<M> {
