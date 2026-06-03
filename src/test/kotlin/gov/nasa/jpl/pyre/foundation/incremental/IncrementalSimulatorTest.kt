@@ -1148,15 +1148,15 @@ class IncrementalSimulatorTest {
     @ParameterizedTest
     @MethodSource("fuzzingSeeds")
     fun `random plan edits conform to fundamental incremental sim guarantee -- model 1`(seed: Int) {
-        `random plan edits conform to fundamental incremental sim guarantee -- model 1`(seed, timeout = 10.minutes)
+        `random plan edits conform to fundamental incremental sim guarantee -- model 1`(seed, timeout = null)
     }
 
-    fun `random plan edits conform to fundamental incremental sim guarantee -- model 1`(seed: Int, timeout: Duration) {
+    fun `random plan edits conform to fundamental incremental sim guarantee -- model 1`(seed: Int, timeout: Duration?) {
         `random plan edits conform to fundamental incremental sim guarantee`(seed) { rng ->
             object : FuzzTestSettings<TestModel> {
                 override val numberOfRounds: Int = 100
 
-                override val maxTimePerTest: Duration = timeout
+                override val maxTimePerTest: Duration? = timeout
 
                 override fun numberOfInitialActivities(): Int = 10.0.pow(rng.nextDouble(1.0, 3.0)).toInt()
 
@@ -1205,15 +1205,15 @@ class IncrementalSimulatorTest {
     @ParameterizedTest
     @MethodSource("fuzzingSeeds")
     fun `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed: Int) {
-        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed, timeout = 10.minutes)
+        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed, timeout = null)
     }
 
-    fun `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed: Int, timeout: Duration) {
+    fun `random plan edits conform to fundamental incremental sim guarantee -- model 2`(seed: Int, timeout: Duration?) {
         `random plan edits conform to fundamental incremental sim guarantee`(seed) { rng ->
             object : FuzzTestSettings<BlockTestModel> {
                 override val numberOfRounds: Int = 100
 
-                override val maxTimePerTest: Duration = timeout
+                override val maxTimePerTest: Duration? = timeout
 
                 override fun numberOfInitialActivities(): Int = 10.0.pow(rng.nextDouble(1.0, 2.0)).toInt()
 
@@ -1411,7 +1411,7 @@ class IncrementalSimulatorTest {
 
     interface FuzzTestSettings<M> {
         val numberOfRounds: Int
-        val maxTimePerTest: Duration
+        val maxTimePerTest: Duration?
         fun numberOfInitialActivities(): Int
         fun constructModel(initScope: InitScope) : M
         fun nextActivity(): Activity<M>
@@ -1467,7 +1467,7 @@ class IncrementalSimulatorTest {
         val settings = settingsConstructor(rng)
 
         try {
-            assertTimeoutPreemptively(settings.maxTimePerTest.toJavaDuration()) {
+            assertTimeoutPreemptively(settings.maxTimePerTest) {
                 val numberOfInitialActivities = settings.numberOfInitialActivities()
                 println("Running $numberOfInitialActivities activities through ${settings.numberOfRounds} rounds of edits...")
 
@@ -2105,7 +2105,7 @@ class IncrementalSimulatorTest {
     private fun <M : Any> FuzzTestTranscript<M>.exposesSomeBug(): Boolean {
         val startMillis = System.currentTimeMillis()
         try {
-            return assertTimeoutPreemptively(settings.maxTimePerTest.toJavaDuration()) {
+            return assertTimeoutPreemptively(settings.maxTimePerTest) {
                 // Run the transcript
                 var tester = test(
                     settings::constructModel,
@@ -3157,5 +3157,16 @@ class BlockTestModel(initScope: InitScope) {
                     this@capture.evaluate(model, locals).also(block)
             }
         }
+    }
+}
+
+// I've observed some weird behavior when using the preemptive interruption.
+// It seems like one test interrupting might interfere with others when running multiple tests in parallel.
+// To get around this for now, I'm just adding the option to not use the preemptive timeout.
+private fun <R> assertTimeoutPreemptively(timeout: Duration?, executable: () -> R): R = if (timeout == null) {
+    executable()
+} else {
+    assertTimeoutPreemptively(timeout.toJavaDuration()) {
+        executable()
     }
 }
