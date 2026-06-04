@@ -322,15 +322,6 @@ class KernelIncrementalSimulator(
 
     private fun resolve() {
         while (true) {
-            if (Thread.currentThread().isInterrupted) {
-                // I think this warning is a little alarmist. I believe the simulator is in an incomplete but
-                // recoverable state when interrupted. If you were to call run(<empty edits>) for example, I think it
-                // would resume the resolve loop and just pick up where it left off. Do that enough, even with multiple
-                // interrupts, and it'll eventually fully resolve, and those results should be trustworthy.
-                // TODO: Test this belief; if true, perhaps we should recognize that as a supported use case?
-                System.err.println("Warning! Incremental simulation interrupted! The state of this simulator is potentially inconsistent, and its results should not be used.")
-                break
-            }
             dumpDotToFile(DebugLevel.MAJOR, frontier.firstOrNull()?.node)
             when (val action = frontier.pollFirst() ?: break) {
                 is RunTask -> {
