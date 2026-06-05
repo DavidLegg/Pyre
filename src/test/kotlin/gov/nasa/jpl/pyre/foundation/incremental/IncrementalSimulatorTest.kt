@@ -1163,6 +1163,7 @@ class IncrementalSimulatorTest {
 
     @Test
     fun `repro directly`() {
+        // Finding: There's a report from the second run at 2025-01-01T06:00:00Z, after that second run ends.
         val tester = test(::BlockTestModel,
             GroundedActivity(Instant.parse("2025-01-01T06:00:00Z"), Name("A1"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(1.0))))),
         )
