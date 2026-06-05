@@ -1170,14 +1170,13 @@ class IncrementalSimulatorTest {
             startTime = Instant.parse("2025-01-01T00:00:00Z"),
             endTime = Instant.parse("2025-01-02T15:11:31.196465Z"),
             activities = listOf(
-                GroundedActivity(Instant.parse("2025-01-01T05:29:37.779009Z"), Name("329204642082"), BlockActivity(statements=listOf(Await(condition=ConstantBooleanResource(value=ConstantBoolean(value=true))), IncreaseSlope(index=ConstantInt(value=-26), amount=ConstantDouble(value=51.9377298656085)), Await(condition=CompareIntResource(left=SubtractIntResources(left=ConstantIntResource(value=ConstantInt(value=-68)), right=Counter(indexExpression=ConstantInt(value=0))), right=AddIntResources(left=ConstantIntResource(value=ConstantInt(value=39)), right=ConstantIntResource(value=ConstantInt(value=0)))))))),
+                GroundedActivity(Instant.parse("2025-01-01T05:29:37.779009Z"), Name("329204642082"), BlockActivity(statements=listOf(Await(condition=ConstantBooleanResource(value=ConstantBoolean(value=true))), IncreaseSlope(index=ConstantInt(value=-26), amount=ConstantDouble(value=51.9377298656085)), Await(condition=ConstantBooleanResource(value=ConstantBoolean(value=false)))))),
                 GroundedActivity(Instant.parse("2025-01-01T18:34:20.456885Z"), Name("863822719599"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=49), value=ConstantDouble(value=-83.18067459395387))))),
                 GroundedActivity(Instant.parse("2025-01-01T02:30:04.980737Z"), Name("906567923583"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=60), value=ConstantDouble(value=-585844.4235940271))))),
                 GroundedActivity(Instant.parse("2025-01-01T12:48:09.180988Z"), Name("937881263424"), BlockActivity(statements=listOf(Await(condition=ComparePolynomialResource(left=Integral(indexExpression=ConstantInt(value=-95)), right=ConstantPolynomialResourceExpression(value=ConstantDouble(value=-134477.22290277557)))), SetSlope(index=ConstantInt(value=-15), value=ConstantDouble(value=0.0))))),
                 GroundedActivity(Instant.parse("2025-01-01T10:28:54.065185Z"), Name("695633830516"), BlockActivity(statements=listOf(ToggleSwitch(index=ConstantInt(value=46))))),
                 GroundedActivity(Instant.parse("2025-01-01T07:49:13.401990Z"), Name("772960740414"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=7), amount=ConstantDouble(value=-97.70674632311011))))),
                 GroundedActivity(Instant.parse("2025-01-02T11:17:19.397355Z"), Name("406851510291"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=0), amount=ConstantDouble(value=95.50951521009137))))),
-                GroundedActivity(Instant.parse("2025-01-02T08:59:58.402220Z"), Name("280546108088"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=25), amount=ConstantDouble(value=41.0635270859257))))),
                 GroundedActivity(Instant.parse("2025-01-02T01:27:30.387417Z"), Name("314174764995"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-80), amount=ConstantDouble(value=46.651885018212965))))),
                 GroundedActivity(Instant.parse("2025-01-02T10:16:36.541313Z"), Name("807242790562"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=6459207), value=ConstantDouble(value=60.53706037290701))))),
                 GroundedActivity(Instant.parse("2025-01-02T10:44:32.323728Z"), Name("435526775229"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=72), amount=ConstantDouble(value=42.04027916227761))))),
@@ -1192,25 +1191,20 @@ class IncrementalSimulatorTest {
             incon = incon,
             activities = listOf(
                 GroundedActivity(Instant.parse("2025-01-02T19:21:59.251353Z"), Name("258515582492"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-50), amount=ConstantDouble(value=40.642490119327675))))),
-                GroundedActivity(Instant.parse("2025-01-02T19:02:41.172982Z"), Name("413554101262"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-65), value=ConstantDouble(value=-8.65248910623022))))),
+                GroundedActivity(Instant.parse("2025-01-02T21:51:09.630098Z"), Name("780547381531"), BlockActivity(statements=listOf(Await(condition=CompareIntResource(left=AddIntResources(left=ConstantIntResource(value=ConstantInt(value=-54)), right=Counter(indexExpression=ConstantInt(value=-6))), right=ConstantIntResource(value=ConstantInt(value=128)))), ToggleSwitch(index=ConstantInt(value=160))))),
+                GroundedActivity(Instant.parse("2025-01-03T05:30:31.375883Z"), Name("451764659446"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-134), value=ConstantDouble(value=-89.27446997985682))))),
+                GroundedActivity(Instant.parse("2025-01-04T05:14:36.149779Z"), Name("144940322193"), BlockActivity(statements=listOf(IncrementCounter(index=ConstantInt(value=-66), amount=ConstantInt(value=89)), SetSlope(index=ConstantInt(value=51), value=ConstantDouble(value=17.0))))),
+                GroundedActivity(Instant.parse("2025-01-03T06:17:30.537127Z"), Name("785017870686"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-102), value=ConstantDouble(value=-74.2360876233462))))),
+                GroundedActivity(Instant.parse("2025-01-04T04:51:22.466456Z"), Name("367134689734"), BlockActivity(statements=listOf(Await(condition=Switch(indexExpression=ConstantInt(value=64))), IncreaseSlope(index=ConstantInt(value=184), amount=ConstantDouble(value=-7759233.261399761)), IncreaseSlope(index=ConstantInt(value=54), amount=ConstantDouble(value=-95.16878988616055)), SetCounter(index=ConstantInt(value=0), value=ConstantInt(value=0))))),
+                GroundedActivity(Instant.parse("2025-01-03T08:36:34.415194Z"), Name("616626792364"), BlockActivity(statements=listOf(Spawn(body=listOf(IncreaseSlope(index=ConstantInt(value=-2), amount=ConstantDouble(value=98.32990245657462))))))),
+                GroundedActivity(Instant.parse("2025-01-04T02:24:40.318021Z"), Name("496193530397"), BlockActivity(statements=listOf(Await(condition=Switch(indexExpression=ConstantInt(value=7))), IncrementCounter(index=ConstantInt(value=0), amount=ConstantInt(value=-8))))),
+                GroundedActivity(Instant.parse("2025-01-03T23:59:09.173413Z"), Name("349502990320"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-20), amount=ConstantDouble(value=-51.0))))),
+                GroundedActivity(Instant.parse("2025-01-04T06:01:12.433206Z"), Name("527731926624"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-47), value=ConstantDouble(value=73.5577355869998))))),
+                GroundedActivity(Instant.parse("2025-01-04T01:05:11.172761Z"), Name("275018387632"), BlockActivity(statements=listOf(ToggleSwitch(index=ConstantInt(value=-65))))),
+                GroundedActivity(Instant.parse("2025-01-03T18:58:12.428387Z"), Name("684386337116"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-20), value=ConstantDouble(value=-11.47718075864266)), Spawn(body=listOf(IncreaseSlope(index=ConstantInt(value=-6749159), amount=ConstantDouble(value=-75.69149140417915))))))),
             )
         )
         println("Running round 2...")
-        tester.add(
-            GroundedActivity(Instant.parse("2025-01-03T05:30:31.375883Z"), Name("451764659446"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-134), value=ConstantDouble(value=-89.27446997985682))))),
-            GroundedActivity(Instant.parse("2025-01-02T19:34:53.443112Z"), Name("736609134107"), BlockActivity(statements=listOf(ToggleSwitch(index=ConstantInt(value=0))))),
-            GroundedActivity(Instant.parse("2025-01-03T06:17:30.537127Z"), Name("785017870686"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-102), value=ConstantDouble(value=-74.2360876233462))))),
-            GroundedActivity(Instant.parse("2025-01-03T11:29:21.345676Z"), Name("689094928718"), BlockActivity(statements=listOf(Await(condition=AndResource(left=ConstantBooleanResource(value=ConstantBoolean(value=true)), right=Switch(indexExpression=ConstantInt(value=0)))), IncreaseSlope(index=ConstantInt(value=-68), amount=ConstantDouble(value=-8.050488979848126)), Await(condition=ConstantBooleanResource(value=ConstantBoolean(value=false)))))),
-            GroundedActivity(Instant.parse("2025-01-04T04:51:22.466456Z"), Name("367134689734"), BlockActivity(statements=listOf(Await(condition=Switch(indexExpression=ConstantInt(value=64))), IncreaseSlope(index=ConstantInt(value=184), amount=ConstantDouble(value=-7759233.261399761)), IncreaseSlope(index=ConstantInt(value=54), amount=ConstantDouble(value=-95.16878988616055)), SetCounter(index=ConstantInt(value=0), value=ConstantInt(value=0))))),
-            GroundedActivity(Instant.parse("2025-01-03T19:12:35.425525Z"), Name("790152230447"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-57), amount=ConstantDouble(value=36.9403667715616))))),
-            GroundedActivity(Instant.parse("2025-01-04T02:24:40.318021Z"), Name("496193530397"), BlockActivity(statements=listOf(Await(condition=Switch(indexExpression=ConstantInt(value=7))), IncrementCounter(index=ConstantInt(value=0), amount=ConstantInt(value=-8))))),
-            GroundedActivity(Instant.parse("2025-01-03T23:59:09.173413Z"), Name("349502990320"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-20), amount=ConstantDouble(value=-51.0))))),
-            GroundedActivity(Instant.parse("2025-01-04T06:01:12.433206Z"), Name("527731926624"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-47), value=ConstantDouble(value=73.5577355869998))))),
-            GroundedActivity(Instant.parse("2025-01-04T01:05:11.172761Z"), Name("275018387632"), BlockActivity(statements=listOf(ToggleSwitch(index=ConstantInt(value=-65))))),
-            GroundedActivity(Instant.parse("2025-01-03T10:29:50.079199Z"), Name("672958395299"), BlockActivity(statements=listOf(Spawn(body=listOf(SetSlope(index=ConstantInt(value=-5), value=ConstantDouble(value=27.549286891424657))))))),
-            GroundedActivity(Instant.parse("2025-01-03T18:58:12.428387Z"), Name("684386337116"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-20), value=ConstantDouble(value=-11.47718075864266)), Spawn(body=listOf(IncreaseSlope(index=ConstantInt(value=-6749159), amount=ConstantDouble(value=-75.69149140417915))))))),
-        )
-        println("Running round 3...")
         inconTime = Instant.parse("2025-01-03T22:30:12.818149Z")
         incon = tester.save(inconTime)
         tester = test(::BlockTestModel,
@@ -1218,10 +1212,9 @@ class IncrementalSimulatorTest {
             endTime = Instant.parse("2025-01-04T22:30:12.818149Z"),
             incon = incon,
             activities = listOf(
-                GroundedActivity(Instant.parse("2025-01-04T13:24:15.787475Z"), Name("116133966043"), BlockActivity(statements=listOf(ToggleSwitch(index=ConstantInt(value=-47))))),
             )
         )
-        println("Running round 4...")
+        println("Running round 3...")
         inconTime = Instant.parse("2025-01-03T23:16:03.310634Z")
         incon = tester.save(inconTime)
         tester = test(::BlockTestModel,
@@ -1231,16 +1224,13 @@ class IncrementalSimulatorTest {
             activities = listOf(
                 GroundedActivity(Instant.parse("2025-01-04T19:52:40.167756Z"), Name("994870526613"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-17), amount=ConstantDouble(value=53.483876766762506))))),
                 GroundedActivity(Instant.parse("2025-01-04T13:29:59.253442Z"), Name("767514772304"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=46), amount=ConstantDouble(value=-43.97180046740088))))),
+                GroundedActivity(Instant.parse("2025-01-04T06:25:18.382897Z"), Name("897400977708"), BlockActivity(statements=listOf(IncrementCounter(index=ConstantInt(value=-66), amount=ConstantInt(value=160))))),
+                GroundedActivity(Instant.parse("2025-01-04T19:48:22.748139Z"), Name("793975364185"), BlockActivity(statements=listOf(Await(condition=ComparePolynomialResource(left=Integral(indexExpression=ConstantInt(value=-32)), right=ConstantPolynomialResourceExpression(value=ConstantDouble(value=44.942870153163284)))), SetSlope(index=ConstantInt(value=-49), value=ConstantDouble(value=0.0)), IncreaseSlope(index=ConstantInt(value=0), amount=ConstantDouble(value=-88.44120537910341))))),
+                GroundedActivity(Instant.parse("2025-01-04T17:43:48.007906Z"), Name("398393343460"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=0), value=ConstantDouble(value=46.61563102315063))))),
+                GroundedActivity(Instant.parse("2025-01-04T17:56:20.293237Z"), Name("953685811128"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=76), amount=ConstantDouble(value=-75.5803892534504))))),
             )
         )
-        println("Running round 5...")
-        tester.add(
-            GroundedActivity(Instant.parse("2025-01-04T19:48:22.748139Z"), Name("793975364185"), BlockActivity(statements=listOf(Await(condition=ComparePolynomialResource(left=Integral(indexExpression=ConstantInt(value=-32)), right=ConstantPolynomialResourceExpression(value=ConstantDouble(value=44.942870153163284)))), SetSlope(index=ConstantInt(value=-49), value=ConstantDouble(value=0.0)), IncreaseSlope(index=ConstantInt(value=0), amount=ConstantDouble(value=-88.44120537910341))))),
-            GroundedActivity(Instant.parse("2025-01-04T03:34:18.200647Z"), Name("745476883541"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-125), amount=ConstantDouble(value=-73.69038047245729))))),
-            GroundedActivity(Instant.parse("2025-01-04T17:43:48.007906Z"), Name("398393343460"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=0), value=ConstantDouble(value=46.61563102315063))))),
-            GroundedActivity(Instant.parse("2025-01-04T17:56:20.293237Z"), Name("953685811128"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=76), amount=ConstantDouble(value=-75.5803892534504))))),
-        )
-        println("Running round 6...")
+        println("Running round 4...")
         inconTime = Instant.parse("2025-01-04T21:49:00.176430Z")
         incon = tester.save(inconTime)
         tester = test(::BlockTestModel,
@@ -1250,12 +1240,11 @@ class IncrementalSimulatorTest {
             activities = listOf(
                 GroundedActivity(Instant.parse("2025-01-05T07:57:17.824210Z"), Name("205830053575"), BlockActivity(statements=listOf(Await(condition=NotResource(expression=AndResource(left=OrResource(left=ComparePolynomialResource(left=Integral(indexExpression=ConstantInt(value=-24)), right=ConstantPolynomialResourceExpression(value=ConstantDouble(value=-88.24119252574951))), right=ConstantBooleanResource(value=ConstantBoolean(value=false))), right=CompareIntResource(left=Counter(indexExpression=ConstantInt(value=78)), right=ConstantIntResource(value=ConstantInt(value=-6))))))))),
                 GroundedActivity(Instant.parse("2025-01-05T16:15:56.081135Z"), Name("944966988061"), BlockActivity(statements=listOf(Await(condition=CompareDoubleResource(left=ConstantDoubleResource(value=ConstantDouble(value=67.16952102044255)), right=Slope(indexExpression=ConstantInt(value=-16)))), SetSlope(index=ConstantInt(value=-45), value=ConstantDouble(value=115.28445158611561))))),
-                GroundedActivity(Instant.parse("2025-01-05T15:31:50.410281Z"), Name("539318924183"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-7), value=ConstantDouble(value=373892.617480783))))),
+                GroundedActivity(Instant.parse("2025-01-05T15:31:50.410281Z"), Name("539318924183"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-7), value=ConstantDouble(value=468080.4714026777))))),
                 GroundedActivity(Instant.parse("2025-01-05T02:04:35.569425Z"), Name("337487944607"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-41), amount=ConstantDouble(value=38.28191086046549))))),
-                GroundedActivity(Instant.parse("2025-01-04T23:43:00.695061Z"), Name("146112236040"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-36), value=ConstantDouble(value=-4.0))))),
             )
         )
-        println("Running round 7...")
+        println("Running round 5...")
         tester.add(GroundedActivity(Instant.parse("2025-01-05T03:59:24.208418Z"), Name("260010377803"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=67), amount=ConstantDouble(value=78.59943536328842))))))
     }
 
@@ -1817,16 +1806,18 @@ class IncrementalSimulatorTest {
         for (i in rounds.indices.drop(1).reversed()) {
             when (val source = result.rounds[i]) {
                 is FuzzTestRound.RunEdit -> {
-                    // Skip if the prior round is not a RunEdit round as well
-                    if (result.rounds[i - 1] !is FuzzTestRound.RunEdit) continue
-
                     val condensedEdits = source.edits.condensedEdits().toList()
                     print("Simplifying round $i, starting with ${condensedEdits.size} edits ")
                     System.out.flush()
                     for (editToMove in condensedEdits) {
                         val candidate = result.copy(rounds = result.rounds.toMutableList().also {
                             it[i] = (it[i] as FuzzTestRound.RunEdit) - editToMove
-                            it[i - 1] = (it[i - 1] as FuzzTestRound.RunEdit) + editToMove
+                            it[i - 1] = when (val priorRound = it[i - 1]) {
+                                is FuzzTestRound.RunEdit ->
+                                    FuzzTestRound.RunEdit(priorRound.edits + editToMove)
+                                is FuzzTestRound.SaveRestore ->
+                                    FuzzTestRound.SaveRestore(priorRound.nextPlan + editToMove)
+                            }
                         })
 
                         if (candidate.exposesSomeBug()) {
@@ -2157,56 +2148,67 @@ class IncrementalSimulatorTest {
     @Suppress("UNCHECKED_CAST")
     context (instrumentation: Lazy<BlockInstrumentation>)
     private fun <R> Expression<R>.simplifications(): Sequence<Expression<R>> = sequence {
-        if (this@simplifications is ConstantBoolean
-            || this@simplifications is ConstantInt
-            || this@simplifications is ConstantDouble
-            || this@simplifications is ConstantDuration
-            ) {
-            // Already as simple as it gets, do nothing
-        } else {
-            val evaluations = instrumentation.value.expressionResults[this@simplifications]
-            if (evaluations.isNullOrEmpty()) {
-                // This expression didn't get run! We can't simplify this at this level.
-            } else {
-                // TODO - there's a bug here for Constant*Resource expressions - they'll get "simplified" to themselves,
-                // which leaves the simplifier stuck in a loop.
-                // Often times, only the last value an expression evaluates to matters.
-                // Sometimes this is the only value it evaluated to; sometimes it had to change to a problem value.
-                // Either way, try substituting just that value as a constant
-                when (val value = evaluations.last()) {
-                    is Boolean -> ConstantBoolean(value)
-                    is Int -> ConstantInt(value)
-                    is Double -> ConstantDouble(value)
-                    is Duration -> ConstantDuration(value)
-                    is ThinResource<*> ->
-                        // If that value is a resource, we take the same idea and apply it to the samples.
-                        // We look up the last sample logged by this expression, and return a constant resource of that sample.
-                        when (val lastSample = instrumentation.value.resourceExpressionSamples[this@simplifications]?.lastOrNull()) {
-                            is Boolean -> ConstantBooleanResource(ConstantBoolean(lastSample))
-                            is Int -> ConstantIntResource(ConstantInt(lastSample))
-                            is Double -> ConstantDoubleResource(ConstantDouble(lastSample))
-                            is Duration -> ConstantTimerResource(ConstantDuration(lastSample))
-                            else -> null
+        when (this@simplifications) {
+            // Constant expressions are already fully simplified, do nothing
+            is ConstantBoolean, is ConstantInt, is ConstantDouble, is ConstantDuration -> {}
+            // Constant resource expressions are as simple as the value within them
+            // If the value within them is fully simplified, so are these.
+            is ConstantBooleanResource -> yieldAll(value.simplifications().map {
+                ConstantBooleanResource(it) as Expression<R>
+            })
+            is ConstantIntResource -> yieldAll(value.simplifications().map {
+                ConstantIntResource(it) as Expression<R>
+            })
+            is ConstantDoubleResource -> yieldAll(value.simplifications().map {
+                ConstantDoubleResource(it) as Expression<R>
+            })
+            is ConstantTimerResource -> yieldAll(value.simplifications().map {
+                ConstantTimerResource(it) as Expression<R>
+            })
+            else -> {
+                // In the general case, we'll see what this expression evaluates to and sub that in.
+                val evaluations = instrumentation.value.expressionResults[this@simplifications]
+                // It's possible that an expression never gets run. In that case, we can't simplify it this way.
+                if (!evaluations.isNullOrEmpty()) {
+                    // Often times, only the last value an expression evaluates to matters.
+                    // Sometimes this is the only value it evaluated to; sometimes it had to change to a problem value.
+                    // Either way, try substituting just that value as a constant
+                    when (val value = evaluations.last()) {
+                        is Boolean -> ConstantBoolean(value)
+                        is Int -> ConstantInt(value)
+                        is Double -> ConstantDouble(value)
+                        is Duration -> ConstantDuration(value)
+                        is ThinResource<*> ->
+                            // If that value is a resource, we take the same idea and apply it to the samples.
+                            // We look up the last sample logged by this expression, and return a constant resource of that sample.
+                            when (val lastSample = instrumentation.value.resourceExpressionSamples[this@simplifications]?.lastOrNull()) {
+                                is Boolean -> ConstantBooleanResource(ConstantBoolean(lastSample))
+                                is Int -> ConstantIntResource(ConstantInt(lastSample))
+                                is Double -> ConstantDoubleResource(ConstantDouble(lastSample))
+                                is Duration -> ConstantTimerResource(ConstantDuration(lastSample))
+                                else -> null
+                            }
+
+                        else -> null
+                    }?.let {
+                        yield(it as Expression<R>)
+                    }
+                    // If that didn't work, perhaps we can at least simplify a sub-expression
+                    // To do so, first collect all subexpressions:
+                    val subexpressions = mutableListOf<Expression<*>>()
+                    mapSubexpressions(object : ExpressionMapper {
+                        override fun <S> apply(expression: Expression<S>): Expression<S> =
+                            expression.also { subexpressions += it }
+                    })
+                    // Then, try simplifying each subexpression:
+                    for (subexpression in subexpressions) {
+                        for (simplification in subexpression.simplifications()) {
+                            yield(mapSubexpressions(object : ExpressionMapper {
+                                override fun <S> apply(expression: Expression<S>): Expression<S> =
+                                    // Use identity instead of equality to only replace one subexpression at a time, even if they're equal
+                                    (if (expression === subexpression) simplification else expression) as Expression<S>
+                            }))
                         }
-                    else -> null
-                }?.let {
-                    yield(it as Expression<R>)
-                }
-                // If that didn't work, perhaps we can at least simplify a sub-expression
-                // To do so, first collect all subexpressions:
-                val subexpressions = mutableListOf<Expression<*>>()
-                mapSubexpressions(object : ExpressionMapper {
-                    override fun <S> apply(expression: Expression<S>): Expression<S> =
-                        expression.also { subexpressions += it }
-                })
-                // Then, try simplifying each subexpression:
-                for (subexpression in subexpressions) {
-                    for (simplification in subexpression.simplifications()) {
-                        yield(mapSubexpressions(object : ExpressionMapper {
-                            override fun <S> apply(expression: Expression<S>): Expression<S> =
-                                // Use identity instead of equality to only replace one subexpression at a time, even if they're equal
-                                (if (expression === subexpression) simplification else expression) as Expression<S>
-                        }))
                     }
                 }
             }
