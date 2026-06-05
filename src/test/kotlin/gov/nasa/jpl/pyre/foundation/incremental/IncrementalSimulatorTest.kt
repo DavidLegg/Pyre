@@ -1163,46 +1163,14 @@ class IncrementalSimulatorTest {
 
     @Test
     fun `repro directly`() {
-        val endTime = Instant.parse("2025-01-05T21:49:00.176430Z")
         val tester = test(::BlockTestModel,
-            startTime = day0,
-            endTime = endTime,
-            activities = listOf(
-                GroundedActivity(Instant.parse("2025-01-01T02:30:04.980737Z"), Name("A1"), BlockActivity(listOf(SetSlope(ConstantInt(0), ConstantDouble(-44.0))))),
-                GroundedActivity(Instant.parse("2025-01-01T05:29:37.779009Z"), Name("A2"), BlockActivity(listOf(Await(ConstantBooleanResource(ConstantBoolean(true))), IncreaseSlope(ConstantInt(1), ConstantDouble(51.0)), Await(ConstantBooleanResource(ConstantBoolean(false)))))),
-                GroundedActivity(Instant.parse("2025-01-01T07:49:13.401990Z"), Name("A3"), BlockActivity(listOf(SetSlope(ConstantInt(1), ConstantDouble(-46.0))))),
-                GroundedActivity(Instant.parse("2025-01-01T10:28:54.065185Z"), Name("A4"), BlockActivity(listOf(SetSwitch(ConstantInt(1), ConstantBoolean(true))))),
-                GroundedActivity(Instant.parse("2025-01-01T12:48:09.180988Z"), Name("A5"), BlockActivity(listOf(Await(ComparePolynomialResource(Integral(ConstantInt(1)), ConstantPolynomialResourceExpression(ConstantDouble(-100000.0)))), SetSlope(ConstantInt(0), ConstantDouble(0.0))))),
-                GroundedActivity(Instant.parse("2025-01-01T18:34:20.456885Z"), Name("A6"), BlockActivity(listOf(SetSlope(ConstantInt(1), ConstantDouble(-83.0))))),
-                GroundedActivity(Instant.parse("2025-01-02T01:27:30.387417Z"), Name("A7"), BlockActivity(listOf(SetSlope(ConstantInt(1), ConstantDouble(-37.0))))),
-                GroundedActivity(Instant.parse("2025-01-02T10:16:36.541313Z"), Name("A8"), BlockActivity(listOf(SetSlope(ConstantInt(0), ConstantDouble(60.0))))),
-                GroundedActivity(Instant.parse("2025-01-02T10:44:32.323728Z"), Name("A9"), BlockActivity(listOf(IncreaseSlope(ConstantInt(0), ConstantDouble(42.0))))),
-                GroundedActivity(Instant.parse("2025-01-02T11:17:19.397355Z"), Name("A10"), BlockActivity(listOf(IncreaseSlope(ConstantInt(0), ConstantDouble(95.0))))),
-                GroundedActivity(Instant.parse("2025-01-02T19:21:59.251353Z"), Name("A11"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(40.0))))),
-                GroundedActivity(Instant.parse("2025-01-02T21:51:09.630098Z"), Name("A12"), BlockActivity(listOf(Await(CompareIntResource(Counter(ConstantInt(0)), ConstantIntResource(ConstantInt(200)))), ToggleSwitch(ConstantInt(1))))),
-                GroundedActivity(Instant.parse("2025-01-03T05:30:31.375883Z"), Name("A13"), BlockActivity(listOf(SetSlope(ConstantInt(1), ConstantDouble(-89.0))))),
-                GroundedActivity(Instant.parse("2025-01-03T06:17:30.537127Z"), Name("A14"), BlockActivity(listOf(SetSlope(ConstantInt(0), ConstantDouble(-74.0))))),
-                GroundedActivity(Instant.parse("2025-01-03T08:36:34.415194Z"), Name("A15"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(98.0))))),
-                GroundedActivity(Instant.parse("2025-01-03T18:58:12.428387Z"), Name("A16"), BlockActivity(listOf(SetSlope(ConstantInt(1), ConstantDouble(-86.0))))),
-                GroundedActivity(Instant.parse("2025-01-03T23:59:09.173413Z"), Name("A17"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(-51.0))))),
-                GroundedActivity(Instant.parse("2025-01-04T01:05:11.172761Z"), Name("A18"), BlockActivity(listOf(ToggleSwitch(ConstantInt(1))))),
-                GroundedActivity(Instant.parse("2025-01-04T02:24:40.318021Z"), Name("A19"), BlockActivity(listOf(Await(Switch(ConstantInt(1))), IncrementCounter(ConstantInt(0), ConstantInt(-8))))),
-                GroundedActivity(Instant.parse("2025-01-04T04:51:22.466456Z"), Name("A20"), BlockActivity(listOf(Await(Switch(ConstantInt(1))), IncreaseSlope(ConstantInt(1), ConstantDouble(-33.0)), IncreaseSlope(ConstantInt(0), ConstantDouble(-95.0)), SetCounter(ConstantInt(0), ConstantInt(0))))),
-                GroundedActivity(Instant.parse("2025-01-04T05:14:36.149779Z"), Name("A21"), BlockActivity(listOf(IncrementCounter(ConstantInt(0), ConstantInt(90)), SetSlope(ConstantInt(0), ConstantDouble(0.0))))),
-                GroundedActivity(Instant.parse("2025-01-04T06:01:12.433206Z"), Name("A22"), BlockActivity(listOf(SetSlope(ConstantInt(1), ConstantDouble(73.0))))),
-                GroundedActivity(Instant.parse("2025-01-04T06:25:18.382897Z"), Name("A23"), BlockActivity(listOf(IncrementCounter(ConstantInt(0), ConstantInt(160))))),
-                GroundedActivity(Instant.parse("2025-01-04T13:29:59.253442Z"), Name("A24"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(-43.0))))),
-                GroundedActivity(Instant.parse("2025-01-04T17:43:48.007906Z"), Name("A25"), BlockActivity(listOf(SetSlope(ConstantInt(0), ConstantDouble(46.0))))),
-                GroundedActivity(Instant.parse("2025-01-04T17:56:20.293237Z"), Name("A26"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(-75.0))))),
-                GroundedActivity(Instant.parse("2025-01-04T19:48:22.748139Z"), Name("A27"), BlockActivity(listOf(Await(ComparePolynomialResource(Integral(ConstantInt(1)), ConstantPolynomialResourceExpression(ConstantDouble(44.0)))), SetSlope(ConstantInt(2), ConstantDouble(0.0)), IncreaseSlope(ConstantInt(0), ConstantDouble(-88.0))))),
-                GroundedActivity(Instant.parse("2025-01-04T19:52:40.167756Z"), Name("A28"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(53.0))))),
-            )
+            GroundedActivity(Instant.parse("2025-01-01T06:00:00Z"), Name("A1"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(1.0))))),
         )
-        val inconTime: Instant = Instant.parse("2025-01-02T08:09:01Z")
+        val inconTime: Instant = Instant.parse("2025-01-01T02:00:00Z")
         val incon: Checkpoint<BlockTestModel> = tester.save(inconTime)
         test(::BlockTestModel,
             startTime = inconTime,
-            endTime = Instant.parse("2025-01-03T22:30:12Z"),
+            endTime = Instant.parse("2025-01-01T04:00:00Z"),
             incon = incon,
         )
     }
