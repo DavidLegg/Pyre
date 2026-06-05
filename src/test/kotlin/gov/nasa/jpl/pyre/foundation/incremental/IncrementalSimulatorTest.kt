@@ -1167,19 +1167,48 @@ class IncrementalSimulatorTest {
     @Test
     fun `repro directly`() {
         var tester = test(::BlockTestModel,
-            startTime = Instant.parse("2025-01-01T00:00:00Z"),
+            startTime = day0,
             endTime = Instant.parse("2025-01-02T15:11:31.196465Z"),
             activities = listOf(
-                GroundedActivity(Instant.parse("2025-01-01T05:29:37.779009Z"), Name("329204642082"), BlockActivity(statements=listOf(Await(condition=ConstantBooleanResource(value=ConstantBoolean(value=true))), IncreaseSlope(index=ConstantInt(value=-26), amount=ConstantDouble(value=51.9377298656085)), Await(condition=ConstantBooleanResource(value=ConstantBoolean(value=false)))))),
-                GroundedActivity(Instant.parse("2025-01-01T18:34:20.456885Z"), Name("863822719599"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=49), value=ConstantDouble(value=-83.18067459395387))))),
-                GroundedActivity(Instant.parse("2025-01-01T02:30:04.980737Z"), Name("906567923583"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=60), value=ConstantDouble(value=-585844.4235940271))))),
-                GroundedActivity(Instant.parse("2025-01-01T12:48:09.180988Z"), Name("937881263424"), BlockActivity(statements=listOf(Await(condition=ComparePolynomialResource(left=Integral(indexExpression=ConstantInt(value=-95)), right=ConstantPolynomialResourceExpression(value=ConstantDouble(value=-134477.22290277557)))), SetSlope(index=ConstantInt(value=-15), value=ConstantDouble(value=0.0))))),
-                GroundedActivity(Instant.parse("2025-01-01T10:28:54.065185Z"), Name("695633830516"), BlockActivity(statements=listOf(ToggleSwitch(index=ConstantInt(value=46))))),
-                GroundedActivity(Instant.parse("2025-01-01T07:49:13.401990Z"), Name("772960740414"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=7), amount=ConstantDouble(value=-97.70674632311011))))),
-                GroundedActivity(Instant.parse("2025-01-02T11:17:19.397355Z"), Name("406851510291"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=0), amount=ConstantDouble(value=95.50951521009137))))),
-                GroundedActivity(Instant.parse("2025-01-02T01:27:30.387417Z"), Name("314174764995"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-80), amount=ConstantDouble(value=46.651885018212965))))),
-                GroundedActivity(Instant.parse("2025-01-02T10:16:36.541313Z"), Name("807242790562"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=6459207), value=ConstantDouble(value=60.53706037290701))))),
-                GroundedActivity(Instant.parse("2025-01-02T10:44:32.323728Z"), Name("435526775229"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=72), amount=ConstantDouble(value=42.04027916227761))))),
+                GroundedActivity(Instant.parse("2025-01-01T02:30:04.980737Z"), Name("A1"), BlockActivity(statements=listOf(
+                    SetSlope(index=ConstantInt(value=0), value=ConstantDouble(value=-44.0))
+                ))),
+                GroundedActivity(Instant.parse("2025-01-01T05:29:37.779009Z"), Name("A2"), BlockActivity(statements=listOf(
+                    Await(condition = ConstantBooleanResource(value = ConstantBoolean(value = true))),
+                    IncreaseSlope(index = ConstantInt(value = 1), amount = ConstantDouble(value = 51.0)),
+                    Await(condition = ConstantBooleanResource(value = ConstantBoolean(value = false)))
+                ))),
+                GroundedActivity(Instant.parse("2025-01-01T07:49:13.401990Z"), Name("A3"), BlockActivity(statements=listOf(
+                    SetSlope(index=ConstantInt(value=1), value=ConstantDouble(value= -46.0))
+                ))),
+                GroundedActivity(Instant.parse("2025-01-01T10:28:54.065185Z"), Name("A4"), BlockActivity(statements=listOf(
+                    SetSwitch(index=ConstantInt(value=1), value = ConstantBoolean(true))
+                ))),
+                GroundedActivity(Instant.parse("2025-01-01T12:48:09.180988Z"), Name("A5"), BlockActivity(statements=listOf(
+                    Await(
+                        condition = ComparePolynomialResource(
+                            left = Integral(indexExpression = ConstantInt(value = 1)),
+                            right = ConstantPolynomialResourceExpression(value = ConstantDouble(value = -100000.0))
+                        )
+                    ),
+                    SetSlope(index = ConstantInt(value = 0), value = ConstantDouble(value = 0.0))
+                ))),
+                GroundedActivity(Instant.parse("2025-01-01T18:34:20.456885Z"), Name("A6"), BlockActivity(statements=listOf(
+                    SetSlope(index=ConstantInt(value=1), value=ConstantDouble(value=-83.0))
+                ))),
+                GroundedActivity(Instant.parse("2025-01-02T01:27:30.387417Z"), Name("A7"), BlockActivity(statements=listOf(
+                    SetSlope(index=ConstantInt(value=1), value=ConstantDouble(value=-37.0))
+                ))),
+                GroundedActivity(Instant.parse("2025-01-02T10:16:36.541313Z"), Name("A8"), BlockActivity(statements=listOf(
+                    SetSlope(index=ConstantInt(value=0), value=ConstantDouble(value=60.0))
+                ))),
+                GroundedActivity(Instant.parse("2025-01-02T10:44:32.323728Z"), Name("A9"), BlockActivity(statements=listOf(
+                    // Finding: This cannot be converted to a SetSlope
+                    IncreaseSlope(index=ConstantInt(value=0), amount=ConstantDouble(value=42.0))
+                ))),
+                GroundedActivity(Instant.parse("2025-01-02T11:17:19.397355Z"), Name("A10"), BlockActivity(statements=listOf(
+                    IncreaseSlope(index=ConstantInt(value=0), amount=ConstantDouble(value=95.0))
+                ))),
             )
         )
         println("Running round 1...")
@@ -1239,7 +1268,7 @@ class IncrementalSimulatorTest {
             incon = incon,
             activities = listOf(
                 GroundedActivity(Instant.parse("2025-01-05T07:57:17.824210Z"), Name("205830053575"), BlockActivity(statements=listOf(Await(condition=NotResource(expression=AndResource(left=OrResource(left=ComparePolynomialResource(left=Integral(indexExpression=ConstantInt(value=-24)), right=ConstantPolynomialResourceExpression(value=ConstantDouble(value=-88.24119252574951))), right=ConstantBooleanResource(value=ConstantBoolean(value=false))), right=CompareIntResource(left=Counter(indexExpression=ConstantInt(value=78)), right=ConstantIntResource(value=ConstantInt(value=-6))))))))),
-                GroundedActivity(Instant.parse("2025-01-05T16:15:56.081135Z"), Name("944966988061"), BlockActivity(statements=listOf(Await(condition=CompareDoubleResource(left=ConstantDoubleResource(value=ConstantDouble(value=67.16952102044255)), right=Slope(indexExpression=ConstantInt(value=-16)))), SetSlope(index=ConstantInt(value=-45), value=ConstantDouble(value=115.28445158611561))))),
+                GroundedActivity(Instant.parse("2025-01-05T16:15:56.081135Z"), Name("944966988061"), BlockActivity(statements=listOf(Await(condition=CompareDoubleResource(ConstantDoubleResource(value=ConstantDouble(value=67.16952102044255)), Slope(indexExpression=ConstantInt(value=-16)))), SetSlope(index=ConstantInt(value=-45), value=ConstantDouble(value=115.28445158611561))))),
                 GroundedActivity(Instant.parse("2025-01-05T15:31:50.410281Z"), Name("539318924183"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-7), value=ConstantDouble(value=468080.4714026777))))),
                 GroundedActivity(Instant.parse("2025-01-05T02:04:35.569425Z"), Name("337487944607"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-41), amount=ConstantDouble(value=38.28191086046549))))),
             )
