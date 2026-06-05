@@ -53,6 +53,7 @@ import kotlin.time.Instant.Companion.DISTANT_PAST
  */
 class KernelIncrementalSimulator(
     private val planStart: Instant,
+    // TODO: Everything is ready to make planEnd mutable, I think. We just need a changeEndTime() method.
     private val planEnd: Instant,
     constructPlan: context (BasicInitScope) () -> List<KernelTask>,
     private val reportHandler: IncrementalReportHandler,
@@ -241,9 +242,11 @@ class KernelIncrementalSimulator(
             fullyRevokeTask(rootTaskNode)
         }
         for (activity in planEdits.additions) {
-            require(activity.time < planEnd) {
-                "Cannot add activity $activity at or after plan ends at $planEnd"
+            // We can't go into the past
+            require(activity.time >= planStart) {
+                "Cannot add activity $activity before plan starts at $planStart"
             }
+            // Adding an activity in the future, after this sim ends, is fine. It'll just be a task we don't start (yet).
             val task = PureTask(activity.name, activity.step)
             frontier += RunTask(
                 task.branchAt(SimulationTime(activity.time)).also {
@@ -321,9 +324,10 @@ class KernelIncrementalSimulator(
     }
 
     private fun resolve() {
-        while (true) {
+        // Only work up to the end of this simulation
+        while (frontier.firstOrNull()?.time?.instant?.let { it < planEnd } ?: false) {
             dumpDotToFile(DebugLevel.MAJOR, frontier.firstOrNull()?.node)
-            when (val action = frontier.pollFirst() ?: break) {
+            when (val action = frontier.removeFirst()) {
                 is RunTask -> {
                     // We're about to run the task starting from action.node.
                     // If it has a next, revoke next to re-do it.
@@ -459,9 +463,6 @@ class KernelIncrementalSimulator(
                 SimulationTime(
                     awaitNode.time.instant + it,
                     branch = awaitNode.time.branch)
-                    // TODO: Remove this filter when building "mutable end time" feature
-                    // Filter out results after the end of the plan
-                    .takeIf { it.instant < planEnd }
             } else {
                 // The await node is first scheduled in the next task batch from the awaiting task step.
                 // If interrupted, it is scheduled in the next task batch after the interrupting write.

@@ -1156,14 +1156,9 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed`() {
-        simplifyTranscriptOnFailure = true
-        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(5660)
-    }
-
-    @Test
-    fun `repro directly`() {
-        // Finding: There's a report from the second run at 2025-01-01T06:00:00Z, after that second run ends.
+    fun `activity in incon after end of second run`() {
+        // This test adds an activity in sim 1 that's after the end of sim 2. It sneaks into the second sim through the incon.
+        // That needs to be excluded from the second sim.
         val tester = test(::BlockTestModel,
             GroundedActivity(Instant.parse("2025-01-01T06:00:00Z"), Name("A1"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(1.0))))),
         )
@@ -1174,6 +1169,12 @@ class IncrementalSimulatorTest {
             endTime = Instant.parse("2025-01-01T04:00:00Z"),
             incon = incon,
         )
+    }
+
+    @Test
+    fun `repro by seed`() {
+        simplifyTranscriptOnFailure = true
+        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(5660)
     }
 
     @Tag("long-test")
