@@ -1142,11 +1142,11 @@ class IncrementalSimulatorTest {
                     Await(ComparePolynomialResource(
                         SubtractPolynomialResources(
                             Integral(ConstantInt(2)),
-                            ConstantPolynomialResourceExpression(
+                            ConstantPolynomialResource(
                                 ReadIntegral(ConstantInt(2)),
                             ),
                         ),
-                        ConstantPolynomialResourceExpression(
+                        ConstantPolynomialResource(
                             ConstantDouble(0.0)
                         )
                     ))
@@ -1187,38 +1187,38 @@ class IncrementalSimulatorTest {
             startTime = Instant.parse("2025-01-01T00:00:00Z"),
             endTime = Instant.parse("2025-01-05T21:49:00.176430Z"),
             activities = listOf(
-                GroundedActivity(Instant.parse("2025-01-01T02:30:04.980737Z"), Name("906567923583"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=60), value=ConstantDouble(value=-585844.4235940271))))),
-                GroundedActivity(Instant.parse("2025-01-01T05:29:37.779009Z"), Name("329204642082"), BlockActivity(statements=listOf(Await(condition=ConstantBooleanResource(value=ConstantBoolean(value=true))), IncreaseSlope(index=ConstantInt(value=-26), amount=ConstantDouble(value=51.9377298656085)), Await(condition=ConstantBooleanResource(value=ConstantBoolean(value=false)))))),
-                GroundedActivity(Instant.parse("2025-01-01T07:49:13.401990Z"), Name("772960740414"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=7), amount=ConstantDouble(value=-97.70674632311011))))),
-                GroundedActivity(Instant.parse("2025-01-01T10:28:54.065185Z"), Name("695633830516"), BlockActivity(statements=listOf(ToggleSwitch(index=ConstantInt(value=46))))),
-                GroundedActivity(Instant.parse("2025-01-01T12:48:09.180988Z"), Name("937881263424"), BlockActivity(statements=listOf(Await(condition=ComparePolynomialResource(left=Integral(indexExpression=ConstantInt(value=-95)), right=ConstantPolynomialResourceExpression(value=ConstantDouble(value=-134477.22290277557)))), SetSlope(index=ConstantInt(value=-15), value=ConstantDouble(value=0.0))))),
-                GroundedActivity(Instant.parse("2025-01-01T18:34:20.456885Z"), Name("863822719599"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=49), value=ConstantDouble(value=-83.18067459395387))))),
-                GroundedActivity(Instant.parse("2025-01-02T01:27:30.387417Z"), Name("314174764995"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-80), amount=ConstantDouble(value=46.651885018212965))))),
-                GroundedActivity(Instant.parse("2025-01-02T10:16:36.541313Z"), Name("807242790562"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=6459207), value=ConstantDouble(value=60.53706037290701))))),
-                GroundedActivity(Instant.parse("2025-01-02T10:44:32.323728Z"), Name("435526775229"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=72), amount=ConstantDouble(value=42.04027916227761))))),
-                GroundedActivity(Instant.parse("2025-01-02T11:17:19.397355Z"), Name("406851510291"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=0), amount=ConstantDouble(value=95.50951521009137))))),
-                GroundedActivity(Instant.parse("2025-01-02T19:21:59.251353Z"), Name("258515582492"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-50), amount=ConstantDouble(value=40.642490119327675))))),
-                GroundedActivity(Instant.parse("2025-01-02T21:51:09.630098Z"), Name("780547381531"), BlockActivity(statements=listOf(Await(condition=CompareIntResource(left=AddIntResources(left=ConstantIntResource(value=ConstantInt(value=-54)), right=Counter(indexExpression=ConstantInt(value=-6))), right=ConstantIntResource(value=ConstantInt(value=128)))), ToggleSwitch(index=ConstantInt(value=160))))),
-                GroundedActivity(Instant.parse("2025-01-03T05:30:31.375883Z"), Name("451764659446"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-134), value=ConstantDouble(value=-89.27446997985682))))),
-                GroundedActivity(Instant.parse("2025-01-03T06:17:30.537127Z"), Name("785017870686"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-102), value=ConstantDouble(value=-74.2360876233462))))),
-                GroundedActivity(Instant.parse("2025-01-03T08:36:34.415194Z"), Name("616626792364"), BlockActivity(statements=listOf(Spawn(body=listOf(IncreaseSlope(index=ConstantInt(value=-2), amount=ConstantDouble(value=98.32990245657462))))))),
-                GroundedActivity(Instant.parse("2025-01-03T18:58:12.428387Z"), Name("684386337116"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-20), value=ConstantDouble(value=-11.47718075864266)), Spawn(body=listOf(IncreaseSlope(index=ConstantInt(value=-6749159), amount=ConstantDouble(value=-75.69149140417915))))))),
-                GroundedActivity(Instant.parse("2025-01-03T23:59:09.173413Z"), Name("349502990320"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-20), amount=ConstantDouble(value=-51.0))))),
-                GroundedActivity(Instant.parse("2025-01-04T01:05:11.172761Z"), Name("275018387632"), BlockActivity(statements=listOf(ToggleSwitch(index=ConstantInt(value=-65))))),
-                GroundedActivity(Instant.parse("2025-01-04T02:24:40.318021Z"), Name("496193530397"), BlockActivity(statements=listOf(Await(condition=Switch(indexExpression=ConstantInt(value=7))), IncrementCounter(index=ConstantInt(value=0), amount=ConstantInt(value=-8))))),
-                GroundedActivity(Instant.parse("2025-01-04T04:51:22.466456Z"), Name("367134689734"), BlockActivity(statements=listOf(Await(condition=Switch(indexExpression=ConstantInt(value=64))), IncreaseSlope(index=ConstantInt(value=184), amount=ConstantDouble(value=-7759233.261399761)), IncreaseSlope(index=ConstantInt(value=54), amount=ConstantDouble(value=-95.16878988616055)), SetCounter(index=ConstantInt(value=0), value=ConstantInt(value=0))))),
-                GroundedActivity(Instant.parse("2025-01-04T05:14:36.149779Z"), Name("144940322193"), BlockActivity(statements=listOf(IncrementCounter(index=ConstantInt(value=-66), amount=ConstantInt(value=89)), SetSlope(index=ConstantInt(value=51), value=ConstantDouble(value=17.0))))),
-                GroundedActivity(Instant.parse("2025-01-04T06:01:12.433206Z"), Name("527731926624"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-47), value=ConstantDouble(value=73.5577355869998))))),
-                GroundedActivity(Instant.parse("2025-01-04T06:25:18.382897Z"), Name("897400977708"), BlockActivity(statements=listOf(IncrementCounter(index=ConstantInt(value=-66), amount=ConstantInt(value=160))))),
-                GroundedActivity(Instant.parse("2025-01-04T13:29:59.253442Z"), Name("767514772304"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=46), amount=ConstantDouble(value=-43.97180046740088))))),
-                GroundedActivity(Instant.parse("2025-01-04T17:43:48.007906Z"), Name("398393343460"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=0), value=ConstantDouble(value=46.61563102315063))))),
-                GroundedActivity(Instant.parse("2025-01-04T17:56:20.293237Z"), Name("953685811128"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=76), amount=ConstantDouble(value=-75.5803892534504))))),
-                GroundedActivity(Instant.parse("2025-01-04T19:48:22.748139Z"), Name("793975364185"), BlockActivity(statements=listOf(Await(condition=ComparePolynomialResource(left=Integral(indexExpression=ConstantInt(value=-32)), right=ConstantPolynomialResourceExpression(value=ConstantDouble(value=44.942870153163284)))), SetSlope(index=ConstantInt(value=-49), value=ConstantDouble(value=0.0)), IncreaseSlope(index=ConstantInt(value=0), amount=ConstantDouble(value=-88.44120537910341))))),
-                GroundedActivity(Instant.parse("2025-01-04T19:52:40.167756Z"), Name("994870526613"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-17), amount=ConstantDouble(value=53.483876766762506))))),
-                GroundedActivity(Instant.parse("2025-01-05T02:04:35.569425Z"), Name("337487944607"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=-41), amount=ConstantDouble(value=38.28191086046549))))),
-                GroundedActivity(Instant.parse("2025-01-05T07:57:17.824210Z"), Name("205830053575"), BlockActivity(statements=listOf(Await(condition=NotResource(expression=AndResource(left=OrResource(left=ComparePolynomialResource(left=Integral(indexExpression=ConstantInt(value=-24)), right=ConstantPolynomialResourceExpression(value=ConstantDouble(value=-88.24119252574951))), right=ConstantBooleanResource(value=ConstantBoolean(value=false))), right=CompareIntResource(left=Counter(indexExpression=ConstantInt(value=78)), right=ConstantIntResource(value=ConstantInt(value=-6))))))))),
-                GroundedActivity(Instant.parse("2025-01-05T15:31:50.410281Z"), Name("539318924183"), BlockActivity(statements=listOf(SetSlope(index=ConstantInt(value=-7), value=ConstantDouble(value=468080.4714026777))))),
-                GroundedActivity(Instant.parse("2025-01-05T16:15:56.081135Z"), Name("944966988061"), BlockActivity(statements=listOf(Await(condition=CompareDoubleResource(left=ConstantDoubleResource(value=ConstantDouble(value=67.16952102044255)), right=Slope(indexExpression=ConstantInt(value=-16)))), SetSlope(index=ConstantInt(value=-45), value=ConstantDouble(value=115.28445158611561))))),
+                GroundedActivity(Instant.parse("2025-01-01T02:30:04.980737Z"), Name("906567923583"), BlockActivity(listOf(SetSlope(ConstantInt(60), ConstantDouble(-585844.4235940271))))),
+                GroundedActivity(Instant.parse("2025-01-01T05:29:37.779009Z"), Name("329204642082"), BlockActivity(listOf(Await(ConstantBooleanResource(ConstantBoolean(true))), IncreaseSlope(ConstantInt(-26), ConstantDouble(51.9377298656085)), Await(ConstantBooleanResource(ConstantBoolean(false)))))),
+                GroundedActivity(Instant.parse("2025-01-01T07:49:13.401990Z"), Name("772960740414"), BlockActivity(listOf(IncreaseSlope(ConstantInt(7), ConstantDouble(-97.70674632311011))))),
+                GroundedActivity(Instant.parse("2025-01-01T10:28:54.065185Z"), Name("695633830516"), BlockActivity(listOf(ToggleSwitch(ConstantInt(46))))),
+                GroundedActivity(Instant.parse("2025-01-01T12:48:09.180988Z"), Name("937881263424"), BlockActivity(listOf(Await(ComparePolynomialResource(Integral(ConstantInt(-95)), ConstantPolynomialResource(ConstantDouble(-134477.22290277557)))), SetSlope(ConstantInt(-15), ConstantDouble(0.0))))),
+                GroundedActivity(Instant.parse("2025-01-01T18:34:20.456885Z"), Name("863822719599"), BlockActivity(listOf(SetSlope(ConstantInt(49), ConstantDouble(-83.18067459395387))))),
+                GroundedActivity(Instant.parse("2025-01-02T01:27:30.387417Z"), Name("314174764995"), BlockActivity(listOf(IncreaseSlope(ConstantInt(-80), ConstantDouble(46.651885018212965))))),
+                GroundedActivity(Instant.parse("2025-01-02T10:16:36.541313Z"), Name("807242790562"), BlockActivity(listOf(SetSlope(ConstantInt(6459207), ConstantDouble(60.53706037290701))))),
+                GroundedActivity(Instant.parse("2025-01-02T10:44:32.323728Z"), Name("435526775229"), BlockActivity(listOf(IncreaseSlope(ConstantInt(72), ConstantDouble(42.04027916227761))))),
+                GroundedActivity(Instant.parse("2025-01-02T11:17:19.397355Z"), Name("406851510291"), BlockActivity(listOf(IncreaseSlope(ConstantInt(0), ConstantDouble(95.50951521009137))))),
+                GroundedActivity(Instant.parse("2025-01-02T19:21:59.251353Z"), Name("258515582492"), BlockActivity(listOf(IncreaseSlope(ConstantInt(-50), ConstantDouble(40.642490119327675))))),
+                GroundedActivity(Instant.parse("2025-01-02T21:51:09.630098Z"), Name("780547381531"), BlockActivity(listOf(Await(CompareIntResource(Counter(ConstantInt(0)), ConstantIntResource(ConstantInt(182)))), ToggleSwitch(ConstantInt(160))))),
+                GroundedActivity(Instant.parse("2025-01-03T05:30:31.375883Z"), Name("451764659446"), BlockActivity(listOf(SetSlope(ConstantInt(-134), ConstantDouble(-89.27446997985682))))),
+                GroundedActivity(Instant.parse("2025-01-03T06:17:30.537127Z"), Name("785017870686"), BlockActivity(listOf(SetSlope(ConstantInt(-102), ConstantDouble(-74.2360876233462))))),
+                GroundedActivity(Instant.parse("2025-01-03T08:36:34.415194Z"), Name("616626792364"), BlockActivity(listOf(Spawn(listOf(IncreaseSlope(ConstantInt(-2), ConstantDouble(98.32990245657462))))))),
+                GroundedActivity(Instant.parse("2025-01-03T18:58:12.428387Z"), Name("684386337116"), BlockActivity(listOf(SetSlope(ConstantInt(-20), ConstantDouble(-11.47718075864266)), Spawn(listOf(IncreaseSlope(ConstantInt(-6749159), ConstantDouble(-75.69149140417915))))))),
+                GroundedActivity(Instant.parse("2025-01-03T23:59:09.173413Z"), Name("349502990320"), BlockActivity(listOf(IncreaseSlope(ConstantInt(-20), ConstantDouble(-51.0))))),
+                GroundedActivity(Instant.parse("2025-01-04T01:05:11.172761Z"), Name("275018387632"), BlockActivity(listOf(ToggleSwitch(ConstantInt(-65))))),
+                GroundedActivity(Instant.parse("2025-01-04T02:24:40.318021Z"), Name("496193530397"), BlockActivity(listOf(Await(Switch(ConstantInt(7))), IncrementCounter(ConstantInt(0), ConstantInt(-8))))),
+                GroundedActivity(Instant.parse("2025-01-04T04:51:22.466456Z"), Name("367134689734"), BlockActivity(listOf(Await(Switch(ConstantInt(64))), IncreaseSlope(ConstantInt(184), ConstantDouble(-7759233.261399761)), IncreaseSlope(ConstantInt(54), ConstantDouble(-95.16878988616055)), SetCounter(ConstantInt(0), ConstantInt(0))))),
+                GroundedActivity(Instant.parse("2025-01-04T05:14:36.149779Z"), Name("144940322193"), BlockActivity(listOf(IncrementCounter(ConstantInt(-66), ConstantInt(89)), SetSlope(ConstantInt(51), ConstantDouble(17.0))))),
+                GroundedActivity(Instant.parse("2025-01-04T06:01:12.433206Z"), Name("527731926624"), BlockActivity(listOf(SetSlope(ConstantInt(-47), ConstantDouble(73.5577355869998))))),
+                GroundedActivity(Instant.parse("2025-01-04T06:25:18.382897Z"), Name("897400977708"), BlockActivity(listOf(IncrementCounter(ConstantInt(-66), ConstantInt(160))))),
+                GroundedActivity(Instant.parse("2025-01-04T13:29:59.253442Z"), Name("767514772304"), BlockActivity(listOf(IncreaseSlope(ConstantInt(46), ConstantDouble(-43.97180046740088))))),
+                GroundedActivity(Instant.parse("2025-01-04T17:43:48.007906Z"), Name("398393343460"), BlockActivity(listOf(SetSlope(ConstantInt(0), ConstantDouble(46.61563102315063))))),
+                GroundedActivity(Instant.parse("2025-01-04T17:56:20.293237Z"), Name("953685811128"), BlockActivity(listOf(IncreaseSlope(ConstantInt(76), ConstantDouble(-75.5803892534504))))),
+                GroundedActivity(Instant.parse("2025-01-04T19:48:22.748139Z"), Name("793975364185"), BlockActivity(listOf(Await(ComparePolynomialResource(Integral(ConstantInt(-32)), ConstantPolynomialResource(ConstantDouble(44.942870153163284)))), SetSlope(ConstantInt(-49), ConstantDouble(0.0)), IncreaseSlope(ConstantInt(0), ConstantDouble(-88.44120537910341))))),
+                GroundedActivity(Instant.parse("2025-01-04T19:52:40.167756Z"), Name("994870526613"), BlockActivity(listOf(IncreaseSlope(ConstantInt(-17), ConstantDouble(53.483876766762506))))),
+                GroundedActivity(Instant.parse("2025-01-05T02:04:35.569425Z"), Name("337487944607"), BlockActivity(listOf(IncreaseSlope(ConstantInt(-41), ConstantDouble(38.28191086046549))))),
+                GroundedActivity(Instant.parse("2025-01-05T07:57:17.824210Z"), Name("205830053575"), BlockActivity(listOf(Await(NotResource(AndResource(OrResource(ComparePolynomialResource(Integral(ConstantInt(-24)), ConstantPolynomialResource(ConstantDouble(-88.24119252574951))), ConstantBooleanResource(ConstantBoolean(false))), CompareIntResource(Counter(ConstantInt(78)), ConstantIntResource(ConstantInt(-6))))))))),
+                GroundedActivity(Instant.parse("2025-01-05T15:31:50.410281Z"), Name("539318924183"), BlockActivity(listOf(SetSlope(ConstantInt(-7), ConstantDouble(468080.4714026777))))),
+                GroundedActivity(Instant.parse("2025-01-05T16:15:56.081135Z"), Name("944966988061"), BlockActivity(listOf(Await(CompareDoubleResource(ConstantDoubleResource(ConstantDouble(67.16952102044255)), Slope(ConstantInt(-16)))), SetSlope(ConstantInt(-45), ConstantDouble(115.28445158611561))))),
             )
         )
         println("Running round 1...")
@@ -1254,7 +1254,7 @@ class IncrementalSimulatorTest {
             incon = incon,
         )
         println("Running round 5...")
-        tester.add(GroundedActivity(Instant.parse("2025-01-05T03:59:24.208418Z"), Name("260010377803"), BlockActivity(statements=listOf(IncreaseSlope(index=ConstantInt(value=67), amount=ConstantDouble(value=78.59943536328842))))))
+        tester.add(GroundedActivity(Instant.parse("2025-01-05T03:59:24.208418Z"), Name("260010377803"), BlockActivity(listOf(IncreaseSlope(ConstantInt(67), ConstantDouble(78.59943536328842))))))
     }
 
     @Tag("long-test")
@@ -1389,7 +1389,7 @@ class IncrementalSimulatorTest {
                     { IncreaseSlope(nextIntExpression(), nextDoubleExpression()) },
                 )
 
-                private fun nextAwaitBlock() = Await(nextBooleanResourceExpression())
+                private fun nextAwaitBlock() = Await(nextBooleanResource())
 
                 private fun nextSpawnBlock() = Spawn(nextStatementList())
 
@@ -1449,51 +1449,51 @@ class IncrementalSimulatorTest {
                     { DurationFromDouble(nextDoubleExpression()) },
                 )
 
-                private fun nextBooleanResourceExpression(): Expression<BooleanResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                private fun nextBooleanResource(): Expression<BooleanResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
                     ConstantBooleanResource(nextBooleanExpression())
                 } else rng.choose(
                     { Switch(nextIntExpression()) },
-                    { AndResource(nextBooleanResourceExpression(), nextBooleanResourceExpression()) },
-                    { OrResource(nextBooleanResourceExpression(), nextBooleanResourceExpression()) },
-                    { NotResource(nextBooleanResourceExpression()) },
-                    { CompareIntResource(nextIntResourceExpression(), nextIntResourceExpression()) },
-                    { CompareDoubleResource(nextDoubleResourceExpression(), nextDoubleResourceExpression()) },
-                    { CompareTimerResource(nextTimerResourceExpression(), nextTimerResourceExpression()) },
-                    { ComparePolynomialResource(nextPolynomialResourceExpression(), nextPolynomialResourceExpression()) },
+                    { AndResource(nextBooleanResource(), nextBooleanResource()) },
+                    { OrResource(nextBooleanResource(), nextBooleanResource()) },
+                    { NotResource(nextBooleanResource()) },
+                    { CompareIntResource(nextIntResource(), nextIntResource()) },
+                    { CompareDoubleResource(nextDoubleResource(), nextDoubleResource()) },
+                    { CompareTimerResource(nextTimerResource(), nextTimerResource()) },
+                    { ComparePolynomialResource(nextPolynomialResource(), nextPolynomialResource()) },
                 )
 
-                private fun nextIntResourceExpression(): Expression<IntResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                private fun nextIntResource(): Expression<IntResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
                     ConstantIntResource(nextIntExpression())
                 } else rng.choose(
                     { Counter(nextIntExpression()) },
-                    { AddIntResources(nextIntResourceExpression(), nextIntResourceExpression()) },
-                    { SubtractIntResources(nextIntResourceExpression(), nextIntResourceExpression()) },
+                    { AddIntResources(nextIntResource(), nextIntResource()) },
+                    { SubtractIntResources(nextIntResource(), nextIntResource()) },
                 )
 
-                private fun nextDoubleResourceExpression(): Expression<DoubleResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                private fun nextDoubleResource(): Expression<DoubleResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
                     ConstantDoubleResource(nextDoubleExpression())
                 } else rng.choose(
                     { Slope(nextIntExpression()) },
-                    { AddDoubleResources(nextDoubleResourceExpression(), nextDoubleResourceExpression()) },
-                    { SubtractDoubleResources(nextDoubleResourceExpression(), nextDoubleResourceExpression()) },
+                    { AddDoubleResources(nextDoubleResource(), nextDoubleResource()) },
+                    { SubtractDoubleResources(nextDoubleResource(), nextDoubleResource()) },
                 )
 
-                private fun nextTimerResourceExpression(): Expression<TimerResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                private fun nextTimerResource(): Expression<TimerResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
                     ConstantTimerResource(nextDurationExpression())
                 } else rng.choose(
                     { Timer(nextIntExpression()) },
-                    { AddTimerResources(nextTimerResourceExpression(), nextTimerResourceExpression()) },
-                    { SubtractTimerResources(nextTimerResourceExpression(), nextTimerResourceExpression()) },
+                    { AddTimerResources(nextTimerResource(), nextTimerResource()) },
+                    { SubtractTimerResources(nextTimerResource(), nextTimerResource()) },
                 )
 
-                private fun nextPolynomialResourceExpression(): Expression<PolynomialResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
-                    ConstantPolynomialResourceExpression(nextDoubleExpression())
+                private fun nextPolynomialResource(): Expression<PolynomialResource> = if (rng.chance(CHANCE_OF_CONSTANT_EXPRESSION)) {
+                    ConstantPolynomialResource(nextDoubleExpression())
                 } else rng.choose(
                     { Integral(nextIntExpression()) },
-                    { AddPolynomialResources(nextPolynomialResourceExpression(), nextPolynomialResourceExpression()) },
-                    { SubtractPolynomialResources(nextPolynomialResourceExpression(), nextPolynomialResourceExpression()) },
-                    { PolynomialFromDoubleResource(nextDoubleResourceExpression()) },
-                    { PolynomialFromTimerResource(nextTimerResourceExpression()) },
+                    { AddPolynomialResources(nextPolynomialResource(), nextPolynomialResource()) },
+                    { SubtractPolynomialResources(nextPolynomialResource(), nextPolynomialResource()) },
+                    { PolynomialFromDoubleResource(nextDoubleResource()) },
+                    { PolynomialFromTimerResource(nextTimerResource()) },
                 )
             }
         }
@@ -3027,12 +3027,12 @@ class BlockTestModel(initScope: InitScope) {
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean = locals.savedBoolean
             override fun mapSubexpressions(f: ExpressionMapper): Expression<Boolean> = this
         }
-        data class ReadSwitch(val indexExpression: Expression<Int>) : Expression<Boolean> {
+        data class ReadSwitch(val index: Expression<Int>) : Expression<Boolean> {
             context(_: TaskScope)
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): Boolean =
-                model.switches[floorMod(indexExpression.evaluate(model, locals), model.switches.size)].getValue()
+                model.switches[floorMod(index.evaluate(model, locals), model.switches.size)].getValue()
             override fun mapSubexpressions(f: ExpressionMapper): Expression<Boolean> =
-                ReadSwitch(f.apply(indexExpression))
+                ReadSwitch(f.apply(index))
         }
         data class CompareInt(val left: Expression<Int>, val right: Expression<Int>) : Expression<Boolean> {
             context(_: TaskScope)
@@ -3088,12 +3088,12 @@ class BlockTestModel(initScope: InitScope) {
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int = locals.savedInt
             override fun mapSubexpressions(f: ExpressionMapper): Expression<Int> = this
         }
-        data class ReadCounter(val indexExpression: Expression<Int>) : Expression<Int> {
+        data class ReadCounter(val index: Expression<Int>) : Expression<Int> {
             context(_: TaskScope)
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): Int =
-                model.counters[floorMod(indexExpression.evaluate(model, locals), model.counters.size)].getValue()
+                model.counters[floorMod(index.evaluate(model, locals), model.counters.size)].getValue()
             override fun mapSubexpressions(f: ExpressionMapper): Expression<Int> =
-                ReadCounter(f.apply(indexExpression))
+                ReadCounter(f.apply(index))
         }
         data class AddInts(val left: Expression<Int>, val right: Expression<Int>) : Expression<Int> {
             context(_: TaskScope)
@@ -3128,19 +3128,19 @@ class BlockTestModel(initScope: InitScope) {
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double = locals.savedDouble
             override fun mapSubexpressions(f: ExpressionMapper): Expression<Double> = this
         }
-        data class ReadSlope(val indexExpression: Expression<Int>) : Expression<Double> {
+        data class ReadSlope(val index: Expression<Int>) : Expression<Double> {
             context(_: TaskScope)
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double =
-                model.slopes[floorMod(indexExpression.evaluate(model, locals), model.slopes.size)].getValue()
+                model.slopes[floorMod(index.evaluate(model, locals), model.slopes.size)].getValue()
             override fun mapSubexpressions(f: ExpressionMapper): Expression<Double> =
-                ReadSlope(f.apply(indexExpression))
+                ReadSlope(f.apply(index))
         }
-        data class ReadIntegral(val indexExpression: Expression<Int>) : Expression<Double> {
+        data class ReadIntegral(val index: Expression<Int>) : Expression<Double> {
             context(_: TaskScope)
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): Double =
-                model.integrals[floorMod(indexExpression.evaluate(model, locals), model.integrals.size)].getValue()
+                model.integrals[floorMod(index.evaluate(model, locals), model.integrals.size)].getValue()
             override fun mapSubexpressions(f: ExpressionMapper): Expression<Double> =
-                ReadIntegral(f.apply(indexExpression))
+                ReadIntegral(f.apply(index))
         }
         data class AddDoubles(val left: Expression<Double>, val right: Expression<Double>) : Expression<Double> {
             context(_: TaskScope)
@@ -3179,12 +3179,12 @@ class BlockTestModel(initScope: InitScope) {
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): Duration = locals.savedDuration
             override fun mapSubexpressions(f: ExpressionMapper): Expression<Duration> = this
         }
-        data class ReadTimer(val indexExpression: Expression<Int>) : Expression<Duration> {
+        data class ReadTimer(val index: Expression<Int>) : Expression<Duration> {
             context(_: TaskScope)
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): Duration =
-                model.timers[floorMod(indexExpression.evaluate(model, locals), model.timers.size)].getValue()
+                model.timers[floorMod(index.evaluate(model, locals), model.timers.size)].getValue()
             override fun mapSubexpressions(f: ExpressionMapper): Expression<Duration> =
-                ReadTimer(f.apply(indexExpression))
+                ReadTimer(f.apply(index))
         }
         data class DurationFromDouble(val doubleExpression: Expression<Double>) : Expression<Duration> {
             context(_: TaskScope)
@@ -3202,12 +3202,12 @@ class BlockTestModel(initScope: InitScope) {
             override fun mapSubexpressions(f: ExpressionMapper): Expression<BooleanResource> =
                 ConstantBooleanResource(f.apply(value))
         }
-        data class Switch(val indexExpression: Expression<Int>) : Expression<BooleanResource> {
+        data class Switch(val index: Expression<Int>) : Expression<BooleanResource> {
             context(_: TaskScope)
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): BooleanResource =
-                model.switches[floorMod(indexExpression.evaluate(model, locals), model.switches.size)]
+                model.switches[floorMod(index.evaluate(model, locals), model.switches.size)]
             override fun mapSubexpressions(f: ExpressionMapper): Expression<BooleanResource> =
-                Switch(f.apply(indexExpression))
+                Switch(f.apply(index))
         }
         data class AndResource(val left: Expression<BooleanResource>, val right: Expression<BooleanResource>) : Expression<BooleanResource> {
             context(_: TaskScope)
@@ -3267,12 +3267,12 @@ class BlockTestModel(initScope: InitScope) {
             override fun mapSubexpressions(f: ExpressionMapper): Expression<IntResource> =
                 ConstantIntResource(f.apply(value))
         }
-        data class Counter(val indexExpression: Expression<Int>) : Expression<IntResource> {
+        data class Counter(val index: Expression<Int>) : Expression<IntResource> {
             context(_: TaskScope)
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): IntResource =
-                model.counters[floorMod(indexExpression.evaluate(model, locals), model.counters.size)]
+                model.counters[floorMod(index.evaluate(model, locals), model.counters.size)]
             override fun mapSubexpressions(f: ExpressionMapper): Expression<IntResource> =
-                Counter(f.apply(indexExpression))
+                Counter(f.apply(index))
         }
         data class AddIntResources(val left: Expression<IntResource>, val right: Expression<IntResource>) : Expression<IntResource> {
             context(_: TaskScope)
@@ -3297,12 +3297,12 @@ class BlockTestModel(initScope: InitScope) {
             override fun mapSubexpressions(f: ExpressionMapper): Expression<DoubleResource> =
                 ConstantDoubleResource(f.apply(value))
         }
-        data class Slope(val indexExpression: Expression<Int>) : Expression<DoubleResource> {
+        data class Slope(val index: Expression<Int>) : Expression<DoubleResource> {
             context(_: TaskScope)
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): DoubleResource =
-                model.slopes[floorMod(indexExpression.evaluate(model, locals), model.slopes.size)]
+                model.slopes[floorMod(index.evaluate(model, locals), model.slopes.size)]
             override fun mapSubexpressions(f: ExpressionMapper): Expression<DoubleResource> =
-                Slope(f.apply(indexExpression))
+                Slope(f.apply(index))
         }
         data class AddDoubleResources(val left: Expression<DoubleResource>, val right: Expression<DoubleResource>) : Expression<DoubleResource> {
             context(_: TaskScope)
@@ -3327,12 +3327,12 @@ class BlockTestModel(initScope: InitScope) {
             override fun mapSubexpressions(f: ExpressionMapper): Expression<TimerResource> =
                 ConstantTimerResource(f.apply(value))
         }
-        data class Timer(val indexExpression: Expression<Int>) : Expression<TimerResource> {
+        data class Timer(val index: Expression<Int>) : Expression<TimerResource> {
             context(_: TaskScope)
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): TimerResource =
-                model.timers[floorMod(indexExpression.evaluate(model, locals), model.timers.size)]
+                model.timers[floorMod(index.evaluate(model, locals), model.timers.size)]
             override fun mapSubexpressions(f: ExpressionMapper): Expression<TimerResource> =
-                Timer(f.apply(indexExpression))
+                Timer(f.apply(index))
         }
         data class AddTimerResources(val left: Expression<TimerResource>, val right: Expression<TimerResource>) : Expression<TimerResource> {
             context(_: TaskScope)
@@ -3350,19 +3350,19 @@ class BlockTestModel(initScope: InitScope) {
         }
 
         // PolynomialResource
-        data class ConstantPolynomialResourceExpression(val value: Expression<Double>) : Expression<PolynomialResource> {
+        data class ConstantPolynomialResource(val value: Expression<Double>) : Expression<PolynomialResource> {
             context(_: TaskScope)
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
                 constant(value.evaluate(model, locals))
             override fun mapSubexpressions(f: ExpressionMapper): Expression<PolynomialResource> =
-                ConstantPolynomialResourceExpression(f.apply(value))
+                ConstantPolynomialResource(f.apply(value))
         }
-        data class Integral(val indexExpression: Expression<Int>) : Expression<PolynomialResource> {
+        data class Integral(val index: Expression<Int>) : Expression<PolynomialResource> {
             context(_: TaskScope)
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
-                model.integrals[floorMod(indexExpression.evaluate(model, locals), model.integrals.size)]
+                model.integrals[floorMod(index.evaluate(model, locals), model.integrals.size)]
             override fun mapSubexpressions(f: ExpressionMapper): Expression<PolynomialResource> =
-                Integral(f.apply(indexExpression))
+                Integral(f.apply(index))
         }
         data class AddPolynomialResources(val left: Expression<PolynomialResource>, val right: Expression<PolynomialResource>) : Expression<PolynomialResource> {
             context(_: TaskScope)
@@ -3378,19 +3378,19 @@ class BlockTestModel(initScope: InitScope) {
             override fun mapSubexpressions(f: ExpressionMapper): Expression<PolynomialResource> =
                 SubtractPolynomialResources(f.apply(left), f.apply(right))
         }
-        data class PolynomialFromDoubleResource(val doubleResourceExpression: Expression<DoubleResource>) : Expression<PolynomialResource> {
+        data class PolynomialFromDoubleResource(val doubleResource: Expression<DoubleResource>) : Expression<PolynomialResource> {
             context(_: TaskScope)
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
-                doubleResourceExpression.evaluate(model, locals).asPolynomial()
+                doubleResource.evaluate(model, locals).asPolynomial()
             override fun mapSubexpressions(f: ExpressionMapper): Expression<PolynomialResource> =
-                PolynomialFromDoubleResource(f.apply(doubleResourceExpression))
+                PolynomialFromDoubleResource(f.apply(doubleResource))
         }
-        data class PolynomialFromTimerResource(val timerResourceExpression: Expression<TimerResource>) : Expression<PolynomialResource> {
+        data class PolynomialFromTimerResource(val timerResource: Expression<TimerResource>) : Expression<PolynomialResource> {
             context(_: TaskScope)
             override fun evaluate(model: BlockTestModel, locals: BlockLocals): PolynomialResource =
-                timerResourceExpression.evaluate(model, locals).asPolynomial(1.seconds)
+                timerResource.evaluate(model, locals).asPolynomial(1.seconds)
             override fun mapSubexpressions(f: ExpressionMapper): Expression<PolynomialResource> =
-                PolynomialFromTimerResource(f.apply(timerResourceExpression))
+                PolynomialFromTimerResource(f.apply(timerResource))
         }
 
         companion object {
