@@ -70,7 +70,7 @@ class AutoEffect<D>(val subeffects: List<ResourceEffect<D>>) : ResourceEffect<D>
             val thisResult = effectArray.fold(p1) { value, effect -> effect(value) }.getOrThrow()
             // TODO: Allow us to parameterize equality check here with a more tolerant "equals" function.
             require(firstResult == thisResult) {
-                "Non-commuting concurrent effects. ${AutoEffect::class.simpleName} detected different results ($firstResult vs. $thisResult)" +
+                "Non-commuting concurrent effects. ${AutoEffect::class.simpleName} detected different results ($firstResult vs. $thisResult) " +
                         "from ordering (${subeffects.joinToString(" | ") { it.toString() }}) vs. (${effectArray.joinToString(" | ") { it.toString() }})"
             }
         }

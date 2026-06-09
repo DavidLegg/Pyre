@@ -122,7 +122,7 @@ object ResourceMonad {
     inline fun<A> distribute(a: FullDynamics<ThinResource<A>>): Resource<A> =
         Resource { Expiring(a.data.getDynamics(), a.expiry) }
     inline fun<A> join(a: Resource<Resource<A>>): Resource<A> =
-        Resource { ThinResourceMonad.map(ThinResourceMonad.join(ThinResourceMonad.map(a, ResourceMonad::distribute)), DynamicsMonad::join).getDynamics() }
+        ThinResourceMonad.map(ThinResourceMonad.join(ThinResourceMonad.map(a, ResourceMonad::distribute)), DynamicsMonad::join)
     // Although map can be defined in terms of apply and join, writing it this way instead makes it inlinable.
     // This can be a major boon to performance, so it's worth the redundant code
     inline fun<A, B> map(a: Resource<A>, crossinline fn: (A) -> B): Resource<B> = ThinResourceMonad.map(a, DynamicsMonad.map(fn))

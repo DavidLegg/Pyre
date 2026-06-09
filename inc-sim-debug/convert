@@ -10,7 +10,7 @@ HERE = Path(__file__).parent
 
 def main():
     dots = sorted(HERE.glob('*.dot'))
-    for i, dot in enumerate(dots):
+    for i, dot in reversed(list(enumerate(dots))):
         print(f"Converting {dot} ({i + 1} / {len(dots)})")
         convert(dot, i, dots[(i + 1) % len(dots)])
 

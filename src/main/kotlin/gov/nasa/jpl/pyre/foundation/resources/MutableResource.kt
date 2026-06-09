@@ -30,7 +30,15 @@ interface MutableResource<D> : Resource<D> {
 typealias ResourceEffect<D> = Effect<Result<FullDynamics<D>>>
 typealias MergeResourceEffect<D> = (ResourceEffect<D>, ResourceEffect<D>) -> ResourceEffect<D>
 
-class FaultedResourceException(message: String, cause: Throwable) : RuntimeException(message, cause)
+class FaultedResourceException(
+    message: String,
+    cause: Throwable,
+    val expiry: Expiry = NEVER,
+) : RuntimeException(message, cause) {
+    fun expiringAt(newExpiry: Expiry) =
+        FaultedResourceException(checkNotNull(message), checkNotNull(cause), expiry or newExpiry)
+}
+
 
 /**
  * Emit a general effect, which operates on the dynamics stored in this resource.

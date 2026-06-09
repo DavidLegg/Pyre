@@ -98,12 +98,12 @@ class KernelIncrementalSimulator(
     /** Root nodes with which we may merge restart requests, rather than re-running. */
     private val rootMergeOpportunities: MutableMap<Name, StartTaskNode> = mutableMapOf()
 
-    private enum class DebugLevel { NONE, MAJOR, MINOR, ALL }
+    public enum class DebugLevel { NONE, MAJOR, MINOR, ALL }
     companion object {
-        private val DEBUG = DebugLevel.NONE
+        public var DEBUG = DebugLevel.NONE
         // Put step variables in companion object, so the numbers keep incrementing through save/restore cycles
-        private var debugMajorStep = 0
-        private var debugMinorStep = 0
+        public var debugMajorStep = 0
+        public var debugMinorStep = 0
     }
     private fun dumpDotToFile(debugLevel: DebugLevel, highlightNode: IncSimNode? = null, checkIntegrity: Boolean = true) {
         if (DEBUG >= debugLevel) {

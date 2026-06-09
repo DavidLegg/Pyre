@@ -28,6 +28,13 @@ fun condition(block: context (ConditionScope) () -> ConditionResult): Condition 
         block(object : ConditionScope, SimulationScope by scope {
             override fun <V> read(cell: Cell<V>): V = actions.read(cell)
         })
+    } catch (e: FaultedResourceException) {
+        // These are a special class of exceptions, a kind of semi-nominal case.
+        // We never want to throw these exceptions, as they indicate some kind of modeling error.
+        // However, unlike a general error, these exceptions represent errors that are well-contained.
+        // In particular, they have an expiry we can use to indicate when it may be worth re-sampling the condition,
+        // as it may have automatically cleared the fault.
+        UnsatisfiedUntil(e.expiry.time)
     } catch (_: Throwable) {
         // By default, conditions simply aren't satisfied if they crash.
         // Normally, this is because we're awaiting some state on the resources, and a resource is faulted.

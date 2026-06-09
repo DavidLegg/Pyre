@@ -5,52 +5,15 @@ import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.Expression.Companion.andThen
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.CounterEffectBlock.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SlopeEffectBlock.*
-import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SwitchEffectBlock.*
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.CounterEffectBlock.IncrementCounter
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.CounterEffectBlock.SetCounter
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SlopeEffectBlock.IncreaseSlope
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SlopeEffectBlock.SetSlope
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SwitchEffectBlock.SetSwitch
+import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.SwitchEffectBlock.ToggleSwitch
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.EffectBlock.TimerEffectBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.ReportBlock.*
 import gov.nasa.jpl.pyre.foundation.incremental.BlockTestModel.StatementBlock.SaveValue.*
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
-import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
-import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
-import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.emit
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.decrement
-import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableIntResource
-import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.resources.named
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
-import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stdout
-import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.task
-import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.isNotEmpty
-import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.pop
-import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.push
-import gov.nasa.jpl.pyre.general.resources.discrete.MutableListResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.clampedIntegral
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.constant
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.greaterThan
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.polynomialResource
-import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.add
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.edit
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.isEmpty
@@ -60,23 +23,32 @@ import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.p
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.remove
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.unaryPlus
 import gov.nasa.jpl.pyre.foundation.incremental.TestModel.*
-import gov.nasa.jpl.pyre.foundation.resources.Dynamics
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.resources.ThinResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
+import gov.nasa.jpl.pyre.foundation.plans.Activity
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
+import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
+import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
+import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
+import gov.nasa.jpl.pyre.foundation.plans.Plan
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
+import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.*
+import gov.nasa.jpl.pyre.foundation.resources.discrete.*
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.or
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.toggle
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.emit
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.increase
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.minus
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.plus
-import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.decrement
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.minus
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.plus
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
-import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.resources.timer.MutableTimerResource
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResource
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations
@@ -88,11 +60,30 @@ import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.rese
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.restart
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.resume
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.timer
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
+import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stdout
+import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
+import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.foundation.tasks.task
+import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.isNotEmpty
+import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.pop
+import gov.nasa.jpl.pyre.general.resources.discrete.ListResourceOperations.push
+import gov.nasa.jpl.pyre.general.resources.discrete.MutableListResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.clampedIntegral
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.constant
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.integral
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.minus
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.plus
+import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.polynomialResource
+import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.kernel.DependentMap.Companion.valueEquals
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
 import gov.nasa.jpl.pyre.kernel.Name
@@ -109,7 +100,6 @@ import org.junit.jupiter.params.provider.MethodSource
 import java.io.File
 import java.lang.Math.floorMod
 import java.util.stream.IntStream
-import kotlin.collections.iterator
 import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.ln
@@ -1172,89 +1162,89 @@ class IncrementalSimulatorTest {
     }
 
     @Test
-    fun `repro by seed`() {
-        simplifyTranscriptOnFailure = true
-        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(5660)
-    }
-
-    @Test
-    fun `repro directly`() {
-        // Finding: Every incon cycle below appears to be necessary to repro the bug.
-
-        var inconTime: Instant
+    fun `short-circuiting a faulted resource in a condition`() {
+        // This test, by some very poorly-understood route, managed to expose a flaw in the short-circuiting evaluation of "and".
+        // In short, a short-circuiting condition may fault when short-circuiting fails, but evaluate nominally by avoiding the faulted resource when short-circuiting succeeds.
+        // See the updated comments for BooleanResourceOperations.and for more details.
+        var startTime: Instant = Instant.parse("2025-01-01T00:00:00Z")
+        var endTime = Instant.parse("2025-01-02T08:09:01.626277Z")
         var incon: Checkpoint<BlockTestModel>
         var tester = test(::BlockTestModel,
-            startTime = Instant.parse("2025-01-01T00:00:00Z"),
-            endTime = Instant.parse("2025-01-05T21:49:00.176430Z"),
+            startTime = startTime,
+            endTime = endTime,
             activities = listOf(
-                GroundedActivity(Instant.parse("2025-01-01T02:30:04.980737Z"), Name("906567923583"), BlockActivity(listOf(SetSlope(ConstantInt(60), ConstantDouble(-585844.4235940271))))),
-                GroundedActivity(Instant.parse("2025-01-01T05:29:37.779009Z"), Name("329204642082"), BlockActivity(listOf(Await(ConstantBooleanResource(ConstantBoolean(true))), IncreaseSlope(ConstantInt(-26), ConstantDouble(51.9377298656085)), Await(ConstantBooleanResource(ConstantBoolean(false)))))),
-                GroundedActivity(Instant.parse("2025-01-01T07:49:13.401990Z"), Name("772960740414"), BlockActivity(listOf(IncreaseSlope(ConstantInt(7), ConstantDouble(-97.70674632311011))))),
-                GroundedActivity(Instant.parse("2025-01-01T10:28:54.065185Z"), Name("695633830516"), BlockActivity(listOf(ToggleSwitch(ConstantInt(46))))),
-                GroundedActivity(Instant.parse("2025-01-01T12:48:09.180988Z"), Name("937881263424"), BlockActivity(listOf(Await(ComparePolynomialResource(Integral(ConstantInt(-95)), ConstantPolynomialResource(ConstantDouble(-134477.22290277557)))), SetSlope(ConstantInt(-15), ConstantDouble(0.0))))),
-                GroundedActivity(Instant.parse("2025-01-01T18:34:20.456885Z"), Name("863822719599"), BlockActivity(listOf(SetSlope(ConstantInt(49), ConstantDouble(-83.18067459395387))))),
-                GroundedActivity(Instant.parse("2025-01-02T01:27:30.387417Z"), Name("314174764995"), BlockActivity(listOf(IncreaseSlope(ConstantInt(-80), ConstantDouble(46.651885018212965))))),
-                GroundedActivity(Instant.parse("2025-01-02T10:16:36.541313Z"), Name("807242790562"), BlockActivity(listOf(SetSlope(ConstantInt(6459207), ConstantDouble(60.53706037290701))))),
-                GroundedActivity(Instant.parse("2025-01-02T10:44:32.323728Z"), Name("435526775229"), BlockActivity(listOf(IncreaseSlope(ConstantInt(72), ConstantDouble(42.04027916227761))))),
-                GroundedActivity(Instant.parse("2025-01-02T11:17:19.397355Z"), Name("406851510291"), BlockActivity(listOf(IncreaseSlope(ConstantInt(0), ConstantDouble(95.50951521009137))))),
-                GroundedActivity(Instant.parse("2025-01-02T19:21:59.251353Z"), Name("258515582492"), BlockActivity(listOf(IncreaseSlope(ConstantInt(-50), ConstantDouble(40.642490119327675))))),
-                GroundedActivity(Instant.parse("2025-01-02T21:51:09.630098Z"), Name("780547381531"), BlockActivity(listOf(Await(CompareIntResource(Counter(ConstantInt(0)), ConstantIntResource(ConstantInt(182)))), ToggleSwitch(ConstantInt(160))))),
-                GroundedActivity(Instant.parse("2025-01-03T05:30:31.375883Z"), Name("451764659446"), BlockActivity(listOf(SetSlope(ConstantInt(-134), ConstantDouble(-89.27446997985682))))),
-                GroundedActivity(Instant.parse("2025-01-03T06:17:30.537127Z"), Name("785017870686"), BlockActivity(listOf(SetSlope(ConstantInt(-102), ConstantDouble(-74.2360876233462))))),
-                GroundedActivity(Instant.parse("2025-01-03T08:36:34.415194Z"), Name("616626792364"), BlockActivity(listOf(Spawn(listOf(IncreaseSlope(ConstantInt(-2), ConstantDouble(98.32990245657462))))))),
-                GroundedActivity(Instant.parse("2025-01-03T18:58:12.428387Z"), Name("684386337116"), BlockActivity(listOf(SetSlope(ConstantInt(-20), ConstantDouble(-11.47718075864266)), Spawn(listOf(IncreaseSlope(ConstantInt(-6749159), ConstantDouble(-75.69149140417915))))))),
-                GroundedActivity(Instant.parse("2025-01-03T23:59:09.173413Z"), Name("349502990320"), BlockActivity(listOf(IncreaseSlope(ConstantInt(-20), ConstantDouble(-51.0))))),
-                GroundedActivity(Instant.parse("2025-01-04T01:05:11.172761Z"), Name("275018387632"), BlockActivity(listOf(ToggleSwitch(ConstantInt(-65))))),
-                GroundedActivity(Instant.parse("2025-01-04T02:24:40.318021Z"), Name("496193530397"), BlockActivity(listOf(Await(Switch(ConstantInt(7))), IncrementCounter(ConstantInt(0), ConstantInt(-8))))),
-                GroundedActivity(Instant.parse("2025-01-04T04:51:22.466456Z"), Name("367134689734"), BlockActivity(listOf(Await(Switch(ConstantInt(64))), IncreaseSlope(ConstantInt(184), ConstantDouble(-7759233.261399761)), IncreaseSlope(ConstantInt(54), ConstantDouble(-95.16878988616055)), SetCounter(ConstantInt(0), ConstantInt(0))))),
-                GroundedActivity(Instant.parse("2025-01-04T05:14:36.149779Z"), Name("144940322193"), BlockActivity(listOf(IncrementCounter(ConstantInt(-66), ConstantInt(89)), SetSlope(ConstantInt(51), ConstantDouble(17.0))))),
-                GroundedActivity(Instant.parse("2025-01-04T06:01:12.433206Z"), Name("527731926624"), BlockActivity(listOf(SetSlope(ConstantInt(-47), ConstantDouble(73.5577355869998))))),
-                GroundedActivity(Instant.parse("2025-01-04T06:25:18.382897Z"), Name("897400977708"), BlockActivity(listOf(IncrementCounter(ConstantInt(-66), ConstantInt(160))))),
-                GroundedActivity(Instant.parse("2025-01-04T13:29:59.253442Z"), Name("767514772304"), BlockActivity(listOf(IncreaseSlope(ConstantInt(46), ConstantDouble(-43.97180046740088))))),
-                GroundedActivity(Instant.parse("2025-01-04T17:43:48.007906Z"), Name("398393343460"), BlockActivity(listOf(SetSlope(ConstantInt(0), ConstantDouble(46.61563102315063))))),
-                GroundedActivity(Instant.parse("2025-01-04T17:56:20.293237Z"), Name("953685811128"), BlockActivity(listOf(IncreaseSlope(ConstantInt(76), ConstantDouble(-75.5803892534504))))),
-                GroundedActivity(Instant.parse("2025-01-04T19:48:22.748139Z"), Name("793975364185"), BlockActivity(listOf(Await(ComparePolynomialResource(Integral(ConstantInt(-32)), ConstantPolynomialResource(ConstantDouble(44.942870153163284)))), SetSlope(ConstantInt(-49), ConstantDouble(0.0)), IncreaseSlope(ConstantInt(0), ConstantDouble(-88.44120537910341))))),
-                GroundedActivity(Instant.parse("2025-01-04T19:52:40.167756Z"), Name("994870526613"), BlockActivity(listOf(IncreaseSlope(ConstantInt(-17), ConstantDouble(53.483876766762506))))),
-                GroundedActivity(Instant.parse("2025-01-05T02:04:35.569425Z"), Name("337487944607"), BlockActivity(listOf(IncreaseSlope(ConstantInt(-41), ConstantDouble(38.28191086046549))))),
-                GroundedActivity(Instant.parse("2025-01-05T07:57:17.824210Z"), Name("205830053575"), BlockActivity(listOf(Await(NotResource(AndResource(OrResource(ComparePolynomialResource(Integral(ConstantInt(-24)), ConstantPolynomialResource(ConstantDouble(-88.24119252574951))), ConstantBooleanResource(ConstantBoolean(false))), CompareIntResource(Counter(ConstantInt(78)), ConstantIntResource(ConstantInt(-6))))))))),
-                GroundedActivity(Instant.parse("2025-01-05T15:31:50.410281Z"), Name("539318924183"), BlockActivity(listOf(SetSlope(ConstantInt(-7), ConstantDouble(468080.4714026777))))),
-                GroundedActivity(Instant.parse("2025-01-05T16:15:56.081135Z"), Name("944966988061"), BlockActivity(listOf(Await(CompareDoubleResource(ConstantDoubleResource(ConstantDouble(67.16952102044255)), Slope(ConstantInt(-16)))), SetSlope(ConstantInt(-45), ConstantDouble(115.28445158611561))))),
+                GroundedActivity(Instant.parse("2025-01-01T02:30:04Z"), Name("A1"), BlockActivity(listOf(SetSlope(ConstantInt(0), ConstantDouble(-585844.4235940271))))),
+                GroundedActivity(Instant.parse("2025-01-01T05:29:37Z"), Name("A2"), BlockActivity(listOf(Await(ConstantBooleanResource(ConstantBoolean(true))), IncreaseSlope(ConstantInt(-26), ConstantDouble(51.9377298656085)), Await(ConstantBooleanResource(ConstantBoolean(false)))))),
+                GroundedActivity(Instant.parse("2025-01-01T07:49:13Z"), Name("A3"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(-97.70674632311011))))),
+                GroundedActivity(Instant.parse("2025-01-01T10:28:54Z"), Name("A4"), BlockActivity(listOf(ToggleSwitch(ConstantInt(1))))),
+                GroundedActivity(Instant.parse("2025-01-01T12:48:09Z"), Name("A5"), BlockActivity(listOf(Await(ComparePolynomialResource(Integral(ConstantInt(1)), ConstantPolynomialResource(ConstantDouble(-134477.22290277557)))), SetSlope(ConstantInt(0), ConstantDouble(0.0))))),
+                GroundedActivity(Instant.parse("2025-01-01T18:34:20Z"), Name("A6"), BlockActivity(listOf(SetSlope(ConstantInt(1), ConstantDouble(-83.18067459395387))))),
+                GroundedActivity(Instant.parse("2025-01-02T01:27:30Z"), Name("A7"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(46.651885018212965))))),
+                GroundedActivity(Instant.parse("2025-01-02T10:16:36Z"), Name("A8"), BlockActivity(listOf(SetSlope(ConstantInt(0), ConstantDouble(60.53706037290701))))),
+                GroundedActivity(Instant.parse("2025-01-02T10:44:32Z"), Name("A9"), BlockActivity(listOf(IncreaseSlope(ConstantInt(0), ConstantDouble(42.04027916227761))))),
+                GroundedActivity(Instant.parse("2025-01-02T11:17:19Z"), Name("A10"), BlockActivity(listOf(IncreaseSlope(ConstantInt(0), ConstantDouble(95.50951521009137))))),
+                GroundedActivity(Instant.parse("2025-01-02T19:21:59Z"), Name("A11"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(40.642490119327675))))),
+                GroundedActivity(Instant.parse("2025-01-02T21:51:09Z"), Name("A12"), BlockActivity(listOf(Await(CompareIntResource(Counter(ConstantInt(0)), ConstantIntResource(ConstantInt(182)))), ToggleSwitch(ConstantInt(1))))),
+                GroundedActivity(Instant.parse("2025-01-03T05:30:31Z"), Name("A13"), BlockActivity(listOf(SetSlope(ConstantInt(1), ConstantDouble(-89.27446997985682))))),
+                GroundedActivity(Instant.parse("2025-01-03T06:17:30Z"), Name("A14"), BlockActivity(listOf(SetSlope(ConstantInt(0), ConstantDouble(-74.2360876233462))))),
+                GroundedActivity(Instant.parse("2025-01-03T08:36:34Z"), Name("A15"), BlockActivity(listOf(Spawn(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(98.32990245657462))))))),
+                GroundedActivity(Instant.parse("2025-01-03T18:58:12Z"), Name("A16"), BlockActivity(listOf(SetSlope(ConstantInt(1), ConstantDouble(-87.1686721628218))))),
+                GroundedActivity(Instant.parse("2025-01-03T23:59:09Z"), Name("A17"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(-51.0))))),
+                GroundedActivity(Instant.parse("2025-01-04T01:05:11Z"), Name("A18"), BlockActivity(listOf(ToggleSwitch(ConstantInt(1))))),
+                GroundedActivity(Instant.parse("2025-01-04T02:24:40Z"), Name("A19"), BlockActivity(listOf(Await(Switch(ConstantInt(1))), IncrementCounter(ConstantInt(0), ConstantInt(-8))))),
+                GroundedActivity(Instant.parse("2025-01-04T04:51:22Z"), Name("A20"), BlockActivity(listOf(Await(Switch(ConstantInt(1))), IncreaseSlope(ConstantInt(1), ConstantDouble(-33.261399761)), IncreaseSlope(ConstantInt(0), ConstantDouble(-95.16878988616055)), SetCounter(ConstantInt(0), ConstantInt(0))))),
+                GroundedActivity(Instant.parse("2025-01-04T05:14:36Z"), Name("A21"), BlockActivity(listOf(IncrementCounter(ConstantInt(0), ConstantInt(89)), SetSlope(ConstantInt(0), ConstantDouble(17.0))))),
+                GroundedActivity(Instant.parse("2025-01-04T06:01:12Z"), Name("A22"), BlockActivity(listOf(SetSlope(ConstantInt(-47), ConstantDouble(73.5577355869998))))),
+                GroundedActivity(Instant.parse("2025-01-04T06:25:18Z"), Name("A23"), BlockActivity(listOf(IncrementCounter(ConstantInt(0), ConstantInt(160))))),
+                GroundedActivity(Instant.parse("2025-01-04T13:29:59Z"), Name("A24"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(-43.97180046740088))))),
+                GroundedActivity(Instant.parse("2025-01-04T17:43:48Z"), Name("A25"), BlockActivity(listOf(SetSlope(ConstantInt(0), ConstantDouble(46.61563102315063))))),
+                GroundedActivity(Instant.parse("2025-01-04T17:56:20Z"), Name("A26"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(-75.5803892534504))))),
+                GroundedActivity(Instant.parse("2025-01-04T19:48:22Z"), Name("A27"), BlockActivity(listOf(Await(ComparePolynomialResource(Integral(ConstantInt(1)), ConstantPolynomialResource(ConstantDouble(44.942870153163284)))), SetSlope(ConstantInt(2), ConstantDouble(0.0)), IncreaseSlope(ConstantInt(0), ConstantDouble(-88.44120537910341))))),
+                GroundedActivity(Instant.parse("2025-01-04T19:52:40Z"), Name("A28"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(53.483876766762506))))),
+                GroundedActivity(Instant.parse("2025-01-05T02:04:35Z"), Name("A29"), BlockActivity(listOf(IncreaseSlope(ConstantInt(1), ConstantDouble(38.28191086046549))))),
+                GroundedActivity(Instant.parse("2025-01-05T07:57:17.824210Z"), Name("A30"), BlockActivity(listOf(Await(NotResource(AndResource(ComparePolynomialResource(Integral(ConstantInt(0)), ConstantPolynomialResource(ConstantDouble(0.0))), CompareIntResource(Counter(ConstantInt(0)), ConstantIntResource(ConstantInt(-6))))))))),
+                GroundedActivity(Instant.parse("2025-01-05T15:31:50Z"), Name("A31"), BlockActivity(listOf(SetSlope(ConstantInt(2), ConstantDouble(80.4714026777))))),
+                GroundedActivity(Instant.parse("2025-01-05T16:15:56Z"), Name("A32"), BlockActivity(listOf(Await(CompareDoubleResource(ConstantDoubleResource(ConstantDouble(67.16952102044255)), Slope(ConstantInt(2)))), SetSlope(ConstantInt(0), ConstantDouble(15.28445158611561))))),
             )
         )
         println("Running round 1...")
-        inconTime = Instant.parse("2025-01-02T08:09:01.626276Z")
-        incon = tester.save(inconTime)
+        startTime = endTime - 1.microseconds
+        endTime = Instant.parse("2025-01-03T22:30:12.818150Z")
+        incon = tester.save(startTime)
         tester = test(::BlockTestModel,
-            startTime = inconTime,
-            endTime = Instant.parse("2025-01-04T09:09:52.364370Z"),
+            startTime = startTime,
+            endTime = endTime,
             incon = incon,
         )
         println("Running round 2...")
-        inconTime = Instant.parse("2025-01-03T22:30:12.818149Z")
-        incon = tester.save(inconTime)
+        startTime = endTime - 1.microseconds
+        endTime = Instant.parse("2025-01-03T23:16:03.310635Z")
+        incon = tester.save(startTime)
         tester = test(::BlockTestModel,
-            startTime = inconTime,
-            endTime = Instant.parse("2025-01-04T22:30:12.818149Z"),
+            startTime = startTime,
+            endTime = endTime,
             incon = incon,
         )
         println("Running round 3...")
-        inconTime = Instant.parse("2025-01-03T23:16:03.310634Z")
-        incon = tester.save(inconTime)
+        startTime = endTime - 1.microseconds
+        endTime = Instant.parse("2025-01-04T21:49:00.176431Z")
+        incon = tester.save(startTime)
         tester = test(::BlockTestModel,
-            startTime = inconTime,
-            endTime = Instant.parse("2025-01-04T23:16:03.310634Z"),
+            startTime = startTime,
+            endTime = endTime,
             incon = incon,
         )
         println("Running round 4...")
-        inconTime = Instant.parse("2025-01-04T21:49:00.176430Z")
-        incon = tester.save(inconTime)
+        startTime = endTime - 1.microseconds
+        endTime = Instant.parse("2025-01-05T21:49:00.176430Z")
+        incon = tester.save(startTime)
         tester = test(::BlockTestModel,
-            startTime = inconTime,
-            endTime = Instant.parse("2025-01-05T21:49:00.176430Z"),
+            startTime = startTime,
+            endTime = endTime,
             incon = incon,
         )
         println("Running round 5...")
-        tester.add(GroundedActivity(Instant.parse("2025-01-05T03:59:24.208418Z"), Name("260010377803"), BlockActivity(listOf(IncreaseSlope(ConstantInt(67), ConstantDouble(78.59943536328842))))))
+        tester.add(GroundedActivity(Instant.parse("2025-01-05T03:59:24.208418Z"), Name("A33"), BlockActivity(listOf(IncreaseSlope(ConstantInt(67), ConstantDouble(78.59943536328842))))))
     }
 
     @Tag("long-test")
@@ -3410,9 +3400,16 @@ class BlockTestModel(initScope: InitScope) {
                 context(_: TaskScope)
                 override fun evaluate(model: BlockTestModel, locals: BlockLocals): Resource<V> {
                     val originalResource = this@logSamples.evaluate(model, locals)
-                    return Resource { originalResource.getDynamics().also { result ->
-                        println("Log sample ${++logIndex}: ${name ?: originalResource.toString()} = $result")
-                    }}.fullyNamed { originalResource.name }
+                    return Resource {
+                        try {
+                            originalResource.getDynamics().also { result ->
+                                println("Log sample ${++logIndex}: ${name ?: originalResource.toString()} = $result")
+                            }
+                        } catch (e: FaultedResourceException) {
+                            println("Log sample ${++logIndex}: ${name ?: originalResource.toString()} -> ${e.message}")
+                            throw e
+                        }
+                    }.fullyNamed { originalResource.name }
                 }
 
                 override fun mapSubexpressions(f: ExpressionMapper): Expression<Resource<V>> =
