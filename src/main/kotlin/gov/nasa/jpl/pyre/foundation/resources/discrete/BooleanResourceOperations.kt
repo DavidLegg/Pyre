@@ -39,7 +39,7 @@ object BooleanResourceOperations {
                     throw e.expiringAt(a.expiry)
                 }
             } else {
-                DiscreteDynamicsMonad.pure(false)
+                a
             }
         }.fullyNamed { Name("(${this@and}) and ($other)") }
     infix fun BooleanResource.or(other: BooleanResource): BooleanResource =
@@ -53,7 +53,7 @@ object BooleanResourceOperations {
                     throw e.expiringAt(a.expiry)
                 }
             } else {
-                DiscreteDynamicsMonad.pure(true)
+                a
             }
         }.fullyNamed { Name("(${this@or}) or ($other)") }
 
