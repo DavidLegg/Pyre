@@ -1247,6 +1247,135 @@ class IncrementalSimulatorTest {
         tester.add(GroundedActivity(Instant.parse("2025-01-05T03:59:24.208418Z"), Name("A33"), BlockActivity(listOf(IncreaseSlope(ConstantInt(67), ConstantDouble(78.59943536328842))))))
     }
 
+    @Test
+    fun `repro by seed`() {
+        simplifyTranscriptOnFailure = true
+        `random plan edits conform to fundamental incremental sim guarantee -- model 2`(19714)
+    }
+
+    @Test
+    fun `repro directly`() {
+        val tester = test(::BlockTestModel,
+            startTime = Instant.parse("2025-01-01T00:00:00Z"),
+            endTime = Instant.parse("2025-01-03T13:19:46.521242Z"),
+            activities = listOf(
+                GroundedActivity(
+                    Instant.parse("2025-01-01T08:41:02.074413Z"),
+                    Name("A1"),
+                    BlockActivity(
+                        listOf(
+                            Await(
+                                CompareIntResource(
+                                    Counter(ConstantInt(2)),
+                                    ConstantIntResource(ConstantInt(142))
+                                )
+                            ),
+                            Await(Switch(ConstantInt(1))),
+                            ToggleSwitch(ConstantInt(0)),
+                        )
+                    )
+                ),
+                GroundedActivity(
+                    Instant.parse("2025-01-01T10:15:57.056214Z"),
+                    Name("A2"),
+                    BlockActivity(listOf(RestartTimer(ConstantInt(1))))
+                ),
+                GroundedActivity(
+                    Instant.parse("2025-01-02T13:59:31.429747Z"),
+                    Name("A3"),
+                    BlockActivity(listOf(SetSwitch(ConstantInt(0), ConstantBoolean(true))))
+                ),
+                GroundedActivity(
+                    Instant.parse("2025-01-02T14:58:42.387195Z"),
+                    Name("A4"),
+                    BlockActivity(
+                        listOf(
+                            Await(
+                                CompareTimerResource(
+                                    ConstantTimerResource(ConstantDuration(2.minutes)),
+                                    AddTimerResources(
+                                        Timer(ConstantInt(0)),
+                                        Timer(ConstantInt(1)),
+                                    ),
+                                )
+                            ),
+                            SetSlope(ConstantInt(0), ConstantDouble(-65.10467555394209)),
+                        )
+                    )
+                ),
+                GroundedActivity(
+                    Instant.parse("2025-01-02T16:34:59.283632Z"),
+                    Name("A5"),
+                    BlockActivity(listOf(IncrementCounter(ConstantInt(2), ConstantInt(121))))
+                ),
+                GroundedActivity(
+                    Instant.parse("2025-01-02T17:01:39.774534Z"),
+                    Name("A6"),
+                    BlockActivity(listOf(ToggleSwitch(ConstantInt(1))))
+                ),
+                GroundedActivity(
+                    Instant.parse("2025-01-02T18:09:12.199120Z"),
+                    Name("A7"),
+                    BlockActivity(listOf(RestartTimer(ConstantInt(0))))
+                ),
+                GroundedActivity(
+                    Instant.parse("2025-01-02T19:08:46.679836Z"),
+                    Name("A8"),
+                    BlockActivity(listOf(ToggleSwitch(ConstantInt(0))))
+                ),
+                GroundedActivity(
+                    Instant.parse("2025-01-02T19:31:16.782391Z"),
+                    Name("A9"),
+                    BlockActivity(
+                listOf(
+                            RestartTimer(ConstantInt(1)),
+                            PauseTimer(ConstantInt(1)),
+                            ToggleSwitch(ConstantInt(1))
+                        )
+                    )
+                ),
+                GroundedActivity(
+                    Instant.parse("2025-01-02T20:08:51.617772Z"),
+                    Name("A10"),
+                    BlockActivity(listOf(IncreaseSlope(ConstantInt(0), ConstantDouble(-190476.40476534003))))
+                ),
+                GroundedActivity(
+                    Instant.parse("2025-01-02T20:22:42.998120Z"),
+                    Name("A11"),
+                    BlockActivity(listOf(Spawn(listOf(Await(Switch(ConstantInt(0)))))))
+                ),
+                GroundedActivity(
+                    Instant.parse("2025-01-02T21:10:25.891476Z"),
+                    Name("A12"),
+                    BlockActivity(listOf(IncrementCounter(ConstantInt(2), ConstantInt(74))))
+                ),
+                GroundedActivity(
+                    Instant.parse("2025-01-02T22:06:13.338918Z"),
+                    Name("A13"),
+                    BlockActivity(
+                        listOf(
+                            SetSwitch(
+                                AddInts(
+                                    ConstantInt(2),
+                                    IntFromDouble(ReadSlope(ConstantInt(0))),
+                                ),
+                                ConstantBoolean(true)
+                            ),
+                            ToggleSwitch(ConstantInt(0))
+                        )
+                    )
+                ),
+            )
+        )
+        tester.add(
+            GroundedActivity(
+                Instant.parse("2025-01-02T20:56:35.440453Z"),
+                Name("A14"),
+                BlockActivity(listOf(ResetTimer(ConstantInt(0))))
+            )
+        )
+    }
+
     @Tag("long-test")
     @ParameterizedTest
     @MethodSource("fuzzingSeeds")
@@ -2108,30 +2237,30 @@ class IncrementalSimulatorTest {
                 }
             }
             is IncrementCounter -> {
-                yieldAll(index.simplifications().map { copy(index = it) })
+                yieldAll(index.indexSimplifications().map { copy(index = it) })
                 yieldAll(amount.simplifications().map { copy(amount = it) })
             }
             is SetCounter -> {
-                yieldAll(index.simplifications().map { copy(index = it) })
+                yieldAll(index.indexSimplifications().map { copy(index = it) })
                 yieldAll(value.simplifications().map { copy(value = it) })
             }
             is IncreaseSlope -> {
-                yieldAll(index.simplifications().map { copy(index = it) })
+                yieldAll(index.indexSimplifications().map { copy(index = it) })
                 yieldAll(amount.simplifications().map { copy(amount = it) })
             }
             is SetSlope -> {
-                yieldAll(index.simplifications().map { copy(index = it) })
+                yieldAll(index.indexSimplifications().map { copy(index = it) })
                 yieldAll(value.simplifications().map { copy(value = it) })
             }
             is SetSwitch -> {
-                yieldAll(index.simplifications().map { copy(index = it) })
+                yieldAll(index.indexSimplifications().map { copy(index = it) })
                 yieldAll(value.simplifications().map { copy(value = it) })
             }
-            is ToggleSwitch -> yieldAll(index.simplifications().map { copy(index = it) })
-            is PauseTimer -> yieldAll(index.simplifications().map { copy(index = it) })
-            is ResetTimer -> yieldAll(index.simplifications().map { copy(index = it) })
-            is RestartTimer -> yieldAll(index.simplifications().map { copy(index = it) })
-            is ResumeTimer -> yieldAll(index.simplifications().map { copy(index = it) })
+            is ToggleSwitch -> yieldAll(index.indexSimplifications().map { copy(index = it) })
+            is PauseTimer -> yieldAll(index.indexSimplifications().map { copy(index = it) })
+            is ResetTimer -> yieldAll(index.indexSimplifications().map { copy(index = it) })
+            is RestartTimer -> yieldAll(index.indexSimplifications().map { copy(index = it) })
+            is ResumeTimer -> yieldAll(index.indexSimplifications().map { copy(index = it) })
             is ReportBoolean -> yieldAll(value.simplifications().map { copy(value = it) })
             is ReportDouble -> yieldAll(value.simplifications().map { copy(value = it) })
             is ReportDuration -> yieldAll(value.simplifications().map { copy(value = it) })
@@ -2142,6 +2271,17 @@ class IncrementalSimulatorTest {
             is SaveInt -> yieldAll(value.simplifications().map { copy(value = it) })
             is Await -> yieldAll(condition.simplifications().map { copy(condition = it) })
         }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    context (instrumentation: Lazy<BlockInstrumentation>)
+    private fun Expression<Int>.indexSimplifications(): Sequence<Expression<Int>> = sequence {
+        if (this@indexSimplifications is ConstantInt && value !in 0..<BlockTestModel.BLOCK_TEST_MODEL_SIZE) {
+            // For the special case of indices, consider modding a constant index down to its reduced form.
+            // This doesn't change the complexity of the test, but it does make it easier to read.
+            yield(ConstantInt(floorMod(value, BlockTestModel.BLOCK_TEST_MODEL_SIZE)))
+        }
+        yieldAll(simplifications())
     }
 
     @Suppress("UNCHECKED_CAST")
