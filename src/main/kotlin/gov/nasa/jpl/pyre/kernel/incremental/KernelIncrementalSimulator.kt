@@ -98,12 +98,12 @@ class KernelIncrementalSimulator(
     /** Root nodes with which we may merge restart requests, rather than re-running. */
     private val rootMergeOpportunities: MutableMap<Name, StartTaskNode> = mutableMapOf()
 
-    public enum class DebugLevel { NONE, MAJOR, MINOR, ALL }
+    private enum class DebugLevel { NONE, MAJOR, MINOR, ALL }
     companion object {
-        public var DEBUG = DebugLevel.NONE
+        private val DEBUG = DebugLevel.NONE
         // Put step variables in companion object, so the numbers keep incrementing through save/restore cycles
-        public var debugMajorStep = 0
-        public var debugMinorStep = 0
+        private var debugMajorStep = 0
+        private var debugMinorStep = 0
     }
     private fun dumpDotToFile(debugLevel: DebugLevel, highlightNode: IncSimNode? = null, checkIntegrity: Boolean = true) {
         if (DEBUG >= debugLevel) {
@@ -514,13 +514,14 @@ class KernelIncrementalSimulator(
                     // nextTaskBatch, so it suffices to find any one of them and stop.
                     resultTime = node.time.nextTaskBatch().copy(branch = awaitNode.time.branch)
                     // In case we're recomputing an await that was already interrupted by a merge,
-                    // we should fast-forward the interruption to the last cell node before resultTime.
+                    // we should fast-forward the interruption to the last cell node causally before resultTime.
+                    // (It must be a causal check in case there's a concurrent write on a lower-numbered branch).
                     // That's the cell node any existing await node would have read,
                     // which avoids adding an extraneous read into the interruption await node.
                     // Having two reads of one cell (through different cell nodes) isn't just wasteful.
                     // It can trip up the cell awaiter update logic and cause incorrect results.
                     interruptCell = generateSequence(node) {
-                        (it as? CellWriteNode)?.next?.singleOrNull()?.takeIf { it.time < resultTime }
+                        (it as? CellWriteNode)?.next?.singleOrNull()?.takeIf { it.time isCausallyBefore resultTime }
                     }.last()
                     break
                 }
