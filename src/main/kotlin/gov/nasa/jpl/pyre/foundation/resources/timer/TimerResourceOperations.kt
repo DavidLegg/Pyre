@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.foundation.resources.timer
 
 import gov.nasa.jpl.pyre.foundation.resources.*
-import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.bind
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.*
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerOperations.minus
@@ -9,10 +8,10 @@ import gov.nasa.jpl.pyre.foundation.resources.timer.TimerOperations.plus
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
-import gov.nasa.jpl.pyre.kernel.Durations.epsilon
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.utilities.named
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.INFINITE
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.times
 
@@ -82,55 +81,34 @@ object TimerResourceOperations {
     fun constant(time: Duration): TimerResource =
         ResourceMonad.pure(Timer(time, 0.0)).fullyNamed { Name(time.toString()) }
 
-fun TimerResource.compareTo(other: TimerResource): IntResource = ThinResourceMonad.map(this, other, DynamicsMonad.bind { t, o ->
-        val delta = t - o
-        val expiry = when {
-            // If the delta isn't changing, comparison never changes
-            delta.rate == 0.0 -> Duration.INFINITE
-            // If delta is exactly zero and changing, it changes "immediately"
-            // TODO: Do we need to handle an edge case here if rate in [0, 1)? It may take >epsilon for the value to change by epsilon...
-            delta.time == ZERO -> t.time.epsilon
-            // If delta is moving away from zero, it never changes sign
-            delta.time > ZERO == delta.rate > 0 -> Duration.INFINITE
-            // Otherwise delta is moving towards zero. Compute the intercept
-            else -> {
-                // Compute the intercept as ceil(|time| / rate).
-                // Note that integer division on positive numbers is equivalent to floor(... / ...)
-                // If rate divides time, the -EPSILON means the division returns (|time| / rate) - EPSILON,
-                // which we correct with a +EPSILON.
-                // Otherwise, the -EPSILON doesn't change the quotient floor(|time| / rate),
-                // so the +EPSILON corrects it up to ceil(|time| / rate).
-                // Expiry(((delta.time.absoluteValue - EPSILON) / abs(delta.rate).toLong()) + EPSILON)
-
-                // Since the estimated root may be off by at most +/- epsilon (we think),
-                // brute-force the problem of finding the exact crossing time by bracketing the estimated root
-                // with a +/- 2-epsilon search window, taking the earliest time that actually crosses.
-                // TODO: Think through ways to analytically reach this solution with fewer operations
-                val estimatedRoot = -(delta.time / delta.rate)
-                var result: Duration? = null
-                for (offset in -2..2) {
+    private fun TimerResource.compareWith(other: TimerResource, bipredicate: (Duration, Duration) -> Boolean): BooleanResource =
+        ThinResourceMonad.map(this, other, DynamicsMonad.bind { t, o ->
+            val initialResult = bipredicate(t.time, o.time)
+            val estimatedRoot = (t.time - o.time) / (o.rate - t.rate)
+            val expiry = if (estimatedRoot.isInfinite()) INFINITE else {
+                (-2..2)
                     // TODO: Think through whether we need to handle coarse epsilon here, and if so, how
-                    val possibleRoot = estimatedRoot + offset * EPSILON
-                    val projectedDeltaAtRoot = delta.time + delta.rate * possibleRoot
-                    if ((projectedDeltaAtRoot == ZERO) || projectedDeltaAtRoot > ZERO != delta.time > ZERO) {
-                        result = possibleRoot
-                        break
+                    .map { estimatedRoot + it * EPSILON }
+                    .firstOrNull { possibleRoot ->
+                        val projectedT = t.time + t.rate * possibleRoot
+                        val projectedO = o.time + o.rate * possibleRoot
+                        bipredicate(projectedT, projectedO) != initialResult
                     }
-                }
-                checkNotNull(result) { "Root finding failed on resource $this" }
             }
-        }
-        Expiring(Discrete(delta.time.compareTo(ZERO)), expiry)
-    }).fullyNamed { Name("($this).compareTo($other)") }
+            checkNotNull(expiry) { "Root finding failed on resource $this" }
+            // It's possible, especially for "satisfied at 0" cases, that the root is at or before 0 too.
+            // This isn't a failure of root-finding, but it isn't a meaningful expiry either.
+            Expiring(Discrete(initialResult), expiry.takeIf { it > ZERO } ?: INFINITE)
+        })
 
     infix fun TimerResource.lessThan(other: TimerResource): BooleanResource =
-        DiscreteResourceMonad.map(this.compareTo(other)) { it < 0 }.fullyNamed { Name("($this) < ($other)") }
+        this.compareWith(other) { t, o -> t < o }.fullyNamed { Name("($this) < ($other)") }
     infix fun TimerResource.lessThanOrEquals(other: TimerResource): BooleanResource =
-        DiscreteResourceMonad.map(this.compareTo(other)) { it <= 0 }.fullyNamed { Name("($this) <= ($other)") }
+        this.compareWith(other) { t, o -> t <= o }.fullyNamed { Name("($this) <= ($other)") }
     infix fun TimerResource.greaterThan(other: TimerResource): BooleanResource =
-        DiscreteResourceMonad.map(this.compareTo(other)) { it > 0 }.fullyNamed { Name("($this) > ($other)") }
+        this.compareWith(other) { t, o -> t > o }.fullyNamed { Name("($this) > ($other)") }
     infix fun TimerResource.greaterThanOrEquals(other: TimerResource): BooleanResource =
-        DiscreteResourceMonad.map(this.compareTo(other)) { it >= 0 }.fullyNamed { Name("($this) >= ($other)") }
+        this.compareWith(other) { t, o -> t >= o }.fullyNamed { Name("($this) >= ($other)") }
 
     infix fun TimerResource.lessThan(other: Duration) = this lessThan constant(other)
     infix fun TimerResource.lessThanOrEquals(other: Duration) = this lessThanOrEquals constant(other)

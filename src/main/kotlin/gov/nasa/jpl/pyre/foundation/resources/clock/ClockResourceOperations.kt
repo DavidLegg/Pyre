@@ -8,15 +8,15 @@ import gov.nasa.jpl.pyre.foundation.resources.clock.ClockOperations.minus
 import gov.nasa.jpl.pyre.foundation.resources.clock.ClockOperations.plus
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad
-import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
 import gov.nasa.jpl.pyre.foundation.resources.emit
 import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
 import gov.nasa.jpl.pyre.foundation.resources.resource
-import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResource
-import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.compareTo
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.constant
+import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.greaterThan
+import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.greaterThanOrEquals
+import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.lessThan
+import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.lessThanOrEquals
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
@@ -85,17 +85,14 @@ object ClockResourceOperations {
         operator fun TimerResource.plus(other: Instant): ClockResource = this + constant(other)
     }
 
-    fun ClockResource.compareTo(other: ClockResource): IntResource =
-        (this - other).compareTo(constant(ZERO))
-
     infix fun ClockResource.lessThan(other: ClockResource): BooleanResource =
-        DiscreteResourceMonad.map(this.compareTo(other)) { it < 0 }.fullyNamed { Name("($this) < ($other)") }
+        ((this - other) lessThan constant(ZERO)).fullyNamed { Name("($this) < ($other)") }
     infix fun ClockResource.lessThanOrEquals(other: ClockResource): BooleanResource =
-        DiscreteResourceMonad.map(this.compareTo(other)) { it <= 0 }.fullyNamed { Name("($this) <= ($other)") }
+        (this - other) lessThanOrEquals constant(ZERO).fullyNamed { Name("($this) <= ($other)") }
     infix fun ClockResource.greaterThan(other: ClockResource): BooleanResource =
-        DiscreteResourceMonad.map(this.compareTo(other)) { it > 0 }.fullyNamed { Name("($this) > ($other)") }
+        (this - other) greaterThan constant(ZERO).fullyNamed { Name("($this) > ($other)") }
     infix fun ClockResource.greaterThanOrEquals(other: ClockResource): BooleanResource =
-        DiscreteResourceMonad.map(this.compareTo(other)) { it >= 0 }.fullyNamed { Name("($this) >= ($other)") }
+        (this - other) greaterThanOrEquals constant(ZERO).fullyNamed { Name("($this) >= ($other)") }
 
     infix fun ClockResource.lessThan(other: Instant): BooleanResource = this lessThan constant(other)
     infix fun ClockResource.lessThanOrEquals(other: Instant): BooleanResource = this lessThanOrEquals constant(other)
