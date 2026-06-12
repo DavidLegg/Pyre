@@ -82,47 +82,46 @@ object TimerResourceOperations {
     fun constant(time: Duration): TimerResource =
         ResourceMonad.pure(Timer(time, 0.0)).fullyNamed { Name(time.toString()) }
 
-    fun TimerResource.compareTo(other: TimerResource): IntResource {
-        return bind(this, other) { t, o ->
-            val delta = t - o
-            val expiry =
-                // If the delta isn't changing, comparison never changes
-                if (delta.rate == 0.0) Duration.INFINITE
-                // If delta is exactly zero and changing, it changes "immediately"
-                // TODO: Do we need to handle an edge case here if rate in [0, 1)? It may take >epsilon for the value to change by epsilon...
-                else if (delta.time == ZERO) t.time.epsilon
-                // If delta is moving away from zero, it never changes sign
-                else if (delta.time > ZERO == delta.rate > 0) Duration.INFINITE
-                // Otherwise delta is moving towards zero. Compute the intercept
-                else {
-                    // Compute the intercept as ceil(|time| / rate).
-                    // Note that integer division on positive numbers is equivalent to floor(... / ...)
-                    // If rate divides time, the -EPSILON means the division returns (|time| / rate) - EPSILON,
-                    // which we correct with a +EPSILON.
-                    // Otherwise, the -EPSILON doesn't change the quotient floor(|time| / rate),
-                    // so the +EPSILON corrects it up to ceil(|time| / rate).
-                    // Expiry(((delta.time.absoluteValue - EPSILON) / abs(delta.rate).toLong()) + EPSILON)
+fun TimerResource.compareTo(other: TimerResource): IntResource = ThinResourceMonad.map(this, other, DynamicsMonad.bind { t, o ->
+        val delta = t - o
+        val expiry = when {
+            // If the delta isn't changing, comparison never changes
+            delta.rate == 0.0 -> Duration.INFINITE
+            // If delta is exactly zero and changing, it changes "immediately"
+            // TODO: Do we need to handle an edge case here if rate in [0, 1)? It may take >epsilon for the value to change by epsilon...
+            delta.time == ZERO -> t.time.epsilon
+            // If delta is moving away from zero, it never changes sign
+            delta.time > ZERO == delta.rate > 0 -> Duration.INFINITE
+            // Otherwise delta is moving towards zero. Compute the intercept
+            else -> {
+                // Compute the intercept as ceil(|time| / rate).
+                // Note that integer division on positive numbers is equivalent to floor(... / ...)
+                // If rate divides time, the -EPSILON means the division returns (|time| / rate) - EPSILON,
+                // which we correct with a +EPSILON.
+                // Otherwise, the -EPSILON doesn't change the quotient floor(|time| / rate),
+                // so the +EPSILON corrects it up to ceil(|time| / rate).
+                // Expiry(((delta.time.absoluteValue - EPSILON) / abs(delta.rate).toLong()) + EPSILON)
 
-                    // Since the estimated root may be off by at most +/- epsilon (we think),
-                    // brute-force the problem of finding the exact crossing time by bracketing the estimated root
-                    // with a +/- 2-epsilon search window, taking the earliest time that actually crosses.
-                    // TODO: Think through ways to analytically reach this solution with fewer operations
-                    val estimatedRoot = (delta.time / delta.rate).absoluteValue
-                    var result: Duration? = null
-                    for (offset in -2..2) {
-                        // TODO: Think through whether we need to handle coarse epsilon here, and if so, how
-                        val possibleRoot = estimatedRoot + offset * EPSILON
-                        val projectedDeltaAtRoot = delta.time + delta.rate * possibleRoot
-                        if ((projectedDeltaAtRoot == ZERO) || projectedDeltaAtRoot > ZERO != delta.time > ZERO) {
-                            result = possibleRoot
-                            break
-                        }
+                // Since the estimated root may be off by at most +/- epsilon (we think),
+                // brute-force the problem of finding the exact crossing time by bracketing the estimated root
+                // with a +/- 2-epsilon search window, taking the earliest time that actually crosses.
+                // TODO: Think through ways to analytically reach this solution with fewer operations
+                val estimatedRoot = -(delta.time / delta.rate)
+                var result: Duration? = null
+                for (offset in -2..2) {
+                    // TODO: Think through whether we need to handle coarse epsilon here, and if so, how
+                    val possibleRoot = estimatedRoot + offset * EPSILON
+                    val projectedDeltaAtRoot = delta.time + delta.rate * possibleRoot
+                    if ((projectedDeltaAtRoot == ZERO) || projectedDeltaAtRoot > ZERO != delta.time > ZERO) {
+                        result = possibleRoot
+                        break
                     }
-                    checkNotNull(result) { "Root finding failed on resource $this"}
                 }
-            ThinResourceMonad.pure(Expiring(Discrete(delta.time.compareTo(ZERO)), expiry))
-        }.fullyNamed { Name("($this).compareTo($other)") }
-    }
+                checkNotNull(result) { "Root finding failed on resource $this" }
+            }
+        }
+        Expiring(Discrete(delta.time.compareTo(ZERO)), expiry)
+    }).fullyNamed { Name("($this).compareTo($other)") }
 
     infix fun TimerResource.lessThan(other: TimerResource): BooleanResource =
         DiscreteResourceMonad.map(this.compareTo(other)) { it < 0 }.fullyNamed { Name("($this) < ($other)") }
