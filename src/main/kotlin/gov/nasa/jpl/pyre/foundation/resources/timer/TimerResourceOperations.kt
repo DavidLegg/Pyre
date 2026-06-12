@@ -89,6 +89,7 @@ object TimerResourceOperations {
                 // If the delta isn't changing, comparison never changes
                 if (delta.rate == 0.0) Duration.INFINITE
                 // If delta is exactly zero and changing, it changes "immediately"
+                // TODO: Do we need to handle an edge case here if rate in [0, 1)? It may take >epsilon for the value to change by epsilon...
                 else if (delta.time == ZERO) t.time.epsilon
                 // If delta is moving away from zero, it never changes sign
                 else if (delta.time > ZERO == delta.rate > 0) Duration.INFINITE
@@ -111,7 +112,8 @@ object TimerResourceOperations {
                     for (offset in -2..2) {
                         // TODO: Think through whether we need to handle coarse epsilon here, and if so, how
                         val possibleRoot = estimatedRoot + offset * EPSILON
-                        if ((delta.time + delta.rate * possibleRoot) > ZERO != delta.time > ZERO) {
+                        val projectedDeltaAtRoot = delta.time + delta.rate * possibleRoot
+                        if ((projectedDeltaAtRoot == ZERO) || projectedDeltaAtRoot > ZERO != delta.time > ZERO) {
                             result = possibleRoot
                             break
                         }
