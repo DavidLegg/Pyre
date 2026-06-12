@@ -2,9 +2,9 @@ package gov.nasa.jpl.pyre.general.results
 
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.Expiring
-import gov.nasa.jpl.pyre.foundation.resources.Expiry
+import gov.nasa.jpl.pyre.general.results.Profile.Companion.start
 import gov.nasa.jpl.pyre.kernel.Name
-import java.util.NavigableMap
+import java.util.*
 import kotlin.time.Instant
 
 /**
@@ -32,7 +32,7 @@ class Profile<D : Dynamics<*, D>>(
      */
     fun getSegment(time: Instant): Expiring<D> = Expiring(
         getSegmentData(time),
-        Expiry((segments.higherKey(time) ?: end) - time)
+        (segments.higherKey(time) ?: end) - time
     )
 
     private fun getSegmentData(time: Instant): D {

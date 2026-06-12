@@ -458,7 +458,7 @@ class KernelIncrementalSimulator(
         // Evaluate the condition
         val result = awaitNode.condition(readActions)
         // Compute when to schedule the next step, assuming no cell writes interrupt the await
-        var resultTime = result.time?.let {
+        var resultTime = result.time.takeIf { it.isFinite() }?.let {
             if (it > ZERO) {
                 SimulationTime(
                     awaitNode.time.instant + it,

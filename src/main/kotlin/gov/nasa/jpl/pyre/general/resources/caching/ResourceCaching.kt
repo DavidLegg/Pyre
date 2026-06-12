@@ -12,6 +12,7 @@ import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.utilities.Closeable
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration.Companion.INFINITE
 import kotlin.time.Instant
 
 
@@ -77,7 +78,7 @@ object ResourceCaching {
         return ThinResource {
             val now = now()
             while (nextPoint != null && nextPoint!!.time <= now) advance()
-            Expiring(currentPoint.data, Expiry(nextPoint?.time?.let { it - now }))
+            Expiring(currentPoint.data, nextPoint?.time?.let { it - now } ?: INFINITE)
         }.fullyNamed { Name(name) }
     }
 }

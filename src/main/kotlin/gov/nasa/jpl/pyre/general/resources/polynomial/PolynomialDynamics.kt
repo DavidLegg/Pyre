@@ -1,10 +1,8 @@
 package gov.nasa.jpl.pyre.general.resources.polynomial
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.kernel.*
 import gov.nasa.jpl.pyre.foundation.resources.*
 import gov.nasa.jpl.pyre.foundation.resources.ExpiringMonad.map
-import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
 import gov.nasa.jpl.pyre.kernel.Durations.MAX_PRECISE_DURATION
@@ -214,12 +212,12 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
      * Helper method for other comparison methods.
      * Finds the first time the predicate is true, near the next root of this polynomial.
      */
-    private fun findExpiryNearRoot(expires: (Duration) -> Boolean): Expiry {
+    private fun findExpiryNearRoot(expires: (Duration) -> Boolean): Duration {
         var start: Duration
         var end: Duration
         // Shadow the original "expires" function with a version that demands a future time
         val expires: (Duration) -> Boolean = { it > ZERO && expires(it) }
-        val root: Duration = findFutureRoots().firstOrNull() ?: return NEVER
+        val root: Duration = findFutureRoots().firstOrNull() ?: return Duration.INFINITE
 
         // Do an exponential search to bracket the transition time
         val initialTestResult: Boolean = expires(root)
@@ -237,7 +235,7 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
         if (testPoint > MAX_PRECISE_DURATION && testResult == initialTestResult) {
             // We searched all the way to the longest precise duration
             // without finding where the result changes. Search failed, no expiry.
-            return NEVER
+            return Duration.INFINITE
         }
         if (initialTestResult) {
             start = testPoint
@@ -256,7 +254,7 @@ class Polynomial private constructor(private val coefficients: DoubleArray) : Dy
                 start = midpoint
             }
         }
-        return Expiry(end)
+        return end
     }
 
     /**

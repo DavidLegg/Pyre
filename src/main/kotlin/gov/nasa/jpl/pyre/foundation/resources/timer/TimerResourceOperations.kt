@@ -1,33 +1,17 @@
 package gov.nasa.jpl.pyre.foundation.resources.timer
 
-import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.foundation.resources.Expiring
-import gov.nasa.jpl.pyre.foundation.resources.Expiry
-import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
-import gov.nasa.jpl.pyre.foundation.resources.MutableResource
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
+import gov.nasa.jpl.pyre.foundation.resources.*
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.bind
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.map
-import gov.nasa.jpl.pyre.foundation.resources.ThinResourceMonad
-import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad
-import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
-import gov.nasa.jpl.pyre.foundation.resources.emit
-import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
-import gov.nasa.jpl.pyre.foundation.resources.resource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.*
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerOperations.minus
 import gov.nasa.jpl.pyre.foundation.resources.timer.TimerOperations.plus
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.kernel.Durations.COARSE_EPSILON
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
-import gov.nasa.jpl.pyre.kernel.Durations.MAX_PRECISE_DURATION
 import gov.nasa.jpl.pyre.kernel.Durations.epsilon
-import gov.nasa.jpl.pyre.kernel.Durations.isPrecise
 import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.utilities.named
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.times
@@ -103,11 +87,11 @@ object TimerResourceOperations {
             val delta = t - o
             val expiry =
                 // If the delta isn't changing, comparison never changes
-                if (delta.rate == 0.0) NEVER
+                if (delta.rate == 0.0) Duration.INFINITE
                 // If delta is exactly zero and changing, it changes "immediately"
-                else if (delta.time == ZERO) Expiry(t.time.epsilon)
+                else if (delta.time == ZERO) t.time.epsilon
                 // If delta is moving away from zero, it never changes sign
-                else if (delta.time > ZERO == delta.rate > 0) NEVER
+                else if (delta.time > ZERO == delta.rate > 0) Duration.INFINITE
                 // Otherwise delta is moving towards zero. Compute the intercept
                 else {
                     // Compute the intercept as ceil(|time| / rate).
@@ -132,7 +116,7 @@ object TimerResourceOperations {
                             break
                         }
                     }
-                    Expiry(checkNotNull(result) { "Root finding failed on resource $this"})
+                    checkNotNull(result) { "Root finding failed on resource $this"}
                 }
             ThinResourceMonad.pure(Expiring(Discrete(delta.time.compareTo(ZERO)), expiry))
         }.fullyNamed { Name("($this).compareTo($other)") }

@@ -8,11 +8,11 @@ import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationCl
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.await
 import gov.nasa.jpl.pyre.kernel.Condition
-import gov.nasa.jpl.pyre.kernel.ConditionResult
 import gov.nasa.jpl.pyre.kernel.ReadActions
 import gov.nasa.jpl.pyre.kernel.SatisfiedAt
 import gov.nasa.jpl.pyre.kernel.UnsatisfiedUntil
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.INFINITE
 import kotlin.time.Duration.Companion.ZERO
 
 // Conditions are isomorphic to boolean discrete resources.
@@ -24,7 +24,7 @@ object Reactions {
     context (scope: SimulationScope)
     fun whenTrue(resource: BooleanResource): Condition = condition {
         with (resource.getDynamics()) {
-            if (data.value) SatisfiedAt(ZERO) else UnsatisfiedUntil(expiry.time)
+            if (data.value) SatisfiedAt(ZERO) else UnsatisfiedUntil(expiry)
         }
     }.named(resource::toString)
 
@@ -65,13 +65,13 @@ object Reactions {
         return condition {
             val dynamics2 = Result.runCatching { resource.getDynamics() }
             val time2 = simulationClock.getValue()
-            if (dynamics1.isFailure && dynamics2.isFailure) UnsatisfiedUntil(null)
+            if (dynamics1.isFailure && dynamics2.isFailure) UnsatisfiedUntil(INFINITE)
             else if (dynamics1.isFailure || dynamics2.isFailure) SatisfiedAt(ZERO)
             else {
                 val dynamics1 = dynamics1.getOrThrow()
                 val dynamics2 = dynamics2.getOrThrow()
                 if (dynamics1.data.step(time2 - time1) != dynamics2.data) SatisfiedAt(ZERO)
-                else dynamics2.expiry.time?.let(::SatisfiedAt) ?: UnsatisfiedUntil(null)
+                else dynamics2.expiry.takeIf { it.isFinite() }?.let(::SatisfiedAt) ?: UnsatisfiedUntil(INFINITE)
             }
         }.named { "When dynamics change for ($resource)" }
     }
@@ -87,7 +87,7 @@ object Reactions {
         val r2 = other(actions)
         // We must take the minimum-time result. If it's a satisfaction, we're satisfied then.
         // If it's an unsatisfied-until, we need to reevaluate then anyways.
-        if (r1.expiry() < r2.expiry()) r1 else r2
+        if (r1.time < r2.time) r1 else r2
     }.named { "($this) or ($other)" }
 
     /**
@@ -105,13 +105,8 @@ object Reactions {
         val r2 = other(actions)
 
         if (r1 is SatisfiedAt && r2 is SatisfiedAt && r1.time == r2.time) r1
-        else UnsatisfiedUntil(maxOf(r1.expiry(), r2.expiry()).time)
+        else UnsatisfiedUntil(maxOf(r1.time, r2.time))
     }.named { "($this) or ($other)" }
-
-    private fun ConditionResult.expiry() = when(this) {
-        is SatisfiedAt -> Expiry(time)
-        is UnsatisfiedUntil -> Expiry(time)
-    }
 
     context (scope: SimulationScope)
     fun <V, D : Dynamics<V, D>> wheneverChanges(resource: Resource<D>, block: suspend context (TaskScope) () -> Unit) = repeatingTask {

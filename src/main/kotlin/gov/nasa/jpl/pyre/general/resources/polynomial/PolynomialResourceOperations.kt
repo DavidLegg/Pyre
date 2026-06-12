@@ -196,7 +196,7 @@ object PolynomialResourceOperations {
                     // Since we already know that lowerBound dominates integral and integral value is at least lower value,
                     // we know that lower rate dominates integrand. Hence, there's no need to check that value here.
                     val lowerRate = lowerBound.derivative()
-                    val lowerRateExpires = lowerRate.dominates(integrand).expiry.time
+                    val lowerRateExpires = lowerRate.dominates(integrand).expiry.takeIf { it.isFinite() }
                     val clampingStops =
                         lowerRateExpires?.let { whenTrue(simulationClock greaterThanOrEquals now + it) }
                     // We change out of this condition when we stop clamping to the lower bound, or something changes.
@@ -212,7 +212,7 @@ object PolynomialResourceOperations {
                     // Since we already know that lowerBound dominates integral and integral value is at least lower value,
                     // we know that lower rate dominates integrand. Hence, there's no need to check that value here.
                     val upperRate = upperBound.derivative()
-                    val upperRateExpires = upperRate.dominates(integrand).expiry.time
+                    val upperRateExpires = upperRate.dominates(integrand).expiry.takeIf { it.isFinite() }
                     val clampingStops =
                         upperRateExpires?.let { whenTrue(simulationClock greaterThanOrEquals now + it) }
                     // We change out of this condition when we stop clamping to the upper bound, or something changes.
@@ -229,7 +229,7 @@ object PolynomialResourceOperations {
                     // We avoid computing the more expensive expiry when we're clamping, which is a win overall.
                     val startClampingToLowerBound = lowerBound.dominates(integral).expiry
                     val startClampingToUpperBound = upperBound.dominates(integral).expiry
-                    val clampingStarts = (startClampingToLowerBound or startClampingToUpperBound).time?.let {
+                    val clampingStarts = minOf(startClampingToLowerBound, startClampingToUpperBound).takeIf { it.isFinite() }?.let {
                         whenTrue(simulationClock greaterThanOrEquals now + it)
                     }
                     ClampedIntegrateInternalResult(

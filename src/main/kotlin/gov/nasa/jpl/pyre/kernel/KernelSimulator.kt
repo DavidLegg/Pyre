@@ -7,6 +7,7 @@ import java.util.*
 import java.util.Comparator.comparing
 import kotlin.reflect.KType
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.INFINITE
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Instant
 
@@ -320,7 +321,7 @@ class KernelSimulator(
             is UnsatisfiedUntil -> {
                 // Set listeners to re-evaluate the condition if any read cell changes
                 setListeners(awaitingTask, cellsRead)
-                if (result.time != null) {
+                if (result.time != INFINITE) {
                     // Schedule the rewait task to re-evaluate the condition once this unsatisfied result expires
                     val entry = TaskEntry(time + result.time, conditionalTask(awaitingTask, awaitingTask.await.rewait))
                     tasks += entry

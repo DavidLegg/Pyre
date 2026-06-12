@@ -18,6 +18,7 @@ import kotlin.math.abs
 import kotlin.reflect.typeOf
 import kotlin.test.*
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.INFINITE
 import kotlin.time.Duration.Companion.ZERO
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -332,7 +333,7 @@ class KernelSimulatorTest {
     fun await_never_condition_does_not_run_task() {
         val results = runSimulation(1.hours) {
             spawn(Name("Awaiter")) {
-                Await({ UnsatisfiedUntil(null) }) {
+                Await({ UnsatisfiedUntil(INFINITE) }) {
                     it.report("Awaiter ran!")
                     Complete
                 }
@@ -351,7 +352,7 @@ class KernelSimulatorTest {
                 Await({
                     val xValue = it.read(x)
                     val yValue = it.read(y)
-                    if (xValue >= yValue) SatisfiedAt(ZERO) else UnsatisfiedUntil(null)
+                    if (xValue >= yValue) SatisfiedAt(ZERO) else UnsatisfiedUntil(INFINITE)
                 }) {
                     val xVal = it.read(x)
                     it.report("Awaiter says: x = $xVal")
@@ -384,7 +385,7 @@ class KernelSimulatorTest {
                     with (it.read(x)) {
                         when {
                             value >= 20 -> SatisfiedAt(ZERO)
-                            rate <= 0 -> UnsatisfiedUntil(null)
+                            rate <= 0 -> UnsatisfiedUntil(INFINITE)
                             else -> SatisfiedAt(((20 - value) / rate).seconds)
                         }
                     }
@@ -412,7 +413,7 @@ class KernelSimulatorTest {
                     with (it.read(x)) {
                         when {
                             value >= 20 -> SatisfiedAt(ZERO)
-                            rate <= 0 -> UnsatisfiedUntil(null)
+                            rate <= 0 -> UnsatisfiedUntil(INFINITE)
                             else -> SatisfiedAt(((20 - value) / rate).seconds)
                         }
                     }
@@ -457,7 +458,7 @@ class KernelSimulatorTest {
                     with (it.read(x)) {
                         when {
                             value >= 20 -> SatisfiedAt(ZERO)
-                            rate <= 0 -> UnsatisfiedUntil(null)
+                            rate <= 0 -> UnsatisfiedUntil(INFINITE)
                             else -> SatisfiedAt(((20 - value) / rate).seconds)
                         }
                     }

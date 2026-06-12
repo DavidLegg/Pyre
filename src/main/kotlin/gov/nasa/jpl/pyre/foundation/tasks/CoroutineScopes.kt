@@ -20,6 +20,7 @@ import gov.nasa.jpl.pyre.kernel.tasks.PureStepResult
 import gov.nasa.jpl.pyre.kernel.tasks.PureStepResult.*
 import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
+import kotlin.time.Duration.Companion.INFINITE
 
 
 context (scope: SimulationScope)
@@ -34,14 +35,14 @@ fun condition(block: context (ConditionScope) () -> ConditionResult): Condition 
         // However, unlike a general error, these exceptions represent errors that are well-contained.
         // In particular, they have an expiry we can use to indicate when it may be worth re-sampling the condition,
         // as it may have automatically cleared the fault.
-        UnsatisfiedUntil(e.expiry.time)
+        UnsatisfiedUntil(e.expiry)
     } catch (_: Throwable) {
         // By default, conditions simply aren't satisfied if they crash.
         // Normally, this is because we're awaiting some state on the resources, and a resource is faulted.
         // Conditions which care about handling faulted resources can add their own try/catch blocks,
         // but most will just fall through to here.
         // If the faulted resource clears its fault, that'll trip this condition to re-evaluate, and the blocked task may resume.
-        UnsatisfiedUntil(null)
+        UnsatisfiedUntil(INFINITE)
     }
 }
 
@@ -77,6 +78,12 @@ fun coroutineTask(block: suspend context (TaskScope) () -> TaskScopeResult): Pur
         TaskBuilder(scope) {
             try {
                 block()
+            } catch (e: AssertionError) {
+                // AssertionError indicates something is deeply broken about the state of the world, and/or a test failure.
+                // This is a rare case where crashing the simulator is actually the desired behavior.
+                // See https://github.com/google/guava/wiki/ConditionalFailuresExplained for an excellent comparison of
+                // the different kinds of errors, and when and why we might use AssertionError over others.
+                throw e
             } catch (e: Throwable) {
                 stderr.report("Task ${scope.contextName} crashed:\n" + e.stackTraceToString())
                 TaskScopeResult.Complete

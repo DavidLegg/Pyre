@@ -4,7 +4,6 @@ import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.utilities.andThen
 import gov.nasa.jpl.pyre.utilities.named
 import gov.nasa.jpl.pyre.kernel.*
-import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
 import gov.nasa.jpl.pyre.foundation.resources.AutoEffect.Companion.autoMerge
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.allocate
@@ -14,6 +13,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
+import kotlin.time.Duration
 
 /**
  * A [Resource] which can be mutated with a [ResourceEffect].
@@ -33,10 +33,10 @@ typealias MergeResourceEffect<D> = (ResourceEffect<D>, ResourceEffect<D>) -> Res
 class FaultedResourceException(
     message: String,
     cause: Throwable,
-    val expiry: Expiry = NEVER,
+    val expiry: Duration = Duration.INFINITE,
 ) : RuntimeException(message, cause) {
-    fun expiringAt(newExpiry: Expiry) =
-        FaultedResourceException(checkNotNull(message), checkNotNull(cause), expiry or newExpiry)
+    fun expiringAt(newExpiry: Duration) =
+        FaultedResourceException(checkNotNull(message), checkNotNull(cause), minOf(expiry, newExpiry))
 }
 
 
@@ -49,7 +49,7 @@ context (scope: TaskScope)
 fun <D> MutableResource<D>.emit(effect: (D) -> D) = this.emit({ r: Result<FullDynamics<D>> ->
     // In general, any effect on a faulted cell preserves that fault.
     // Additionally, if this effect throws an exception, that puts this cell in a faulted state.
-    r.mapCatching { Expiring(effect(it.data), NEVER) }
+    r.mapCatching { Expiring(effect(it.data), Duration.INFINITE) }
 }.named(effect::toString))
 
 /**
@@ -66,7 +66,7 @@ fun <D> MutableResource<D>.set(newDynamics: Expiring<D>) =
  * If this resource is faulted, this will clear the fault.
  */
 context (scope: TaskScope)
-fun <D> MutableResource<D>.set(newDynamics: D) = set(Expiring(newDynamics, NEVER))
+fun <D> MutableResource<D>.set(newDynamics: D) = set(Expiring(newDynamics, Duration.INFINITE))
 
 context (scope: InitScope)
 inline fun <V, reified D : Dynamics<V, D>> resource(
