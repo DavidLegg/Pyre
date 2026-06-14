@@ -84,7 +84,8 @@ object TimerResourceOperations {
     private fun TimerResource.compareWith(other: TimerResource, bipredicate: (Duration, Duration) -> Boolean): BooleanResource =
         ThinResourceMonad.map(this, other, DynamicsMonad.bind { t, o ->
             val initialResult = bipredicate(t.time, o.time)
-            val estimatedRoot = (t.time - o.time) / (o.rate - t.rate)
+            val deltaRate = o.rate - t.rate
+            val estimatedRoot = if (deltaRate == 0.0) INFINITE else (t.time - o.time) / deltaRate
             val expiry = if (estimatedRoot.isInfinite()) INFINITE else {
                 (-2..2)
                     // TODO: Think through whether we need to handle coarse epsilon here, and if so, how
