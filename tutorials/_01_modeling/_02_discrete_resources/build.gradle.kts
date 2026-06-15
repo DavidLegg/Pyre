@@ -12,7 +12,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("gov.nasa.jpl.pyre.tutorials._01_modeling._02_discrete_resources.HelloWorldKt")
+    mainClass.set("pyre_tutorials.HelloWorldKt")
 }
 
 kotlin {
