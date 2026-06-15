@@ -1,5 +1,6 @@
-package gov.nasa.jpl.pyre.kernel
+package gov.nasa.jpl.pyre.kernel.tasks
 
+import gov.nasa.jpl.pyre.kernel.tasks.PureTask.TaskHistoryStep
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromJsonElement
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -15,11 +16,22 @@ import kotlinx.serialization.serializer
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
-// TODO: Use these types to replace incremental reporting and providing,
-//   which should collapse FinconCollectingContext into FinconCollector and simiarly for incons.
+/*
+ * Why is this file so complicated?
+ *
+ * Basically the same reason that Checkpoint is so complicated.
+ * When copying task history in memory, we don't want to serialize, not even to JsonElements.
+ * To support this, I have MemoryTaskHistory.
+ *
+ * If I do serialize, I don't know what type each read value in the history is until I restore the task.
+ * To defer deserializing those values until I restore the task, I have JsonTaskHistory.
+ *
+ * To hide all of this ugliness, I have the (Mutable)TaskHistory interfaces.
+ * The Task just asks for the appropriate history, oblivious to how and when (de)serialization happens.
+ */
 
 /**
- * Collects each step of a task history as an individual report, for saving to [MutableSnapshot].
+ * Collects each step of a task history as an individual report, for saving to [gov.nasa.jpl.pyre.kernel.KernelCheckpoint].
  * Implementations of this type are stateful and are mutated by [report].
  */
 interface TaskHistoryCollector {
@@ -31,7 +43,7 @@ interface TaskHistoryCollector {
 }
 
 /**
- * Provides reports indicating what steps a task has taken, usually from [MutableSnapshot].
+ * Provides reports indicating what steps a task has taken, usually from [gov.nasa.jpl.pyre.kernel.KernelCheckpoint].
  * Implementations of this type are stateful and are mutated by [provide], like an Iterator would be.
  */
 interface TaskHistoryProvider {
@@ -80,10 +92,9 @@ sealed interface TaskHistory {
                 .deserialize(decoder)
             return SerializedTaskHistory(steps, (decoder as JsonDecoder).json)
         }
-
     }
 
-    private class MemoryTaskHistory(
+    private data class MemoryTaskHistory(
         var steps: MutableList<Pair<*, KType>> = mutableListOf()
     ) : MutableTaskHistory {
         override fun <T> report(value: T, type: KType) {
@@ -99,13 +110,13 @@ sealed interface TaskHistory {
         }
     }
 
-    private class SerializedTaskHistory(
+    private data class SerializedTaskHistory(
         var steps: List<JsonElement>,
         private var json: Json,
     ) : TaskHistory {
         override fun provider() = object : TaskHistoryProvider {
             private var i = 0
-            override fun hasNext(): Boolean = i <= steps.size
+            override fun hasNext(): Boolean = i < steps.size
 
             @Suppress("UNCHECKED_CAST")
             override fun <T> provide(type: KType): T? =
@@ -117,6 +128,30 @@ sealed interface TaskHistory {
 
     companion object {
         internal fun construct(): MutableTaskHistory = MemoryTaskHistory()
+
+        fun TaskHistory.valueEquals(other: TaskHistory, valueComparator: (Any?, Any?) -> Boolean): Boolean {
+            when (this) {
+                is MemoryTaskHistory -> {
+                    // Use the type information in this history object to convert steps in other
+                    val otherProvider = other.provider()
+                    for ((thisStep, stepType) in steps) {
+                        if (!otherProvider.hasNext()) return false
+                        val otherStep = otherProvider.provide<Any>(stepType)
+                        if (!valueComparator(thisStep, otherStep)) return false
+                    }
+                    // Then make sure that other is also exhausted
+                    return !otherProvider.hasNext()
+                }
+                is SerializedTaskHistory -> when (other) {
+                    is MemoryTaskHistory -> return other.valueEquals(this, valueComparator)
+                    is SerializedTaskHistory -> {
+                        // Compare as JSON objects instead
+                        return steps.size == other.steps.size
+                                && steps.zip(other.steps).all { (x, y) -> valueComparator(x, y) }
+                    }
+                }
+            }
+        }
     }
 }
 

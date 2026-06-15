@@ -1,9 +1,6 @@
 package gov.nasa.jpl.pyre.general.units.quantity
 
 import gov.nasa.jpl.pyre.general.units.StandardUnits
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.ratioOver
-import gov.nasa.jpl.pyre.kernel.roundTimes
 import gov.nasa.jpl.pyre.general.units.StandardUnits.RADIAN
 import gov.nasa.jpl.pyre.general.units.UnitAware
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.plus
@@ -13,6 +10,9 @@ import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.div
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tan
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.DurationUnit
 
 
 typealias Quantity = UnitAware<Double>
@@ -65,8 +65,8 @@ object QuantityOperations {
         tan(x.valueIn(RADIAN))
     }
 
-    fun Duration.asQuantity(): Quantity = (this ratioOver Duration.SECOND) * StandardUnits.SECOND
+    fun Duration.asQuantity(): Quantity = this.toDouble(DurationUnit.SECONDS) * StandardUnits.SECOND
     fun Quantity.asDuration(): Duration = context (DoubleField) {
-        this.valueIn(StandardUnits.SECOND) roundTimes Duration.SECOND
+        this.valueIn(StandardUnits.SECOND).seconds
     }
 }

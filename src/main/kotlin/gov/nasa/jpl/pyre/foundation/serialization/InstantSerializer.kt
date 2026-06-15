@@ -1,7 +1,7 @@
-package gov.nasa.jpl.pyre.foundation.plans
+package gov.nasa.jpl.pyre.foundation.serialization
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlin.time.Instant

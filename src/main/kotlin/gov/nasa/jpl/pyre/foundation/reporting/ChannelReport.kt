@@ -1,8 +1,8 @@
 package gov.nasa.jpl.pyre.foundation.reporting
 
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -26,7 +26,9 @@ sealed interface ChannelReport<T> {
         @Contextual
         val time: Instant,
         val data: T,
-    ) : ChannelReport<T>
+    ) : ChannelReport<T> {
+        override fun toString(): String = "$data @ $time"
+    }
 
     /**
      * A "metadata" report on this channel, describing the channel itself or how to interpret its data.
@@ -41,7 +43,9 @@ sealed interface ChannelReport<T> {
         val reportType: KType = typeOf<ChannelData<*>>(),
         @Transient
         val metadataType: KType = typeOf<ChannelMetadata<*>>(),
-    ) : ChannelReport<T>
+    ) : ChannelReport<T> {
+        override fun toString(): String = metadata.toString()
+    }
 
     /**
      * Generic metadata value, with both an in-memory [value] and on-disk [text] representation.

@@ -1,9 +1,6 @@
 package gov.nasa.jpl.pyre.examples.lander.models.apss
 
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.ratioOver
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
@@ -18,10 +15,10 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.integral
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 class APSSModel(
     context: InitScope,
@@ -116,8 +113,8 @@ class APSSModel(
 
     context (scope: TaskScope)
     suspend fun dumpInternalData(duration: Duration, internalVolumeToDump: Double, vcVolumeToDump: Double) {
-        val internalDumpRate = internalVolumeToDump / (duration ratioOver SECOND)
-        val sendToVCDumpRate = vcVolumeToDump / (duration ratioOver SECOND)
+        val internalDumpRate = internalVolumeToDump / (duration / 1.seconds)
+        val sendToVCDumpRate = vcVolumeToDump / (duration / 1.seconds)
 
         internalRate.decrease(internalDumpRate)
         rateToSendToVC.decrease(sendToVCDumpRate)

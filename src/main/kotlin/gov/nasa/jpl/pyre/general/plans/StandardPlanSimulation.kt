@@ -1,13 +1,11 @@
 package gov.nasa.jpl.pyre.general.plans
 
 import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation.Companion.save
+import gov.nasa.jpl.pyre.foundation.Simulator
+import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.general.reporting.ParallelReportHandler.Companion.inParallel
-import gov.nasa.jpl.pyre.kernel.MutableSnapshot
-import gov.nasa.jpl.pyre.kernel.Snapshot
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromFile
 import gov.nasa.jpl.pyre.utilities.Serialization.encodeToFile
 import kotlinx.coroutines.runBlocking
@@ -33,7 +31,7 @@ data class StandardPlanSimulationSetup<M>(
 )
 
 /**
- * Baseline way to set up and run a [PlanSimulation].
+ * Baseline way to set up and run a [Simulator].
  *
  * A JSON setup file is read from disk.
  * The setup file indicates a plan and (optionally) an incon, as paths relative to the location of the setup file.
@@ -52,9 +50,9 @@ data class StandardPlanSimulationSetup<M>(
  * The [Json] format to use everywhere, including plan deserialization, reports, and incon/fincon handling.
  */
 @OptIn(ExperimentalSerializationApi::class)
-inline fun <reified M> runStandardPlanSimulation(
+fun <M: Any> runStandardPlanSimulation(
     setupFile: String,
-    noinline constructModel: InitScope.() -> M,
+    constructModel: InitScope.() -> M,
     jsonFormat: Json = Json.Default,
 ) {
     val setupPath = Path(setupFile).absolute()
@@ -83,17 +81,17 @@ inline fun <reified M> runStandardPlanSimulation(
                 // Write output in parallel with simulation
                 baseReportHandler.inParallel { reportHandler ->
                     // Initialize the simulation from an incon, if available.
-                    val incon: Snapshot?
+                    val incon: Checkpoint<M>?
                     if (setup.inconFile != null) {
                         val inconPath = setupPath.resolveSibling(setup.inconFile)
                         println("Reading initial conditions $inconPath")
-                        incon = jsonFormat.decodeFromFile<Snapshot>(inconPath)
+                        incon = jsonFormat.decodeFromFile<Checkpoint<M>>(inconPath)
                     } else {
                         println("No initial conditions given.")
                         incon = null
                     }
 
-                    val simulation = PlanSimulation(
+                    val simulation = Simulator(
                         reportHandler,
                         plan.startTime,
                         incon,

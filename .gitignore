@@ -9,6 +9,8 @@ temp/
 
 src/main/kotlin/gov/nasa/jpl/pyre/examples/scheduling/output-saved/
 
+inc-sim-debug/test-repro.kt
+
 ### IntelliJ IDEA ###
 .idea/
 *.iws

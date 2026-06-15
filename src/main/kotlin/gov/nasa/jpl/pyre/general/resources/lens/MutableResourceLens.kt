@@ -31,9 +31,11 @@ object MutableResourceLens {
         object : MutableResource<E>, Resource<E> by ResourceMonad.map(this, lens) {
             context(scope: TaskScope)
             override fun emit(effect: ResourceEffect<E>) {
-                this@view.emit({ d: FullDynamics<D> ->
-                    DynamicsMonad.map(effect(DynamicsMonad.map(d, lens)), lens.inverse)
-                } named { effect.toString() })
+                this@view.emit({ d: Result<FullDynamics<D>> ->
+                    // Errors in the lensing operations fault the resource
+                    effect(d.mapCatching(DynamicsMonad.map(lens)))
+                        .mapCatching(DynamicsMonad.map(lens.inverse))
+                }.named(effect::toString))
             }
         }
 }

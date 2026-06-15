@@ -1,7 +1,6 @@
 package gov.nasa.jpl.pyre.general.results
 
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.general.results.Profile.Companion.end
 import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
@@ -15,10 +14,8 @@ import gov.nasa.jpl.pyre.foundation.resources.ThinResourceMonad
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
 import gov.nasa.jpl.pyre.general.results.Profile.Companion.start
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import java.util.TreeMap
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
@@ -58,7 +55,7 @@ object ProfileOperations {
     @Suppress("UNCHECKED_CAST")
     fun <V, D : Dynamics<V, D>> SimulationResults.lastValue(name: Name): V {
         val report = resources.getValue(name).data.last() as ChannelData<D>
-        return report.data.step((endTime - report.time).toPyreDuration()).value()
+        return report.data.step(endTime - report.time).value()
     }
 
     /**
@@ -71,7 +68,7 @@ object ProfileOperations {
     context (scope: InitScope)
     fun <D : Dynamics<*, D>> Profile<D>.asResource(): Resource<D> =
         ResourceMonad.bind(simulationClock) {
-            ThinResourceMonad.pure(this.getSegment(simulationEpoch + it.time.toKotlinDuration()))
+            ThinResourceMonad.pure(this.getSegment(it.time))
         }
 
     /**
@@ -95,7 +92,7 @@ object ProfileOperations {
         val results = mutableListOf<ChannelData<*>>()
         lateinit var resultName: Name
         // Construct and run a simulation to compute the derived profile
-        PlanSimulation(
+        Simulator(
             object : BaseChannelizedReportHandler() {
                 override fun <T> constructChannel(metadata: ChannelReport.ChannelMetadata<T>): (ChannelData<T>) -> Unit {
                     if (metadata.channel == Name("__result")) {

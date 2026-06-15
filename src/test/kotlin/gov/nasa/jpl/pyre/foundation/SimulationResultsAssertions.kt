@@ -39,20 +39,23 @@ object SimulationResultsAssertions {
         reports(timeString, Discrete(value))
 
     interface ActivityChecker {
-        fun finished(name: String, type: String, start: Instant, end: Instant = start)
-        fun unfinished(name: String, type: String, start: Instant)
+        fun finished(name: String, start: Instant, end: Instant = start, includeStart: Boolean = true)
+        fun unfinished(name: String, start: Instant)
     }
 
     fun SimulationResults.checkActivities(block: ActivityChecker.() -> Unit) {
-        val unmatchedActivities = activities.values.toMutableList()
+        val unmatchedActivities = activities.toMutableList()
         block(object : ActivityChecker {
-            override fun finished(name: String, type: String, start: Instant, end: Instant) =
-                contains(name, type, start, end)
-            override fun unfinished(name: String, type: String, start: Instant) =
-                contains(name, type, start, null)
-            private fun contains(name: String, type: String, start: Instant, end: Instant?) {
+            override fun finished(name: String, start: Instant, end: Instant, includeStart: Boolean) {
+                if (includeStart) contains(name, start, null)
+                contains(name, start, end)
+            }
+            override fun unfinished(name: String, start: Instant) {
+                contains(name, start, null)
+            }
+            private fun contains(name: String, start: Instant, end: Instant?) {
                 val matchingEventIndex = unmatchedActivities.indexOfFirst {
-                    it.name == name && it.type == type && it.start == start && it.end == end
+                    it.name == Name(name) && it.start == start && it.end == end
                 }
                 assert(matchingEventIndex in unmatchedActivities.indices)
                 unmatchedActivities.removeAt(matchingEventIndex)
@@ -61,15 +64,9 @@ object SimulationResultsAssertions {
         assert(unmatchedActivities.isEmpty())
     }
 
-    fun ActivityChecker.finished(name: String, type: String, start: String, end: String) =
-        finished(name, type, Instant.parse(start), Instant.parse(end))
-
-    fun ActivityChecker.finished(name: String, start: String, end: String = start) =
-        finished(name, name, start, end)
-
-    fun ActivityChecker.unfinished(name: String, type: String, start: String) =
-        unfinished(name, type, Instant.parse(start))
+    fun ActivityChecker.finished(name: String, start: String, end: String = start, includeStart: Boolean = true) =
+        finished(name, Instant.parse(start), Instant.parse(end), includeStart)
 
     fun ActivityChecker.unfinished(name: String, start: String) =
-        unfinished(name, name, start)
+        unfinished(name, Instant.parse(start))
 }

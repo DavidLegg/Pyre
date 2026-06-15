@@ -2,7 +2,6 @@ package gov.nasa.jpl.pyre.foundation.resources.discrete
 
 import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
@@ -26,10 +25,10 @@ object DiscreteResourceOperations {
     // Generic read/write operations, specialized to discrete resources
 
     context (scope: TaskScope)
-    fun <V> MutableDiscreteResource<V>.emit(effect: (V) -> V) = this.emit(DiscreteMonad.map(effect) named effect::toString)
+    fun <V> MutableDiscreteResource<V>.emit(effect: (V) -> V) = this.emit(DiscreteMonad.map(effect).named(effect::toString))
 
     context (scope: TaskScope)
-    fun <V> MutableDiscreteResource<V>.set(value: V) = this.emit({ _: V -> value } named { "Set $this to $value" })
+    fun <V> MutableDiscreteResource<V>.set(value: V) = this.emit({ _: V -> value }.named { "Set $this to $value" })
 
     fun <T : Comparable<T>> DiscreteResource<T>.compareTo(other: DiscreteResource<T>): DiscreteResource<Int> =
         map(this, other) { x, y -> x.compareTo(y) }.fullyNamed { Name("($this).compareTo($other)") }

@@ -1,8 +1,5 @@
 package gov.nasa.jpl.pyre.examples.lander.models.seis
 
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.ratioOver
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel.PelItem
 import gov.nasa.jpl.pyre.examples.lander.models.seis.SeisConfig.*
@@ -19,9 +16,9 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.integral
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 
 class SeisModel(
@@ -202,8 +199,8 @@ class SeisModel(
 
     context (scope: TaskScope)
     suspend fun dumpInternalData(duration: Duration, internalVolumeToDump: Double, vcVolumeToDump: Double) {
-        val internalDumpRate = internalVolumeToDump / (duration ratioOver SECOND)
-        val sendToVCDumpRate = vcVolumeToDump / (duration ratioOver SECOND)
+        val internalDumpRate = internalVolumeToDump / (duration / 1.seconds)
+        val sendToVCDumpRate = vcVolumeToDump / (duration / 1.seconds)
 
         internalRate.decrease(internalDumpRate)
         rateToSendToVC.decrease(sendToVCDumpRate)

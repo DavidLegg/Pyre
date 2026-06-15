@@ -1,14 +1,16 @@
 package gov.nasa.jpl.pyre.kernel
 
+import gov.nasa.jpl.pyre.kernel.NameOperations.asSequence
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
+import kotlin.sequences.fold
 
 @Serializable(with = Name.NameSerializer::class)
-data class Name(val namespace: Name?, val simpleName: String) {
+data class Name(val namespace: Name?, val simpleName: String) : Comparable<Name> {
     constructor(simpleName: String) : this(null, simpleName)
 
     init {
@@ -19,6 +21,12 @@ data class Name(val namespace: Name?, val simpleName: String) {
     }
 
     override fun toString(): String = (namespace?.let { it.toString() + SEPARATOR } ?: "") + simpleName
+
+    override fun compareTo(other: Name): Int =
+        // Lexical order by components...
+        (this.asSequence() zip other.asSequence()).firstNotNullOfOrNull { (n, m) -> n.compareTo(m) }
+            // ...and prefixes come first.
+            ?: this.asSequence().count().compareTo(other.asSequence().count())
 
     companion object {
         private const val SEPARATOR: Char = '/'
@@ -47,4 +55,17 @@ object NameOperations {
      * Returned sequence is always finite and non-empty.
      */
     fun Name.asSequence(): Sequence<String> = (namespace?.run { asSequence() } ?: emptySequence()) + simpleName
+
+    /**
+     * Return the suffix of this [Name] after [prefix]
+     */
+    fun Name.relativeTo(prefix: Name): Name {
+        val parts = this.asSequence().toMutableList()
+        for (prefixPart in prefix.asSequence()) {
+            require(parts.removeFirstOrNull() == prefixPart) {
+                "$prefix is not a prefix of $this"
+            }
+        }
+        return parts.fold(null) { ns, n -> ns / n }!!
+    }
 }

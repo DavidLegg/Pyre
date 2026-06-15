@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.examples.sequencing.commands.telecom
 
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
 import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
 import gov.nasa.jpl.pyre.examples.sequencing.primeness.SideIndicator
 import gov.nasa.jpl.pyre.foundation.plans.Activity
@@ -9,6 +8,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration.Companion.seconds
 
 @Serializable
 @SerialName("TWTA_POWER_OFF")
@@ -18,6 +18,6 @@ class TwtaPowerOff(
     context(scope: TaskScope)
     override suspend fun effectModel(model: SequencingDemo) {
         model.telecom.twtas[side].poweredOn.set(false)
-        delay(SECOND)
+        delay(1.seconds)
     }
 }

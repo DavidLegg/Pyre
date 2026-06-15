@@ -1,9 +1,6 @@
 package gov.nasa.jpl.pyre.general.resources.unstructured
 
 import gov.nasa.jpl.pyre.utilities.curry
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.DynamicsMonad
 import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
@@ -11,8 +8,9 @@ import gov.nasa.jpl.pyre.foundation.resources.MutableResource
 import gov.nasa.jpl.pyre.foundation.resources.Resource
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
 import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
-import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.kernel.Name
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.ZERO
 
 interface Unstructured<A> : Dynamics<A, Unstructured<A>> {
     companion object {

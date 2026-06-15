@@ -18,11 +18,27 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+
+    testImplementation("org.junit.jupiter:junit-jupiter-params:6.0.3")
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags("long-test")
+    }
+
+    minHeapSize = "1024m"
+    maxHeapSize = "16g"
+    jvmArgs = listOf(
+        "-XX:MaxMetaspaceSize=16g",
+    )
 }
+tasks.register<Test>("long-tests") {
+    useJUnitPlatform {
+        includeTags("long-test")
+    }
+}
+
 kotlin {
     jvmToolchain(21)
     compilerOptions {

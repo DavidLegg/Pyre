@@ -1,9 +1,5 @@
 package gov.nasa.jpl.pyre.examples.lander.activities.apss
 
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.lander.Mission
 import gov.nasa.jpl.pyre.examples.lander.models.apss.APSSModel.Component.*
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel.PelItem.*
@@ -14,10 +10,12 @@ import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationCl
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 
 @Serializable
 class APSSTwinsBoomSwap(
-    val duration: Duration = 20 * MINUTE,
+    val duration: Duration = 20.minutes,
 ): Activity<Mission> {
     context (scope: TaskScope)
     override suspend fun effectModel(model: Mission) {

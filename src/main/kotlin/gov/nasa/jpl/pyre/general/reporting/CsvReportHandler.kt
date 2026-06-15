@@ -3,7 +3,7 @@ package gov.nasa.jpl.pyre.general.reporting
 import gov.nasa.jpl.pyre.foundation.reporting.BaseChannelizedReportHandler
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
-import gov.nasa.jpl.pyre.foundation.reporting.Serialization.encodeToString
+import gov.nasa.jpl.pyre.utilities.Serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.OutputStream
 import java.io.OutputStreamWriter

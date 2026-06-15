@@ -1,10 +1,5 @@
 package gov.nasa.jpl.pyre.examples.lander.activities.apss
 
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.ratioOver
-import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.lander.Mission
 import gov.nasa.jpl.pyre.examples.lander.models.data.DataConfig.APID.*
 import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel
@@ -13,10 +8,13 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperation
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 @Serializable
 class APSSGeneric(
-    val duration: Duration = 7 * MINUTE,
+    val duration: Duration = 7.minutes,
     val continuousSciDataVolume: Double = 0.0, // Mbits
     val fswSpecialEvrDataVolume: Double = 0.0, // Mbits
     val externalEnergyUsed: Double = 0.0, // Wh
@@ -24,7 +22,7 @@ class APSSGeneric(
 ): Activity<Mission> {
     context (scope: TaskScope)
     override suspend fun effectModel(model: Mission) {
-        val durSec = duration ratioOver SECOND
+        val durSec = duration / 1.seconds
 
         val externalWatts = (externalEnergyUsed * 60 * 60) / durSec
         val eboxWatts = (eboxEnergyUsed * 60 * 60) / durSec

@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.foundation.resources
 
-import gov.nasa.jpl.pyre.kernel.Duration
+import kotlin.time.Duration
 
 interface Dynamics<V, D : Dynamics<V, D>> {
     fun value() : V

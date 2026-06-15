@@ -1,8 +1,5 @@
 package gov.nasa.jpl.pyre.examples.lander.models.time
 
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.toJavaDuration
-import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -11,6 +8,7 @@ import java.time.format.DateTimeFormatterBuilder
 import java.time.temporal.ChronoField
 import kotlin.math.floor
 import kotlin.math.roundToLong
+import kotlin.time.Duration
 import kotlin.time.toJavaDuration
 
 
@@ -19,11 +17,9 @@ class Time(private val instant: Instant) : Comparable<Time> {
 
     operator fun minus(duration: java.time.Duration) = Time(instant - duration)
     operator fun plus(duration: java.time.Duration) = Time(instant + duration)
-    operator fun minus(duration: kotlin.time.Duration) = this - duration.toJavaDuration()
-    operator fun plus(duration: kotlin.time.Duration) = this + duration.toJavaDuration()
     operator fun minus(duration: Duration) = this - duration.toJavaDuration()
     operator fun plus(duration: Duration) = this + duration.toJavaDuration()
-    operator fun minus(other: Time) = java.time.Duration.between(other.instant, this.instant).toPyreDuration()
+    operator fun minus(other: Time) = java.time.Duration.between(other.instant, this.instant)
 
     fun utcTimestamp(): String {
         return LocalDateTime.ofInstant(instant, ZoneOffset.UTC).format(UTC_FORMAT)

@@ -1,12 +1,10 @@
 package gov.nasa.jpl.pyre.general.results
 
-import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.Expiring
-import gov.nasa.jpl.pyre.foundation.resources.Expiry
+import gov.nasa.jpl.pyre.general.results.Profile.Companion.start
 import gov.nasa.jpl.pyre.kernel.Name
-import java.util.NavigableMap
-import java.util.TreeMap
+import java.util.*
 import kotlin.time.Instant
 
 /**
@@ -34,7 +32,7 @@ class Profile<D : Dynamics<*, D>>(
      */
     fun getSegment(time: Instant): Expiring<D> = Expiring(
         getSegmentData(time),
-        Expiry(((segments.higherKey(time) ?: end) - time).toPyreDuration())
+        (segments.higherKey(time) ?: end) - time
     )
 
     private fun getSegmentData(time: Instant): D {
@@ -42,7 +40,7 @@ class Profile<D : Dynamics<*, D>>(
             "Time $time is outside of profile range $start - $end"
         }
         return segments.floorEntry(time).let {
-            it.value.step((time - it.key).toPyreDuration())
+            it.value.step(time - it.key)
         }
     }
 

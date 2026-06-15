@@ -1,9 +1,5 @@
 package gov.nasa.jpl.pyre.examples.scheduling.geometry.model
 
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.ZERO
-import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.kernel.rem
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.utils.QuantityVector
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget.*
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.utils.QuantityVectorResource
@@ -21,16 +17,19 @@ import gov.nasa.jpl.pyre.general.units.StandardUnits.RADIAN
 import gov.nasa.jpl.pyre.general.units.StandardUnits.ROTATION
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.minus
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteDynamicsMonad
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.emit
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.every
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.VsQuantity.times
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.VsQuantity.plus
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
@@ -46,6 +45,9 @@ import kotlinx.serialization.Serializable
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.ZERO
+import kotlin.time.times
 
 val AU = Unit.derived("AU", 149_600_000.0 * KILOMETER)
 // In a "real" model, we should be a lot more precise about what kind of year we mean.
@@ -171,7 +173,7 @@ class GeometryModel(
             val angularSpeed = (1.0 * ROTATION) / period
             // Take an exact remainder of the clock, then convert to Quantity, to not lose precision over time.
             // Perform the conversion to Quantity at a resource level for performance, instead of converting each sample.
-            val periodicClock: QuantityResource = map(clock) { it % periodAsDuration }.asQuantity()
+            val periodicClock: QuantityResource = map(clock) { ((it / periodAsDuration) % 1.0) * periodAsDuration }.asQuantity()
             val t: QuantityResource = periodicClock * angularSpeed + phase
             val resultUnit = majorAxis.unit
             val scalarMajorAxis = majorAxis.valueIn(resultUnit)
@@ -188,7 +190,7 @@ class GeometryModel(
     context(scope: InitScope)
     private fun tickingClock(name: String, period: Duration) = discreteResource(name, ZERO).apply {
         spawn("update $name", every(period) {
-            emit((DiscreteDynamicsMonad.map(period::plus)) named { "Increase by $period" })
+            emit((period::plus).named { "Increase by $period" })
         })
     }
 }

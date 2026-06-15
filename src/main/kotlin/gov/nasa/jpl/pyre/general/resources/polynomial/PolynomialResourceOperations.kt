@@ -1,16 +1,16 @@
 package gov.nasa.jpl.pyre.general.resources.polynomial
 
 import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.kernel.plus
 import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial.Companion.polynomial
 import gov.nasa.jpl.pyre.foundation.resources.*
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.bind
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.map
 import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.pure
+import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.greaterThanOrEquals
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
-import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResourceOperations.greaterThanOrEquals
+import gov.nasa.jpl.pyre.foundation.resources.timer.TimerResource
 import gov.nasa.jpl.pyre.foundation.tasks.*
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
@@ -23,10 +23,11 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.await
 import gov.nasa.jpl.pyre.kernel.Condition
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import gov.nasa.jpl.pyre.kernel.TRUE
 import kotlin.let
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 object PolynomialResourceOperations {
     context(scope: InitScope)
@@ -38,6 +39,11 @@ object PolynomialResourceOperations {
 
     fun DoubleResource.asPolynomial(): PolynomialResource =
         map(this) { polynomial(it.value) }.fullyNamed { name }
+
+    fun TimerResource.asPolynomial(unit: Duration): PolynomialResource {
+        val rateScale = 1.seconds / unit
+        return map(this) { polynomial(it.time / unit, it.rate * rateScale) }.fullyNamed { name }
+    }
 
     operator fun PolynomialResource.unaryPlus() = this
     operator fun PolynomialResource.unaryMinus() =
@@ -75,17 +81,26 @@ object PolynomialResourceOperations {
         val integral = polynomialResource(name, startingValue)
         spawn("Update $name", whenever(map(this@integral, integral) {
                 p, q -> Discrete(p.integral(q.value()) != q)
-        }) {
-            val integrandDynamics = this@integral.getDynamics()
-            integral.emit { q -> DynamicsMonad.map(integrandDynamics) { it.integral(q.data.value()) } }
+        }.fullyNamed { Name("Rate ${this@integral} of integral $integral changed") }) {
+            try {
+                val integrandDynamics = this@integral.getDynamics()
+                integral.emit({ r: Result<FullDynamics<Polynomial>> ->
+                    r.mapCatching { integralDynamics ->
+                        DynamicsMonad.map(integrandDynamics) { it.integral(integralDynamics.data.value())}
+                    }
+                }.named { "Integrate $integrandDynamics" })
+            } catch (e: FaultedResourceException) {
+                integral.emit({ _: Result<Expiring<Polynomial>> -> Result.failure<Expiring<Polynomial>>(e) }
+                    .named { "Propagate fault from integrand $this" })
+            }
         })
         return object : IntegralResource, PolynomialResource by integral {
             context(scope: TaskScope)
-            override suspend fun increase(amount: Double) = integral.increase(amount)
+            override fun increase(amount: Double) = integral.increase(amount)
             context(scope: TaskScope)
-            override suspend fun set(amount: Double) = integral.emit({ p: Polynomial ->
+            override fun set(amount: Double) = integral.emit({ p: Polynomial ->
                 p.setCoefficient(0, amount)
-            } named { "Set value of $this to $amount" })
+            }.named { "Set value of $this to $amount" })
         } named { name }
     }
 
@@ -150,11 +165,7 @@ object PolynomialResourceOperations {
         }
 
         // Run once immediately to get the loop started.
-        var condition = TRUE
         spawn("Compute $name", repeatingTask {
-            // Perform the await at the start of the task, to minimize saved task history
-            await(condition)
-
             // Note we need to call dynamicsChange on each iteration because it depends on the resource's current value,
             // so *don't* factor these out of the loop.
             val someInputChanges = (dynamicsChange(integrand)
@@ -185,7 +196,7 @@ object PolynomialResourceOperations {
                     // Since we already know that lowerBound dominates integral and integral value is at least lower value,
                     // we know that lower rate dominates integrand. Hence, there's no need to check that value here.
                     val lowerRate = lowerBound.derivative()
-                    val lowerRateExpires = lowerRate.dominates(integrand).expiry.time
+                    val lowerRateExpires = lowerRate.dominates(integrand).expiry.takeIf { it.isFinite() }
                     val clampingStops =
                         lowerRateExpires?.let { whenTrue(simulationClock greaterThanOrEquals now + it) }
                     // We change out of this condition when we stop clamping to the lower bound, or something changes.
@@ -201,7 +212,7 @@ object PolynomialResourceOperations {
                     // Since we already know that lowerBound dominates integral and integral value is at least lower value,
                     // we know that lower rate dominates integrand. Hence, there's no need to check that value here.
                     val upperRate = upperBound.derivative()
-                    val upperRateExpires = upperRate.dominates(integrand).expiry.time
+                    val upperRateExpires = upperRate.dominates(integrand).expiry.takeIf { it.isFinite() }
                     val clampingStops =
                         upperRateExpires?.let { whenTrue(simulationClock greaterThanOrEquals now + it) }
                     // We change out of this condition when we stop clamping to the upper bound, or something changes.
@@ -218,7 +229,7 @@ object PolynomialResourceOperations {
                     // We avoid computing the more expensive expiry when we're clamping, which is a win overall.
                     val startClampingToLowerBound = lowerBound.dominates(integral).expiry
                     val startClampingToUpperBound = upperBound.dominates(integral).expiry
-                    val clampingStarts = (startClampingToLowerBound or startClampingToUpperBound).time?.let {
+                    val clampingStarts = minOf(startClampingToLowerBound, startClampingToUpperBound).takeIf { it.isFinite() }?.let {
                         whenTrue(simulationClock greaterThanOrEquals now + it)
                     }
                     ClampedIntegrateInternalResult(
@@ -234,12 +245,22 @@ object PolynomialResourceOperations {
             var newOverflowDynamics = DynamicsMonad.map(result, ClampedIntegrateInternalResult::overflow)
             var newUnderflowDynamics = DynamicsMonad.map(result, ClampedIntegrateInternalResult::underflow)
 
-            integral.emit { newIntegralDynamics }
-            overflow.emit { newOverflowDynamics }
-            underflow.emit { newUnderflowDynamics }
+            integral.set(newIntegralDynamics)
+            overflow.set(newOverflowDynamics)
+            underflow.set(newUnderflowDynamics)
 
-            // Update the condition to be awaited next iteration
-            condition = result.data.retryCondition
+            // Await the condition on which to re-calculate the clamped integral
+            await(result.data.rerunCondition)
+            // Note: It's tempting to stuff this condition in a mutable variable outside the task loop
+            //   and `await` it at the top of the task, so the task history is empty in fincons.
+            //   Doing this violates the contract of a repeating task, that every iteration is identical,
+            //   by supplying a different awaited condition to each iteration.
+            //   This causes a minor bug when restoring from incons: the clamped integral is re-calculated, unnecessarily,
+            //   since the condition is initialized to TRUE instead of the real condition.
+            //   Since calculating the clamped integral is an idempotent operation, this could be ignored.
+            //   It causes a major bug in incremental simulation, though. The simulator keeps iterations of the task
+            //   that should have changed or moved, since the await doesn't get re-run with the prior iteration that computed it.
+            // TODO: When I get around to writing a tutorial, include this lesson learned.
         })
 
         return ClampedIntegralResult(integral, overflow, underflow)
@@ -249,7 +270,7 @@ object PolynomialResourceOperations {
         val integral: Polynomial,
         val overflow: Polynomial,
         val underflow: Polynomial,
-        val retryCondition: Condition
+        val rerunCondition: Condition
     )
 
     data class ClampedIntegralResult(
@@ -303,21 +324,21 @@ object PolynomialResourceOperations {
         min(max(this, lowerBound), upperBound).fullyNamed { Name("$this.clamp($lowerBound, $upperBound)") }
 
     context(scope: TaskScope)
-    suspend fun MutablePolynomialResource.increase(amount: Double) = emit({ p: Polynomial -> p + amount } named { "Increase $this by $amount" })
+    fun MutablePolynomialResource.increase(amount: Double) = emit({ p: Polynomial -> p + amount }.named { "Increase $this by $amount" })
     context(scope: TaskScope)
-    suspend fun MutablePolynomialResource.decrease(amount: Double) = emit({ p: Polynomial -> p - amount } named { "Decrease $this by $amount" })
+    fun MutablePolynomialResource.decrease(amount: Double) = emit({ p: Polynomial -> p - amount }.named { "Decrease $this by $amount" })
 
     context(scope: TaskScope)
-    suspend operator fun MutablePolynomialResource.plusAssign(amount: Double) = increase(amount)
+    operator fun MutablePolynomialResource.plusAssign(amount: Double) = increase(amount)
     context(scope: TaskScope)
-    suspend operator fun MutablePolynomialResource.minusAssign(amount: Double) = decrease(amount)
+    operator fun MutablePolynomialResource.minusAssign(amount: Double) = decrease(amount)
 
     context(scope: TaskScope)
-    suspend fun IntegralResource.decrease(amount: Double) = increase(-amount)
+    fun IntegralResource.decrease(amount: Double) = increase(-amount)
     context(scope: TaskScope)
-    suspend operator fun IntegralResource.plusAssign(amount: Double) = increase(amount)
+    operator fun IntegralResource.plusAssign(amount: Double) = increase(amount)
     context(scope: TaskScope)
-    suspend operator fun IntegralResource.minusAssign(amount: Double) = decrease(amount)
+    operator fun IntegralResource.minusAssign(amount: Double) = decrease(amount)
 }
 
 /**
@@ -328,9 +349,9 @@ object PolynomialResourceOperations {
  */
 interface IntegralResource : PolynomialResource {
     context(scope: TaskScope)
-    suspend fun increase(amount: Double)
+    fun increase(amount: Double)
     context(scope: TaskScope)
-    suspend fun set(amount: Double)
+    fun set(amount: Double)
 }
 
 context (scope: SimulationScope)

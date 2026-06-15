@@ -1,18 +1,16 @@
 package gov.nasa.jpl.pyre.general.scheduling
 
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.EPSILON
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.ratioOver
-import gov.nasa.jpl.pyre.kernel.roundTimes
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
+import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
+import gov.nasa.jpl.pyre.kernel.Name
 import org.apache.commons.math3.analysis.UnivariateFunction
 import org.apache.commons.math3.analysis.solvers.AllowedSolution
 import org.apache.commons.math3.analysis.solvers.BracketingNthOrderBrentSolver
 import org.apache.commons.math3.exception.NoBracketingException
 import org.apache.commons.math3.exception.NumberIsTooLargeException
 import org.apache.commons.math3.exception.TooManyEvaluationsException
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.DurationUnit
 import kotlin.time.Instant
 
@@ -28,7 +26,7 @@ object SchedulingAlgorithms {
         // in the future; this should affect solver accuracy.
 //        1e-100,
         // No point in giving times more precise than EPSILON, since they'll just get rounded anyways
-        EPSILON ratioOver SECOND,
+        EPSILON / 1.seconds,
         // Similarly, no point in requiring function values more accurate than EPSILON, since the simulation can't do that.
 //        EPSILON ratioOver SECOND,
         // default maximal order used by no-arg constructor
@@ -50,11 +48,11 @@ object SchedulingAlgorithms {
      * @throws CouldNotScheduleException
      * If solver cannot find a suitable start time.
      */
-    fun <M, C> SchedulingSystem<M, C>.scheduleActivityToEndNear(
+    fun <M : Any, C> SchedulingSystem<M, C>.scheduleActivityToEndNear(
         activity: Activity<M>,
         endTime: Instant,
         earliestStart: Instant = time(),
-        name: String = requireNotNull(activity::class.simpleName),
+        name: Name = Name(requireNotNull(activity::class.simpleName)),
     ): GroundedActivity<M> {
         // If the earliest start is later than now, save computation by copying the scheduler
         // and advancing the copy to the earliest start.
@@ -63,9 +61,9 @@ object SchedulingAlgorithms {
         val start = testScheduler.time()
         val f = UnivariateFunction { tDouble ->
             // Compute the start time as an offset from now:
-            val tInstant = start + (tDouble roundTimes SECOND).toKotlinDuration()
+            val tInstant = start + tDouble.seconds
             // Copy this scheduler and run the activity at that start time
-            val tEnd = testScheduler.copy().runUntil(GroundedActivity(tInstant, activity, name=name))
+            val tEnd = testScheduler.copy().runUntil(GroundedActivity(tInstant, name, activity))
             // Return the error in end time, also in seconds.
             // Using seconds as the input and output unit ensures slopes near 1.0, for a well-conditioned root-finding problem.
             (tEnd - endTime).toDouble(DurationUnit.SECONDS)
@@ -84,7 +82,7 @@ object SchedulingAlgorithms {
                 AllowedSolution.BELOW_SIDE,
             )
             // Having selected our start time as a double, add the activity to this at that time:
-            val groundedActivity = GroundedActivity(start + (selectedStartDouble roundTimes SECOND).toKotlinDuration(), activity, name=name)
+            val groundedActivity = GroundedActivity(start + selectedStartDouble.seconds, name, activity)
             this += groundedActivity
             return groundedActivity
         } catch (e: NoBracketingException) {

@@ -1,26 +1,16 @@
-package gov.nasa.jpl.pyre.foundation.plans
+package gov.nasa.jpl.pyre.foundation
 
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.checkActivities
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.checkChannel
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.finished
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.reports
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.reportsDiscrete
 import gov.nasa.jpl.pyre.foundation.SimulationResultsAssertions.unfinished
-import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
-import gov.nasa.jpl.pyre.kernel.plus
-import gov.nasa.jpl.pyre.kernel.times
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.ModelWithResources.DummyActivity
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.PowerState.*
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulationTest.TestModel.*
+import gov.nasa.jpl.pyre.foundation.SimulatorTest.ModelWithResources.DummyActivity
+import gov.nasa.jpl.pyre.foundation.SimulatorTest.PowerState.*
+import gov.nasa.jpl.pyre.foundation.SimulatorTest.TestModel.*
+import gov.nasa.jpl.pyre.foundation.plans.*
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation.Companion.save
-import gov.nasa.jpl.pyre.general.reporting.ReportHandling.discardReports
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.*
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
@@ -34,39 +24,48 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.plus
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
+import gov.nasa.jpl.pyre.foundation.serialization.ResultSerializer
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stdout
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.task
+import gov.nasa.jpl.pyre.general.reporting.ReportHandling.discardReports
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
-import gov.nasa.jpl.pyre.kernel.MutableSnapshot
-import gov.nasa.jpl.pyre.kernel.Snapshot
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.modules.SerializersModule
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
-class PlanSimulationTest {
+class SimulatorTest {
     class EmptyModel(context: InitScope)
 
     @Test
     fun empty_model_can_be_created() {
         assertDoesNotThrow {
             val epoch = Instant.parse("2020-01-01T00:00:00Z")
-            val simulation = PlanSimulation(
+            val simulation = Simulator(
                 reportHandler = discardReports,
-                start = epoch,
+                startTime = epoch,
                 constructModel = ::EmptyModel,
             )
             simulation.runUntil(Instant.parse("2020-01-01T01:00:00Z"))
@@ -123,8 +122,8 @@ class PlanSimulationTest {
         companion object {
             val JSON_FORMAT = Json {
                 serializersModule = SerializersModule {
-                    contextual(Instant::class, String.serializer().alias(
-                        InvertibleFunction.of(Instant::parse, Instant::toString)))
+                    contextual(Instant::class, InstantSerializer())
+                    contextual(Result::class) { ResultSerializer(it[0]) }
 
                     activities {
                         activity(DummyActivity::class)
@@ -138,9 +137,9 @@ class PlanSimulationTest {
     fun model_with_resources_can_be_created() {
         val reports = MutableSimulationResults()
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
-        val simulation = PlanSimulation(
+        val simulation = Simulator(
             reportHandler = reports.reportHandler(),
-            start = epoch,
+            startTime = epoch,
             constructModel = ::ModelWithResources,
         )
         simulation.runUntil(Instant.parse("2020-01-01T01:00:00Z"))
@@ -178,19 +177,19 @@ class PlanSimulationTest {
     fun activities_can_be_created() {
         val reports = MutableSimulationResults()
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
-        val simulation = PlanSimulation(
+        val simulation = Simulator(
             reportHandler = reports.reportHandler(),
-            start = epoch,
+            startTime = epoch,
             constructModel = ::ModelWithResources,
         )
         simulation.runPlan(
             Plan(
                 epoch,
-                epoch + HOUR.toKotlinDuration(),
+                epoch + 1.hours,
                 listOf(
-                    GroundedActivity(Instant.parse("2020-01-01T00:05:00Z"), DummyActivity(), "Type A", "Activity 1"),
-                    GroundedActivity(Instant.parse("2020-01-01T00:15:00Z"), DummyActivity(), "Type B", "Activity 2"),
-                    GroundedActivity(Instant.parse("2020-01-01T00:45:00Z"), DummyActivity(), "Type C", "Activity 3"),
+                    GroundedActivity(Instant.parse("2020-01-01T00:05:00Z"), Name("Activity 1"), DummyActivity()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:15:00Z"), Name("Activity 2"), DummyActivity()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:45:00Z"), Name("Activity 3"), DummyActivity()),
                 )
             )
         )
@@ -198,9 +197,9 @@ class PlanSimulationTest {
 
         with (reports.toSimulationResults()) {
             checkActivities {
-                finished("Activity 1", "Type A", "2020-01-01T00:05:00Z", "2020-01-01T00:05:00Z")
-                finished("Activity 2", "Type B", "2020-01-01T00:15:00Z", "2020-01-01T00:15:00Z")
-                finished("Activity 3", "Type C", "2020-01-01T00:45:00Z", "2020-01-01T00:45:00Z")
+                finished("Activity 1", "2020-01-01T00:05:00Z", "2020-01-01T00:05:00Z")
+                finished("Activity 2", "2020-01-01T00:15:00Z", "2020-01-01T00:15:00Z")
+                finished("Activity 3", "2020-01-01T00:45:00Z", "2020-01-01T00:45:00Z")
             }
         }
     }
@@ -244,7 +243,7 @@ class PlanSimulationTest {
                 when (model.deviceState.getValue()) {
                     OFF, WARMUP -> {
                         model.deviceState.set(WARMUP)
-                        delay(5 * MINUTE)
+                        delay(5.minutes)
                         model.deviceState.set(STANDBY)
                     }
                     else -> model.deviceState.set(STANDBY)
@@ -253,7 +252,7 @@ class PlanSimulationTest {
         }
 
         @Serializable
-        class DeviceActivate(val duration: Duration) : Activity<TestModel> {
+        data class DeviceActivate(val duration: Duration) : Activity<TestModel> {
             context(scope: TaskScope)
             override suspend fun effectModel(model: TestModel) {
                 if (model.deviceState.getValue() != STANDBY) {
@@ -271,8 +270,16 @@ class PlanSimulationTest {
             context(scope: TaskScope)
             override suspend fun effectModel(model: TestModel) {
                 model.deviceState.set(SHUTDOWN)
-                delay(5 * MINUTE)
+                delay(5.minutes)
                 model.deviceState.set(OFF)
+            }
+        }
+
+        @Serializable
+        class ReportDeviceState : Activity<TestModel> {
+            context(scope: TaskScope)
+            override suspend fun effectModel(model: TestModel) {
+                stdout.report("RDS: deviceState = ${model.deviceState.getValue()}")
             }
         }
 
@@ -287,13 +294,14 @@ class PlanSimulationTest {
         companion object {
             val JSON_FORMAT = Json {
                 serializersModule = SerializersModule {
-                    contextual(Instant::class, String.serializer().alias(
-                        InvertibleFunction.of(Instant::parse, Instant::toString)))
+                    contextual(Instant::class, InstantSerializer())
+                    contextual(Result::class) { ResultSerializer(it[0]) }
 
                     activities {
                         activity(DeviceBoot::class)
                         activity(DeviceActivate::class)
                         activity(DeviceShutdown::class)
+                        activity(ReportDeviceState::class)
                         activity(AddMiscPower::class)
                     }
                 }
@@ -305,24 +313,24 @@ class PlanSimulationTest {
     fun activities_can_interact_with_model() {
         val reports = MutableSimulationResults()
         val epoch = Instant.parse("2020-01-01T00:00:00Z")
-        val simulation = PlanSimulation(
+        val simulation = Simulator(
             reportHandler = reports.reportHandler(),
-            start = epoch,
+            startTime = epoch,
             constructModel = ::TestModel,
         )
         simulation.runPlan(
             Plan(
                 epoch,
-                epoch + (2 * HOUR + 5 * MINUTE).toKotlinDuration(),
+                epoch + 2.hours + 5.minutes,
                 listOf(
-                    GroundedActivity(Instant.parse("2020-01-01T00:05:00Z"), DeviceBoot()),
-                    GroundedActivity(Instant.parse("2020-01-01T00:15:00Z"), DeviceActivate(10 * MINUTE), name = "Observation 1"),
-                    GroundedActivity(Instant.parse("2020-01-01T00:26:00Z"), DeviceShutdown()),
-                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), DeviceActivate(20 * MINUTE), name = "Observation 2"),
-                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), DeviceShutdown()),
-                    GroundedActivity(Instant.parse("2020-01-01T01:40:00Z"), DeviceActivate(60 * MINUTE), name = "Observation 3"),
-                    GroundedActivity(Instant.parse("2020-01-01T01:50:00Z"), AddMiscPower(3.0)),
-                    GroundedActivity(Instant.parse("2020-01-01T01:55:00Z"), AddMiscPower(3.0)),
+                    GroundedActivity(Instant.parse("2020-01-01T00:05:00Z"), Name("DeviceBoot"), DeviceBoot()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:15:00Z"), Name("Observation 1"), DeviceActivate(10.minutes)),
+                    GroundedActivity(Instant.parse("2020-01-01T00:26:00Z"), Name("DeviceShutdown1"), DeviceShutdown()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), Name("Observation 2"), DeviceActivate(20.minutes)),
+                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), Name("DeviceShutdown2"), DeviceShutdown()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:40:00Z"), Name("Observation 3"), DeviceActivate(60.minutes)),
+                    GroundedActivity(Instant.parse("2020-01-01T01:50:00Z"), Name("AddMiscPower1"), AddMiscPower(3.0)),
+                    GroundedActivity(Instant.parse("2020-01-01T01:55:00Z"), Name("AddMiscPower2"), AddMiscPower(3.0)),
                 ),
             )
         )
@@ -330,15 +338,15 @@ class PlanSimulationTest {
         with (reports.toSimulationResults()) {
             checkActivities {
                 finished("DeviceBoot", "2020-01-01T00:05:00Z", "2020-01-01T00:10:00Z")
-                finished("Observation 1", "DeviceActivate", "2020-01-01T00:15:00Z", "2020-01-01T00:25:00Z")
-                finished("DeviceShutdown", "2020-01-01T00:26:00Z", "2020-01-01T00:31:00Z")
+                finished("Observation 1", "2020-01-01T00:15:00Z", "2020-01-01T00:25:00Z")
+                finished("DeviceShutdown1", "2020-01-01T00:26:00Z", "2020-01-01T00:31:00Z")
                 finished("DeviceBoot", "2020-01-01T01:00:00Z", "2020-01-01T01:05:00Z")
-                finished("Observation 2", "DeviceActivate", "2020-01-01T01:00:00Z", "2020-01-01T01:25:00Z")
-                finished("DeviceShutdown", "2020-01-01T01:30:00Z", "2020-01-01T01:35:00Z")
+                finished("Observation 2", "2020-01-01T01:00:00Z", "2020-01-01T01:25:00Z")
+                finished("DeviceShutdown2", "2020-01-01T01:30:00Z", "2020-01-01T01:35:00Z")
                 finished("DeviceBoot", "2020-01-01T01:40:00Z", "2020-01-01T01:45:00Z")
-                unfinished("Observation 3", "DeviceActivate", "2020-01-01T01:40:00Z")
-                finished("AddMiscPower", "2020-01-01T01:50:00Z")
-                finished("AddMiscPower", "2020-01-01T01:55:00Z")
+                unfinished("Observation 3", "2020-01-01T01:40:00Z")
+                finished("AddMiscPower1", "2020-01-01T01:50:00Z")
+                finished("AddMiscPower2", "2020-01-01T01:55:00Z")
                 finished("DeviceShutdown", "2020-01-01T01:55:00Z", "2020-01-01T02:00:00Z")
             }
             checkChannel<String>("stderr") {
@@ -393,23 +401,89 @@ class PlanSimulationTest {
     }
 
     @Test
-    fun activities_can_be_saved_and_restored() {
-        val reports1 = MutableSimulationResults()
-        val epoch = Instant.parse("2020-01-01T00:00:00Z")
-        val simulation1 = PlanSimulation(
+    fun activities_can_be_saved_and_restored_in_memory() {
+        val t0 = Instant.parse("2020-01-01T00:00:00Z")
+        val t1 = Instant.parse("2020-01-01T00:20:00Z")
+        val reports1 = MutableSimulationResults(t0, t1)
+        val simulation1 = Simulator(
             reportHandler = reports1.reportHandler(),
-            start = epoch,
+            startTime = t0,
             constructModel = ::TestModel,
         )
         // Use addActivities and runUntil to force a state with finished, running, and unstarted activities
-        simulation1.addActivities(
-            listOf(
-                GroundedActivity(Instant.parse("2020-01-01T00:03:00Z"), DeviceBoot()),
-                GroundedActivity(Instant.parse("2020-01-01T00:10:00Z"), DeviceActivate(60 * MINUTE)),
-                GroundedActivity(Instant.parse("2020-01-01T01:20:00Z"), DeviceShutdown()),
-            )
+        simulation1.apply {
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:03:00Z"), Name("DeviceBoot"), DeviceBoot()))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:10:00Z"), Name("DeviceActivate"), DeviceActivate(60.minutes)))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T01:20:00Z"), Name("DeviceShutdown"), DeviceShutdown()))
+        }
+
+        simulation1.runUntil(t1)
+        with (reports1.toSimulationResults()) {
+            checkActivities {
+                finished("DeviceBoot", "2020-01-01T00:03:00Z", "2020-01-01T00:08:00Z")
+                unfinished("DeviceActivate", "2020-01-01T00:10:00Z")
+            }
+        }
+
+        val fincon1 = simulation1.save()
+
+        val t2 = Instant.parse("2020-01-01T02:00:00Z")
+        val reports2 = MutableSimulationResults(t1, t2)
+        val simulation2 = Simulator(
+            reportHandler = reports2.reportHandler(),
+            incon = fincon1,
+            constructModel = ::TestModel,
         )
-        simulation1.runUntil(Instant.parse("2020-01-01T00:20:00Z"))
+        // Add an activity which will spawn a child, which will be active during the next fincon cycle
+        simulation2.addActivity(GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), Name("DeviceActivate2"), DeviceActivate(20.minutes)))
+        simulation2.runUntil(t2)
+
+        with (reports2.toSimulationResults()) {
+            checkActivities {
+                finished("DeviceActivate", "2020-01-01T00:10:00Z", "2020-01-01T01:10:00Z", false)
+                finished("DeviceShutdown", "2020-01-01T01:20:00Z", "2020-01-01T01:25:00Z")
+                unfinished("DeviceActivate2", "2020-01-01T01:58:00Z")
+                unfinished("DeviceBoot", "2020-01-01T01:58:00Z")
+            }
+        }
+
+        val fincon2 = simulation2.save()
+
+        val t3 = Instant.parse("2020-01-01T03:00:00Z")
+        val reports3 = MutableSimulationResults(t2, t3)
+        val simulation3 = Simulator(
+            reportHandler = reports3.reportHandler(),
+            incon = fincon2,
+            constructModel = ::TestModel,
+        )
+        simulation3.runUntil(t3)
+        with(reports3.toSimulationResults()) {
+            checkActivities {
+                finished("DeviceBoot", "2020-01-01T01:58:00Z", "2020-01-01T02:03:00Z", false)
+                finished("DeviceActivate2", "2020-01-01T01:58:00Z", "2020-01-01T02:23:00Z", false)
+            }
+        }
+    }
+
+    @Test
+    fun activities_can_be_saved_and_restored_to_json() {
+        val t0 = Instant.parse("2020-01-01T00:00:00Z")
+        val t1 = Instant.parse("2020-01-01T00:20:00Z")
+        val reports1 = MutableSimulationResults(t0, t1)
+        val epoch = Instant.parse("2020-01-01T00:00:00Z")
+        val simulation1 = Simulator(
+            reportHandler = reports1.reportHandler(),
+            startTime = epoch,
+            constructModel = ::TestModel,
+        )
+        // Use addActivities and runUntil to force a state with finished, running, and unstarted activities
+        simulation1.apply {
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:03:00Z"), Name("DeviceBoot"), DeviceBoot()))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T00:10:00Z"), Name("DeviceActivate"), DeviceActivate(60.minutes)))
+            addActivity(GroundedActivity(Instant.parse("2020-01-01T01:20:00Z"), Name("DeviceShutdown"), DeviceShutdown()))
+        }
+
+        simulation1.runUntil(t1)
         with (reports1.toSimulationResults()) {
             checkActivities {
                 finished("DeviceBoot", "2020-01-01T00:03:00Z", "2020-01-01T00:08:00Z")
@@ -419,40 +493,84 @@ class PlanSimulationTest {
 
         val fincon1 = TestModel.JSON_FORMAT.encodeToJsonElement(simulation1.save())
 
-        val reports2 = MutableSimulationResults()
-        val simulation2 = PlanSimulation(
+        val t2 = Instant.parse("2020-01-01T02:00:00Z")
+        val reports2 = MutableSimulationResults(t1, t2)
+        val simulation2 = Simulator(
             reportHandler = reports2.reportHandler(),
-            inconProvider = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot>(fincon1),
+            incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Checkpoint<TestModel>>(fincon1),
             constructModel = ::TestModel,
         )
         // Add an activity which will spawn a child, which will be active during the next fincon cycle
-        simulation2.addActivities(listOf(
-            GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), DeviceActivate(20 * MINUTE))
-        ))
+        simulation2.addActivity(GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), Name("DeviceActivate2"), DeviceActivate(20.minutes)))
         simulation2.runUntil(Instant.parse("2020-01-01T02:00:00Z"))
 
         with (reports2.toSimulationResults()) {
             checkActivities {
-                finished("DeviceActivate", "2020-01-01T00:10:00Z", "2020-01-01T01:10:00Z")
+                finished("DeviceActivate", "2020-01-01T00:10:00Z", "2020-01-01T01:10:00Z", false)
                 finished("DeviceShutdown", "2020-01-01T01:20:00Z", "2020-01-01T01:25:00Z")
-                unfinished("DeviceActivate", "2020-01-01T01:58:00Z")
+                unfinished("DeviceActivate2", "2020-01-01T01:58:00Z")
                 unfinished("DeviceBoot", "2020-01-01T01:58:00Z")
             }
         }
 
         val fincon2 = TestModel.JSON_FORMAT.encodeToJsonElement(simulation2.save())
 
-        val reports3 = MutableSimulationResults()
-        val simulation3 = PlanSimulation(
+        val t3 = Instant.parse("2020-01-01T03:00:00Z")
+        val reports3 = MutableSimulationResults(t2, t3)
+        val simulation3 = Simulator(
             reportHandler = reports3.reportHandler(),
-            inconProvider = TestModel.JSON_FORMAT.decodeFromJsonElement<Snapshot>(fincon2),
+            incon = TestModel.JSON_FORMAT.decodeFromJsonElement<Checkpoint<TestModel>>(fincon2),
             constructModel = ::TestModel,
         )
         simulation3.runUntil(Instant.parse("2020-01-01T03:00:00Z"))
         with(reports3.toSimulationResults()) {
             checkActivities {
-                finished("DeviceBoot", "2020-01-01T01:58:00Z", "2020-01-01T02:03:00Z")
-                finished("DeviceActivate", "2020-01-01T01:58:00Z", "2020-01-01T02:23:00Z")
+                finished("DeviceBoot", "2020-01-01T01:58:00Z", "2020-01-01T02:03:00Z", false)
+                finished("DeviceActivate2", "2020-01-01T01:58:00Z", "2020-01-01T02:23:00Z", false)
+            }
+        }
+    }
+
+    @Test
+    fun `concurrent activities do not observe each other`() {
+        val reports = MutableSimulationResults()
+        val epoch = Instant.parse("2020-01-01T00:00:00Z")
+        val simulation = Simulator(
+            reportHandler = reports.reportHandler(),
+            startTime = epoch,
+            constructModel = ::TestModel,
+        )
+        simulation.runPlan(
+            Plan(
+                epoch,
+                epoch + 2.hours + 5.minutes,
+                listOf(
+                    GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), Name("ReportDeviceState1"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), Name("DeviceBoot2"), DeviceBoot()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:00:00Z"), Name("ReportDeviceState3"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:30:00Z"), Name("ReportDeviceState4"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:30:00Z"), Name("DeviceShutdown5"), DeviceShutdown()),
+                    GroundedActivity(Instant.parse("2020-01-01T00:30:00Z"), Name("ReportDeviceState6"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), Name("ReportDeviceState7"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), Name("DeviceBoot8"), DeviceBoot()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:00:00Z"), Name("ReportDeviceState9"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), Name("ReportDeviceState10"), ReportDeviceState()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), Name("DeviceShutdown11"), DeviceShutdown()),
+                    GroundedActivity(Instant.parse("2020-01-01T01:30:00Z"), Name("ReportDeviceState12"), ReportDeviceState()),
+                ),
+            )
+        )
+        with (reports.toSimulationResults()) {
+            checkChannel("stdout") {
+                // Both ReportDeviceStates should see the value of deviceState prior to the change by the concurrent activity.
+                reports("2020-01-01T00:00:00Z", "RDS: deviceState = OFF")
+                reports("2020-01-01T00:00:00Z", "RDS: deviceState = OFF")
+                reports("2020-01-01T00:30:00Z", "RDS: deviceState = STANDBY")
+                reports("2020-01-01T00:30:00Z", "RDS: deviceState = STANDBY")
+                reports("2020-01-01T01:00:00Z", "RDS: deviceState = OFF")
+                reports("2020-01-01T01:00:00Z", "RDS: deviceState = OFF")
+                reports("2020-01-01T01:30:00Z", "RDS: deviceState = STANDBY")
+                reports("2020-01-01T01:30:00Z", "RDS: deviceState = STANDBY")
             }
         }
     }

@@ -2,12 +2,6 @@ package gov.nasa.jpl.pyre.examples.scheduling
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.utilities.Serialization.encodeToFile
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.HOUR
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
-import gov.nasa.jpl.pyre.kernel.times
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
-import gov.nasa.jpl.pyre.kernel.toPyreDuration
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.DataModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget
@@ -37,6 +31,7 @@ import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingAlgorithms.scheduleActivityToEndNear
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem
 import gov.nasa.jpl.pyre.examples.units.KILOWATT_HOUR
+import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
@@ -54,13 +49,16 @@ import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.div
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
+import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
+import gov.nasa.jpl.pyre.foundation.serialization.ResultSerializer
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.general.results.discrete.BooleanProfile
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.Companion.compute
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplayScope.Companion.countActivities
 import gov.nasa.jpl.pyre.general.units.Unit.Companion.SCALAR
-import gov.nasa.jpl.pyre.general.units.quantity.QuantityOperations.div
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.builtins.DoubleArraySerializer
 import kotlinx.serialization.builtins.serializer
@@ -78,16 +76,18 @@ import kotlin.io.path.deleteRecursively
 import kotlin.io.path.div
 import kotlin.io.path.exists
 import kotlin.io.path.inputStream
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlin.time.TimeSource
 
 // From our knowledge of this particular model, we know that a GncTurn never takes more than 45 minutes.
 // We'll use this to make our scheduling procedure highly efficient.
-private val GNC_TURN_MAX_DURATION = 60 * MINUTE
+private val GNC_TURN_MAX_DURATION = 60.minutes
 
 private val STANDARD_CONFIG = SystemModel.Config(
-    GeometryModel.Config(1 * HOUR),
-    GncModel.Config(1 * HOUR, 1 * MINUTE, 0.5 * DEGREE),
+    GeometryModel.Config(1.hours),
+    GncModel.Config(1.hours, 1.minutes, 0.5 * DEGREE),
     TelecomModel.Config(),
     DataModel.Config(32.0 * GIGABYTE),
     PowerModel.Config(300.0 * WATT, 2.2 * KILOWATT_HOUR),
@@ -95,11 +95,8 @@ private val STANDARD_CONFIG = SystemModel.Config(
 )
 val JSON_FORMAT = Json {
     serializersModule = SerializersModule {
-        // Instant serialization
-        contextual<Instant>(String.serializer().alias(InvertibleFunction.of(
-            Instant::parse,
-            Instant::toString,
-        )))
+        contextual(Instant::class, InstantSerializer())
+        contextual(Result::class) { ResultSerializer(it[0]) }
         // Vector3D serialization
         contextual(DoubleArraySerializer().alias(InvertibleFunction.of(
             { Vector3D(it[0], it[1], it[2]) },
@@ -145,11 +142,8 @@ val JSON_FORMAT = Json {
 
 val GNC_JSON_FORMAT = Json {
     serializersModule = SerializersModule {
-        // Instant serialization
-        contextual<Instant>(String.serializer().alias(InvertibleFunction.of(
-            Instant::parse,
-            Instant::toString,
-        )))
+        contextual(Instant::class, InstantSerializer())
+        contextual(Result::class) { ResultSerializer(it[0]) }
         // Vector3D serialization
         contextual(DoubleArraySerializer().alias(InvertibleFunction.of(
             { Vector3D(it[0], it[1], it[2]) },
@@ -208,7 +202,7 @@ fun schedulingMain(args: Array<String>) {
         val baseScheduler = SchedulingSystem(
             STANDARD_CONFIG,
             ::SystemModel,
-            planStart,
+            startTime = planStart,
         )
 
         val commPasses: List<CommPass> = commScheduleFile.inputStream()
@@ -231,7 +225,7 @@ fun schedulingMain(args: Array<String>) {
 
         // Add in some fixed setup activities, akin to configuring the craft after launch:
         layer1Scheduler += GroundedActivity(
-            planStart + (10 * MINUTE).toKotlinDuration(),
+            planStart + 10.minutes,
             GncActivity(GncSetSystemMode(GncModel.GncSystemMode.ACTIVE))
         )
 
@@ -264,7 +258,7 @@ fun schedulingMain(args: Array<String>) {
         scienceOps.filter { it.critical }.forEach {
             print(".")
             // Advance the scheduler to the earliest time the turn may start, to minimize re-simulation.
-            layer2Scheduler.runUntil(it.start - GNC_TURN_MAX_DURATION.toKotlinDuration())
+            layer2Scheduler.runUntil(it.start - GNC_TURN_MAX_DURATION)
             layer2Scheduler.scheduleScienceOpTurns(it, gncInputProfiles)
         }
         println()
@@ -320,7 +314,7 @@ fun schedulingMain(args: Array<String>) {
 
         // For each event, build the window of interest around it.
         val scienceOpWindows =
-            scienceOps.map { it to (it.start - GNC_TURN_MAX_DURATION.toKotlinDuration() to it.end + GNC_TURN_MAX_DURATION.toKotlinDuration()) }
+            scienceOps.map { it to (it.start - GNC_TURN_MAX_DURATION to it.end + GNC_TURN_MAX_DURATION) }
         val commWindows = commPasses.map { it to (it.start to it.end) }
 
         val gncInputProfiles2 = GncInputProfiles(layer2Scheduler)
@@ -402,11 +396,25 @@ fun schedulingMain(args: Array<String>) {
     }
 }
 
+// TODO: This is a bit of a hack to ensure we have unique names for all activities.
+//   I should come up with a better way to do this, incorporated into PlanSimulation and/or SchedulingSystem
+var nextActivityId = 1
+
+fun <M> GroundedActivity(
+    time: Instant,
+    activity: Activity<M>,
+    name: String = activity::class.simpleName!!,
+) = GroundedActivity(
+    time,
+    Name(nextActivityId++.toString()) / name,
+    activity
+)
+
 fun commPassActivity(pass: CommPass) = GroundedActivity(
     pass.start,
     TelecomActivity(
         TelecomPass(
-            (pass.end - pass.start).toPyreDuration(),
+            pass.end - pass.start,
             pass.downlinkRate,
         )
     ),
@@ -416,7 +424,7 @@ fun commPassActivity(pass: CommPass) = GroundedActivity(
 fun scienceOpActivity(it: ScienceOp) = GroundedActivity(
     it.start,
     ImagerActivity(ImagerDoObservation(
-        (it.end - it.start).toPyreDuration(),
+        it.end - it.start,
     )),
     name = ImagerDoObservation::class.simpleName!!,
 )
@@ -469,14 +477,12 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_dir
     this += GroundedActivity(scienceOp.end, backgroundTurn())
 }
 
+// TODO: This no longer works because a Checkpoint includes the model it's designed for as a type parameter.
+//   Fix this or delete this use case entirely.
+/*
 fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_subsystem(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
     // Build a dedicated GNC scheduler, rather than running the full system, for performance.
-    val gncScheduler = SchedulingSystem(
-        // Collect a fincon from the full system to ensure the new scheduler is in the same state
-        // Note that this is a "rough" fincon - some tasks will restart because subsystems don't align perfectly with full-systems,
-        // but it should be "good enough" to get a high-precision turn time estimate.
-        // Part of this requires building a subsystem-specific JSON_FORMAT, so that activities get dumped during restore.
-        // This is a bit of a kludge, but again it's largely "good enough".
+    val gncScheduler = SchedulingSystem<GncModel, GncModel.Config>(
         config.gncConfig,
         { config ->
             // Instead of other subsystems, fill the inputs for the GNC system with replays of the prior layer.
@@ -484,6 +490,11 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_sub
             // Note that we need to build the GNC model in subContext("gnc") to line up with the full system fincon.
             GncModel(subContext("gnc"), config, gncInputProfiles.asInputs())
         },
+        // Collect a fincon from the full system to ensure the new scheduler is in the same state
+        // Note that this is a "rough" fincon - some tasks will restart because subsystems don't align perfectly with full-systems,
+        // but it should be "good enough" to get a high-precision turn time estimate.
+        // Part of this requires building a subsystem-specific JSON_FORMAT, so that activities get dumped during restore.
+        // This is a bit of a kludge, but again it's largely "good enough".
         incon = fincon(),
     )
     // Use the GNC scheduler to find when to start the turn
@@ -493,3 +504,4 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_sub
     // Also add a turn away from the target, back to the background attitude. This doesn't need advanced scheduling.
     this += GroundedActivity(scienceOp.end, backgroundTurn())
 }
+ */

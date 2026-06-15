@@ -41,11 +41,11 @@ object IntResourceOperations {
 
     context(scope: TaskScope)
     fun MutableIntResource.increment(amount: Int = 1) {
-        emit({ n: Int -> n + amount } named { "Increase $this by $amount" })
+        emit({ n: Int -> n + amount }.named { "Increase $this by $amount" })
     }
 
     context(scope: TaskScope)
     fun MutableIntResource.decrement(amount: Int = 1) {
-        emit({ n: Int -> n - amount } named { "Decrease $this by $amount" })
+        emit({ n: Int -> n - amount }.named { "Decrease $this by $amount" })
     }
 }

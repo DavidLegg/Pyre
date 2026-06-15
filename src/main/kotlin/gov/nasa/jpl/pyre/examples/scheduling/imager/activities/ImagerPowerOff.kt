@@ -1,7 +1,5 @@
 package gov.nasa.jpl.pyre.examples.scheduling.imager.activities
 
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.times
 import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel
 import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel.ImagerMode
 import gov.nasa.jpl.pyre.foundation.plans.Activity
@@ -13,6 +11,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration.Companion.minutes
 
 @Serializable
 @SerialName("ImagerPowerOff")
@@ -29,7 +28,7 @@ class ImagerPowerOff : Activity<ImagerModel> {
                 ImagerMode.IMAGING -> await(model.mode notEquals ImagerMode.IMAGING)
                 ImagerMode.STANDBY -> {
                     model.mode.set(ImagerMode.WARMUP)
-                    delay(5 * MINUTE)
+                    delay(5.minutes)
                     model.mode.set(ImagerMode.OFF)
                 }
             }

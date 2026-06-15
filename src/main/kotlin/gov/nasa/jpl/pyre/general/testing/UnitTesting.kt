@@ -1,6 +1,6 @@
 package gov.nasa.jpl.pyre.general.testing
 
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
@@ -22,16 +22,16 @@ object UnitTesting {
      * [testTask] may spawn activities to simulate a plan, or produce effects directly.
      * Assertions may be made directly by [testTask] during simulation, or afterward on the results.
      */
-    inline fun <reified M> runUnitTest(
+    fun <M : Any> runUnitTest(
         simulationStart: Instant,
-        noinline constructModel: context (InitScope) () -> M,
-        noinline testTask: suspend context (TaskScope) (M) -> Unit
+        constructModel: context (InitScope) () -> M,
+        testTask: suspend context (TaskScope) (M) -> Unit
     ): SimulationResults {
         val results = MutableSimulationResults(simulationStart, simulationStart, )
 
         // Leak a test variable out of the simulation as a shortcut to report when the simulation is finished.
         var testTaskComplete = false
-        val simulation = PlanSimulation(results.reportHandler(), simulationStart) {
+        val simulation = Simulator(results.reportHandler(), simulationStart) {
             // Build the model and add a task to run the test code.
             constructModel().also {
                 spawn("Test Task", task {

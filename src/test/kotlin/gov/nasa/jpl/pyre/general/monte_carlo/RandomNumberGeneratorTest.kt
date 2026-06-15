@@ -6,17 +6,16 @@ import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.spawn
 import gov.nasa.jpl.pyre.general.testing.UnitTesting.runUnitTest
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.SECOND
-import gov.nasa.jpl.pyre.kernel.times
 import org.junit.jupiter.api.Assertions.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class RandomNumberGeneratorTest {
-    private inline fun <reified M> runUnitTest(
-        noinline initTestTask: context (InitScope) () -> M,
-        noinline testTask: suspend context (TaskScope) (M) -> Unit = {},
+    private fun <M : Any> runUnitTest(
+        initTestTask: context (InitScope) () -> M,
+        testTask: suspend context (TaskScope) (M) -> Unit = {},
     ) {
         runUnitTest(
             Instant.parse("2020-01-01T00:00:00Z"),
@@ -114,13 +113,13 @@ class RandomNumberGeneratorTest {
             RandomNumberGenerator(0L)
         }) { rng ->
             // Parallel tasks will sample the rng in parallel, at exactly the same times
-            spawn("Task 1", every(SECOND) { samples1 += rng.nextDouble() })
-            spawn("Task 2", every(SECOND) { samples2 += rng.nextDouble() })
-            spawn("Task 3", every(SECOND) { samples3 += rng.nextDouble() })
-            spawn("Task 4", every(SECOND) { samples4 += rng.nextDouble() })
+            spawn("Task 1", every(1.seconds) { samples1 += rng.nextDouble() })
+            spawn("Task 2", every(1.seconds) { samples2 += rng.nextDouble() })
+            spawn("Task 3", every(1.seconds) { samples3 += rng.nextDouble() })
+            spawn("Task 4", every(1.seconds) { samples4 += rng.nextDouble() })
 
             // Collect a bunch of samples
-            delay(1000 * SECOND)
+            delay(1000.seconds)
         }
 
         assertEquals(samples1, samples2)
@@ -169,14 +168,14 @@ class RandomNumberGeneratorTest {
             //   sample will observe the first (physical) sample, and ensure it's different.
             val samples = mutableSetOf<Double>()
 
-            spawn("Sample parentRng", every(SECOND) {
+            spawn("Sample parentRng", every(1.seconds) {
                 assert(samples.add(parentRng.nextDouble()))
             })
-            spawn("Sample childRng", every(SECOND) {
+            spawn("Sample childRng", every(1.seconds) {
                 assert(samples.add(childRng.nextDouble()))
             })
 
-            delay(1000 * SECOND)
+            delay(1000.seconds)
         }
     }
 

@@ -1,24 +1,29 @@
 package gov.nasa.jpl.pyre.foundation.tasks
 
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.reporting.Channel
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
 import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.resources.clock.Clock
+import gov.nasa.jpl.pyre.foundation.resources.clock.ClockResourceOperations.clock
 import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.channel
+import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationEpoch
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
+import gov.nasa.jpl.pyre.kernel.BasicInitScope
 import gov.nasa.jpl.pyre.kernel.Cell
 import gov.nasa.jpl.pyre.kernel.Condition
-import gov.nasa.jpl.pyre.kernel.Duration
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.utilities.Reflection.withArg
 import kotlin.contracts.ExperimentalContracts
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 /**
@@ -35,12 +40,7 @@ interface SimulationScope {
     /**
      * Primary simulation clock. Simulation time should be derived from this clock.
      */
-    val simulationClock: Resource<Timer>
-
-    /**
-     * Absolute epoch time. [simulationClock] is relative to this time.
-     */
-    val simulationEpoch: Instant
+    val simulationClock: Resource<Clock>
 
     /**
      * Standard channel for reporting [ActivityEvent]s for all activities.
@@ -60,9 +60,6 @@ interface SimulationScope {
     companion object {
         context (scope: SimulationScope)
         val simulationClock get() = scope.simulationClock
-
-        context (scope: SimulationScope)
-        val simulationEpoch get() = scope.simulationEpoch
 
         context (scope: SimulationScope)
         val activities get() = scope.activities
@@ -85,7 +82,7 @@ interface ResourceScope : SimulationScope {
 
     companion object {
         context (scope: ResourceScope)
-        fun now() = simulationEpoch + simulationClock.getValue().toKotlinDuration()
+        fun now() = simulationClock.getValue()
     }
 }
 
@@ -103,17 +100,17 @@ interface ConditionScope : ResourceScope
 interface TaskScope : ResourceScope, ReportScope {
     fun <V> emit(cell: Cell<V>, effect: Effect<V>)
     suspend fun await(condition: Condition)
-    suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>)
+    suspend fun spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult)
 
     companion object {
         context (scope: TaskScope)
         suspend fun await(condition: Condition) = scope.await(condition)
 
         context (scope: TaskScope)
-        suspend fun <S> spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult<S>) = scope.spawn(childName, child)
+        suspend fun spawn(childName: Name, child: suspend context (TaskScope) () -> TaskScopeResult) = scope.spawn(childName, child)
 
         context (scope: TaskScope)
-        suspend fun <S> spawn(childName: String, child: suspend context (TaskScope) () -> TaskScopeResult<S>) = spawn(Name(childName), child)
+        suspend fun spawn(childName: String, child: suspend context (TaskScope) () -> TaskScopeResult) = spawn(Name(childName), child)
     }
 }
 
@@ -132,7 +129,7 @@ interface InitScope : SimulationScope, ResourceScope, ReportScope {
     /**
      * Spawn a regular task, which will run when the simulation starts
      */
-    fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>)
+    fun spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult)
 
     fun <T> channel(name: Name, metadata: Map<String, ChannelReport.Metadatum>, valueType: KType): Channel<T>
 
@@ -147,10 +144,10 @@ interface InitScope : SimulationScope, ResourceScope, ReportScope {
         ): Cell<T> = scope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
 
         context (scope: InitScope)
-        fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) = scope.spawn(name, block)
+        fun spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult) = scope.spawn(name, block)
 
         context (scope: InitScope)
-        fun <T> spawn(name: String, block: suspend context (TaskScope) () -> TaskScopeResult<T>) = spawn(Name(name), block)
+        fun spawn(name: String, block: suspend context (TaskScope) () -> TaskScopeResult) = spawn(Name(name), block)
 
         /**
          * Adds [contextName] to the naming context, adding it as a level in the namespace of all resources and tasks
@@ -168,7 +165,7 @@ interface InitScope : SimulationScope, ResourceScope, ReportScope {
                 mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
             ): Cell<T> = scope.allocate(Name(contextName) / name, value, valueType, stepBy, mergeConcurrentEffects)
 
-            override fun <T> spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult<T>) =
+            override fun spawn(name: Name, block: suspend context (TaskScope) () -> TaskScopeResult) =
                 scope.spawn(Name(contextName) / name, block)
         }
 
@@ -188,4 +185,58 @@ interface InitScope : SimulationScope, ResourceScope, ReportScope {
         inline fun <reified T> channel(name: Name, vararg metadata: Pair<String, ChannelReport.Metadatum>) =
             scope.channel<T>(name, metadata.toMap(), typeOf<T>())
     }
+}
+
+/**
+ * Construct a foundation-level [InitScope] by wrapping a kernel-level [BasicInitScope]
+ */
+context (basicInitScope: BasicInitScope)
+fun InitScope(startTime: Instant): InitScope = object : InitScope {
+    override fun <T : Any> allocate(
+        name: Name,
+        value: T,
+        valueType: KType,
+        stepBy: (T, Duration) -> T,
+        mergeConcurrentEffects: (Effect<T>, Effect<T>) -> Effect<T>
+    ): Cell<T> = basicInitScope.allocate(name, value, valueType, stepBy, mergeConcurrentEffects)
+
+    override fun spawn(name: Name, block: suspend context(TaskScope) () -> TaskScopeResult) =
+        // When spawning a task, build a simulation scope which incorporates the task's Name
+        basicInitScope.spawn(name, context(subSimulationScope(contextName / name)) { coroutineTask(block) })
+
+    override fun <V> read(cell: Cell<V>): V = basicInitScope.read(cell)
+    override fun <T> report(channel: Channel<T>, value: T) = basicInitScope.report(
+        ChannelData(
+            channel.name,
+            now(),
+            value
+        )
+    )
+
+    override fun <T> channel(
+        name: Name,
+        metadata: Map<String, ChannelReport.Metadatum>,
+        valueType: KType
+    ): Channel<T> {
+        val reportType = ChannelData::class.withArg(valueType)
+        basicInitScope.report(
+            ChannelMetadata<T>(
+                name,
+                metadata,
+                dataType = valueType,
+                reportType = reportType,
+                metadataType = ChannelMetadata::class.withArg(valueType),
+            )
+        )
+        return Channel(name, reportType)
+    }
+
+    override val contextName: Name? = null
+    override fun toString() = ""
+
+    override val simulationClock = clock("simulation_clock", startTime)
+
+    override val activities = channel<ActivityEvent>(Name("activities"))
+    override val stdout = channel<String>(Name("stdout"))
+    override val stderr = channel<String>(Name("stderr"))
 }

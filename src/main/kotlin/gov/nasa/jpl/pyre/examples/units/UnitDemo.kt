@@ -1,16 +1,11 @@
 package gov.nasa.jpl.pyre.examples.units
 
 import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
-import gov.nasa.jpl.pyre.kernel.times
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.examples.units.DeviceIndicator.*
 import gov.nasa.jpl.pyre.examples.units.DeviceState.*
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
-import gov.nasa.jpl.pyre.foundation.plans.PlanSimulation
+import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.activities
 import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource
@@ -31,6 +26,8 @@ import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperation
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.named
+import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
+import gov.nasa.jpl.pyre.foundation.serialization.ResultSerializer
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
@@ -42,11 +39,16 @@ import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQu
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 // Recommended practice: Derive all the named units you're going to use in this file once, up front.
@@ -64,44 +66,53 @@ fun main(args: Array<String>) {
         CsvReportHandler(out, UnitDemo.JSON_FORMAT).use { reportHandler ->
             val epoch = Instant.parse("2000-01-01T00:00:00Z")
 
-            val simulation = PlanSimulation(
+            val simulation = Simulator(
                 reportHandler,
                 epoch,
                 constructModel = ::UnitDemo,
             )
 
-            simulation.addActivities(listOf(
-                GroundedActivity(
-                    epoch + (10 * MINUTE).toKotlinDuration(),
-                    SwitchDevice(HEATER_A, ON)
-                ),
-                GroundedActivity(
-                    epoch + (20 * MINUTE).toKotlinDuration(),
-                    SwitchDevice(HEATER_B, STANDBY)
-                ),
-                GroundedActivity(
-                    epoch + (30 * MINUTE).toKotlinDuration(),
-                    SwitchDevice(CAMERA, STANDBY)
-                ),
-                GroundedActivity(
-                    epoch + (40 * MINUTE).toKotlinDuration(),
-                    SwitchDevice(CAMERA, ON)
-                ),
-                GroundedActivity(
-                    epoch + (45 * MINUTE).toKotlinDuration(),
-                    SwitchDevice(CAMERA, OFF)
-                ),
-                GroundedActivity(
-                    epoch + (50 * MINUTE).toKotlinDuration(),
-                    SwitchDevice(HEATER_A, STANDBY)
-                ),
-                GroundedActivity(
-                    epoch + (55 * MINUTE).toKotlinDuration(),
-                    SwitchDevice(HEATER_B, OFF)
-                ),
-            ))
+            // Quick hack to ensure all activities have a unique name.
+            // TODO: Formalize this and incorporate it into the simulators.
+            var id = 0
+            fun <M> GroundedActivity(time: Instant, activity: Activity<M>) = GroundedActivity(
+                time,
+                Name((++id).toString()) / activity::class.simpleName!!,
+                activity
+            )
 
-            simulation.runUntil(epoch + (2 * Duration.HOUR).toKotlinDuration())
+            simulation.apply {
+                addActivity(GroundedActivity(
+                    epoch + 10.minutes,
+                    SwitchDevice(HEATER_A, ON)
+                ))
+                addActivity(GroundedActivity(
+                    epoch + 20.minutes,
+                    SwitchDevice(HEATER_B, STANDBY)
+                ))
+                addActivity(GroundedActivity(
+                    epoch + 30.minutes,
+                    SwitchDevice(CAMERA, STANDBY)
+                ))
+                addActivity(GroundedActivity(
+                    epoch + 40.minutes,
+                    SwitchDevice(CAMERA, ON)
+                ))
+                addActivity(GroundedActivity(
+                    epoch + 45.minutes,
+                    SwitchDevice(CAMERA, OFF)
+                ))
+                addActivity(GroundedActivity(
+                    epoch + 50.minutes,
+                    SwitchDevice(HEATER_A, STANDBY)
+                ))
+                addActivity(GroundedActivity(
+                    epoch + 55.minutes,
+                    SwitchDevice(HEATER_B, OFF)
+                ))
+            }
+
+            simulation.runUntil(epoch + 2.hours)
         }
     }
 }
@@ -181,8 +192,8 @@ class UnitDemo(
     companion object {
         val JSON_FORMAT = Json {
             serializersModule = SerializersModule {
-                contextual(Instant::class, String.serializer()
-                    .alias(InvertibleFunction.of(Instant::parse, Instant::toString)))
+                contextual(Instant::class, InstantSerializer())
+                contextual(Result::class) { ResultSerializer(it[0]) }
 
                 activities {
                     activity(SwitchDevice::class)

@@ -1,55 +1,27 @@
 package gov.nasa.jpl.pyre.foundation.resources
 
-import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.utilities.curry
-import gov.nasa.jpl.pyre.kernel.Duration
-import gov.nasa.jpl.pyre.kernel.*
-import gov.nasa.jpl.pyre.kernel.Serialization.alias
-import gov.nasa.jpl.pyre.foundation.resources.Expiry.Companion.NEVER
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.nullable
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.INFINITE
 
 @Serializable
-data class Expiring<T>(val data: T, val expiry: Expiry)
-
-fun <D : Dynamics<*, D>> Expiring<D>.step(time: Duration) = Expiring(data.step(time), expiry - time)
-
-@Serializable(with = ExpirySerializer::class)
-data class Expiry(val time: Duration?): Comparable<Expiry> {
-    override fun compareTo(other: Expiry): Int {
-        return if (this.time == null && other.time == null) 0
-        else if (this.time == null) 1
-        else if (other.time == null) -1
-        else this.time.compareTo(other.time)
-    }
-
-    override fun toString(): String {
-        return this.time?.toString() ?: "NEVER"
-    }
-
-    companion object {
-        val NOW = Expiry(Duration.ZERO)
-        val NEVER = Expiry(null)
+data class Expiring<T>(val data: T, val expiry: Duration) {
+    override fun toString(): String = if (expiry == INFINITE) {
+        data.toString()
+    } else {
+        "$data (until $expiry)"
     }
 }
 
-class ExpirySerializer: KSerializer<Expiry> by Duration.serializer().nullable.alias(InvertibleFunction.of(
-    ::Expiry,
-    { it.time }
-))
-
-operator fun Expiry.plus(other: Expiry) = Expiry(other.time?.let { this.time?.plus(it) })
-operator fun Expiry.plus(other: Duration) = Expiry(this.time?.plus(other))
-operator fun Expiry.minus(other: Duration) = Expiry(this.time?.minus(other))
-infix fun Expiry.or(other: Expiry) = minOf(this, other)
+fun <D : Dynamics<*, D>> Expiring<D>.step(time: Duration) = Expiring(data.step(time), expiry - time)
 
 @Suppress("NOTHING_TO_INLINE")
 object ExpiringMonad {
-    inline fun <A> pure(a: A): Expiring<A> = Expiring(a, NEVER)
+    inline fun <A> pure(a: A): Expiring<A> = Expiring(a, INFINITE)
     inline fun <A, B> apply(a: Expiring<A>, f: Expiring<(A) -> B>) =
-        Expiring(f.data(a.data), f.expiry or a.expiry)
-    inline fun <A> join(a: Expiring<Expiring<A>>) = Expiring(a.data.data, a.expiry or a.data.expiry)
+        Expiring(f.data(a.data), minOf(f.expiry, a.expiry))
+    inline fun <A> join(a: Expiring<Expiring<A>>) = Expiring(a.data.data, minOf(a.expiry, a.data.expiry))
     // Although map can be defined in terms of apply and join, writing it this way instead makes it inlinable.
     // This can be a major boon to performance, so it's worth the redundant code
     inline fun <A, B> map(a: Expiring<A>, f: (A) -> B): Expiring<B> = Expiring(f(a.data), a.expiry)

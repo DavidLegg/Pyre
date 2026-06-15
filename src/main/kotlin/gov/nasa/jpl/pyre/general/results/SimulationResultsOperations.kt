@@ -13,7 +13,7 @@ object SimulationResultsOperations {
             startTime,
             endTime,
             resources.mapValues { (_, r) -> r.toResourceResults() },
-            activities.toMap(),
+            activities.toList(),
         )
 
     fun <T> MutableResourceResults<T>.toResourceResults(): ResourceResults<T> =
@@ -24,7 +24,7 @@ object SimulationResultsOperations {
             startTime,
             endTime,
             resources.mapValuesTo(mutableMapOf()) { (_, r) -> r.toMutableResourceResults() },
-            activities.toMutableMap(),
+            activities.toMutableList(),
         )
 
     fun <T> MutableResourceResults<T>.toMutableResourceResults(): MutableResourceResults<T> =
@@ -42,10 +42,8 @@ object SimulationResultsOperations {
                 return {
                     @Suppress("UNCHECKED_CAST")
                     it as ChannelReport.ChannelData<ActivityActions.ActivityEvent>
-                    // The event coming straight out of the simulator will have a non-null activity.
-                    // It's only when deserializing ActivityEvents that we lose the activity object reference.
-                    // Additionally, ActivityEvents are cumulative - we only want to keep the last one for any given activity.
-                    activities[requireNotNull(it.data.activity)] = it.data
+                    // Just add the activity event to the list
+                    activities += it.data
                 }
             } else {
                 val resourceResults = MutableResourceResults(metadata)

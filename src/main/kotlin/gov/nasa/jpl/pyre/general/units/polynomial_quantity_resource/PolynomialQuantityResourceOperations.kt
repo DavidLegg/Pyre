@@ -120,22 +120,22 @@ object PolynomialQuantityResourceOperations {
         }
 
     context (scope: TaskScope)
-    suspend fun MutablePolynomialQuantityResource.increase(amount: Quantity) =
+    fun MutablePolynomialQuantityResource.increase(amount: Quantity) =
         context (DoubleField, MutablePolynomialResourceScaling) {
             valueIn(unit).increase(amount.valueIn(unit))
         }
 
     context (scope: TaskScope)
-    suspend fun MutablePolynomialQuantityResource.decrease(amount: Quantity) =
+    fun MutablePolynomialQuantityResource.decrease(amount: Quantity) =
         context (DoubleField, MutablePolynomialResourceScaling) {
             valueIn(unit).decrease(amount.valueIn(unit))
         }
 
     context (scope: TaskScope)
-    suspend operator fun MutablePolynomialQuantityResource.plusAssign(amount: Quantity) = increase(amount)
+    operator fun MutablePolynomialQuantityResource.plusAssign(amount: Quantity) = increase(amount)
 
     context (scope: TaskScope)
-    suspend operator fun MutablePolynomialQuantityResource.minusAssign(amount: Quantity) = decrease(amount)
+    operator fun MutablePolynomialQuantityResource.minusAssign(amount: Quantity) = decrease(amount)
 
     /**
      * Operations involving a PolynomialQuantityResource and a Quantity (in that order).

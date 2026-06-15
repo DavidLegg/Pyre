@@ -9,7 +9,6 @@ import kotlin.time.toJavaInstant
 
 @OptIn(ExperimentalTime::class)
 class Clocks(context: InitScope) {
-    val epoch: Time
     val time: UnstructuredResource<Time>
     // Convenience functions for looking up the current time in various formats
     val utcTimestamp: UnstructuredResource<String>
@@ -17,8 +16,7 @@ class Clocks(context: InitScope) {
 
     init {
         with (context) {
-            epoch = Time(simulationEpoch.toJavaInstant())
-            time = map(simulationClock.asUnstructured()) { epoch + it }
+            time = map(simulationClock.asUnstructured()) { Time(it.toJavaInstant()) }
             utcTimestamp = map(time, Time::utcTimestamp)
             lmstTimestamp = map(time, Time::lmstTimestamp)
         }

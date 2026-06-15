@@ -1,8 +1,5 @@
 package gov.nasa.jpl.pyre.general.interrupts
 
-import gov.nasa.jpl.pyre.kernel.Duration.Companion.MINUTE
-import gov.nasa.jpl.pyre.kernel.times
-import gov.nasa.jpl.pyre.kernel.toKotlinDuration
 import gov.nasa.jpl.pyre.general.interrupts.Interrupts.abortIf
 import gov.nasa.jpl.pyre.general.testing.UnitTesting.runUnitTest
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
@@ -17,6 +14,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.task
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.fail
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 class InterruptsTest {
@@ -46,7 +44,7 @@ class InterruptsTest {
         var nominalTaskComplete = false
         runUnitTest {
             abortIf {
-                delay(10 * MINUTE)
+                delay(10.minutes)
                 nominalTaskComplete = true
             }
         }
@@ -58,9 +56,9 @@ class InterruptsTest {
         runUnitTest {
             assertEquals(start, now())
             abortIf {
-                delay(10 * MINUTE)
+                delay(10.minutes)
             }
-            assertEquals(start + (10 * MINUTE).toKotlinDuration(), now())
+            assertEquals(start + 10.minutes, now())
         }
     }
 
@@ -72,7 +70,7 @@ class InterruptsTest {
                 it.flag1 to { fail() },
                 it.flag2 to { fail() }
             ) {
-                delay(10 * MINUTE)
+                delay(10.minutes)
                 nominalTaskComplete = true
             }
         }
@@ -84,22 +82,22 @@ class InterruptsTest {
         var interruptHandled = false
         runUnitTest {
             spawn("Cause Interruption", task {
-                delay(5 * MINUTE)
+                delay(5.minutes)
                 it.flag1.set(true)
             })
             abortIf(
                 it.flag1 to {
-                    assertEquals(start + (5 * MINUTE).toKotlinDuration(), now())
+                    assertEquals(start + 5.minutes, now())
                     interruptHandled = true
                 },
                 it.flag2 to { fail() }
             ) {
-                delay(10 * MINUTE)
+                delay(10.minutes)
                 fail()
             }
             // Delay longer than any time above, to make sure we don't have some background task running that shouldn't be there.
             // If there is, it'll hit the end and fail by 30 minutes.
-            delay(30 * MINUTE)
+            delay(30.minutes)
         }
         assert(interruptHandled)
     }
@@ -108,19 +106,19 @@ class InterruptsTest {
     fun abort_handlers_run_synchronously() {
         runUnitTest {
             spawn("Cause Interruption", task {
-                delay(5 * MINUTE)
+                delay(5.minutes)
                 it.flag1.set(true)
             })
             abortIf(
                 it.flag1 to {
-                    delay(2 * MINUTE)
+                    delay(2.minutes)
                 },
                 it.flag2 to { fail() }
             ) {
-                delay(10 * MINUTE)
+                delay(10.minutes)
                 fail()
             }
-            assertEquals(start + (7 * MINUTE).toKotlinDuration(), now())
+            assertEquals(start + 7.minutes, now())
         }
     }
 
@@ -128,17 +126,17 @@ class InterruptsTest {
     fun aborts_from_abort_handler_dont_trigger_another_abort_handler() {
         runUnitTest {
             spawn("Cause Interruption", task {
-                delay(5 * MINUTE)
+                delay(5.minutes)
                 it.flag1.set(true)
             })
             abortIf(
                 it.flag1 to {
                     it.flag2.set(true)
-                    delay(2 * MINUTE)
+                    delay(2.minutes)
                 },
                 it.flag2 to { fail() }
             ) {
-                delay(10 * MINUTE)
+                delay(10.minutes)
                 fail()
             }
         }
