@@ -65,4 +65,26 @@ And then dump the results to screen:
 results.dump()
 ```
 
+We can run this tutorial using the following command, from the repository root:
+```bash
+./gradlew :tutorials:01_modeling:01_hello_world:run
+```
+
+And it should print something like this:
+```
+Building simulator...
+Running simulator...
+Reading results...
+--- SimulationResults ---
+Start: 2030-01-01T00:00:00Z
+End:   2030-01-02T00:00:00Z
+Resources:
+  stdout
+    2030-01-01T00:00:00Z -> Hello, world!
+  stderr
+```
+
+Now that we have a simulator, we need to put something in it.
+That something is a [resource](../02_intro_to_resources/README.md).
+
 You can find the full code in [HelloWorld.kt](src/main/kotlin/pyre_tutorials/HelloWorld.kt)
