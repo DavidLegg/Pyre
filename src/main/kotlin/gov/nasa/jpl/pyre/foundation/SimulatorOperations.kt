@@ -1,6 +1,11 @@
 package gov.nasa.jpl.pyre.foundation
 
+import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
+import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
+import kotlin.time.Instant
 
 object SimulatorOperations {
     operator fun <M : Any> Simulator<M>.plusAssign(activity: GroundedActivity<M>) = addActivity(activity)

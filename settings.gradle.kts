@@ -3,6 +3,7 @@ plugins {
 }
 rootProject.name = "pyre"
 
+include("tutorials:util")
 file("tutorials").listFiles()?.forEach { section ->
     if (section.isDirectory) {
         section.listFiles()?.forEach { lesson ->

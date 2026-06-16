@@ -1,6 +1,5 @@
 plugins {
     kotlin("jvm")
-    application
 }
 
 repositories {
@@ -9,11 +8,6 @@ repositories {
 
 dependencies {
     implementation(project(":"))
-    implementation(project(":tutorials:util"))
-}
-
-application {
-    mainClass.set("pyre_tutorials.HelloWorldKt")
 }
 
 kotlin {
