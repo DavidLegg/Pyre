@@ -49,6 +49,6 @@ Resources:
 Notice that both the counter's original value, and its value after the increment, are reported.
 This is an important feature - even though these values happen at the same time, they are ordered, and both are reported.
 
-But what if we want things to happen later? For that, we'll need to [await](../04_awaits_and_conditions/README.md).
+But what if we want things to happen later? For that, we'll need to [delay](../04_delay/README.md).
 
 You can find the full code for this tutorial in [IntroTasks.kt](./src/main/kotlin/pyre_tutorials/IntroTasks.kt).
