@@ -2,8 +2,11 @@ package pyre_tutorials
 
 import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableIntResource
+import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import kotlin.time.Instant
@@ -27,6 +30,15 @@ fun main() {
         // In general, we can construct any MutableDiscreteResource with the discreteResource function.
         // The type of the initial value determines the type of the resource.
         // We could also use MutableDiscreteResource<Int> instead of MutableIntResource for the type of counter, they're equivalent.
+
+        // Besides mutable resources, which hold our state, we can also define "derived" resources.
+        // These are functions of other resources. Like all resources, they describe some aspect of the model.
+        // Unlike mutable resources, which can be changed independently of one another,
+        // derived resources change as a consequence of changing the resources they're derived from.
+        // Just like mutable resources, we can register derived resources, and they will be reported in the output.
+        // Unlike mutable resources, derived resources don't have a name.
+        // Instead, we give it a name explicitly before we register it.
+        val counterIsLarge: BooleanResource = (counter greaterThan 5).named { "counterIsLarge" }.registered()
     }
 
     println("Running simulator...")

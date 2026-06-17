@@ -2,9 +2,13 @@ package pyre_tutorials
 
 import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
+import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableIntResource
+import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
@@ -25,6 +29,7 @@ fun main() {
         startTime = start,
     ) {
         val counter: MutableIntResource = discreteResource("counter", 0).registered()
+        val counterIsLarge: BooleanResource = (counter greaterThan 5).named { "counterIsLarge" }.registered()
 
         spawn("Increment Counter",  task {
             // Within a task, we can wait for time to pass.
@@ -38,7 +43,7 @@ fun main() {
         spawn("Increment Counter Again", task {
             // Another version of waiting is "delayUntil", which waits until a certain absolute time.
             delayUntil(start + 3.hours)
-            counter.increment()
+            counter.set(10)
         })
     }
 

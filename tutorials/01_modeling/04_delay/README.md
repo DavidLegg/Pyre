@@ -22,12 +22,17 @@ Resources:
   counter
     2030-01-01T00:00:00Z -> 0
     2030-01-01T01:00:00Z -> 1
-    2030-01-01T03:00:00Z -> 2
+    2030-01-01T03:00:00Z -> 10
+  counterIsLarge
+    2030-01-01T00:00:00Z -> false
+    2030-01-01T03:00:00Z -> true
 ```
 
 Finally, some new times in the output!
 
+We can also see in this example that when we set `counter` to 10, `counterIsLarge` is automatically updated to be true.
+
 What if we want to wait, not for a fixed time or until a fixed time, but until some interesting event happens?
-Instead of delay, we need [await](../05_await/README.md).
+Instead of delay, we need to [await](../05_await_and_conditions/README.md).
 
 You can find the full code for this tutorial in [Delay.kt](./src/main/kotlin/pyre_tutorials/Delay.kt).

@@ -15,6 +15,7 @@ We'll start with our simulator from before:
         startTime = start,
     ) {
         val counter: MutableIntResource = discreteResource("counter", 0).registered()
+        val counterIsLarge: BooleanResource = (counter greaterThan 5).named { "counterIsLarge" }.registered()
     }
 ```
 
@@ -44,10 +45,38 @@ Resources:
   counter
     2030-01-01T00:00:00Z -> 0
     2030-01-01T00:00:00Z -> 1
+  counterIsLarge
+    2030-01-01T00:00:00Z -> false
 ```
 
 Notice that both the counter's original value, and its value after the increment, are reported.
 This is an important feature - even though these values happen at the same time, they are ordered, and both are reported.
+
+Tasks can take other actions, including reading from resources and issuing reports.
+Let's modify our task to do both of those things:
+```kotlin
+spawn("Increment Counter", task {
+    counter.increment()
+    val n = counter.getValue()
+    stdout.report("Counter is $n!")
+})
+```
+
+Re-running, our output now looks like this:
+```
+--- SimulationResults ---
+Start: 2030-01-01T00:00:00Z
+End:   2030-01-02T00:00:00Z
+Resources:
+  stdout
+    2030-01-01T00:00:00Z -> Counter is 1!
+  stderr
+  counter
+    2030-01-01T00:00:00Z -> 0
+    2030-01-01T00:00:00Z -> 1
+  counterIsLarge
+    2030-01-01T00:00:00Z -> false
+```
 
 But what if we want things to happen later? For that, we'll need to [delay](../04_delay/README.md).
 
