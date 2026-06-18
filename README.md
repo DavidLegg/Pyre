@@ -14,7 +14,13 @@ The motivating concerns for Pyre are:
 
 ## Getting started
 
-To get started, I suggest looking at the [examples](src/main/kotlin/gov/nasa/jpl/pyre/examples).
+To get started, I suggest looking at the [tutorials](./tutorials).
+These assume no familiarity with Pyre, and can get you up and running the simulator in minutes.
+
+Once you're familiar with the basics, you can look at some of the more complex examples over in [examples](src/main/kotlin/gov/nasa/jpl/pyre/examples).
 At the time of writing,
 [orbit](src/main/kotlin/gov/nasa/jpl/pyre/examples/orbit) provides a very simple example,
 and [scheduling](src/main/kotlin/gov/nasa/jpl/pyre/examples/scheduling) provides the most complete example.
+
+Finally, there are README files throughout the source code documenting various details of the system.
+These are probably most valuable to developers looking to contribute to Pyre.
