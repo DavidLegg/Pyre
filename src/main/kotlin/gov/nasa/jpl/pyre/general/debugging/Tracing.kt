@@ -27,7 +27,7 @@ object Tracing {
                 println("${now()} TRACE(${this@trace}): Emit $effect")
                 this@trace.emit(effect)
             }
-        }
+        }.fullyNamed { name }
 
     // Uncommon - more common to trace a boolean resource than the condition is made from
     fun Condition.trace(): Condition = { this(it).also { println("TRACE($this): $it") } }
