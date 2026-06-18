@@ -307,3 +307,5 @@ Every run of the simulator would be the same, and we'd have to build a new model
 
 In the real world, we want to build one model that encodes how our system behaves in general, and then try out multiple scenarios.
 We call those scenarios "plans", and the building blocks of plans are [activities](../07_plans_and_activities/README.md).
+
+You can find the full code for this tutorial in [Reactions.kt](./src/main/kotlin/pyre_tutorials/Reactions.kt).
