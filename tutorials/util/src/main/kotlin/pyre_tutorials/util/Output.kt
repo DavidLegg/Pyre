@@ -19,9 +19,7 @@ object Output {
         if (activities.isNotEmpty()) {
             println("Activities:")
             for (activity in activities) {
-                if (activity.end == null) {
-                    println("  ${activity.friendlyFormat()}")
-                }
+                println("  ${activity.friendlyFormat()}")
             }
         }
 
