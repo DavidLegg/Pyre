@@ -25,10 +25,12 @@ object TransitionFunctions {
     fun <State, Stimulus> transitionTable(vararg columns: Stimulus) = object : TransitionTableBuilder<State, Stimulus> {
         private val transitionMap = mutableMapOf<State, Map<Stimulus, State>>()
 
-        override fun row(startState: State, vararg endStates: State): TransitionTableBuilder<State, Stimulus> {
+        override fun row(startState: State, vararg endStates: State?): TransitionTableBuilder<State, Stimulus> {
             require(startState !in transitionMap) { "Duplicate start state $startState" }
             require(endStates.size == columns.size) { "Must provide ${columns.size} end states to align with columns" }
-            transitionMap[startState] = (columns zip endStates).toMap()
+            transitionMap[startState] = (columns zip endStates)
+                .mapNotNull { (c, e) -> if (e == null) null else (c to e) }
+                .toMap()
             return this
         }
 
@@ -37,7 +39,7 @@ object TransitionFunctions {
     }
 
     interface TransitionTableBuilder<State, Stimulus> {
-        fun row(startState: State, vararg endStates: State): TransitionTableBuilder<State, Stimulus>
+        fun row(startState: State, vararg endStates: State?): TransitionTableBuilder<State, Stimulus>
         fun build(defaultTransition: TransitionFunction<State, Stimulus> = throwTransitionError()): (State, Stimulus) -> State
     }
 
