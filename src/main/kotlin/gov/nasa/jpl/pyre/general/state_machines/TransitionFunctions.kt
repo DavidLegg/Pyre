@@ -48,7 +48,7 @@ object TransitionFunctions {
      *
      * If a transition not allowed by [map] is attempted, [onProhibitedTransition] is invoked.
      */
-    fun <State> allowedTransitions(
+    fun <State> allow(
         map: Map<State, Set<State>>,
         onProhibitedTransition: DirectTransitionFunction<State> = throwTransitionError(),
     ): DirectTransitionFunction<State> = { state, newState ->
@@ -61,12 +61,30 @@ object TransitionFunctions {
      *
      * If a transition prohibited by [map] is attempted, [onProhibitedTransition] is invoked.
      */
-    fun <State> prohibitedTransitions(
+    fun <State> prohibit(
         map: Map<State, Set<State>>,
         onProhibitedTransition: DirectTransitionFunction<State> = throwTransitionError(),
     ): DirectTransitionFunction<State> = { state, newState ->
-        if (map[state]?.contains(newState) ?: false) newState else onProhibitedTransition(state, newState)
+        if (map[state]?.contains(newState) ?: false) onProhibitedTransition(state, newState) else newState
     }
+
+    /**
+     * Construct a transition map suitable for [allow] or [prohibit]
+     * by listing individual transitions, rather than grouping by start state.
+     */
+    fun <State> transitions(vararg transitions: Pair<State, State>): Map<State, Set<State>> =
+        transitions.groupBy { it.first }.map { (k, v) -> k to v.map { it.second }.toSet() }.toMap()
+
+    /**
+     * Construct a transition map suitable for [allow] or [prohibit]
+     * by listing groups of transitions.
+     * The group `(X to Y)` indicates the cartesian product `X x Y`, all transitions `x -> y` for every `x in X` and `y in Y`.
+     */
+    fun <State> transitionGroups(vararg transitionGroups: Pair<out Collection<State>, out Collection<State>>): Map<State, Set<State>> =
+        transitions(*transitionGroups.flatMap { (xs, ys) -> xs * ys }.toTypedArray())
+
+    private operator fun <T, S> Collection<T>.times(other: Collection<S>): List<Pair<T, S>> =
+        flatMap { t -> other.map { s -> t to s } }
 
     fun <State, Stimulus> throwTransitionError(): TransitionFunction<State, Stimulus> =
         { state, stimulus -> throw IllegalArgumentException("Cannot accept $stimulus while state machine is in state $state") }

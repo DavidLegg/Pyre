@@ -35,7 +35,13 @@ object UnitTesting {
             // Build the model and add a task to run the test code.
             constructModel().also {
                 spawn("Test Task", task {
-                    testTask(it)
+                    try {
+                        testTask(it)
+                    } catch (e: AssertionError) {
+                        throw e
+                    } catch (e: Throwable) {
+                        throw AssertionError("Unexpected exception during test task", e)
+                    }
                     testTaskComplete = true
                 })
             }

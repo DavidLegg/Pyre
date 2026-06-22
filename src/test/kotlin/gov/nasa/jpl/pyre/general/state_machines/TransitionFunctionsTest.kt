@@ -2,8 +2,12 @@ package gov.nasa.jpl.pyre.general.state_machines
 
 import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctions.allow
+import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctions.prohibit
+import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctions.transitionGroups
 import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctions.transitionMap
 import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctions.transitionTable
+import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctions.transitions
 import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctionsTest.State.*
 import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctionsTest.Stimulus.*
 import gov.nasa.jpl.pyre.general.testing.UnitTesting.runUnitTest
@@ -235,8 +239,199 @@ class TransitionFunctionsTest {
         }
     }
 
-    // TODO: Test allowedTransitions
-    // TODO: Test prohibitedTransitions
+    @Test
+    fun `allow throws an error by default for prohibited transitions`() {
+        runUnitTest(
+            start,
+            {
+                StateMachine(
+                    "M",
+                    A,
+                    allow(transitions(A to A, A to C, B to A))
+                )
+            }
+        ) { m ->
+            assertEquals(A, m.getValue())
+            // Transitioning to B is not allowed
+            assertTransitionError { m.accept(B) }
+            assertEquals(A, m.getValue())
+            // Remaining in A is allowed
+            m.accept(A)
+            assertEquals(A, m.getValue())
+            // Transitioning to C is allowed
+            m.accept(C)
+            assertEquals(C, m.getValue())
+            // All transitions from C are prohibited
+            assertTransitionError { m.accept(A) }
+            assertTransitionError { m.accept(B) }
+            assertTransitionError { m.accept(C) }
+        }
+    }
+
+    @Test
+    fun `allow can be given an alternative default transition function`() {
+        runUnitTest(
+            start,
+            {
+                StateMachine(
+                    "M",
+                    A,
+                    allow(transitions(A to A, A to C, B to A), { _, _ -> B })
+                )
+            }
+        ) { m ->
+            assertEquals(A, m.getValue())
+            // Transitioning to B is not allowed, but falls through to default rule
+            m.accept(B)
+            assertEquals(B, m.getValue())
+            m.accept(A)
+            assertEquals(A, m.getValue())
+            m.accept(C)
+            assertEquals(C, m.getValue())
+            // Transitioning to A is not allowed, but falls through to default rule
+            m.accept(A)
+            assertEquals(B, m.getValue())
+        }
+    }
+
+    @Test
+    fun `prohibit throws an error by default for prohibited transitions`() {
+        runUnitTest(
+            start,
+            {
+                StateMachine(
+                    "M",
+                    A,
+                    prohibit(transitions(A to B, B to B, B to C))
+                )
+            }
+        ) { m ->
+            assertEquals(A, m.getValue())
+            // Transitioning to B is not allowed
+            assertTransitionError { m.accept(B) }
+            assertEquals(A, m.getValue())
+            // Remaining in A is allowed
+            m.accept(A)
+            assertEquals(A, m.getValue())
+            // Transitioning to C is allowed
+            m.accept(C)
+            assertEquals(C, m.getValue())
+            // All transitions from C are allowed
+            m.accept(C)
+            assertEquals(C, m.getValue())
+
+            m.accept(A)
+            assertEquals(A, m.getValue())
+            m.accept(C)
+            assertEquals(C, m.getValue())
+
+            m.accept(B)
+            assertEquals(B, m.getValue())
+            // Staying in B is not allowed
+            assertTransitionError { m.accept(B) }
+            assertEquals(B, m.getValue())
+            // Transitioning to C is not allowed
+            assertTransitionError { m.accept(C) }
+            assertEquals(B, m.getValue())
+            // Transitioning to A is allowed
+            m.accept(A)
+            assertEquals(A, m.getValue())
+        }
+    }
+
+    @Test
+    fun `prohibit can be given an alternative default transition function`() {
+        runUnitTest(
+            start,
+            {
+                StateMachine(
+                    "M",
+                    A,
+                    prohibit(transitions(A to B, C to A), { _, _ -> B })
+                )
+            }
+        ) { m ->
+            assertEquals(A, m.getValue())
+            // Transitioning to B is not allowed, but falls through to default rule
+            m.accept(B)
+            assertEquals(B, m.getValue())
+            m.accept(A)
+            assertEquals(A, m.getValue())
+            m.accept(C)
+            assertEquals(C, m.getValue())
+            // Transitioning to A is not allowed, but falls through to default rule
+            m.accept(A)
+            assertEquals(B, m.getValue())
+        }
+    }
+
+    @Test
+    fun `transitionGroups gives a cartesian product of transitions`() {
+        assertEquals(
+            transitions(
+                A to A,
+                A to C,
+                B to A,
+                B to C
+            ),
+            transitionGroups(
+                listOf(A, B) to listOf(A, C)
+            )
+        )
+        // Empty maps are permitted
+        assertEquals(transitions<State>(), transitionGroups<State>())
+        // Overlap is permitted
+        assertEquals(
+            transitions(
+                1 to 2,
+                1 to 3,
+                1 to 4,
+                1 to 1,
+                1 to 5,
+                3 to 1,
+                3 to 3,
+                3 to 5
+            ),
+            transitionGroups(
+                listOf(1) to listOf(2, 3, 4),
+                listOf(1, 3) to listOf(1, 3, 5)
+            )
+        )
+    }
+
+    @Test
+    fun `transition functions can be chained`() {
+        runUnitTest(
+            start,
+            {
+                StateMachine(
+                    "M",
+                    1,
+                    // Prohibit all transitions (1, 2, or 3) -> (4 or 5) except 1 -> 5, allow anything else
+                    allow(transitions(1 to 5),
+                        prohibit(transitionGroups(listOf(1, 2, 3) to listOf(4, 5))))
+                )
+            }
+        ) { m ->
+            assertEquals(1, m.getValue())
+            m.accept(5)
+            assertEquals(5, m.getValue())
+            m.accept(4)
+            assertEquals(4, m.getValue())
+            m.accept(3)
+            assertEquals(3, m.getValue())
+            assertTransitionError { m.accept(4) }
+            assertEquals(3, m.getValue())
+            m.accept(1)
+            assertEquals(1, m.getValue())
+            m.accept(3)
+            assertEquals(3, m.getValue())
+            m.accept(1)
+            assertEquals(1, m.getValue())
+            assertTransitionError { m.accept(4) }
+            assertEquals(1, m.getValue())
+        }
+    }
 
     context (_: TaskScope)
     private suspend inline fun assertTransitionError(block: suspend context (TaskScope) () -> Unit) {
@@ -245,8 +440,10 @@ class TransitionFunctionsTest {
             fail("Expected an IllegalArgumentException to be thrown, but no exception was thrown")
         } catch (_: IllegalArgumentException) {
             // Pass test
+        } catch (e: AssertionError) {
+            throw e
         } catch (e: Throwable) {
-            fail("Expected an IllegalArgumentException to be thrown, but ${e.javaClass.simpleName} was thrown")
+            fail("Expected an IllegalArgumentException to be thrown, but ${e.javaClass.simpleName} was thrown", e)
         }
     }
 }
