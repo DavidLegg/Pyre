@@ -49,7 +49,7 @@ object Output {
     fun MutableSimulationResults.dump() = toSimulationResults().dump()
 
     private fun ActivityEvent.friendlyFormat(): String {
-        val fullName = if (name.toString() == type) name else "$name ($type)"
+        val fullName = if (name.simpleName == type) name else "$name ($type)"
         return if (end == null) {
             "Start $fullName at $start"
         } else {
