@@ -213,10 +213,10 @@ If we run that, we see something like this:
 Start: 2030-01-01T00:00:00Z
 End:   2030-01-02T00:00:00Z
 Activities:
-  Start 1/TurnHeaterOn (TurnHeaterOn) at 2030-01-01T01:00:00Z
-  End 1/TurnHeaterOn (TurnHeaterOn) at 2030-01-01T01:00:00Z
-  Start 2/TurnHeaterOff (TurnHeaterOff) at 2030-01-01T02:00:00Z
-  End 2/TurnHeaterOff (TurnHeaterOff) at 2030-01-01T02:05:00Z
+  Start 1/TurnHeaterOn at 2030-01-01T01:00:00Z
+  End 1/TurnHeaterOn at 2030-01-01T01:00:00Z
+  Start 2/TurnHeaterOff at 2030-01-01T02:00:00Z
+  End 2/TurnHeaterOff at 2030-01-01T02:05:00Z
 Resources:
   stdout
   stderr
@@ -258,6 +258,7 @@ Activities:
 
 ## Next Steps
 
-[//]: # (TODO: Link to the next lesson, if any.)
+We've seen two ways to introduce a task to the simulation.
+The third and final way lets us branch one task off of another, called [spawning](../08_spawn/README.md).
 
 You can find the full code for this tutorial in [Activities.kt](./src/main/kotlin/pyre_tutorials/Activities.kt) and the files it references.

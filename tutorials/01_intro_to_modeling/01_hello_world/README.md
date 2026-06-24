@@ -67,7 +67,7 @@ results.dump()
 
 We can run this tutorial using the following command, from the repository root:
 ```bash
-./gradlew :tutorials:01_modeling:01_hello_world:run
+./gradlew :tutorials:01_intro_to_modeling:01_hello_world:run
 ```
 
 And it should print something like this:
