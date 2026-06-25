@@ -20,6 +20,10 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
     testImplementation("org.junit.jupiter:junit-jupiter-params:6.0.3")
+
+    // TODO: Remove this implementation line and factor the DuckDB stuff into a separate project.
+    //   A basic user of Pyre ought not to depend on DuckDB!
+    implementation("org.duckdb:duckdb_jdbc:1.5.4.0")
 }
 
 tasks.test {
