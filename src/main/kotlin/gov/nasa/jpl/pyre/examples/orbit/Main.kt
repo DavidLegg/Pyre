@@ -31,13 +31,13 @@ fun main(args: Array<String>) {
 
             connection.prepareStatement(
                 """
-            COPY channels TO '$channels_file' (FORMAT parquet)
-        """.trimIndent()
+                    COPY channels TO '$channels_file' (FORMAT parquet)
+                """.trimIndent()
             ).execute()
             connection.prepareStatement(
                 """
-            COPY reports TO '$reports_file' (FORMAT parquet)
-        """.trimIndent()
+                    COPY reports TO '$reports_file' (FORMAT parquet)
+                """.trimIndent()
             ).execute()
         }
     }
