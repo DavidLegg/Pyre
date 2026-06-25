@@ -77,39 +77,37 @@ fun <M: Any> runStandardPlanSimulation(
     val plan = jsonFormat.decodeFromFile<Plan<M>>(planPath)
     outputStream.use { out ->
         CsvReportHandler(out, jsonFormat).use { baseReportHandler ->
-            runBlocking {
-                // Write output in parallel with simulation
-                baseReportHandler.inParallel { reportHandler ->
-                    // Initialize the simulation from an incon, if available.
-                    val incon: Checkpoint<M>?
-                    if (setup.inconFile != null) {
-                        val inconPath = setupPath.resolveSibling(setup.inconFile)
-                        println("Reading initial conditions $inconPath")
-                        incon = jsonFormat.decodeFromFile<Checkpoint<M>>(inconPath)
-                    } else {
-                        println("No initial conditions given.")
-                        incon = null
-                    }
+            // Write output in parallel with simulation
+            baseReportHandler.inParallel { reportHandler ->
+                // Initialize the simulation from an incon, if available.
+                val incon: Checkpoint<M>?
+                if (setup.inconFile != null) {
+                    val inconPath = setupPath.resolveSibling(setup.inconFile)
+                    println("Reading initial conditions $inconPath")
+                    incon = jsonFormat.decodeFromFile<Checkpoint<M>>(inconPath)
+                } else {
+                    println("No initial conditions given.")
+                    incon = null
+                }
 
-                    val simulation = Simulator(
-                        reportHandler,
-                        plan.startTime,
-                        incon,
-                        constructModel,
-                    )
+                val simulation = Simulator(
+                    reportHandler,
+                    plan.startTime,
+                    incon,
+                    constructModel,
+                )
 
-                    // Run the plan itself
-                    println("Running plan")
-                    simulation.runPlan(plan)
+                // Run the plan itself
+                println("Running plan")
+                simulation.runPlan(plan)
 
-                    // Write a fincon if requested
-                    if (setup.finconFile != null) {
-                        val finconPath = setupPath.resolveSibling(setup.finconFile)
-                        println("Writing final conditions to $finconPath")
-                        jsonFormat.encodeToFile(simulation.save(), finconPath)
-                    } else {
-                        println("No final conditions requested")
-                    }
+                // Write a fincon if requested
+                if (setup.finconFile != null) {
+                    val finconPath = setupPath.resolveSibling(setup.finconFile)
+                    println("Writing final conditions to $finconPath")
+                    jsonFormat.encodeToFile(simulation.save(), finconPath)
+                } else {
+                    println("No final conditions requested")
                 }
             }
         }
