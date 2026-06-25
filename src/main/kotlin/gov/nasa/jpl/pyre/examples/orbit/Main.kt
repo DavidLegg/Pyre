@@ -2,7 +2,7 @@ package gov.nasa.jpl.pyre.examples.orbit
 
 import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
-import gov.nasa.jpl.pyre.general.reporting.DuckDbReportHandler
+import gov.nasa.jpl.pyre.general.reporting.SparseDuckDbReportHandler
 import org.duckdb.DuckDBConnection
 import java.sql.DriverManager
 import kotlin.time.Instant
@@ -18,10 +18,10 @@ fun main(args: Array<String>) {
     val channels_file = "test_data/orbit/channels.parquet"
     val reports_file = "test_data/orbit/reports.parquet"
     val start = Instant.parse("2000-01-01T00:00:00Z")
-    val end = Instant.parse("2200-01-01T00:00:00Z")
+    val end = Instant.parse("2010-01-01T00:00:00Z")
 
     (DriverManager.getConnection("jdbc:duckdb:") as DuckDBConnection).use { connection ->
-        DuckDbReportHandler(connection, EarthOrbit.JSON_FORMAT).use { handler ->
+        SparseDuckDbReportHandler(connection, EarthOrbit.JSON_FORMAT).use { handler ->
             val simulator = Simulator(
                 handler,
                 start,
