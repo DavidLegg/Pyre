@@ -17,8 +17,8 @@ fun simpleMain(args: Array<String>) {
 fun main(args: Array<String>) {
     val channels_file = "test_data/orbit/channels.parquet"
     val reports_file = "test_data/orbit/reports.parquet"
-    val start = Instant.parse("2030-01-01T00:00:00Z")
-    val end = Instant.parse("2031-01-01T00:00:00Z")
+    val start = Instant.parse("2000-01-01T00:00:00Z")
+    val end = Instant.parse("2200-01-01T00:00:00Z")
 
     (DriverManager.getConnection("jdbc:duckdb:") as DuckDBConnection).use { connection ->
         DuckDbReportHandler(connection, EarthOrbit.JSON_FORMAT).use { handler ->
