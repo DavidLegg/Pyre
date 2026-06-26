@@ -28,7 +28,7 @@ fun main(args: Array<String>) {
     val aggregateTestTiming = AggregateTestTiming()
     // Run 25 of each combination, in random order.
     // This should roughly average out the effects of JIT "warming"
-    (1..100).shuffled().forEach {
+    (1..20).shuffled().forEach {
         aggregateTestTiming.runTest(it)
     }
 
@@ -40,9 +40,13 @@ fun main(args: Array<String>) {
     }
 
     println("\n\nAggregate results:")
+    println("\nSerial CSV:")
     aggregateTestTiming.serialCsvTimings.printAverage()
+    println("\nSerial DuckDB:")
     aggregateTestTiming.serialDuckDbTimings.printAverage()
+    println("\nParallel CSV:")
     aggregateTestTiming.parallelCsvTimings.printAverage()
+    println("\nParallel DuckDB:")
     aggregateTestTiming.parallelDuckDbTimings.printAverage()
 }
 

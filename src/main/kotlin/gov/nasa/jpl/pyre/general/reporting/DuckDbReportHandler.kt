@@ -49,7 +49,7 @@ class DuckDbReportHandler(
         connection.createStatement()
             .execute("""
                 CREATE TABLE IF NOT EXISTS channels (
-                    channel VARCHAR PRIMARY KEY,
+                    channel VARCHAR,
                     metadata JSON
                 )
             """.trimIndent())
@@ -59,7 +59,6 @@ class DuckDbReportHandler(
                     time TIMESTAMP_NS,
                     channel VARCHAR,
                     data JSON,
-                    FOREIGN KEY (channel) REFERENCES channels(channel)
                 )""".trimIndent())
 
         channelAppender = checkNotNull(connection.createAppender("channels"))
