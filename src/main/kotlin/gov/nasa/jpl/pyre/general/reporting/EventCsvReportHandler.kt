@@ -5,11 +5,39 @@ import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
 import gov.nasa.jpl.pyre.utilities.Serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.io.File
 import java.io.OutputStream
 import java.io.OutputStreamWriter
 import kotlin.time.Instant
 
-class CsvReportHandler(
+/**
+ * Use [EventCsvReportHandler] writing to this [File].
+ */
+fun File.usingEventCsvReportHandler(
+    jsonFormat: Json = Json,
+    timeFormat: (Instant) -> String = Instant::toString,
+    block: (EventCsvReportHandler) -> Unit
+) = outputStream().use { it.usingEventCsvReportHandler(jsonFormat, timeFormat, block) }
+
+/**
+ * Use [EventCsvReportHandler] writing to this [OutputStream].
+ */
+fun OutputStream.usingEventCsvReportHandler(
+    jsonFormat: Json = Json,
+    timeFormat: (Instant) -> String = Instant::toString,
+    block: (EventCsvReportHandler) -> Unit
+) = EventCsvReportHandler(this, jsonFormat, timeFormat).use(block)
+
+/**
+ * Writes reports in "Event CSV" format, a CSV file containing three columns:
+ * - time - the date and time (UTC) of the report
+ * - channel - the name of the channel
+ * - data - the JSON-encoded payload of the report
+ *
+ * Instead of instantiating this class directly, consider using [File.usingEventCsvReportHandler] or [OutputStream.usingEventCsvReportHandler].
+ * These functions automatically scope the handler's lifecycle, ensuring all data is flushed correctly before exiting.
+ */
+class EventCsvReportHandler(
     stream: OutputStream,
     private val jsonFormat: Json = Json,
     private val timeFormat: (Instant) -> String = Instant::toString,

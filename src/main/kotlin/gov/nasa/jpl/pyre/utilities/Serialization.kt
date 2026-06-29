@@ -3,6 +3,7 @@ package gov.nasa.jpl.pyre.utilities
 import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.StringFormat
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
@@ -26,10 +27,10 @@ object Serialization {
     fun <T> Json.decodeFromJsonElement(type: KType, jsonElement: JsonElement) =
         decodeFromJsonElement(serializersModule.serializer(type) as DeserializationStrategy<T>, jsonElement)
 
-    fun <T> Json.encodeToString(type: KType, value: T): String =
+    fun <T> StringFormat.encodeToString(type: KType, value: T): String =
         encodeToString(serializersModule.serializer(type), value)
 
-    fun <T> Json.decodeFromString(type: KType, string: String) =
+    fun <T> StringFormat.decodeFromString(type: KType, string: String) =
         decodeFromString(serializersModule.serializer(type) as DeserializationStrategy<T>, string)
 
     @OptIn(ExperimentalSerializationApi::class)
