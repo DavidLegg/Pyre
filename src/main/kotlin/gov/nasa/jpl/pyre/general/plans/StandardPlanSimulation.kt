@@ -4,11 +4,10 @@ import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.general.reporting.ParallelReportHandler.Companion.inParallel
+import gov.nasa.jpl.pyre.general.reporting.usingEventCsvReportHandler
 import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromFile
 import gov.nasa.jpl.pyre.utilities.Serialization.encodeToFile
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -76,40 +75,38 @@ fun <M: Any> runStandardPlanSimulation(
     println("Reading plan $planPath")
     val plan = jsonFormat.decodeFromFile<Plan<M>>(planPath)
     outputStream.use { out ->
-        CsvReportHandler(out, jsonFormat).use { baseReportHandler ->
-            runBlocking {
-                // Write output in parallel with simulation
-                baseReportHandler.inParallel { reportHandler ->
-                    // Initialize the simulation from an incon, if available.
-                    val incon: Checkpoint<M>?
-                    if (setup.inconFile != null) {
-                        val inconPath = setupPath.resolveSibling(setup.inconFile)
-                        println("Reading initial conditions $inconPath")
-                        incon = jsonFormat.decodeFromFile<Checkpoint<M>>(inconPath)
-                    } else {
-                        println("No initial conditions given.")
-                        incon = null
-                    }
+        out.usingEventCsvReportHandler(jsonFormat) {
+            // Write output in parallel with simulation
+            it.inParallel { reportHandler ->
+                // Initialize the simulation from an incon, if available.
+                val incon: Checkpoint<M>?
+                if (setup.inconFile != null) {
+                    val inconPath = setupPath.resolveSibling(setup.inconFile)
+                    println("Reading initial conditions $inconPath")
+                    incon = jsonFormat.decodeFromFile<Checkpoint<M>>(inconPath)
+                } else {
+                    println("No initial conditions given.")
+                    incon = null
+                }
 
-                    val simulation = Simulator(
-                        reportHandler,
-                        plan.startTime,
-                        incon,
-                        constructModel,
-                    )
+                val simulation = Simulator(
+                    reportHandler,
+                    plan.startTime,
+                    incon,
+                    constructModel,
+                )
 
-                    // Run the plan itself
-                    println("Running plan")
-                    simulation.runPlan(plan)
+                // Run the plan itself
+                println("Running plan")
+                simulation.runPlan(plan)
 
-                    // Write a fincon if requested
-                    if (setup.finconFile != null) {
-                        val finconPath = setupPath.resolveSibling(setup.finconFile)
-                        println("Writing final conditions to $finconPath")
-                        jsonFormat.encodeToFile(simulation.save(), finconPath)
-                    } else {
-                        println("No final conditions requested")
-                    }
+                // Write a fincon if requested
+                if (setup.finconFile != null) {
+                    val finconPath = setupPath.resolveSibling(setup.finconFile)
+                    println("Writing final conditions to $finconPath")
+                    jsonFormat.encodeToFile(simulation.save(), finconPath)
+                } else {
+                    println("No final conditions requested")
                 }
             }
         }

@@ -1,13 +1,11 @@
 package gov.nasa.jpl.pyre.examples.units
 
-import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.examples.units.DeviceIndicator.*
 import gov.nasa.jpl.pyre.examples.units.DeviceState.*
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.activities
-import gov.nasa.jpl.pyre.general.reporting.CsvReportHandler
 import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource
 import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
 import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResource
@@ -31,6 +29,7 @@ import gov.nasa.jpl.pyre.foundation.serialization.ResultSerializer
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
 import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.pyre.general.reporting.usingEventCsvReportHandler
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.VsQuantity.div
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
 import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.plus
@@ -41,10 +40,8 @@ import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOper
 import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.SerializersModule
 import kotlin.time.Duration.Companion.hours
@@ -63,7 +60,7 @@ fun main(args: Array<String>) {
     // The point here is just to exercise the demo model, not to fully hook everything up.
 
     System.out.use { out ->
-        CsvReportHandler(out, UnitDemo.JSON_FORMAT).use { reportHandler ->
+        out.usingEventCsvReportHandler(UnitDemo.JSON_FORMAT) { reportHandler ->
             val epoch = Instant.parse("2000-01-01T00:00:00Z")
 
             val simulation = Simulator(
