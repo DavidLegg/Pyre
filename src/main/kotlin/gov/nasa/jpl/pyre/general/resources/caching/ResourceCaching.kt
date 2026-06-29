@@ -9,7 +9,6 @@ import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
 import gov.nasa.jpl.pyre.general.resources.caching.ResourceCaching.precomputedResource
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.utilities.Closeable
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration.Companion.INFINITE
@@ -52,7 +51,7 @@ object ResourceCaching {
      */
     fun <V, D : Dynamics<V, D>> precomputedResource(
         name: String,
-        points: Closeable<Sequence<ResourcePoint<D>>>,
+        points: Sequence<ResourcePoint<D>>,
     ): Resource<D> {
         // Note: This is a mildly unsafe implementation, in order to lazily generate points using a Sequence (iterator).
         // The full state of this resource is the combination of mutable variables and the points iterator state.
@@ -67,14 +66,14 @@ object ResourceCaching {
         // Additionally, this code is strongly thread-unsafe. If multiple tasks read this in parallel,
         // we could advance the iterator too much, close it multiple times, etc.
 
-        val iterator = points.self.iterator()
+        val iterator = points.iterator()
         require(iterator.hasNext()) { "Must provide at least one point for precomputed resource $name" }
         var currentPoint = iterator.next()
         var nextPoint: ResourcePoint<D>? = currentPoint
         fun advance() = nextPoint?.let {
             currentPoint = it
             nextPoint = if (iterator.hasNext()) iterator.next() else null
-        } ?: { points.close() }
+        }
         return ThinResource {
             val now = now()
             while (nextPoint != null && nextPoint!!.time <= now) advance()
