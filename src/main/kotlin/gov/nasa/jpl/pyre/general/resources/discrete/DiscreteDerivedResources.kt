@@ -11,6 +11,9 @@ object DiscreteDerivedResources {
      * Derive a [DiscreteResource] from other discrete resources.
      *
      * The resulting resource will correctly compute its expiry from the sources it's derived from.
+     *
+     * For derivations that involve non-discrete resources, or require more information than just the current value,
+     * see [gov.nasa.jpl.pyre.foundation.resources.ResourceMonad] and surrounding documentation.
      */
     fun <T> discreteDerivedResource(block: context (DiscreteDerivedResourceScope) () -> T): DiscreteResource<T> {
         return ThinResource {
@@ -29,6 +32,11 @@ object DiscreteDerivedResources {
         }
     }
 
+    /**
+     * A restriction of [gov.nasa.jpl.pyre.foundation.tasks.ResourceScope] which only permits the reading of discrete resources.
+     *
+     * Meant to be used in conjunction with [discreteDerivedResource] to specify a discrete resource derived from other discrete resources.
+     */
     interface DiscreteDerivedResourceScope {
         fun <V> getValue(resource: DiscreteResource<V>): V
     }
