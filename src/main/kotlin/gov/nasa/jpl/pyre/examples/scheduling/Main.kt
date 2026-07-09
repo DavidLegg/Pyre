@@ -53,6 +53,7 @@ import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
 import gov.nasa.jpl.pyre.foundation.serialization.ResultSerializer
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.general.results.discrete.BooleanProfile
+import gov.nasa.jpl.pyre.general.scheduling.SchedulingOperations.plusAssign
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.Companion.compute
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplayScope.Companion.countActivities
 import gov.nasa.jpl.pyre.general.units.Unit.Companion.SCALAR
@@ -61,7 +62,6 @@ import gov.nasa.jpl.pyre.kernel.NameOperations.div
 import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.builtins.DoubleArraySerializer
-import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.modules.SerializersModule
@@ -200,8 +200,7 @@ fun schedulingMain(args: Array<String>) {
         val planStart = Instant.parse("2020-01-01T00:00:00Z")
         val planEnd = Instant.parse("2025-01-01T00:00:00Z")
         val baseScheduler = SchedulingSystem(
-            STANDARD_CONFIG,
-            ::SystemModel,
+            { SystemModel(contextOf<InitScope>(), STANDARD_CONFIG) },
             startTime = planStart,
         )
 
@@ -450,7 +449,7 @@ data class GncInputProfiles(
     val pointingTargets: Map<PointingTarget, Profile<Discrete<Vector3D>>>,
 ) {
     // Given some sim results, build the profiles
-    constructor (scheduler: SchedulingSystem<SystemModel, *>) : this(PointingTarget.entries.associateWith {
+    constructor (scheduler: SchedulingSystem<SystemModel>) : this(PointingTarget.entries.associateWith {
         scheduler.profile { geometry.pointingDirection.getValue(it) }
     })
 
@@ -459,7 +458,7 @@ data class GncInputProfiles(
     fun asInputs(): GncModel.Inputs = GncModel.Inputs(pointingTargets.mapValues { it.value.asResource() })
 }
 
-fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
+fun SchedulingSystem<SystemModel>.scheduleScienceOpTurns(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
     // For performance testing, we have one method that defers to either of two implementations:
 
     // Direct scheduling is the easier and more reliable way to do this
@@ -471,7 +470,7 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns(sci
     // scheduleScienceOpTurns_subsystem(scienceOp, gncInputProfiles)
 }
 
-fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_direct(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
+fun SchedulingSystem<SystemModel>.scheduleScienceOpTurns_direct(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
     // Advance the scheduler to the earliest time a turn may start, to avoid re-simulating more than necessary
     this.scheduleActivityToEndNear(GncActivity(scienceOpTurn(scienceOp.target)), scienceOp.start)
     this += GroundedActivity(scienceOp.end, backgroundTurn())

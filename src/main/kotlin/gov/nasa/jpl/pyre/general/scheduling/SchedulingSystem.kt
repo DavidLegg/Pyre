@@ -55,11 +55,9 @@ import kotlin.time.Instant
  *
  * @see SchedulingAlgorithms
  */
-class SchedulingSystem<M : Any, C> private constructor(
+class SchedulingSystem<M : Any> private constructor(
     startTime: Instant?,
-    // TODO: remove config in favor of enclosing that in the model constructor
-    val config: C,
-    private val constructModel: context (InitScope) (C) -> M,
+    private val constructModel: context (InitScope) () -> M,
     incon: Checkpoint<M>?,
     /** Activities not yet part of the simulation */
     private val futureActivities: PriorityQueue<GroundedActivity<M>>,
@@ -72,7 +70,7 @@ class SchedulingSystem<M : Any, C> private constructor(
         results.reportHandler(),
         startTime,
         incon,
-        { constructModel(config).also { model = it } },
+        { constructModel().also { model = it } },
     )
     init {
         // Get the start time from the simulation, regardless of how the simulation was initialized, to keep the two in sync.
@@ -82,13 +80,11 @@ class SchedulingSystem<M : Any, C> private constructor(
     val startTime: Instant get() = results.startTime
 
     constructor(
-        config: C,
-        constructModel: context (InitScope) (C) -> M,
+        constructModel: context (InitScope) () -> M,
         startTime: Instant? = null,
         incon: Checkpoint<M>? = null,
     ) : this(
         startTime,
-        config,
         constructModel,
         incon,
         PriorityQueue(compareBy { it.time }),
@@ -268,10 +264,8 @@ class SchedulingSystem<M : Any, C> private constructor(
 
     fun save() = simulation.save()
 
-    // Initialize a new simulation, configured with newConfig and this sim's fincon
-    fun copy(newConfig: C = config): SchedulingSystem<M, C> = SchedulingSystem(
+    fun copy(): SchedulingSystem<M> = SchedulingSystem(
         time(),
-        newConfig,
         constructModel,
         save(),
         // Copy over all the other bookkeeping data
@@ -286,7 +280,7 @@ class SchedulingSystem<M : Any, C> private constructor(
          *
          * Access a registered resource through the model and call [replay] to use it in the derivation.
          */
-        inline fun <V, reified D: Dynamics<V, D>, M : Any> SchedulingSystem<M, *>.compute(
+        inline fun <V, reified D: Dynamics<V, D>, M : Any> SchedulingSystem<M>.compute(
             start: Instant = startTime,
             end: Instant = time(),
             noinline derivation: context (InitScope, SchedulingReplayScope) M.() -> Resource<D>,
