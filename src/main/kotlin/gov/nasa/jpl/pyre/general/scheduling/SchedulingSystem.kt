@@ -1,6 +1,5 @@
 package gov.nasa.jpl.pyre.general.scheduling
 
-import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
@@ -58,6 +57,7 @@ import kotlin.time.Instant
  */
 class SchedulingSystem<M : Any, C> private constructor(
     startTime: Instant?,
+    // TODO: remove config in favor of enclosing that in the model constructor
     val config: C,
     private val constructModel: context (InitScope) (C) -> M,
     incon: Checkpoint<M>?,
@@ -152,13 +152,6 @@ class SchedulingSystem<M : Any, C> private constructor(
         }
         futureActivities += activity
     }
-    fun addActivities(activities: Collection<GroundedActivity<M>>) = activities.forEach(::addActivity)
-    fun addPlan(plan: Plan<M>) = addActivities(plan.activities)
-
-    operator fun plusAssign(activity: Activity<M>) = addActivity(GroundedActivity(time(), Name(requireNotNull(activity::class.simpleName)), activity))
-    operator fun plusAssign(activity: GroundedActivity<M>) = addActivity(activity)
-    operator fun plusAssign(activities: Collection<GroundedActivity<M>>) = addActivities(activities)
-    operator fun plusAssign(plan: Plan<M>) = addPlan(plan)
 
     fun plan() = Plan(results.startTime, time(), pastActivities + futureActivities)
 
@@ -273,14 +266,14 @@ class SchedulingSystem<M : Any, C> private constructor(
         )
     }
 
-    fun fincon() = simulation.save()
+    fun save() = simulation.save()
 
     // Initialize a new simulation, configured with newConfig and this sim's fincon
     fun copy(newConfig: C = config): SchedulingSystem<M, C> = SchedulingSystem(
         time(),
         newConfig,
         constructModel,
-        fincon(),
+        save(),
         // Copy over all the other bookkeeping data
         futureActivities = PriorityQueue(futureActivities),
         pastActivities = pastActivities.toMutableList(),
