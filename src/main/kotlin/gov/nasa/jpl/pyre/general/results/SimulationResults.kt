@@ -6,6 +6,9 @@ import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
 import gov.nasa.jpl.pyre.kernel.Name
 import kotlin.time.Instant
 
+// TODO: Rework this to use interfaces for SimulationResults and MutableSimulationResults.
+//   Then, have a mutable class that implements it, but can be "locked" to fulfill the immutable interface, without copying the data.
+
 // Immutable default data types
 
 data class SimulationResults(
