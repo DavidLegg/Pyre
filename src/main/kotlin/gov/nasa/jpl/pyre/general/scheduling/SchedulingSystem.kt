@@ -128,9 +128,10 @@ class SchedulingSystem<M : Any> private constructor(
         ) {
             numberOfActivitiesSeen = results.activities.size
             // First, look for any activities we need to inject right now:
-            while (futureActivities.peek()?.run { time == simulation.time() } ?: false) {
-                simulation.addActivity(activity)
-                pastActivities += activity
+            while (futureActivities.isNotEmpty() && futureActivities.element().time == simulation.time()) {
+                val futureActivity = futureActivities.remove()
+                simulation.addActivity(futureActivity)
+                pastActivities += futureActivity
             }
             // Look for when we would next need to inject activities, which is the latest we can safely advance:
             val nextActivityTime = futureActivities.minOfOrNull { it.time } ?: Instant.DISTANT_FUTURE
