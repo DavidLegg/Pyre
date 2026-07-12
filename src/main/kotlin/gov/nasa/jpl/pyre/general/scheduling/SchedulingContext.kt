@@ -7,4 +7,6 @@ package gov.nasa.jpl.pyre.general.scheduling
  */
 interface SchedulingContext<M> {
     // TODO: Think through what properties and methods should go here.
+    //   Should this even be a scope?
+    //   Or should SchedulingSystem itself be the context param?
 }

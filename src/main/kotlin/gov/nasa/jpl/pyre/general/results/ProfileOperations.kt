@@ -34,6 +34,50 @@ object ProfileOperations {
 
     // TODO: I don't like the distinction between ResourceResults and Profile.
     //   Despite the fact that I can "view" one as the other without copying, which is neat, it's conceptually messy...
+    //   The thing that's holding me back from just collapsing them is that ResourceResults is exactly the data structure
+    //   that I want to save, physically. I just don't like exposing it directly to the end user, so much...
+    //   Perhaps that's fine though, and users will just access that data through "getProfile" style extensions.
+
+    fun <D : Dynamics<*, D>> List<ChannelData<D>>.asProfile(name: Name, startTime: Instant, endTime: Instant): Profile2<D> {
+        require(isNotEmpty()) {
+            "Cannot construct a profile from empty results"
+        }
+        require(startTime <= endTime) {
+            "Invalid start time $startTime after end time $endTime"
+        }
+        require(first().time <= startTime) {
+            "Data starts at ${first().time} after start time $startTime"
+        }
+        return object : Profile2<D> {
+            override val name: Name = name
+            override val window: ClosedRange<Instant> = startTime..endTime
+
+            override fun getSegment(time: Instant): Expiring<D> {
+                require(time in window) {
+                    "Time $time is outside of profile window [$start, $end]"
+                }
+                val i = this@asProfile.binarySearchBy(time) { it.time }
+                val nextSegmentIndex: Int
+                val dynamics: D
+                if (i >= 0) {
+                    // This time is the exact start of a profile segment.
+                    // We can return the dynamics exactly, without stepping it
+                    nextSegmentIndex = i + 1
+                    dynamics = this@asProfile[i].data
+                } else {
+                    // This time is not the exact start of a profile segment.
+                    // Instead, the binary search returns the segment after the active one:
+                    nextSegmentIndex = i.inv()
+                    val activeSegment = this@asProfile[nextSegmentIndex - 1]
+                    // Finally, use that to look up which dynamics is active, and how long to step it forward:
+                    dynamics = activeSegment.data.step(time - activeSegment.time)
+                }
+                return Expiring(dynamics, this@asProfile.getOrNull(nextSegmentIndex)?.time?.let { it - time } ?: INFINITE)
+            }
+
+            override fun iterator(): Iterator<Pair<Instant, D>> = this@asProfile.map { it.time to it.data }.iterator()
+        }
+    }
 
     /**
      * Returns a view of [this] channel of results as a profile.
@@ -42,43 +86,27 @@ object ProfileOperations {
      * Assumes that [data] is already sorted by time, and does not verify this.
      * Results are undefined if this assumption is violated.
      */
-    fun <D : Dynamics<*, D>> ResourceResults<D>.asProfile(endTime: Instant): Profile2<D> {
-        require(data.isNotEmpty()) {
-            "Cannot construct a profile from empty results"
-        }
-        val startTime = data.first().time
-        require(startTime <= endTime) {
-            "Invalid end time $endTime before first data point at $startTime"
-        }
-        return object : Profile2<D> {
-            override val name: Name = metadata.channel
-            override val window: ClosedRange<Instant> = startTime..endTime
+    fun <D : Dynamics<*, D>> ResourceResults<D>.asProfile(
+        name: Name = metadata.channel,
+        startTime: Instant = data.first().time,
+        endTime: Instant,
+    ): Profile2<D> {
+        return data.asProfile(name, startTime, endTime)
+    }
 
-            override fun getSegment(time: Instant): Expiring<D> {
-                require(time in window) {
-                    "Time $time is outside of profile window [$start, $end]"
-                }
-                val i = data.binarySearchBy(time) { it.time }
-                val nextSegmentIndex: Int
-                val dynamics: D
-                if (i >= 0) {
-                    // This time is the exact start of a profile segment.
-                    // We can return the dynamics exactly, without stepping it
-                    nextSegmentIndex = i + 1
-                    dynamics = data[i].data
-                } else {
-                    // This time is not the exact start of a profile segment.
-                    // Instead, the binary search returns the segment after the active one:
-                    nextSegmentIndex = i.inv()
-                    val activeSegment = data[nextSegmentIndex - 1]
-                    // Finally, use that to look up which dynamics is active, and how long to step it forward:
-                    dynamics = activeSegment.data.step(time - activeSegment.time)
-                }
-                return Expiring(dynamics, data.getOrNull(nextSegmentIndex)?.time?.let { it - time } ?: INFINITE)
-            }
-
-            override fun iterator(): Iterator<Pair<Instant, D>> = data.map { it.time to it.data }.iterator()
-        }
+    /**
+     * Returns a view of [this] channel of results as a profile.
+     * This method does not copy the results.
+     *
+     * Assumes that [data] is already sorted by time, and does not verify this.
+     * Results are undefined if this assumption is violated.
+     */
+    fun <D : Dynamics<*, D>> MutableResourceResults<D>.asProfile(
+        name: Name = metadata.channel,
+        startTime: Instant = data.first().time,
+        endTime: Instant,
+    ): Profile2<D> {
+        return data.asProfile(name, startTime, endTime)
     }
 
     /**
@@ -88,12 +116,21 @@ object ProfileOperations {
      */
     fun <D : Dynamics<*, D>> SimulationResults.getProfile(name: Name): Profile2<D> =
         @Suppress("UNCHECKED_CAST")
-        (resources.getValue(name) as ResourceResults<D>).asProfile(endTime)
+        (resources.getValue(name) as ResourceResults<D>).asProfile(endTime = endTime)
+
+    /**
+     * Read a profile from simulation results.
+     *
+     * @param name The channel name to read, also becomes the profile name.
+     */
+    fun <D : Dynamics<*, D>> MutableSimulationResults.getProfile(name: Name): Profile2<D> =
+        @Suppress("UNCHECKED_CAST")
+        (resources.getValue(name) as MutableResourceResults<D>).asProfile(endTime = endTime)
 
     /**
      * Create a resource which exactly replays this [Profile].
      *
-     * This can be used for deriving profiles in a small simulation, e.g. with [compute].
+     * This can be used for deriving profiles in a small simulation, e.g. with [computeProfile].
      * This can also be used for subsystem simulations, where the inputs to a subsystem are replayed
      * instead of running the full system.
      */
@@ -102,15 +139,6 @@ object ProfileOperations {
         ResourceMonad.bind(simulationClock) {
             ThinResourceMonad.pure(this.getSegment(it.time))
         }.fullyNamed { name }
-
-    /**
-     * Create a resource which exactly replays the channel named [name].
-     *
-     * Combines [getProfile] with [asResource]
-     */
-    context (_: InitScope)
-    fun <D : Dynamics<*, D>> SimulationResults.getResource(name: Name): Resource<D> =
-        getProfile<D>(name).asResource()
 
     /**
      * Compute a profile by running a simulation.
@@ -144,8 +172,9 @@ object ProfileOperations {
             register(resultResource, dynamicsType)
         }.runUntil(end)
 
-        require(results.data.isNotEmpty())
-        return results.toResourceResults().asProfile(end)
+        // Since results is local, we know it will not be mutated at this point.
+        // This makes it safe to base the profile directly on the mutable results without copying them.
+        return results.asProfile(endTime = end)
     }
 
     /**

@@ -7,7 +7,7 @@ import gov.nasa.jpl.pyre.kernel.Name
 import kotlin.time.Instant
 
 // TODO: Rework this to use interfaces for SimulationResults and MutableSimulationResults.
-//   Then, have a mutable class that implements it, but can be "locked" to fulfill the immutable interface, without copying the data.
+// Then, have Mutable* implement the regular version, just like MutableList implements List.
 
 // Immutable default data types
 
