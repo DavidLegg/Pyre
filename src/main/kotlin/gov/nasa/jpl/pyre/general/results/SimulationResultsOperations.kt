@@ -8,28 +8,6 @@ import gov.nasa.jpl.pyre.kernel.Name
 import kotlin.collections.mapValues
 
 object SimulationResultsOperations {
-    fun MutableSimulationResults.toSimulationResults(): SimulationResults =
-        SimulationResults(
-            startTime,
-            endTime,
-            resources.mapValues { (_, r) -> r.toResourceResults() },
-            activities.toList(),
-        )
-
-    fun <T> MutableResourceResults<T>.toResourceResults(): ResourceResults<T> =
-        ResourceResults(metadata, data.toList())
-
-    fun MutableSimulationResults.toMutableSimulationResults(): MutableSimulationResults =
-        MutableSimulationResults(
-            startTime,
-            endTime,
-            resources.mapValuesTo(mutableMapOf()) { (_, r) -> r.toMutableResourceResults() },
-            activities.toMutableList(),
-        )
-
-    fun <T> MutableResourceResults<T>.toMutableResourceResults(): MutableResourceResults<T> =
-        MutableResourceResults(metadata, data.toMutableList())
-
     /**
      * Construct a report handler that will collect all channelized reports into this [MutableSimulationResults]
      *
@@ -51,5 +29,14 @@ object SimulationResultsOperations {
                 return resourceResults.data::add
             }
         }
+    }
+
+    /**
+     * Clear [activities] and [resources], resetting the results object for a new simulation.
+     * Leaves [startTime] and [endTime] as-is.
+     */
+    fun MutableSimulationResults.clear(): Unit {
+        activities.clear()
+        resources.clear()
     }
 }
