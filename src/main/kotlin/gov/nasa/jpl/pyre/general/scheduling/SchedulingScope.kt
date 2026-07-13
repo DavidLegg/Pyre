@@ -15,14 +15,11 @@ interface SchedulingScope<M> {
     val planEnd: Instant
     val model: M
     val results: SimulationResults
-    // TODO: Should we have an "isStale" type flag to indicate if the results are out-of-sync with the activities?
-    //   Or, should calling "edit" just immediately re-simulate?
-    //   Doing the latter would simplify the interface, and we could have a second interface
-    //   that specializes this one, with the added ability to "cache" edits together.
-    //   This would also play nicely with incremental simulation.
     val activities: List<GroundedActivity<M>>
 
-    /** Change the plan according to these edits. */
+    /**
+     * Change [activities] and [results] according to these edits.
+     */
     fun edit(edits: PlanEdits<M>)
 }
 
