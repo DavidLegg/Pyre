@@ -10,7 +10,6 @@ import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
 import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.plus
 import kotlin.time.Instant
 
@@ -59,6 +58,6 @@ class NonIncrementalSimulator<M : Any>(
             constructModel,
         )
         simulator.runPlan(plan)
-        return newResults.toSimulationResults()
+        return newResults
     }
 }
