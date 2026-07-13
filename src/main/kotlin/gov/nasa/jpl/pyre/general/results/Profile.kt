@@ -11,7 +11,7 @@ import kotlin.time.Instant
  * It can be seen as an iterable of (time, dynamics) pairs if the entire profile needs to be examined,
  * or [get] can efficiently retrieve the dynamics at a specific time.
  */
-interface Profile2<D> : Iterable<Pair<Instant, D>> {
+interface Profile<D> : Iterable<Pair<Instant, D>> {
     val name: Name
     val window: ClosedRange<Instant>
 

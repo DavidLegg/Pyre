@@ -17,8 +17,8 @@ import kotlin.time.Duration.Companion.INFINITE
 import kotlin.time.Instant
 
 object ProfileOperations {
-    val Profile2<*>.start: Instant get() = window.start
-    val Profile2<*>.end: Instant get() = window.endInclusive
+    val Profile<*>.start: Instant get() = window.start
+    val Profile<*>.end: Instant get() = window.endInclusive
 
     // TODO: I don't like the distinction between ResourceResults and Profile.
     //   Despite the fact that I can "view" one as the other without copying, which is neat, it's conceptually messy...
@@ -37,7 +37,7 @@ object ProfileOperations {
         name: Name = metadata.channel,
         startTime: Instant = data.first().time,
         endTime: Instant,
-    ): Profile2<D> {
+    ): Profile<D> {
         require(data.isNotEmpty()) {
             "Cannot construct a profile from empty results"
         }
@@ -47,7 +47,7 @@ object ProfileOperations {
         require(data.first().time <= startTime) {
             "Data starts at ${data.first().time} after start time $startTime"
         }
-        return object : Profile2<D> {
+        return object : Profile<D> {
             override val name: Name = name
             override val window: ClosedRange<Instant> = startTime..endTime
 
@@ -83,19 +83,19 @@ object ProfileOperations {
      *
      * @param name The channel name to read, also becomes the profile name.
      */
-    fun <D : Dynamics<*, D>> SimulationResults.getProfile(name: Name): Profile2<D> =
+    fun <D : Dynamics<*, D>> SimulationResults.getProfile(name: Name): Profile<D> =
         @Suppress("UNCHECKED_CAST")
         (resources.getValue(name) as ResourceResults<D>).asProfile(endTime = endTime)
 
     /**
-     * Create a resource which exactly replays this [Profile2].
+     * Create a resource which exactly replays this [Profile].
      *
      * This can be used for deriving profiles in a small simulation, e.g. with [computeProfile].
      * This can also be used for subsystem simulations, where the inputs to a subsystem are replayed
      * instead of running the full system.
      */
     context (_: InitScope)
-    fun <D : Dynamics<*, D>> Profile2<D>.asResource(): Resource<D> =
+    fun <D : Dynamics<*, D>> Profile<D>.asResource(): Resource<D> =
         ResourceMonad.bind(simulationClock) {
             ThinResourceMonad.pure(this.getSegment(it.time))
         }.fullyNamed { name }
@@ -108,7 +108,7 @@ object ProfileOperations {
         end: Instant,
         derivation: context (InitScope) () -> Resource<D>,
         dynamicsType: KType,
-    ): Profile2<D> {
+    ): Profile<D> {
         lateinit var results: MutableResourceResults<D>
         lateinit var resultName: Name
         // Construct and run a simulation to compute the derived profile

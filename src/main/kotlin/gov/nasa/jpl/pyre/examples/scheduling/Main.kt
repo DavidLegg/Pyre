@@ -36,7 +36,7 @@ import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
 import gov.nasa.jpl.pyre.foundation.serialization.ResultSerializer
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
 import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
-import gov.nasa.jpl.pyre.general.results.Profile2
+import gov.nasa.jpl.pyre.general.results.Profile
 import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingAlgorithms.scheduleActivityToEndNear
 import gov.nasa.jpl.pyre.general.scheduling.SchedulingOperations.plusAssign
@@ -434,7 +434,7 @@ fun scienceOpTurn(target: PointingTarget) = GncTurn(
 )
 
 data class GncInputProfiles(
-    val pointingTargets: Map<PointingTarget, Profile2<Discrete<Vector3D>>>,
+    val pointingTargets: Map<PointingTarget, Profile<Discrete<Vector3D>>>,
 ) {
     // Given some sim results, build the profiles
     constructor (scheduler: SchedulingSystem<SystemModel>) : this(PointingTarget.entries.associateWith {
