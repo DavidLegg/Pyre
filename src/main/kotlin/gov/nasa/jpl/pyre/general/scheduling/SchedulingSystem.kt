@@ -1,40 +1,13 @@
 package gov.nasa.jpl.pyre.general.scheduling
 
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
-import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
-import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
-import gov.nasa.jpl.pyre.general.results.SimulationResults
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
-import gov.nasa.jpl.pyre.foundation.resources.Dynamics
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.decrement
-import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
+import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
+import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
-import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
-import gov.nasa.jpl.pyre.general.results.Profile
-import gov.nasa.jpl.pyre.general.results.ProfileOperations.asProfile
-import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
-import gov.nasa.jpl.pyre.general.results.ProfileOperations.computeProfile
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toMutableSimulationResults
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
-import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplayScope.Companion.replay
-import gov.nasa.jpl.pyre.general.units.Unit
-import gov.nasa.jpl.pyre.general.units.UnitAware
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
-import gov.nasa.jpl.pyre.kernel.Name
-import java.util.PriorityQueue
-import kotlin.reflect.KType
-import kotlin.reflect.typeOf
-import kotlin.require
+import java.util.*
 import kotlin.time.Instant
 
 /**
@@ -169,6 +142,6 @@ class SchedulingSystem<M : Any> private constructor(
         // Copy over all the other bookkeeping data
         futureActivities = PriorityQueue(futureActivities),
         pastActivities = pastActivities.toMutableList(),
-        results = results.toMutableSimulationResults(),
+        results = results.copy(),
     )
 }

@@ -8,7 +8,6 @@ import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
 import kotlin.also
 import kotlin.time.Instant
 
@@ -48,6 +47,6 @@ object UnitTesting {
         }
 
         while (!testTaskComplete) simulation.stepTo(Instant.DISTANT_FUTURE)
-        return results.toSimulationResults()
+        return results
     }
 }
