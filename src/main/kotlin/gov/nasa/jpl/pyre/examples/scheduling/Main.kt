@@ -154,7 +154,7 @@ val GNC_JSON_FORMAT = Json {
 fun main(args: Array<String>) {
     when (args[0].lowercase()) {
         "simulate" -> simulationMain(args.sliceArray(1..<args.size))
-        "schedule" -> schedulingMain(args.sliceArray(1..<args.size))
+        // "schedule" -> schedulingMain(args.sliceArray(1..<args.size))
         else -> throw IllegalArgumentException("First argument must be a command: simulate, schedule")
     }
 }
@@ -167,6 +167,8 @@ fun simulationMain(args: Array<String>) {
     )
 }
 
+// TODO: Update this with the new SchedulingSystem interface and/or new scheduling utilities.
+/*
 @OptIn(ExperimentalSerializationApi::class, ExperimentalPathApi::class)
 fun schedulingMain(args: Array<String>) {
     unitAware {
@@ -382,6 +384,7 @@ fun schedulingMain(args: Array<String>) {
         println("End scheduling procedure - ${schedulingEnd - schedulingStart}")
     }
 }
+ */
 
 // TODO: This is a bit of a hack to ensure we have unique names for all activities.
 //   I should come up with a better way to do this, incorporated into PlanSimulation and/or SchedulingSystem
@@ -437,9 +440,12 @@ data class GncInputProfiles(
     val pointingTargets: Map<PointingTarget, Profile<Discrete<Vector3D>>>,
 ) {
     // Given some sim results, build the profiles
+    // TODO: Update with new scheduling tools.
+    /*
     constructor (scheduler: SchedulingSystem<SystemModel>) : this(PointingTarget.entries.associateWith {
         scheduler.profile { geometry.pointingDirection.getValue(it) }
     })
+     */
 
     // Given an init scope in a particular simulation, build the resources to feed a GncModel
     context (scope: InitScope)
