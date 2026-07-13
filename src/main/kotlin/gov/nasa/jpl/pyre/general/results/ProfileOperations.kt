@@ -20,12 +20,6 @@ object ProfileOperations {
     val Profile<*>.start: Instant get() = window.start
     val Profile<*>.end: Instant get() = window.endInclusive
 
-    // TODO: I don't like the distinction between ResourceResults and Profile.
-    //   Despite the fact that I can "view" one as the other without copying, which is neat, it's conceptually messy...
-    //   The thing that's holding me back from just collapsing them is that ResourceResults is exactly the data structure
-    //   that I want to save, physically. I just don't like exposing it directly to the end user, so much...
-    //   Perhaps that's fine though, and users will just access that data through "getProfile" style extensions.
-
     /**
      * Returns a view of [this] channel of results as a profile.
      * This method does not copy the results.

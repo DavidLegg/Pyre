@@ -5,7 +5,7 @@ import gov.nasa.jpl.pyre.foundation.reporting.BaseChannelizedReportHandler
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
 import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
 import gov.nasa.jpl.pyre.kernel.Name
-import kotlin.collections.mapValues
+import kotlin.collections.mapValuesTo
 
 object SimulationResultsOperations {
     /**
@@ -38,5 +38,18 @@ object SimulationResultsOperations {
     fun MutableSimulationResults.clear(): Unit {
         activities.clear()
         resources.clear()
+    }
+
+    fun SimulationResults.toMutableSimulationResults(): MutableSimulationResults {
+        return MutableSimulationResults(
+            startTime,
+            endTime,
+            resources.mapValuesTo(mutableMapOf()) { it.value.toMutableResourceResults() },
+            activities.toMutableList(),
+        )
+    }
+
+    fun <T> ResourceResults<T>.toMutableResourceResults(): MutableResourceResults<T> {
+        return MutableResourceResults(metadata, data.toMutableList())
     }
 }

@@ -4,6 +4,11 @@ import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.examples.scheduling.GroundedActivity
+import gov.nasa.jpl.pyre.foundation.resources.Dynamics
+import gov.nasa.jpl.pyre.foundation.resources.Resource
+import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
+import gov.nasa.jpl.pyre.general.results.ProfileOperations.getProfile
 
 object SchedulingOperations {
     fun <M : Any> SchedulingSystem<M>.addActivities(activities: Collection<GroundedActivity<M>>) =
@@ -19,4 +24,11 @@ object SchedulingOperations {
 
     // TODO: Build up SchedulingContext, and port profile- and value-access operations to this, using a SchedulingContext param.
     // TODO: Port compute over here using a SchedulingContext param.
+
+    /**
+     * Look up the profile for [this] resource in [schedulingScope], then replay it as a resource.
+     */
+    context (schedulingScope: SchedulingScope<M>, _: InitScope)
+    fun <M, D: Dynamics<*, D>> Resource<D>.replay(): Resource<D> =
+        schedulingScope.results.getProfile<D>(this.name).asResource()
 }

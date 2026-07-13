@@ -29,6 +29,10 @@ interface SchedulingScope<M> {
  * Starting from [initialPlan], construct a new plan with the aid of simulation.
  *
  * Whenever [SchedulingScope.edit] is called, the entire plan will be resimulated and [SchedulingScope.results] updated.
+ *
+ * This provides a somewhat simpler interface than [SchedulingSystem], at the cost of losing some control.
+ * In particular, there's no possibility of dropping checkpoints in the middle of the scheduling window
+ * and re-simulating small portions of the plan.
  */
 fun <M : Any> schedule(
     initialPlan: Plan<M>,
