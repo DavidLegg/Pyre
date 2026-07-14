@@ -1,0 +1,69 @@
+package gov.nasa.jpl.parakeet.foundation.incremental
+
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
+import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.*
+import gov.nasa.jpl.pyre.kernel.incremental.IncSimNode.*
+import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.pyre.kernel.incremental.IncrementalReport
+import gov.nasa.jpl.pyre.kernel.incremental.IncrementalReportHandler
+
+/**
+ * The combination of [IncrementalReportHandler] and [gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler],
+ * a report handler which constructs channels during initialization,
+ * and permits both issuing and revoking reports on those channels.
+ */
+interface IncrementalChannelizedReportHandler : IncrementalReportHandler {
+    fun <T> initChannel(metadata: ChannelMetadata<T>)
+}
+
+interface IncrementalChannelHandler<T> {
+    fun report(report: ReportNode<ChannelData<T>>)
+    fun revoke(report: ReportNode<ChannelData<T>>)
+}
+
+abstract class BaseIncrementalChannelizedReportHandler : IncrementalChannelizedReportHandler {
+    abstract fun <T> constructChannel(metadata: ChannelMetadata<T>): IncrementalChannelHandler<T>
+
+    private val channelHandlers = mutableMapOf<Name, IncrementalChannelHandler<*>>()
+
+    override fun <T> initChannel(metadata: ChannelMetadata<T>) {
+        val handler = constructChannel(metadata)
+        check(channelHandlers.putIfAbsent(metadata.channel, handler) == null) {
+            "Channel ${metadata.channel} was initialized twice!"
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    override fun report(report: IncrementalReport<*>) =
+        when (val channelReport = channelizedContent(report)) {
+            is ChannelMetadata<*> -> initChannel(channelReport)
+            is ChannelData<*> -> coerceAndReport(channelReport, report as ReportNode<ChannelData<*>>)
+        }
+    @Suppress("UNCHECKED_CAST")
+    override fun revoke(report: IncrementalReport<*>) =
+        when (val channelReport = channelizedContent(report)) {
+            is ChannelMetadata<*> -> Unit // Ignore; there's actually no meaning to "revoking" a channel initializer.
+            is ChannelData<*> -> coerceAndRevoke(channelReport, report as ReportNode<ChannelData<*>>)
+        }
+
+    private fun channelizedContent(report: IncrementalReport<*>): ChannelReport<*> =
+        requireNotNull(report.content as? ChannelReport<*>) {
+            IncrementalChannelizedReportHandler::class.simpleName +
+                    " expects all report content to be ${ChannelReport::class.simpleName}," +
+                    " but this report is ${report.content?.let { it::class.simpleName } ?: "null"} instead."
+        }
+
+    // These awkwardly-typed helper functions are a kludge around the generics system imposed by type erasure.
+    // We need the type variable T to appear as a top-level type var in order to omit it above,
+    // and we must omit it above since we only have star projections above.
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> coerceAndReport(reportContent: ChannelData<T>, report: ReportNode<ChannelData<*>>) =
+        (channelHandlers.getValue(reportContent.channel) as IncrementalChannelHandler<T>)
+            .report(report as ReportNode<ChannelData<T>>)
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> coerceAndRevoke(reportContent: ChannelData<T>, report: ReportNode<ChannelData<*>>) =
+        (channelHandlers.getValue(reportContent.channel) as IncrementalChannelHandler<T>)
+            .revoke(report as ReportNode<ChannelData<T>>)
+}
