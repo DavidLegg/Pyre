@@ -1,9 +1,9 @@
 package gov.nasa.jpl.parakeet.general.units.polynomial_quantity_resource
 
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.constant
-import gov.nasa.jpl.pyre.general.units.Ring
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResource
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.constant
+import gov.nasa.jpl.parakeet.general.units.Ring
 
 object PolynomialResourceRing : Ring<PolynomialResource> {
     override val zero: PolynomialResource = constant(0.0)

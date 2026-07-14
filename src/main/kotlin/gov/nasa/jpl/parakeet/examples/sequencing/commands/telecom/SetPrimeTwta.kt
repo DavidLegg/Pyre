@@ -1,10 +1,10 @@
 package gov.nasa.jpl.parakeet.examples.sequencing.commands.telecom
 
-import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
-import gov.nasa.jpl.pyre.examples.sequencing.primeness.Side
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.examples.sequencing.SequencingDemo
+import gov.nasa.jpl.parakeet.examples.sequencing.primeness.Side
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

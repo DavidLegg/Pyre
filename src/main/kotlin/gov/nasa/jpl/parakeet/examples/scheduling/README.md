@@ -18,7 +18,7 @@ This example demonstrates a few important techniques for real-world models:
 - Unit testing -
   Having decoupled subsystem models by defining their inputs as a set of resources given to their constructor,
   a subsystem model can be constructed and run in isolation in a unit test.
-  The [data model unit tests](/../../test/kotlin/gov/nasa/jpl/pyre/examples/scheduling/data/model/DataModelTest.kt)
+  The [data model unit tests](/../../test/kotlin/gov/nasa/jpl/parakeet/examples/scheduling/data/model/DataModelTest.kt)
   provide a good example of this - the input data rate and downlink data rate are constructed as mutable resources in a
   test model, and are driven directly by test tasks to explore the behavior of the data model independent of the rest of the system.
 - Scheduling -
@@ -28,7 +28,7 @@ This example demonstrates a few important techniques for real-world models:
 
   This includes doing backtracking search to schedule turns that end at a particular time, even though the duration of
   the turn is not known until simulation.
-  The rigorous save/restore functionality built into Pyre from the get-go gives us a "checkpoint" capability,
+  The rigorous save/restore functionality built into Parakeet from the get-go gives us a "checkpoint" capability,
   which lets us re-simulate only a small window of time around a turn, making backtracking search fairly efficient.
 - Unit-awareness -
   Finally, this model makes extensive use of the unit-awareness system, which provides efficient unit-safe computations.

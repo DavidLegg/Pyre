@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.examples.scheduling.geometry.utils
 
-import gov.nasa.jpl.pyre.general.units.VectorSpace
+import gov.nasa.jpl.parakeet.general.units.VectorSpace
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D
 
 // Unsurprisingly, Vector3D forms a vector space over Double:

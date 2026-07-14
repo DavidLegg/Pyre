@@ -1,10 +1,10 @@
 package gov.nasa.jpl.parakeet.kernel.incremental
 
-import gov.nasa.jpl.pyre.kernel.Cell
-import gov.nasa.jpl.pyre.kernel.Condition
-import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.tasks.Task
+import gov.nasa.jpl.parakeet.kernel.Cell
+import gov.nasa.jpl.parakeet.kernel.Condition
+import gov.nasa.jpl.parakeet.kernel.Effect
+import gov.nasa.jpl.parakeet.kernel.Name
+import gov.nasa.jpl.parakeet.kernel.tasks.Task
 
 /**
  * Any node in the DAG used to represent incremental simulation state.

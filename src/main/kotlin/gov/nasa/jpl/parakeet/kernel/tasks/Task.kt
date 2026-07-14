@@ -1,7 +1,7 @@
 package gov.nasa.jpl.parakeet.kernel.tasks
 
-import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
+import gov.nasa.jpl.parakeet.kernel.Name
+import gov.nasa.jpl.parakeet.kernel.KernelTaskCheckpoint
 
 /**
  * Any task which may run in a simulation.

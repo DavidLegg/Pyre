@@ -1,13 +1,13 @@
 # Intro to Modeling
 
-In this series, we'll introduce a brand-new user of Pyre to the basic concepts of modeling.
+In this series, we'll introduce a brand-new user of Parakeet to the basic concepts of modeling.
 
 This series assumes a basic familiarity with Kotlin.
 General Kotlin syntax and features will not be explained.
-No familiarity with Pyre is required.
+No familiarity with Parakeet is required.
 
-By the end of this series, you will be able to create some simple models and begin to read Pyre modeling code.
-The aim is to give you enough familiarity with the basic constructs of Pyre that you can investigate more complex models on your own.
+By the end of this series, you will be able to create some simple models and begin to read Parakeet modeling code.
+The aim is to give you enough familiarity with the basic constructs of Parakeet that you can investigate more complex models on your own.
 
 Each lesson includes a markdown file, which describes how to use the feature introduced in that lesson.
 Most lessons start with the code from the prior lesson, so reading the lessons in order is highly recommended.

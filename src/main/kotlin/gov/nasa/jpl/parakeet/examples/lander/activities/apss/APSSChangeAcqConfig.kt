@@ -1,15 +1,15 @@
 package gov.nasa.jpl.parakeet.examples.lander.activities.apss
 
-import gov.nasa.jpl.pyre.examples.lander.Mission
-import gov.nasa.jpl.pyre.examples.lander.models.apss.APSSModel
-import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel.PelItem
-import gov.nasa.jpl.pyre.examples.lander.models.wake.WakeModel
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
-import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.examples.lander.Mission
+import gov.nasa.jpl.parakeet.examples.lander.models.apss.APSSModel
+import gov.nasa.jpl.parakeet.examples.lander.models.power.PowerModel.PelItem
+import gov.nasa.jpl.parakeet.examples.lander.models.wake.WakeModel
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.parakeet.foundation.resources.getValue
+import gov.nasa.jpl.parakeet.foundation.tasks.SimulationScope.Companion.simulationClock
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskOperations.delayUntil
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 import kotlinx.serialization.Serializable
 import kotlin.collections.getValue
 import kotlin.time.Duration

@@ -1,7 +1,7 @@
 package gov.nasa.jpl.parakeet.general.results
 
-import gov.nasa.jpl.pyre.foundation.resources.Expiring
-import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.parakeet.foundation.resources.Expiring
+import gov.nasa.jpl.parakeet.kernel.Name
 import kotlin.time.Instant
 
 /**

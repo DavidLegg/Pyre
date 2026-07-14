@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.general.units
 
-import gov.nasa.jpl.pyre.general.units.quantity.DoubleField
+import gov.nasa.jpl.parakeet.general.units.quantity.DoubleField
 import kotlin.math.pow
 
 /**

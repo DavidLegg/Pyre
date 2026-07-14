@@ -1,9 +1,9 @@
 package gov.nasa.jpl.parakeet.general.units.polynomial_quantity_resource
 
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
-import gov.nasa.jpl.pyre.general.units.Scaling
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.general.resources.polynomial.IntegralResource
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResource
+import gov.nasa.jpl.parakeet.general.units.Scaling
 
 object IntegralPolynomialResourceScaling : Scaling<IntegralResource> {
     override fun Double.times(other: IntegralResource): IntegralResource =

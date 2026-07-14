@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.examples.sequencing
 
-import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
+import gov.nasa.jpl.parakeet.general.plans.runStandardPlanSimulation
 import kotlin.io.path.Path
 import kotlin.io.path.absolute
 

@@ -1,8 +1,8 @@
 package gov.nasa.jpl.parakeet.kernel
 
-import gov.nasa.jpl.pyre.kernel.tasks.*
-import gov.nasa.jpl.pyre.kernel.tasks.TaskStepResult.*
-import gov.nasa.jpl.pyre.utilities.andThen
+import gov.nasa.jpl.parakeet.kernel.tasks.*
+import gov.nasa.jpl.parakeet.kernel.tasks.TaskStepResult.*
+import gov.nasa.jpl.parakeet.utilities.andThen
 import java.util.*
 import java.util.Comparator.comparing
 import kotlin.reflect.KType

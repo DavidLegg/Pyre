@@ -1,8 +1,8 @@
 package gov.nasa.jpl.parakeet.foundation.reporting
 
-import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.utilities.Serialization.alias
+import gov.nasa.jpl.parakeet.kernel.Name
+import gov.nasa.jpl.parakeet.utilities.InvertibleFunction
+import gov.nasa.jpl.parakeet.utilities.Serialization.alias
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable

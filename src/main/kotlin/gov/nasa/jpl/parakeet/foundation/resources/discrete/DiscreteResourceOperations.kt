@@ -1,15 +1,15 @@
 package gov.nasa.jpl.parakeet.foundation.resources.discrete
 
-import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
-import gov.nasa.jpl.pyre.foundation.resources.emit
-import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
-import gov.nasa.jpl.pyre.foundation.resources.resource
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.parakeet.utilities.Reflection.withArg
+import gov.nasa.jpl.parakeet.utilities.named
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceMonad.map
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.parakeet.foundation.resources.emit
+import gov.nasa.jpl.parakeet.foundation.resources.fullyNamed
+import gov.nasa.jpl.parakeet.foundation.resources.resource
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.kernel.Name
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 

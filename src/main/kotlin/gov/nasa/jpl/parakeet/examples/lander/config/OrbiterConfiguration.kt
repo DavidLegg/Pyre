@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.examples.lander.config
 
-import gov.nasa.jpl.pyre.examples.lander.models.data.DataConfig
+import gov.nasa.jpl.parakeet.examples.lander.models.data.DataConfig
 import kotlinx.serialization.Serializable
 
 @Serializable

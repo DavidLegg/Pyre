@@ -1,15 +1,15 @@
 package gov.nasa.jpl.parakeet.foundation.reporting
 
-import gov.nasa.jpl.pyre.foundation.resources.Dynamics
-import gov.nasa.jpl.pyre.foundation.resources.FaultedResourceException
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions.wheneverChanges
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.channel
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
-import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stderr
-import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.parakeet.foundation.resources.Dynamics
+import gov.nasa.jpl.parakeet.foundation.resources.FaultedResourceException
+import gov.nasa.jpl.parakeet.foundation.resources.Resource
+import gov.nasa.jpl.parakeet.foundation.tasks.Reactions.wheneverChanges
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope.Companion.channel
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope.Companion.spawn
+import gov.nasa.jpl.parakeet.foundation.tasks.ReportScope.Companion.report
+import gov.nasa.jpl.parakeet.foundation.tasks.SimulationScope.Companion.stderr
+import gov.nasa.jpl.parakeet.kernel.NameOperations.div
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 

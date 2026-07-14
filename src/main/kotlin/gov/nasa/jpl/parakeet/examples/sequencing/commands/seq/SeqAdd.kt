@@ -1,12 +1,12 @@
 package gov.nasa.jpl.parakeet.examples.sequencing.commands.seq
 
-import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
-import gov.nasa.jpl.pyre.examples.sequencing.fsw.FswModel.GlobalIntVarName
-import gov.nasa.jpl.pyre.examples.sequencing.primeness.SideIndicator.PRIME
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
-import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.examples.sequencing.SequencingDemo
+import gov.nasa.jpl.parakeet.examples.sequencing.fsw.FswModel.GlobalIntVarName
+import gov.nasa.jpl.parakeet.examples.sequencing.primeness.SideIndicator.PRIME
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.IntResourceOperations.increment
+import gov.nasa.jpl.parakeet.foundation.resources.getValue
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

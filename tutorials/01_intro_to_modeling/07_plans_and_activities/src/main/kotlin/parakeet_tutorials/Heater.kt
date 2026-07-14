@@ -1,13 +1,13 @@
 package parakeet_tutorials
 
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions.onceWhenever
-import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
+import gov.nasa.jpl.parakeet.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope.Companion.spawn
+import gov.nasa.jpl.parakeet.foundation.tasks.Reactions.onceWhenever
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskOperations.delay
 import kotlin.time.Duration.Companion.minutes
 
 class Heater(initScope: InitScope) {

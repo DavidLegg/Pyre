@@ -1,10 +1,10 @@
 package gov.nasa.jpl.parakeet.kernel.tasks
 
-import gov.nasa.jpl.pyre.kernel.Cell
-import gov.nasa.jpl.pyre.kernel.Effect
+import gov.nasa.jpl.parakeet.kernel.Cell
+import gov.nasa.jpl.parakeet.kernel.Effect
 
 /**
- * The "non-yielding" actions a [gov.nasa.jpl.pyre.kernel.tasks.PureTask] can take.
+ * The "non-yielding" actions a [gov.nasa.jpl.parakeet.kernel.tasks.PureTask] can take.
  *
  * Non-yielding actions don't interrupt the flow of control, aka "yield".
  */

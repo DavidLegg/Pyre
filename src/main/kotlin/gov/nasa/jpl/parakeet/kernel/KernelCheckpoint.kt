@@ -1,7 +1,7 @@
 package gov.nasa.jpl.parakeet.kernel
 
-import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
-import gov.nasa.jpl.pyre.kernel.tasks.TaskHistory
+import gov.nasa.jpl.parakeet.foundation.serialization.InstantSerializer
+import gov.nasa.jpl.parakeet.kernel.tasks.TaskHistory
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 

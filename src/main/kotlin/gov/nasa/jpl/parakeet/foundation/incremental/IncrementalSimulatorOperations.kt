@@ -1,8 +1,8 @@
 package gov.nasa.jpl.parakeet.foundation.incremental
 
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
-import gov.nasa.jpl.pyre.foundation.plans.Plan
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.plans.GroundedActivity
+import gov.nasa.jpl.parakeet.foundation.plans.Plan
 import kotlin.collections.plus
 import kotlin.time.Instant
 

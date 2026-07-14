@@ -1,9 +1,9 @@
 package gov.nasa.jpl.parakeet.examples.lander.models.data
 
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
 
 class InstrumentHKChannel(
     context: InitScope,

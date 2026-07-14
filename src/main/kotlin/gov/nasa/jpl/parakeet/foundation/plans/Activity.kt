@@ -1,7 +1,7 @@
 package gov.nasa.jpl.parakeet.foundation.plans
 
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.kernel.Name
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable

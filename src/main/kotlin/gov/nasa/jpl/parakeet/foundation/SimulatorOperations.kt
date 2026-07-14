@@ -1,10 +1,10 @@
 package gov.nasa.jpl.parakeet.foundation
 
-import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
-import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
+import gov.nasa.jpl.parakeet.foundation.plans.Checkpoint
+import gov.nasa.jpl.parakeet.foundation.plans.GroundedActivity
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.general.results.MutableSimulationResults
+import gov.nasa.jpl.parakeet.general.results.SimulationResultsOperations.reportHandler
 import kotlin.time.Instant
 
 object SimulatorOperations {

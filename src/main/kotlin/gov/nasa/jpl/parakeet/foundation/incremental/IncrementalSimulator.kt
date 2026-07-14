@@ -1,8 +1,8 @@
 package gov.nasa.jpl.parakeet.foundation.incremental
 
-import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
-import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.general.results.SimulationResults
+import gov.nasa.jpl.parakeet.foundation.plans.Checkpoint
+import gov.nasa.jpl.parakeet.foundation.plans.Plan
+import gov.nasa.jpl.parakeet.general.results.SimulationResults
 import kotlin.time.Instant
 
 interface IncrementalSimulator<M> {

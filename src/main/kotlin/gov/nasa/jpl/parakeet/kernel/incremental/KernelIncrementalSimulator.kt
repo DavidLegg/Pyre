@@ -1,38 +1,38 @@
 package gov.nasa.jpl.parakeet.kernel.incremental
 
-import gov.nasa.jpl.pyre.kernel.incremental.IncSimNode.*
-import gov.nasa.jpl.pyre.kernel.BasicInitScope
-import gov.nasa.jpl.pyre.kernel.Cell
-import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.KernelCheckpoint
-import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
-import gov.nasa.jpl.pyre.kernel.MutableDependentMap
-import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.ReadActions
-import gov.nasa.jpl.pyre.kernel.SatisfiedAt
-import gov.nasa.jpl.pyre.kernel.incremental.IncSimNodeOperations.awaitGroup
-import gov.nasa.jpl.pyre.kernel.incremental.IncSimNodeOperations.priorNodes
-import gov.nasa.jpl.pyre.kernel.incremental.IncSimNodeOperations.thisAndNextNodes
-import gov.nasa.jpl.pyre.kernel.incremental.IncSimNodeOperations.thisAndPriorNodes
-import gov.nasa.jpl.pyre.kernel.incremental.KernelIncrementalSimulator.FrontierAction.*
-import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.batchStart
-import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.cellSteppingBatch
-import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.isCausallyAfter
-import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.isCausallyBefore
-import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.isConcurrentWith
-import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.nextCellBatch
-import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.nextStep
-import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.nextTaskBatch
-import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.sameBatchAs
-import gov.nasa.jpl.pyre.kernel.incremental.SimulationTimeOperations.sameBranchAs
-import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
-import gov.nasa.jpl.pyre.kernel.tasks.KernelTask
-import gov.nasa.jpl.pyre.kernel.tasks.PureTask
-import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
-import gov.nasa.jpl.pyre.kernel.tasks.Task
-import gov.nasa.jpl.pyre.kernel.tasks.TaskStepResult
-import gov.nasa.jpl.pyre.utilities.compose
-import gov.nasa.jpl.pyre.utilities.identity
+import gov.nasa.jpl.parakeet.kernel.incremental.IncSimNode.*
+import gov.nasa.jpl.parakeet.kernel.BasicInitScope
+import gov.nasa.jpl.parakeet.kernel.Cell
+import gov.nasa.jpl.parakeet.kernel.Effect
+import gov.nasa.jpl.parakeet.kernel.KernelCheckpoint
+import gov.nasa.jpl.parakeet.kernel.KernelTaskCheckpoint
+import gov.nasa.jpl.parakeet.kernel.MutableDependentMap
+import gov.nasa.jpl.parakeet.kernel.Name
+import gov.nasa.jpl.parakeet.kernel.ReadActions
+import gov.nasa.jpl.parakeet.kernel.SatisfiedAt
+import gov.nasa.jpl.parakeet.kernel.incremental.IncSimNodeOperations.awaitGroup
+import gov.nasa.jpl.parakeet.kernel.incremental.IncSimNodeOperations.priorNodes
+import gov.nasa.jpl.parakeet.kernel.incremental.IncSimNodeOperations.thisAndNextNodes
+import gov.nasa.jpl.parakeet.kernel.incremental.IncSimNodeOperations.thisAndPriorNodes
+import gov.nasa.jpl.parakeet.kernel.incremental.KernelIncrementalSimulator.FrontierAction.*
+import gov.nasa.jpl.parakeet.kernel.incremental.SimulationTimeOperations.batchStart
+import gov.nasa.jpl.parakeet.kernel.incremental.SimulationTimeOperations.cellSteppingBatch
+import gov.nasa.jpl.parakeet.kernel.incremental.SimulationTimeOperations.isCausallyAfter
+import gov.nasa.jpl.parakeet.kernel.incremental.SimulationTimeOperations.isCausallyBefore
+import gov.nasa.jpl.parakeet.kernel.incremental.SimulationTimeOperations.isConcurrentWith
+import gov.nasa.jpl.parakeet.kernel.incremental.SimulationTimeOperations.nextCellBatch
+import gov.nasa.jpl.parakeet.kernel.incremental.SimulationTimeOperations.nextStep
+import gov.nasa.jpl.parakeet.kernel.incremental.SimulationTimeOperations.nextTaskBatch
+import gov.nasa.jpl.parakeet.kernel.incremental.SimulationTimeOperations.sameBatchAs
+import gov.nasa.jpl.parakeet.kernel.incremental.SimulationTimeOperations.sameBranchAs
+import gov.nasa.jpl.parakeet.kernel.tasks.BasicTaskActions
+import gov.nasa.jpl.parakeet.kernel.tasks.KernelTask
+import gov.nasa.jpl.parakeet.kernel.tasks.PureTask
+import gov.nasa.jpl.parakeet.kernel.tasks.PureTaskStep
+import gov.nasa.jpl.parakeet.kernel.tasks.Task
+import gov.nasa.jpl.parakeet.kernel.tasks.TaskStepResult
+import gov.nasa.jpl.parakeet.utilities.compose
+import gov.nasa.jpl.parakeet.utilities.identity
 import java.io.File
 import java.util.PriorityQueue
 import java.util.TreeMap
@@ -49,7 +49,7 @@ import kotlin.time.Instant.Companion.DISTANT_FUTURE
 import kotlin.time.Instant.Companion.DISTANT_PAST
 
 /**
- * Provides kernel-level incremental simulation with parity to [gov.nasa.jpl.pyre.kernel.KernelSimulator]
+ * Provides kernel-level incremental simulation with parity to [gov.nasa.jpl.parakeet.kernel.KernelSimulator]
  */
 class KernelIncrementalSimulator(
     private val planStart: Instant,

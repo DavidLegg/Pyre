@@ -1,9 +1,9 @@
 package gov.nasa.jpl.parakeet.examples.lander.models.time
 
-import gov.nasa.jpl.pyre.general.resources.unstructured.UnstructuredResource
-import gov.nasa.jpl.pyre.general.resources.unstructured.UnstructuredResourceApplicative.map
-import gov.nasa.jpl.pyre.general.resources.unstructured.UnstructuredResourceOperations.asUnstructured
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.general.resources.unstructured.UnstructuredResource
+import gov.nasa.jpl.parakeet.general.resources.unstructured.UnstructuredResourceApplicative.map
+import gov.nasa.jpl.parakeet.general.resources.unstructured.UnstructuredResourceOperations.asUnstructured
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
 import kotlin.time.ExperimentalTime
 import kotlin.time.toJavaInstant
 

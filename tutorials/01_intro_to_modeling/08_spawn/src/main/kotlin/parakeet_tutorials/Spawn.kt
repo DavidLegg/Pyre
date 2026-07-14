@@ -1,11 +1,11 @@
 package parakeet_tutorials
 
-import gov.nasa.jpl.pyre.examples.scheduling.GroundedActivity
-import gov.nasa.jpl.pyre.foundation.Simulator
-import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
-import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
+import gov.nasa.jpl.parakeet.examples.scheduling.GroundedActivity
+import gov.nasa.jpl.parakeet.foundation.Simulator
+import gov.nasa.jpl.parakeet.foundation.plans.GroundedActivity
+import gov.nasa.jpl.parakeet.foundation.plans.Plan
+import gov.nasa.jpl.parakeet.general.results.MutableSimulationResults
+import gov.nasa.jpl.parakeet.general.results.SimulationResultsOperations.reportHandler
 import parakeet_tutorials.util.Output.dump
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours

@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.general.units
 
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.times
 
 object StandardUnits {
     // SI Base Units

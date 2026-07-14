@@ -1,20 +1,20 @@
 package gov.nasa.jpl.parakeet.examples.scheduling.system.model
 
-import gov.nasa.jpl.pyre.examples.scheduling.data.model.DataModel
-import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel
-import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget
-import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel
-import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.BodyAxis
-import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel
-import gov.nasa.jpl.pyre.examples.scheduling.power.model.PowerModel
-import gov.nasa.jpl.pyre.examples.scheduling.power.model.PowerModel.OnOff
-import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
-import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.and
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.equals
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.parakeet.examples.scheduling.data.model.DataModel
+import gov.nasa.jpl.parakeet.examples.scheduling.geometry.model.GeometryModel
+import gov.nasa.jpl.parakeet.examples.scheduling.geometry.model.GeometryModel.PointingTarget
+import gov.nasa.jpl.parakeet.examples.scheduling.gnc.model.GncModel
+import gov.nasa.jpl.parakeet.examples.scheduling.gnc.model.GncModel.BodyAxis
+import gov.nasa.jpl.parakeet.examples.scheduling.imager.model.ImagerModel
+import gov.nasa.jpl.parakeet.examples.scheduling.power.model.PowerModel
+import gov.nasa.jpl.parakeet.examples.scheduling.power.model.PowerModel.OnOff
+import gov.nasa.jpl.parakeet.examples.scheduling.telecom.model.TelecomModel
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.BooleanResourceOperations.and
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceMonad.map
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.equals
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope.Companion.subContext
 
 class SystemModel(
     context: InitScope,

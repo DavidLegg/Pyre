@@ -1,17 +1,17 @@
 package gov.nasa.jpl.parakeet.examples.lander.models.comm
 
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
-import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.integral
+import gov.nasa.jpl.parakeet.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResource
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableBooleanResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.parakeet.general.resources.polynomial.IntegralResource
+import gov.nasa.jpl.parakeet.general.resources.polynomial.Polynomial
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.integral
 
 class CommModel(
     context: InitScope,

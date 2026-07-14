@@ -1,12 +1,12 @@
 package gov.nasa.jpl.parakeet.examples.scheduling.gnc.activities
 
-import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget
-import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel
-import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.BodyAxis
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.examples.scheduling.geometry.model.GeometryModel.PointingTarget
+import gov.nasa.jpl.parakeet.examples.scheduling.gnc.model.GncModel
+import gov.nasa.jpl.parakeet.examples.scheduling.gnc.model.GncModel.BodyAxis
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.parakeet.foundation.tasks.Reactions.await
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

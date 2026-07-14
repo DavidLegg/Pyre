@@ -1,8 +1,8 @@
 package gov.nasa.jpl.parakeet.foundation
 
-import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
-import gov.nasa.jpl.pyre.general.results.SimulationResults
-import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.Discrete
+import gov.nasa.jpl.parakeet.general.results.SimulationResults
+import gov.nasa.jpl.parakeet.kernel.Name
 import kotlin.test.assertEquals
 import kotlin.time.Instant
 

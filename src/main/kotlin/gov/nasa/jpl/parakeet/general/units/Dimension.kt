@@ -1,7 +1,7 @@
 package gov.nasa.jpl.parakeet.general.units
 
-import gov.nasa.jpl.pyre.general.units.Rational.Companion.ONE
-import gov.nasa.jpl.pyre.general.units.Rational.Companion.ZERO
+import gov.nasa.jpl.parakeet.general.units.Rational.Companion.ONE
+import gov.nasa.jpl.parakeet.general.units.Rational.Companion.ZERO
 
 class Dimension private constructor(
     private val definition: Map<BaseDimension, Rational>

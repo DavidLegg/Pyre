@@ -1,12 +1,12 @@
 package gov.nasa.jpl.parakeet.examples.scheduling.telecom.activities
 
-import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
-import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
-import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.examples.scheduling.telecom.model.TelecomModel
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.plans.ActivityActions.call
+import gov.nasa.jpl.parakeet.foundation.resources.getValue
+import gov.nasa.jpl.parakeet.foundation.tasks.SimulationScope.Companion.simulationClock
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskOperations.delayUntil
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration

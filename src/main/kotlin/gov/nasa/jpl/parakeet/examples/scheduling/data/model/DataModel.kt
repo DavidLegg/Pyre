@@ -1,25 +1,25 @@
 package gov.nasa.jpl.parakeet.examples.scheduling.data.model
 
-import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource
-import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResource
-import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.asPolynomial
-import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.clampedIntegral
-import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.constant
-import gov.nasa.jpl.pyre.general.units.quantity.Quantity
-import gov.nasa.jpl.pyre.general.units.StandardUnits.BIT
-import gov.nasa.jpl.pyre.general.units.StandardUnits.BYTE
-import gov.nasa.jpl.pyre.general.units.StandardUnits.GIGABYTE
-import gov.nasa.jpl.pyre.general.units.StandardUnits.MEGABYTE
-import gov.nasa.jpl.pyre.general.units.StandardUnits.SECOND
-import gov.nasa.jpl.pyre.general.units.Unit
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.upcast
-import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.integral
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
+import gov.nasa.jpl.parakeet.general.units.quantity_resource.QuantityResource
+import gov.nasa.jpl.parakeet.general.units.polynomial_quantity_resource.PolynomialQuantityResource
+import gov.nasa.jpl.parakeet.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.asPolynomial
+import gov.nasa.jpl.parakeet.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.clampedIntegral
+import gov.nasa.jpl.parakeet.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.constant
+import gov.nasa.jpl.parakeet.general.units.quantity.Quantity
+import gov.nasa.jpl.parakeet.general.units.StandardUnits.BIT
+import gov.nasa.jpl.parakeet.general.units.StandardUnits.BYTE
+import gov.nasa.jpl.parakeet.general.units.StandardUnits.GIGABYTE
+import gov.nasa.jpl.parakeet.general.units.StandardUnits.MEGABYTE
+import gov.nasa.jpl.parakeet.general.units.StandardUnits.SECOND
+import gov.nasa.jpl.parakeet.general.units.Unit
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.times
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.minus
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.upcast
+import gov.nasa.jpl.parakeet.general.units.polynomial_quantity_resource.PolynomialQuantityResourceOperations.integral
+import gov.nasa.jpl.parakeet.general.units.unit_aware_resource.UnitAwareResourceOperations.named
+import gov.nasa.jpl.parakeet.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
+import gov.nasa.jpl.parakeet.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
 
 val BITS_PER_SECOND = Unit.derived("bps", BIT / SECOND)
 

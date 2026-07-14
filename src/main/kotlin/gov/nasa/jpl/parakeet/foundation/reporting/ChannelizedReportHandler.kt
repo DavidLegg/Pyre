@@ -1,9 +1,9 @@
 package gov.nasa.jpl.parakeet.foundation.reporting
 
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
-import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.ReportHandler
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport.ChannelData
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport.ChannelMetadata
+import gov.nasa.jpl.parakeet.kernel.Name
+import gov.nasa.jpl.parakeet.kernel.ReportHandler
 
 /**
  * Variation on [ReportHandler] specialized to handle channelized data.

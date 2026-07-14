@@ -1,9 +1,9 @@
 package gov.nasa.jpl.parakeet
 
-import gov.nasa.jpl.pyre.examples.scheduling.geometry.utils.unitAware
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.general.units.quantity.Quantity
-import gov.nasa.jpl.pyre.general.units.quantity.QuantityOperations.abs
+import gov.nasa.jpl.parakeet.examples.scheduling.geometry.utils.unitAware
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.times
+import gov.nasa.jpl.parakeet.general.units.quantity.Quantity
+import gov.nasa.jpl.parakeet.general.units.quantity.QuantityOperations.abs
 
 object UnitAwareAssertions {
     fun assertEquals(

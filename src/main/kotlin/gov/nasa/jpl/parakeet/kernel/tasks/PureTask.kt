@@ -1,13 +1,13 @@
 package gov.nasa.jpl.parakeet.kernel.tasks
 
-import gov.nasa.jpl.pyre.kernel.Cell
-import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
-import gov.nasa.jpl.pyre.kernel.tasks.PureTask.TaskHistoryStep.*
-import gov.nasa.jpl.pyre.kernel.tasks.TaskHistoryCollector.Companion.report
-import gov.nasa.jpl.pyre.kernel.tasks.TaskHistoryProvider.Companion.provide
-import gov.nasa.jpl.pyre.utilities.Reflection.withArg
+import gov.nasa.jpl.parakeet.kernel.Cell
+import gov.nasa.jpl.parakeet.kernel.Effect
+import gov.nasa.jpl.parakeet.kernel.Name
+import gov.nasa.jpl.parakeet.kernel.KernelTaskCheckpoint
+import gov.nasa.jpl.parakeet.kernel.tasks.PureTask.TaskHistoryStep.*
+import gov.nasa.jpl.parakeet.kernel.tasks.TaskHistoryCollector.Companion.report
+import gov.nasa.jpl.parakeet.kernel.tasks.TaskHistoryProvider.Companion.provide
+import gov.nasa.jpl.parakeet.utilities.Reflection.withArg
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.reflect.KType

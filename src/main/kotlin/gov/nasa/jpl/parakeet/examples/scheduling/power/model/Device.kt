@@ -1,19 +1,19 @@
 package gov.nasa.jpl.parakeet.examples.scheduling.power.model
 
-import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource
-import gov.nasa.jpl.pyre.general.units.quantity.Quantity
-import gov.nasa.jpl.pyre.general.units.StandardUnits.WATT
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.register
-import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
-import gov.nasa.jpl.pyre.foundation.resources.named
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
+import gov.nasa.jpl.parakeet.utilities.Reflection.withArg
+import gov.nasa.jpl.parakeet.general.units.quantity_resource.QuantityResource
+import gov.nasa.jpl.parakeet.general.units.quantity.Quantity
+import gov.nasa.jpl.parakeet.general.units.StandardUnits.WATT
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.times
+import gov.nasa.jpl.parakeet.foundation.reporting.Reporting.register
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.Discrete
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceMonad.map
+import gov.nasa.jpl.parakeet.foundation.resources.named
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.general.units.unit_aware_resource.UnitAwareResourceOperations.named
+import gov.nasa.jpl.parakeet.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
+import gov.nasa.jpl.parakeet.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 

@@ -1,8 +1,8 @@
 package gov.nasa.jpl.parakeet.general.units
 
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.general.units.quantity.Quantity
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
+import gov.nasa.jpl.parakeet.foundation.resources.Resource
+import gov.nasa.jpl.parakeet.general.units.quantity.Quantity
+import gov.nasa.jpl.parakeet.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
 
 class UnitAware<T>(
     private val value: T,

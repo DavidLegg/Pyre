@@ -1,17 +1,17 @@
 package gov.nasa.jpl.parakeet.foundation.plans
 
-import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
-import gov.nasa.jpl.pyre.kernel.DependentMap
-import gov.nasa.jpl.pyre.kernel.KernelTaskCheckpoint
-import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.tasks.TaskHistory
+import gov.nasa.jpl.parakeet.foundation.serialization.InstantSerializer
+import gov.nasa.jpl.parakeet.kernel.DependentMap
+import gov.nasa.jpl.parakeet.kernel.KernelTaskCheckpoint
+import gov.nasa.jpl.parakeet.kernel.Name
+import gov.nasa.jpl.parakeet.kernel.tasks.TaskHistory
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
 /**
- * A checkpoint of [gov.nasa.jpl.pyre.foundation.Simulator] which supports serialization to disk.
+ * A checkpoint of [gov.nasa.jpl.parakeet.foundation.Simulator] which supports serialization to disk.
  *
- * Unlike [gov.nasa.jpl.pyre.kernel.KernelCheckpoint], this separates tasks explicitly into [daemons] and [activities].
+ * Unlike [gov.nasa.jpl.parakeet.kernel.KernelCheckpoint], this separates tasks explicitly into [daemons] and [activities].
  * [daemons] are tasks which originate from the model. The model constructor facilitates resuming these.
  * [activities] are tasks which originate outside the model. They carry a deserializable root task with them.
  */

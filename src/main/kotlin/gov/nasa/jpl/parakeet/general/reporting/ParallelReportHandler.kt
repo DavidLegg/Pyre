@@ -1,8 +1,8 @@
 package gov.nasa.jpl.parakeet.general.reporting
 
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
-import gov.nasa.jpl.pyre.kernel.ReportHandler
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelizedReportHandler
+import gov.nasa.jpl.parakeet.kernel.ReportHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel

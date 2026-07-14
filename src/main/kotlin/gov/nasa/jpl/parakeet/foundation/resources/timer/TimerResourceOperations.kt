@@ -1,15 +1,15 @@
 package gov.nasa.jpl.parakeet.foundation.resources.timer
 
-import gov.nasa.jpl.pyre.foundation.resources.*
-import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad.map
-import gov.nasa.jpl.pyre.foundation.resources.discrete.*
-import gov.nasa.jpl.pyre.foundation.resources.timer.TimerOperations.minus
-import gov.nasa.jpl.pyre.foundation.resources.timer.TimerOperations.plus
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
-import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.utilities.named
+import gov.nasa.jpl.parakeet.foundation.resources.*
+import gov.nasa.jpl.parakeet.foundation.resources.ResourceMonad.map
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.*
+import gov.nasa.jpl.parakeet.foundation.resources.timer.TimerOperations.minus
+import gov.nasa.jpl.parakeet.foundation.resources.timer.TimerOperations.plus
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.kernel.Durations.EPSILON
+import gov.nasa.jpl.parakeet.kernel.Name
+import gov.nasa.jpl.parakeet.utilities.named
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.INFINITE
 import kotlin.time.Duration.Companion.ZERO

@@ -1,16 +1,16 @@
 package gov.nasa.jpl.parakeet.general.state_machines
 
-import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctions.allow
-import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctions.prohibit
-import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctions.transitionGroups
-import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctions.transitionMap
-import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctions.transitionTable
-import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctions.transitions
-import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctionsTest.State.*
-import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctionsTest.Stimulus.*
-import gov.nasa.jpl.pyre.general.testing.UnitTesting.runUnitTest
+import gov.nasa.jpl.parakeet.foundation.resources.getValue
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.general.state_machines.TransitionFunctions.allow
+import gov.nasa.jpl.parakeet.general.state_machines.TransitionFunctions.prohibit
+import gov.nasa.jpl.parakeet.general.state_machines.TransitionFunctions.transitionGroups
+import gov.nasa.jpl.parakeet.general.state_machines.TransitionFunctions.transitionMap
+import gov.nasa.jpl.parakeet.general.state_machines.TransitionFunctions.transitionTable
+import gov.nasa.jpl.parakeet.general.state_machines.TransitionFunctions.transitions
+import gov.nasa.jpl.parakeet.general.state_machines.TransitionFunctionsTest.State.*
+import gov.nasa.jpl.parakeet.general.state_machines.TransitionFunctionsTest.Stimulus.*
+import gov.nasa.jpl.parakeet.general.testing.UnitTesting.runUnitTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.fail
 import kotlin.test.Test

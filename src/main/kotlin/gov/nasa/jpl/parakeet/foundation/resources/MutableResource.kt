@@ -1,16 +1,16 @@
 package gov.nasa.jpl.parakeet.foundation.resources
 
-import gov.nasa.jpl.pyre.utilities.Reflection.withArg
-import gov.nasa.jpl.pyre.utilities.andThen
-import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.kernel.*
-import gov.nasa.jpl.pyre.foundation.resources.AutoEffect.Companion.autoMerge
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.allocate
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.parakeet.utilities.Reflection.withArg
+import gov.nasa.jpl.parakeet.utilities.andThen
+import gov.nasa.jpl.parakeet.utilities.named
+import gov.nasa.jpl.parakeet.kernel.*
+import gov.nasa.jpl.parakeet.foundation.resources.AutoEffect.Companion.autoMerge
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope.Companion.allocate
+import gov.nasa.jpl.parakeet.foundation.tasks.ResourceScope
+import gov.nasa.jpl.parakeet.foundation.tasks.SimulationScope
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.kernel.NameOperations.div
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.time.Duration

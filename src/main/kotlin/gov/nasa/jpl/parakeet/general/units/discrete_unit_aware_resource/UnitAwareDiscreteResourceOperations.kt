@@ -1,22 +1,22 @@
 package gov.nasa.jpl.parakeet.general.units.discrete_unit_aware_resource
 
-import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.equals
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThanOrEquals
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.lessThan
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.lessThanOrEquals
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.notEquals
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.general.units.Scaling
-import gov.nasa.jpl.pyre.general.units.UnitAware
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.map
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.BooleanResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceMonad
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.equals
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.greaterThanOrEquals
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.lessThan
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.lessThanOrEquals
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.notEquals
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.general.units.Scaling
+import gov.nasa.jpl.parakeet.general.units.UnitAware
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.map
 
 typealias UnitAwareDiscreteResource<T> = UnitAware<DiscreteResource<T>>
 typealias MutableUnitAwareDiscreteResource<T> = UnitAware<MutableDiscreteResource<T>>

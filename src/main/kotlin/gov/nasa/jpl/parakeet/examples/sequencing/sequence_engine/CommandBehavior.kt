@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.examples.sequencing.sequence_engine
 
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 
 fun interface CommandBehavior {
     context (scope: TaskScope)

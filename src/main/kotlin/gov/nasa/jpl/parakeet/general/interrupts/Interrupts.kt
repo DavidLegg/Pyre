@@ -1,15 +1,15 @@
 package gov.nasa.jpl.parakeet.general.interrupts
 
-import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.or
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.pure
-import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions.or
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenTrue
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.kernel.Cell
-import gov.nasa.jpl.pyre.kernel.Condition
+import gov.nasa.jpl.parakeet.kernel.Effect
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.BooleanResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.BooleanResourceOperations.or
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceMonad.pure
+import gov.nasa.jpl.parakeet.foundation.resources.getValue
+import gov.nasa.jpl.parakeet.foundation.tasks.Reactions.or
+import gov.nasa.jpl.parakeet.foundation.tasks.Reactions.whenTrue
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.kernel.Cell
+import gov.nasa.jpl.parakeet.kernel.Condition
 
 /**
  * Provides utilities for interrupting a task.

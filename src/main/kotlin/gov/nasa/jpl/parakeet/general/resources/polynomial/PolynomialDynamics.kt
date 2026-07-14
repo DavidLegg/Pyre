@@ -1,12 +1,12 @@
 package gov.nasa.jpl.parakeet.general.resources.polynomial
 
-import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.foundation.resources.*
-import gov.nasa.jpl.pyre.foundation.resources.ExpiringMonad.map
-import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
-import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
-import gov.nasa.jpl.pyre.kernel.Durations.MAX_PRECISE_DURATION
-import gov.nasa.jpl.pyre.utilities.Serialization.alias
+import gov.nasa.jpl.parakeet.utilities.InvertibleFunction
+import gov.nasa.jpl.parakeet.foundation.resources.*
+import gov.nasa.jpl.parakeet.foundation.resources.ExpiringMonad.map
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.Discrete
+import gov.nasa.jpl.parakeet.kernel.Durations.EPSILON
+import gov.nasa.jpl.parakeet.kernel.Durations.MAX_PRECISE_DURATION
+import gov.nasa.jpl.parakeet.utilities.Serialization.alias
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.DoubleArraySerializer

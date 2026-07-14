@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.foundation.incremental
 
-import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
+import gov.nasa.jpl.parakeet.foundation.plans.GroundedActivity
 
 // TODO - there's a latent bug somehow in the fuzz testing code
 //   where it builds a PlanEdits with an addition/removal pair that haven't cancelled out.

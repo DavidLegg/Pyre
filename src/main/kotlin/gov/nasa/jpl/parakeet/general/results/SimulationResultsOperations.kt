@@ -1,10 +1,10 @@
 package gov.nasa.jpl.parakeet.general.results
 
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions
-import gov.nasa.jpl.pyre.foundation.reporting.BaseChannelizedReportHandler
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
-import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.parakeet.foundation.plans.ActivityActions
+import gov.nasa.jpl.parakeet.foundation.reporting.BaseChannelizedReportHandler
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelizedReportHandler
+import gov.nasa.jpl.parakeet.kernel.Name
 import kotlin.collections.mapValuesTo
 
 object SimulationResultsOperations {

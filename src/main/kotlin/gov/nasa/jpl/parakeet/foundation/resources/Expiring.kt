@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.foundation.resources
 
-import gov.nasa.jpl.pyre.utilities.curry
+import gov.nasa.jpl.parakeet.utilities.curry
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.INFINITE

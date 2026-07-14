@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.foundation.resources.clock
 
-import gov.nasa.jpl.pyre.foundation.resources.timer.Timer
+import gov.nasa.jpl.parakeet.foundation.resources.timer.Timer
 import kotlin.time.Duration
 import kotlin.time.Instant
 

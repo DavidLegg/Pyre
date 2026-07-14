@@ -1,9 +1,9 @@
 package gov.nasa.jpl.parakeet.examples.sequencing.telecom
 
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableBooleanResource
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
 
 class TWTA(
     context: InitScope

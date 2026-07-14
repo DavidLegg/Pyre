@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.general.state_machines
 
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 
 typealias Action = suspend context (TaskScope) () -> Unit
 

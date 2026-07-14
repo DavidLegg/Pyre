@@ -1,8 +1,8 @@
 package gov.nasa.jpl.parakeet.examples.orbiter.power
 
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations.increase
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DoubleResourceOperations.increase
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 import kotlinx.serialization.Serializable
 
 @Serializable

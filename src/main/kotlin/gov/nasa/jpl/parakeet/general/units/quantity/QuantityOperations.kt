@@ -1,12 +1,12 @@
 package gov.nasa.jpl.parakeet.general.units.quantity
 
-import gov.nasa.jpl.pyre.general.units.StandardUnits
-import gov.nasa.jpl.pyre.general.units.StandardUnits.RADIAN
-import gov.nasa.jpl.pyre.general.units.UnitAware
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.plus
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.minus
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.div
+import gov.nasa.jpl.parakeet.general.units.StandardUnits
+import gov.nasa.jpl.parakeet.general.units.StandardUnits.RADIAN
+import gov.nasa.jpl.parakeet.general.units.UnitAware
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.plus
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.minus
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.times
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.div
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tan

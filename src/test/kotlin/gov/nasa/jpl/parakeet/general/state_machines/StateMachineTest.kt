@@ -1,13 +1,13 @@
 package gov.nasa.jpl.parakeet.general.state_machines
 
-import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stdout
-import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
-import gov.nasa.jpl.pyre.general.results.ResourceResults
-import gov.nasa.jpl.pyre.general.state_machines.TransitionFunctions.acceptTransition
-import gov.nasa.jpl.pyre.general.testing.UnitTesting.runUnitTest
-import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.parakeet.foundation.resources.getValue
+import gov.nasa.jpl.parakeet.foundation.tasks.ReportScope.Companion.report
+import gov.nasa.jpl.parakeet.foundation.tasks.SimulationScope.Companion.stdout
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskOperations.delay
+import gov.nasa.jpl.parakeet.general.results.ResourceResults
+import gov.nasa.jpl.parakeet.general.state_machines.TransitionFunctions.acceptTransition
+import gov.nasa.jpl.parakeet.general.testing.UnitTesting.runUnitTest
+import gov.nasa.jpl.parakeet.kernel.Name
 import org.junit.jupiter.api.Assertions.*
 import kotlin.test.Test
 import kotlin.time.Duration.Companion.hours

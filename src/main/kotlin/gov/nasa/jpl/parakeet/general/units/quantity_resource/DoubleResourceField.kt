@@ -1,9 +1,9 @@
 package gov.nasa.jpl.parakeet.general.units.quantity_resource
 
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResourceOperations
-import gov.nasa.jpl.pyre.general.units.Field
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceMonad
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DoubleResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DoubleResourceOperations
+import gov.nasa.jpl.parakeet.general.units.Field
 
 object DoubleResourceField : Field<DoubleResource> {
     override val zero: DoubleResource = DiscreteResourceMonad.pure(0.0)

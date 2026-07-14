@@ -1,16 +1,16 @@
 package gov.nasa.jpl.parakeet.foundation.tasks
 
-import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResourceOperations.not
-import gov.nasa.jpl.pyre.foundation.resources.*
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.simulationClock
-import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.await
-import gov.nasa.jpl.pyre.kernel.Condition
-import gov.nasa.jpl.pyre.kernel.ReadActions
-import gov.nasa.jpl.pyre.kernel.SatisfiedAt
-import gov.nasa.jpl.pyre.kernel.UnsatisfiedUntil
+import gov.nasa.jpl.parakeet.utilities.named
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.BooleanResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.BooleanResourceOperations.not
+import gov.nasa.jpl.parakeet.foundation.resources.*
+import gov.nasa.jpl.parakeet.foundation.tasks.SimulationScope.Companion.simulationClock
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskOperations.delay
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope.Companion.await
+import gov.nasa.jpl.parakeet.kernel.Condition
+import gov.nasa.jpl.parakeet.kernel.ReadActions
+import gov.nasa.jpl.parakeet.kernel.SatisfiedAt
+import gov.nasa.jpl.parakeet.kernel.UnsatisfiedUntil
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.INFINITE
 import kotlin.time.Duration.Companion.ZERO

@@ -1,7 +1,7 @@
 package gov.nasa.jpl.parakeet.kernel.tasks
 
-import gov.nasa.jpl.pyre.kernel.Condition
-import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.parakeet.kernel.Condition
+import gov.nasa.jpl.parakeet.kernel.Name
 
 fun interface PureTaskStep {
     fun run(actions: BasicTaskActions): PureStepResult

@@ -1,18 +1,18 @@
 package gov.nasa.jpl.parakeet.examples.scheduling.imager.model
 
-import gov.nasa.jpl.pyre.examples.scheduling.data.model.BITS_PER_SECOND
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource
-import gov.nasa.jpl.pyre.general.units.quantity.Quantity
-import gov.nasa.jpl.pyre.general.units.Unit
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.named
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
+import gov.nasa.jpl.parakeet.examples.scheduling.data.model.BITS_PER_SECOND
+import gov.nasa.jpl.parakeet.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.parakeet.general.units.quantity_resource.QuantityResource
+import gov.nasa.jpl.parakeet.general.units.quantity.Quantity
+import gov.nasa.jpl.parakeet.general.units.Unit
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.times
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceMonad.map
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.general.units.unit_aware_resource.UnitAwareResourceOperations.named
+import gov.nasa.jpl.parakeet.general.units.unit_aware_resource.UnitAwareResourceOperations.registered
+import gov.nasa.jpl.parakeet.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
 
 // We can define a brand new dimension, like "image", to use the unit system to check calculations around images.
 // Note that this will be a different "image" unit and dimension than any other, even if somewhere else we define

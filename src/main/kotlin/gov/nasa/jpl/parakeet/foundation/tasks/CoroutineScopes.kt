@@ -1,23 +1,23 @@
 package gov.nasa.jpl.parakeet.foundation.tasks
 
-import gov.nasa.jpl.pyre.foundation.reporting.Channel
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
-import gov.nasa.jpl.pyre.foundation.resources.FaultedResourceException
-import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stderr
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.subSimulationScope
-import gov.nasa.jpl.pyre.kernel.Cell
-import gov.nasa.jpl.pyre.kernel.Condition
-import gov.nasa.jpl.pyre.kernel.ConditionResult
-import gov.nasa.jpl.pyre.kernel.Effect
-import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.NameOperations.div
-import gov.nasa.jpl.pyre.kernel.UnsatisfiedUntil
-import gov.nasa.jpl.pyre.kernel.tasks.PureTaskStep
-import gov.nasa.jpl.pyre.kernel.tasks.BasicTaskActions
-import gov.nasa.jpl.pyre.kernel.tasks.PureStepResult
-import gov.nasa.jpl.pyre.kernel.tasks.PureStepResult.*
+import gov.nasa.jpl.parakeet.foundation.reporting.Channel
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport.ChannelData
+import gov.nasa.jpl.parakeet.foundation.resources.FaultedResourceException
+import gov.nasa.jpl.parakeet.foundation.tasks.ReportScope.Companion.report
+import gov.nasa.jpl.parakeet.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.parakeet.foundation.tasks.SimulationScope.Companion.stderr
+import gov.nasa.jpl.parakeet.foundation.tasks.SimulationScope.Companion.subSimulationScope
+import gov.nasa.jpl.parakeet.kernel.Cell
+import gov.nasa.jpl.parakeet.kernel.Condition
+import gov.nasa.jpl.parakeet.kernel.ConditionResult
+import gov.nasa.jpl.parakeet.kernel.Effect
+import gov.nasa.jpl.parakeet.kernel.Name
+import gov.nasa.jpl.parakeet.kernel.NameOperations.div
+import gov.nasa.jpl.parakeet.kernel.UnsatisfiedUntil
+import gov.nasa.jpl.parakeet.kernel.tasks.PureTaskStep
+import gov.nasa.jpl.parakeet.kernel.tasks.BasicTaskActions
+import gov.nasa.jpl.parakeet.kernel.tasks.PureStepResult
+import gov.nasa.jpl.parakeet.kernel.tasks.PureStepResult.*
 import kotlin.coroutines.*
 import kotlin.coroutines.intrinsics.*
 import kotlin.time.Duration.Companion.INFINITE
@@ -52,7 +52,7 @@ sealed interface TaskScopeResult {
 }
 
 /**
- * Write a coroutine Pyre task.
+ * Write a coroutine Parakeet task.
  *
  * Example:
  * ```
@@ -92,7 +92,7 @@ fun coroutineTask(block: suspend context (TaskScope) () -> TaskScopeResult): Pur
     }
 
 /**
- * Write a coroutine Pyre task which never repeats.
+ * Write a coroutine Parakeet task which never repeats.
  *
  * @see coroutineTask
  * @see repeatingTask
@@ -102,7 +102,7 @@ fun task(block: suspend context (TaskScope) () -> Unit): suspend context (TaskSc
     { block(); TaskScopeResult.Complete }
 
 /**
- * Write a coroutine Pyre task which automatically repeats.
+ * Write a coroutine Parakeet task which automatically repeats.
  *
  * @see coroutineTask
  * @see task

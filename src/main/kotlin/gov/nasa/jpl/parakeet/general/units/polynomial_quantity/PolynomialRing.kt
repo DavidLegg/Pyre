@@ -1,7 +1,7 @@
 package gov.nasa.jpl.parakeet.general.units.polynomial_quantity
 
-import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial
-import gov.nasa.jpl.pyre.general.units.Ring
+import gov.nasa.jpl.parakeet.general.resources.polynomial.Polynomial
+import gov.nasa.jpl.parakeet.general.units.Ring
 
 object PolynomialRing : Ring<Polynomial> {
     override val zero: Polynomial = Polynomial.polynomial(0.0)

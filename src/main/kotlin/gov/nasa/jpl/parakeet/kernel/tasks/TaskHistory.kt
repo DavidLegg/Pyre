@@ -1,7 +1,7 @@
 package gov.nasa.jpl.parakeet.kernel.tasks
 
-import gov.nasa.jpl.pyre.kernel.tasks.PureTask.TaskHistoryStep
-import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromJsonElement
+import gov.nasa.jpl.parakeet.kernel.tasks.PureTask.TaskHistoryStep
+import gov.nasa.jpl.parakeet.utilities.Serialization.decodeFromJsonElement
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -31,7 +31,7 @@ import kotlin.reflect.typeOf
  */
 
 /**
- * Collects each step of a task history as an individual report, for saving to [gov.nasa.jpl.pyre.kernel.KernelCheckpoint].
+ * Collects each step of a task history as an individual report, for saving to [gov.nasa.jpl.parakeet.kernel.KernelCheckpoint].
  * Implementations of this type are stateful and are mutated by [report].
  */
 interface TaskHistoryCollector {
@@ -43,7 +43,7 @@ interface TaskHistoryCollector {
 }
 
 /**
- * Provides reports indicating what steps a task has taken, usually from [gov.nasa.jpl.pyre.kernel.KernelCheckpoint].
+ * Provides reports indicating what steps a task has taken, usually from [gov.nasa.jpl.parakeet.kernel.KernelCheckpoint].
  * Implementations of this type are stateful and are mutated by [provide], like an Iterator would be.
  */
 interface TaskHistoryProvider {

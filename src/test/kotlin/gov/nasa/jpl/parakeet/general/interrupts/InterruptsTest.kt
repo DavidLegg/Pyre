@@ -1,16 +1,16 @@
 package gov.nasa.jpl.parakeet.general.interrupts
 
-import gov.nasa.jpl.pyre.general.interrupts.Interrupts.abortIf
-import gov.nasa.jpl.pyre.general.testing.UnitTesting.runUnitTest
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableBooleanResource
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.spawn
-import gov.nasa.jpl.pyre.foundation.tasks.task
+import gov.nasa.jpl.parakeet.general.interrupts.Interrupts.abortIf
+import gov.nasa.jpl.parakeet.general.testing.UnitTesting.runUnitTest
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableBooleanResource
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskOperations.delay
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope.Companion.spawn
+import gov.nasa.jpl.parakeet.foundation.tasks.task
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.fail

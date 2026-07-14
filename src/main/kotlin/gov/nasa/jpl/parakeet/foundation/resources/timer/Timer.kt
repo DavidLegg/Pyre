@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.foundation.resources.timer
 
-import gov.nasa.jpl.pyre.foundation.resources.Dynamics
+import gov.nasa.jpl.parakeet.foundation.resources.Dynamics
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration
 

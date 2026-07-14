@@ -1,7 +1,7 @@
 plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
-rootProject.name = "pyre"
+rootProject.name = "parakeet"
 
 include("tutorials:util")
 file("tutorials").listFiles()?.forEach { section ->

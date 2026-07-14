@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.kernel
 
-import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromJsonElement
+import gov.nasa.jpl.parakeet.utilities.Serialization.decodeFromJsonElement
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.SerialDescriptor

@@ -1,10 +1,10 @@
 package gov.nasa.jpl.parakeet.general.reporting
 
-import gov.nasa.jpl.pyre.foundation.reporting.BaseChannelizedReportHandler
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler
-import gov.nasa.jpl.pyre.utilities.Serialization.encodeToStream
+import gov.nasa.jpl.parakeet.foundation.reporting.BaseChannelizedReportHandler
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport.ChannelData
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport.ChannelMetadata
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelizedReportHandler
+import gov.nasa.jpl.parakeet.utilities.Serialization.encodeToStream
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import java.io.OutputStream

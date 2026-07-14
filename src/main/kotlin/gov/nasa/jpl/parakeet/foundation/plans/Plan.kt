@@ -2,7 +2,7 @@
 
 package gov.nasa.jpl.parakeet.foundation.plans
 
-import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
+import gov.nasa.jpl.parakeet.foundation.serialization.InstantSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers

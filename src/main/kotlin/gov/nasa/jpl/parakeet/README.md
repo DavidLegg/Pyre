@@ -1,6 +1,6 @@
-# Pyre - Architecture
+# Parakeet - Architecture
 
-Pyre is architected in concentric layers of functionality.
+Parakeet is architected in concentric layers of functionality.
 Each layer strictly depends on functionality of lower layers only.
 
 Layers are allowed to reach more than one layer down.
@@ -13,4 +13,4 @@ The currently developed layers, from most foundational to least, are:
 - [foundation](foundation/README.md) - 
     The lowest layer most modelers directly interact with, used by virtually all modelers.
     An "ergonomics" wrapper around kernel, to facilitate more advanced functionality.
-- [general](general/README.md) - Advanced functionality, not essential but generally useful to at least some users of Pyre.
+- [general](general/README.md) - Advanced functionality, not essential but generally useful to at least some users of Parakeet.

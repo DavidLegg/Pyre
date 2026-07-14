@@ -1,24 +1,24 @@
 package gov.nasa.jpl.parakeet.general.scheduling
 
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
-import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.examples.scheduling.GroundedActivity
-import gov.nasa.jpl.pyre.foundation.Simulator
-import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulator
-import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorImpl
-import gov.nasa.jpl.pyre.foundation.incremental.IncrementalSimulatorOperations.applyTo
-import gov.nasa.jpl.pyre.foundation.incremental.PlanEdits
-import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
-import gov.nasa.jpl.pyre.foundation.resources.Dynamics
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
-import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
-import gov.nasa.jpl.pyre.general.results.ProfileOperations.getProfile
-import gov.nasa.jpl.pyre.general.results.SimulationResults
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.clear
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.plans.GroundedActivity
+import gov.nasa.jpl.parakeet.foundation.plans.Plan
+import gov.nasa.jpl.parakeet.examples.scheduling.GroundedActivity
+import gov.nasa.jpl.parakeet.foundation.Simulator
+import gov.nasa.jpl.parakeet.foundation.incremental.IncrementalSimulator
+import gov.nasa.jpl.parakeet.foundation.incremental.IncrementalSimulatorImpl
+import gov.nasa.jpl.parakeet.foundation.incremental.IncrementalSimulatorOperations.applyTo
+import gov.nasa.jpl.parakeet.foundation.incremental.PlanEdits
+import gov.nasa.jpl.parakeet.foundation.plans.Checkpoint
+import gov.nasa.jpl.parakeet.foundation.resources.Dynamics
+import gov.nasa.jpl.parakeet.foundation.resources.Resource
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.general.results.MutableSimulationResults
+import gov.nasa.jpl.parakeet.general.results.ProfileOperations.asResource
+import gov.nasa.jpl.parakeet.general.results.ProfileOperations.getProfile
+import gov.nasa.jpl.parakeet.general.results.SimulationResults
+import gov.nasa.jpl.parakeet.general.results.SimulationResultsOperations.clear
+import gov.nasa.jpl.parakeet.general.results.SimulationResultsOperations.reportHandler
 
 object SchedulingOperations {
     fun <M : Any> SchedulingSystem<M>.addActivities(activities: Collection<GroundedActivity<M>>) =

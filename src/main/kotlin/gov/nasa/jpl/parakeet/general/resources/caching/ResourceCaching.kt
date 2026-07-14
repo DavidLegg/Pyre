@@ -1,14 +1,14 @@
 package gov.nasa.jpl.parakeet.general.resources.caching
 
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
-import gov.nasa.jpl.pyre.foundation.resources.*
-import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.general.resources.caching.ResourceCaching.precomputedResource
-import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport.ChannelData
+import gov.nasa.jpl.parakeet.foundation.resources.*
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.Discrete
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope.Companion.spawn
+import gov.nasa.jpl.parakeet.foundation.tasks.Reactions.whenever
+import gov.nasa.jpl.parakeet.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.parakeet.general.resources.caching.ResourceCaching.precomputedResource
+import gov.nasa.jpl.parakeet.kernel.Name
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration.Companion.INFINITE

@@ -1,17 +1,17 @@
 package gov.nasa.jpl.parakeet.general.resources.lens
 
-import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.utilities.named
-import gov.nasa.jpl.pyre.foundation.resources.DynamicsMonad
-import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
-import gov.nasa.jpl.pyre.foundation.resources.MutableResource
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.resources.ResourceEffect
-import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResource
-import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.utilities.InvertibleFunction
+import gov.nasa.jpl.parakeet.utilities.named
+import gov.nasa.jpl.parakeet.foundation.resources.DynamicsMonad
+import gov.nasa.jpl.parakeet.foundation.resources.FullDynamics
+import gov.nasa.jpl.parakeet.foundation.resources.MutableResource
+import gov.nasa.jpl.parakeet.foundation.resources.Resource
+import gov.nasa.jpl.parakeet.foundation.resources.ResourceEffect
+import gov.nasa.jpl.parakeet.foundation.resources.ResourceMonad
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.getValue
+import gov.nasa.jpl.parakeet.foundation.tasks.ResourceScope
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 
 object MutableResourceLens {
     fun <K, V> select(key: DiscreteResource<K>, selector: (K) -> MutableResource<V>): MutableResource<V> =

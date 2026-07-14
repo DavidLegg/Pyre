@@ -1,15 +1,15 @@
 package gov.nasa.jpl.parakeet.examples.sequencing.fsw
 
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableIntResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableStringResource
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableDiscreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableIntResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableStringResource
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 
 class Variables(
     numberOfVariables: Map<VariableType, Int>,

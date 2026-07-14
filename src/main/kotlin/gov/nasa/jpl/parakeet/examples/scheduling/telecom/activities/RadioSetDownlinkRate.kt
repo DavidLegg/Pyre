@@ -1,13 +1,13 @@
 package gov.nasa.jpl.parakeet.examples.scheduling.telecom.activities
 
-import gov.nasa.jpl.pyre.examples.scheduling.data.model.BITS_PER_SECOND
-import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
-import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.general.units.discrete_unit_aware_resource.UnitAwareDiscreteResourceOperations.set
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
+import gov.nasa.jpl.parakeet.examples.scheduling.data.model.BITS_PER_SECOND
+import gov.nasa.jpl.parakeet.examples.scheduling.telecom.model.TelecomModel
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskOperations.delay
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.times
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.general.units.discrete_unit_aware_resource.UnitAwareDiscreteResourceOperations.set
+import gov.nasa.jpl.parakeet.general.units.unit_aware_resource.UnitAwareResourceOperations.unitAware
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration.Companion.seconds

@@ -1,7 +1,7 @@
 package gov.nasa.jpl.parakeet.general.monte_carlo
 
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 import kotlin.math.nextDown
 
 // TODO: Revamp this class, especially the duplication between all the initScope and TaskScope methods.

@@ -1,7 +1,7 @@
 package parakeet_tutorials.util
 
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
-import gov.nasa.jpl.pyre.general.results.SimulationResults
+import gov.nasa.jpl.parakeet.foundation.plans.ActivityActions.ActivityEvent
+import gov.nasa.jpl.parakeet.general.results.SimulationResults
 
 object Output {
     /**

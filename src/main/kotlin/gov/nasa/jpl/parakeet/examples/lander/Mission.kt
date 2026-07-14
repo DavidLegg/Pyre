@@ -1,18 +1,18 @@
 package gov.nasa.jpl.parakeet.examples.lander
 
-import gov.nasa.jpl.pyre.examples.lander.models.apss.APSSModel
-import gov.nasa.jpl.pyre.examples.lander.models.comm.CommModel
-import gov.nasa.jpl.pyre.examples.lander.models.data.DataModel
-import gov.nasa.jpl.pyre.examples.lander.models.dsn.DSNModel
-import gov.nasa.jpl.pyre.examples.lander.models.eng.EngModel
-import gov.nasa.jpl.pyre.examples.lander.models.heatprobe.HeatProbeModel
-import gov.nasa.jpl.pyre.examples.lander.models.ids.IDSModel
-import gov.nasa.jpl.pyre.examples.lander.models.power.PowerModel
-import gov.nasa.jpl.pyre.examples.lander.models.seis.SeisModel
-import gov.nasa.jpl.pyre.examples.lander.models.time.Clocks
-import gov.nasa.jpl.pyre.examples.lander.models.wake.WakeModel
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.parakeet.examples.lander.models.apss.APSSModel
+import gov.nasa.jpl.parakeet.examples.lander.models.comm.CommModel
+import gov.nasa.jpl.parakeet.examples.lander.models.data.DataModel
+import gov.nasa.jpl.parakeet.examples.lander.models.dsn.DSNModel
+import gov.nasa.jpl.parakeet.examples.lander.models.eng.EngModel
+import gov.nasa.jpl.parakeet.examples.lander.models.heatprobe.HeatProbeModel
+import gov.nasa.jpl.parakeet.examples.lander.models.ids.IDSModel
+import gov.nasa.jpl.parakeet.examples.lander.models.power.PowerModel
+import gov.nasa.jpl.parakeet.examples.lander.models.seis.SeisModel
+import gov.nasa.jpl.parakeet.examples.lander.models.time.Clocks
+import gov.nasa.jpl.parakeet.examples.lander.models.wake.WakeModel
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope.Companion.subContext
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class)
@@ -32,7 +32,7 @@ class Mission(context: InitScope) {
 
     init {
         // TODO: Consider how to load configuration from environment with each run?
-        //   Is this something that even makes sense in Pyre?
+        //   Is this something that even makes sense in Parakeet?
         with (context) {
             config = Configuration()
             clocks = Clocks(subContext("time"))

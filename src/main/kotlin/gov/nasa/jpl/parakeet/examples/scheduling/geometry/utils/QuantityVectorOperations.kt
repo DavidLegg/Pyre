@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.examples.scheduling.geometry.utils
 
-import gov.nasa.jpl.pyre.general.units.UnitAware
+import gov.nasa.jpl.parakeet.general.units.UnitAware
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D
 
 typealias QuantityVector = UnitAware<Vector3D>

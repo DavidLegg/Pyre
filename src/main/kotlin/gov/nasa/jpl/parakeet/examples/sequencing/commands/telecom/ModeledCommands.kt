@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.examples.sequencing.commands.telecom
 
-import gov.nasa.jpl.pyre.examples.sequencing.commands.ModeledCommands
+import gov.nasa.jpl.parakeet.examples.sequencing.commands.ModeledCommands
 
 val TELECOM_MODELED_COMMANDS = ModeledCommands {
     activity(ChangeBitRate::class)

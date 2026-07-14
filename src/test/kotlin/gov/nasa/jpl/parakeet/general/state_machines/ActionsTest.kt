@@ -1,7 +1,7 @@
 package gov.nasa.jpl.parakeet.general.state_machines
 
-import gov.nasa.jpl.pyre.general.state_machines.Actions.stateActions
-import gov.nasa.jpl.pyre.general.state_machines.Actions.transitionActions
+import gov.nasa.jpl.parakeet.general.state_machines.Actions.stateActions
+import gov.nasa.jpl.parakeet.general.state_machines.Actions.transitionActions
 import org.junit.jupiter.api.Assertions.*
 import kotlin.test.Test
 import kotlin.test.assertSame

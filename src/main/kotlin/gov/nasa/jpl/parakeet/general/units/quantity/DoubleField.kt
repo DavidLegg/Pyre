@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.general.units.quantity
 
-import gov.nasa.jpl.pyre.general.units.Field
+import gov.nasa.jpl.parakeet.general.units.Field
 
 object DoubleField : Field<Double> {
     override val zero = 0.0

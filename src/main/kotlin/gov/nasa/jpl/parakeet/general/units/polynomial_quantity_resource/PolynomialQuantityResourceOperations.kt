@@ -1,31 +1,31 @@
 package gov.nasa.jpl.parakeet.general.units.polynomial_quantity_resource
 
-import gov.nasa.jpl.pyre.general.units.quantity_resource.QuantityResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.MutablePolynomialResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.decrease
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.greaterThan
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.greaterThanOrEquals
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.increase
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.lessThan
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.lessThanOrEquals
-import gov.nasa.jpl.pyre.general.units.quantity.DoubleField
-import gov.nasa.jpl.pyre.general.units.quantity.Quantity
-import gov.nasa.jpl.pyre.general.units.StandardUnits.SECOND
-import gov.nasa.jpl.pyre.general.units.UnitAware
-import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.clamp
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.clampedIntegral
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.derivative
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.integral
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.map
-import gov.nasa.jpl.pyre.general.units.polynomial_quantity.PolynomialQuantityOperations
-import gov.nasa.jpl.pyre.general.units.unit_aware_resource.UnitAwareResourceOperations.resource
+import gov.nasa.jpl.parakeet.general.units.quantity_resource.QuantityResource
+import gov.nasa.jpl.parakeet.general.resources.polynomial.IntegralResource
+import gov.nasa.jpl.parakeet.general.resources.polynomial.MutablePolynomialResource
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResource
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.decrease
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.greaterThan
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.greaterThanOrEquals
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.increase
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.lessThan
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.lessThanOrEquals
+import gov.nasa.jpl.parakeet.general.units.quantity.DoubleField
+import gov.nasa.jpl.parakeet.general.units.quantity.Quantity
+import gov.nasa.jpl.parakeet.general.units.StandardUnits.SECOND
+import gov.nasa.jpl.parakeet.general.units.UnitAware
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.BooleanResource
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.clamp
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.clampedIntegral
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.derivative
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.integral
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.map
+import gov.nasa.jpl.parakeet.general.units.polynomial_quantity.PolynomialQuantityOperations
+import gov.nasa.jpl.parakeet.general.units.unit_aware_resource.UnitAwareResourceOperations.resource
 
 typealias PolynomialQuantityResource = UnitAware<PolynomialResource>
 typealias MutablePolynomialQuantityResource = UnitAware<MutablePolynomialResource>

@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.foundation.reporting
 
-import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.parakeet.kernel.Name
 import kotlin.reflect.KType
 
 class Channel<T> internal constructor(

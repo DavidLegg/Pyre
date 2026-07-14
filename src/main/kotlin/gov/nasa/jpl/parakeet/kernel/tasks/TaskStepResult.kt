@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.kernel.tasks
 
-import gov.nasa.jpl.pyre.kernel.Condition
+import gov.nasa.jpl.parakeet.kernel.Condition
 
 /**
  * The result of running one step of a [Task]

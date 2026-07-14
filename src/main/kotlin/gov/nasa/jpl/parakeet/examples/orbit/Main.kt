@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.examples.orbit
 
-import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
+import gov.nasa.jpl.parakeet.general.plans.runStandardPlanSimulation
 
 // This is a simple setup, using default choices for how to run a simulation.
 // Most importantly, it chooses to read and write files for incon, plan, outputs, and fincon,

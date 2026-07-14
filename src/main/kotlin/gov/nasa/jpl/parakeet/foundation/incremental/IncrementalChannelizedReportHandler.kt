@@ -1,14 +1,14 @@
 package gov.nasa.jpl.parakeet.foundation.incremental
 
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.*
-import gov.nasa.jpl.pyre.kernel.incremental.IncSimNode.*
-import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.incremental.IncrementalReport
-import gov.nasa.jpl.pyre.kernel.incremental.IncrementalReportHandler
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport.*
+import gov.nasa.jpl.parakeet.kernel.incremental.IncSimNode.*
+import gov.nasa.jpl.parakeet.kernel.Name
+import gov.nasa.jpl.parakeet.kernel.incremental.IncrementalReport
+import gov.nasa.jpl.parakeet.kernel.incremental.IncrementalReportHandler
 
 /**
- * The combination of [IncrementalReportHandler] and [gov.nasa.jpl.pyre.foundation.reporting.ChannelizedReportHandler],
+ * The combination of [IncrementalReportHandler] and [gov.nasa.jpl.parakeet.foundation.reporting.ChannelizedReportHandler],
  * a report handler which constructs channels during initialization,
  * and permits both issuing and revoking reports on those channels.
  */

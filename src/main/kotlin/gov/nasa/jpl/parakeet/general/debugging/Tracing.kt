@@ -1,13 +1,13 @@
 package gov.nasa.jpl.parakeet.general.debugging
 
-import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
-import gov.nasa.jpl.pyre.foundation.resources.MutableResource
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.resources.ResourceEffect
-import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.kernel.Condition
+import gov.nasa.jpl.parakeet.foundation.resources.FullDynamics
+import gov.nasa.jpl.parakeet.foundation.resources.MutableResource
+import gov.nasa.jpl.parakeet.foundation.resources.Resource
+import gov.nasa.jpl.parakeet.foundation.resources.ResourceEffect
+import gov.nasa.jpl.parakeet.foundation.resources.fullyNamed
+import gov.nasa.jpl.parakeet.foundation.tasks.ResourceScope.Companion.now
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.kernel.Condition
 
 object Tracing {
     /**

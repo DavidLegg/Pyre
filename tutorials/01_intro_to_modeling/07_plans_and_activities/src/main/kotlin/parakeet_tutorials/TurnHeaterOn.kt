@@ -1,7 +1,7 @@
 package parakeet_tutorials
 
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 import parakeet_tutorials.Heater.HeaterState
 
 data object TurnHeaterOn : Activity<Heater> {

@@ -1,14 +1,14 @@
 package parakeet_tutorials
 
-import gov.nasa.jpl.pyre.foundation.Simulator
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableIntResource
-import gov.nasa.jpl.pyre.foundation.resources.named
-import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
+import gov.nasa.jpl.parakeet.foundation.Simulator
+import gov.nasa.jpl.parakeet.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.BooleanResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableIntResource
+import gov.nasa.jpl.parakeet.foundation.resources.named
+import gov.nasa.jpl.parakeet.general.results.MutableSimulationResults
+import gov.nasa.jpl.parakeet.general.results.SimulationResultsOperations.reportHandler
 import kotlin.time.Instant
 import parakeet_tutorials.util.Output.dump
 import kotlin.time.Duration.Companion.days

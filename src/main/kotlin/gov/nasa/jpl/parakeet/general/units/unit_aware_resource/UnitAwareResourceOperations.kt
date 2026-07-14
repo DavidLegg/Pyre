@@ -1,39 +1,39 @@
 package gov.nasa.jpl.parakeet.general.units.unit_aware_resource
 
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.Metadatum
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.resources.Dynamics
-import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
-import gov.nasa.jpl.pyre.foundation.resources.MutableResource
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
-import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.resources.named
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
-import gov.nasa.jpl.pyre.general.resources.polynomial.IntegralResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.MutablePolynomialResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.Polynomial
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
-import gov.nasa.jpl.pyre.general.units.Field
-import gov.nasa.jpl.pyre.general.units.Ring
-import gov.nasa.jpl.pyre.general.units.Scaling
-import gov.nasa.jpl.pyre.general.units.Unit
-import gov.nasa.jpl.pyre.general.units.UnitAware
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.map
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
-import gov.nasa.jpl.pyre.general.units.polynomial_quantity.PolynomialRing
-import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.IntegralPolynomialResourceScaling
-import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.MutablePolynomialResourceScaling
-import gov.nasa.jpl.pyre.general.units.polynomial_quantity_resource.PolynomialResourceRing
-import gov.nasa.jpl.pyre.general.units.quantity.DoubleField
-import gov.nasa.jpl.pyre.general.units.quantity_resource.DoubleResourceField
-import gov.nasa.jpl.pyre.general.units.quantity_resource.MutableDoubleResourceScaling
-import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport.Metadatum
+import gov.nasa.jpl.parakeet.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.parakeet.foundation.resources.Dynamics
+import gov.nasa.jpl.parakeet.foundation.resources.FullDynamics
+import gov.nasa.jpl.parakeet.foundation.resources.MutableResource
+import gov.nasa.jpl.parakeet.foundation.resources.Resource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DoubleResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.parakeet.foundation.resources.fullyNamed
+import gov.nasa.jpl.parakeet.foundation.resources.getValue
+import gov.nasa.jpl.parakeet.foundation.resources.named
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.ResourceScope
+import gov.nasa.jpl.parakeet.foundation.tasks.SimulationScope
+import gov.nasa.jpl.parakeet.general.resources.polynomial.IntegralResource
+import gov.nasa.jpl.parakeet.general.resources.polynomial.MutablePolynomialResource
+import gov.nasa.jpl.parakeet.general.resources.polynomial.Polynomial
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResource
+import gov.nasa.jpl.parakeet.general.units.Field
+import gov.nasa.jpl.parakeet.general.units.Ring
+import gov.nasa.jpl.parakeet.general.units.Scaling
+import gov.nasa.jpl.parakeet.general.units.Unit
+import gov.nasa.jpl.parakeet.general.units.UnitAware
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.map
+import gov.nasa.jpl.parakeet.general.units.UnitAware.Companion.name
+import gov.nasa.jpl.parakeet.general.units.polynomial_quantity.PolynomialRing
+import gov.nasa.jpl.parakeet.general.units.polynomial_quantity_resource.IntegralPolynomialResourceScaling
+import gov.nasa.jpl.parakeet.general.units.polynomial_quantity_resource.MutablePolynomialResourceScaling
+import gov.nasa.jpl.parakeet.general.units.polynomial_quantity_resource.PolynomialResourceRing
+import gov.nasa.jpl.parakeet.general.units.quantity.DoubleField
+import gov.nasa.jpl.parakeet.general.units.quantity_resource.DoubleResourceField
+import gov.nasa.jpl.parakeet.general.units.quantity_resource.MutableDoubleResourceScaling
+import gov.nasa.jpl.parakeet.kernel.Name
 import kotlin.contracts.ExperimentalContracts
 
 object UnitAwareResourceOperations {
@@ -42,7 +42,7 @@ object UnitAwareResourceOperations {
      */
     context (_: InitScope)
     inline fun <V, reified D : Dynamics<V, D>> resource(name: String, initialDynamics: UnitAware<D>): UnitAware<MutableResource<D>> =
-        initialDynamics.map { gov.nasa.jpl.pyre.foundation.resources.resource(name, it) }
+        initialDynamics.map { gov.nasa.jpl.parakeet.foundation.resources.resource(name, it) }
 
     context (_: InitScope, _: Scaling<R>)
     inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> UnitAware<R>.registered(unit: Unit): UnitAware<R> = also {

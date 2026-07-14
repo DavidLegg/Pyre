@@ -3,7 +3,7 @@
 Scheduling is the process of building up an activity plan, usually by simulating partial or hypothetical plans
 and refining activity parameters and placements in response to the simulated behavior.
 
-Scheduling in Pyre is accomplished primarily through the [SchedulingSystem](./SchedulingSystem.kt) class,
+Scheduling in Parakeet is accomplished primarily through the [SchedulingSystem](./SchedulingSystem.kt) class,
 with more advanced functionality provided by [SchedulingAlgorithms](./SchedulingAlgorithms.kt).
 
 See [the scheduling example](../../examples/scheduling/Main.kt) for a working example of how to do scheduling.

@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.foundation.resources
 
-import gov.nasa.jpl.pyre.kernel.Effect
+import gov.nasa.jpl.parakeet.kernel.Effect
 
 /**
  * An [Effect] which automatically handles commutativity by brute-force checking.

@@ -1,10 +1,10 @@
 package gov.nasa.jpl.parakeet.general.units.quantity_resource
 
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteMonad.map
-import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
-import gov.nasa.jpl.pyre.general.resources.lens.MutableResourceLens.view
-import gov.nasa.jpl.pyre.general.units.Scaling
-import gov.nasa.jpl.pyre.utilities.InvertibleFunction
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteMonad.map
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.MutableDoubleResource
+import gov.nasa.jpl.parakeet.general.resources.lens.MutableResourceLens.view
+import gov.nasa.jpl.parakeet.general.units.Scaling
+import gov.nasa.jpl.parakeet.utilities.InvertibleFunction
 
 object MutableDoubleResourceScaling : Scaling<MutableDoubleResource> {
     // Since scaling is invertible, we can scale a mutable double resource, preserving mutability, through a view.

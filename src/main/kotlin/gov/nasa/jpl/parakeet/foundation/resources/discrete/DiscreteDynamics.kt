@@ -1,16 +1,16 @@
 package gov.nasa.jpl.parakeet.foundation.resources.discrete
 
-import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.utilities.curry
-import gov.nasa.jpl.pyre.foundation.resources.Dynamics
-import gov.nasa.jpl.pyre.foundation.resources.DynamicsMonad
-import gov.nasa.jpl.pyre.foundation.resources.FullDynamics
-import gov.nasa.jpl.pyre.foundation.resources.MutableResource
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.resources.ResourceMonad
-import gov.nasa.jpl.pyre.foundation.resources.fullyNamed
-import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.utilities.Serialization.alias
+import gov.nasa.jpl.parakeet.utilities.InvertibleFunction
+import gov.nasa.jpl.parakeet.utilities.curry
+import gov.nasa.jpl.parakeet.foundation.resources.Dynamics
+import gov.nasa.jpl.parakeet.foundation.resources.DynamicsMonad
+import gov.nasa.jpl.parakeet.foundation.resources.FullDynamics
+import gov.nasa.jpl.parakeet.foundation.resources.MutableResource
+import gov.nasa.jpl.parakeet.foundation.resources.Resource
+import gov.nasa.jpl.parakeet.foundation.resources.ResourceMonad
+import gov.nasa.jpl.parakeet.foundation.resources.fullyNamed
+import gov.nasa.jpl.parakeet.kernel.Name
+import gov.nasa.jpl.parakeet.utilities.Serialization.alias
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration

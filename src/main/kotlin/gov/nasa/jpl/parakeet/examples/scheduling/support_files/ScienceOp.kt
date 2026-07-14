@@ -1,6 +1,6 @@
 package gov.nasa.jpl.parakeet.examples.scheduling.support_files
 
-import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel
+import gov.nasa.jpl.parakeet.examples.scheduling.geometry.model.GeometryModel
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant

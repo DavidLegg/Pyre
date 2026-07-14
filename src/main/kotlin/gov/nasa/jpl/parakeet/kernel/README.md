@@ -1,6 +1,6 @@
-# Pyre - Kernel
+# Parakeet - Kernel
 
-Kernel is the lowest runnable layer of Pyre.
+Kernel is the lowest runnable layer of Parakeet.
 This layer intends to define the bare minimum of types and logic to run a simulation.
 This layer intends to be ergonomic to run, but not necessarily to write.
 
@@ -85,13 +85,13 @@ Given a simulation initializer S, running S until some time T should produce ide
 
 To make this guarantee, all mutable simulation state should be in a cell, and all tasks must be deterministic.
 Compile-time constants do not need to be in a cell.
-Mutable state outside of a cell cannot be managed by Pyre, and may cause the save/restore contract above to fail
+Mutable state outside of a cell cannot be managed by Parakeet, and may cause the save/restore contract above to fail
 in hard-to-predict and hard-to-debug ways.
 Similarly, task nondeterminism, for example by accessing the system RNG or reading a file, can cause the save/restore
 system to fail in similarly mysterious ways.
 
 Tasks should only report results using the Report task step result.
-This is the only way for Pyre to manage task outputs, including ignoring redundant outputs during a task restore.
+This is the only way for Parakeet to manage task outputs, including ignoring redundant outputs during a task restore.
 
 Cells are saved and restored in the obvious way, by serializing the value directly.
 Tasks are saved indirectly, by saving a "history" for the task.

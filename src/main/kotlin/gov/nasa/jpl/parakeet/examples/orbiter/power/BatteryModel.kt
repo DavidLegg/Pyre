@@ -1,19 +1,19 @@
 package gov.nasa.jpl.parakeet.examples.orbiter.power
 
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResource
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.clampedIntegral
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.constant
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.derivative
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.div
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.greaterThanOrEquals
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.lessThanOrEquals
-import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
-import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceMonad.map
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DoubleResource
-import gov.nasa.jpl.pyre.foundation.resources.named
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResource
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.asPolynomial
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.clampedIntegral
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.constant
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.derivative
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.div
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.greaterThanOrEquals
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.lessThanOrEquals
+import gov.nasa.jpl.parakeet.foundation.reporting.Reporting.registered
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.BooleanResource
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceMonad.map
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DoubleResource
+import gov.nasa.jpl.parakeet.foundation.resources.named
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
 
 class BatteryModel(
     context: InitScope,

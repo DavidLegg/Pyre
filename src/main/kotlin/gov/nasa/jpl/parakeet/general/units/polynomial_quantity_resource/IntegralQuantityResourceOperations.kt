@@ -1,9 +1,9 @@
 package gov.nasa.jpl.parakeet.general.units.polynomial_quantity_resource
 
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.general.resources.polynomial.PolynomialResourceOperations.decrease
-import gov.nasa.jpl.pyre.general.units.quantity.DoubleField
-import gov.nasa.jpl.pyre.general.units.quantity.Quantity
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.decrease
+import gov.nasa.jpl.parakeet.general.units.quantity.DoubleField
+import gov.nasa.jpl.parakeet.general.units.quantity.Quantity
 
 object IntegralQuantityResourceOperations {
     context (scope: TaskScope)

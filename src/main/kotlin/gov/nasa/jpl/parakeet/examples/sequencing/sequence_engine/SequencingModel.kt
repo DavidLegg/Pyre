@@ -1,14 +1,14 @@
 package gov.nasa.jpl.parakeet.examples.sequencing.sequence_engine
 
-import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
-import gov.nasa.jpl.pyre.examples.sequencing.fsw.FswModel.GlobalIntVarName
-import gov.nasa.jpl.pyre.examples.sequencing.primeness.SideIndicator.PRIME
-import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.BranchIndicator
-import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.SequenceEngine.CommandBlockDescription
-import gov.nasa.jpl.pyre.foundation.resources.getValue
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.subContext
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.examples.sequencing.SequencingDemo
+import gov.nasa.jpl.parakeet.examples.sequencing.fsw.FswModel.GlobalIntVarName
+import gov.nasa.jpl.parakeet.examples.sequencing.primeness.SideIndicator.PRIME
+import gov.nasa.jpl.parakeet.examples.sequencing.sequence_engine.SequenceEngine.BranchIndicator
+import gov.nasa.jpl.parakeet.examples.sequencing.sequence_engine.SequenceEngine.CommandBlockDescription
+import gov.nasa.jpl.parakeet.foundation.resources.getValue
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope.Companion.subContext
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 import kotlin.collections.map
 import kotlin.ranges.IntRange
 import kotlin.time.Duration.Companion.milliseconds

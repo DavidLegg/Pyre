@@ -1,9 +1,9 @@
 package gov.nasa.jpl.parakeet.examples.lander.activities.apss
 
-import gov.nasa.jpl.pyre.examples.lander.Mission
-import gov.nasa.jpl.pyre.examples.lander.models.data.DataConfig.APID.APID_APSS_CONTINUOUS_SCI
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.examples.lander.Mission
+import gov.nasa.jpl.parakeet.examples.lander.models.data.DataConfig.APID.APID_APSS_CONTINUOUS_SCI
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes

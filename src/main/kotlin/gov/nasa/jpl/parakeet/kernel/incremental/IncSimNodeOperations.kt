@@ -1,9 +1,9 @@
 package gov.nasa.jpl.parakeet.kernel.incremental
 
-import gov.nasa.jpl.pyre.kernel.incremental.IncSimNode.AwaitCompleteNode
-import gov.nasa.jpl.pyre.kernel.incremental.IncSimNode.AwaitNode
-import gov.nasa.jpl.pyre.kernel.incremental.IncSimNode.TaskNode
-import gov.nasa.jpl.pyre.kernel.incremental.IncSimNode.YieldingStepNode
+import gov.nasa.jpl.parakeet.kernel.incremental.IncSimNode.AwaitCompleteNode
+import gov.nasa.jpl.parakeet.kernel.incremental.IncSimNode.AwaitNode
+import gov.nasa.jpl.parakeet.kernel.incremental.IncSimNode.TaskNode
+import gov.nasa.jpl.parakeet.kernel.incremental.IncSimNode.YieldingStepNode
 
 object IncSimNodeOperations {
     fun TaskNode.thisAndPriorNodes() = generateSequence(this) { it.prior }

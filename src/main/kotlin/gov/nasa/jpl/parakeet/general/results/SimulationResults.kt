@@ -1,9 +1,9 @@
 package gov.nasa.jpl.parakeet.general.results
 
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelMetadata
-import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.parakeet.foundation.plans.ActivityActions.ActivityEvent
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport.ChannelData
+import gov.nasa.jpl.parakeet.foundation.reporting.ChannelReport.ChannelMetadata
+import gov.nasa.jpl.parakeet.kernel.Name
 import kotlin.time.Instant
 
 // Immutable default data types

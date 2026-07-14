@@ -1,10 +1,10 @@
 package gov.nasa.jpl.parakeet.foundation.resources
 
-import gov.nasa.jpl.pyre.utilities.curry
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope
-import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope
-import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.parakeet.utilities.curry
+import gov.nasa.jpl.parakeet.foundation.tasks.ResourceScope
+import gov.nasa.jpl.parakeet.foundation.tasks.SimulationScope
+import gov.nasa.jpl.parakeet.kernel.Name
+import gov.nasa.jpl.parakeet.kernel.NameOperations.div
 
 fun interface ThinResource<D> {
     context (scope: ResourceScope)

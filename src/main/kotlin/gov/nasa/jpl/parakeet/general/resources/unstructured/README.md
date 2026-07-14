@@ -1,6 +1,6 @@
 # Unstructured Resources
 
-Pyre's resource system is very flexible.
+Parakeet's resource system is very flexible.
 Most modeler's needs are well-covered by discrete, polynomial, and timer/clock resources.
 However, there are cases where either
 1. None of these types of resources are well-suited to the problem at hand, or

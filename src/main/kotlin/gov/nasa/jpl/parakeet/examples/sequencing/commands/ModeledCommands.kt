@@ -1,12 +1,12 @@
 package gov.nasa.jpl.parakeet.examples.sequencing.commands
 
-import gov.nasa.jpl.pyre.examples.sequencing.commands.seq.SEQ_MODELED_COMMANDS
-import gov.nasa.jpl.pyre.examples.sequencing.commands.telecom.TELECOM_MODELED_COMMANDS
-import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.Command
-import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.CommandBehavior
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.call
-import gov.nasa.jpl.pyre.foundation.plans.ActivityModuleBuilder
+import gov.nasa.jpl.parakeet.examples.sequencing.commands.seq.SEQ_MODELED_COMMANDS
+import gov.nasa.jpl.parakeet.examples.sequencing.commands.telecom.TELECOM_MODELED_COMMANDS
+import gov.nasa.jpl.parakeet.examples.sequencing.sequence_engine.Command
+import gov.nasa.jpl.parakeet.examples.sequencing.sequence_engine.CommandBehavior
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.plans.ActivityActions.call
+import gov.nasa.jpl.parakeet.foundation.plans.ActivityModuleBuilder
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.descriptors.PrimitiveKind

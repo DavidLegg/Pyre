@@ -1,11 +1,11 @@
 package gov.nasa.jpl.parakeet.general.monte_carlo
 
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions.every
-import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope.Companion.spawn
-import gov.nasa.jpl.pyre.general.testing.UnitTesting.runUnitTest
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.Reactions.every
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskOperations.delay
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope.Companion.spawn
+import gov.nasa.jpl.parakeet.general.testing.UnitTesting.runUnitTest
 import org.junit.jupiter.api.Assertions.*
 import kotlin.test.Test
 import kotlin.test.assertEquals

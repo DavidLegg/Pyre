@@ -1,9 +1,9 @@
 package gov.nasa.jpl.parakeet.examples.sequencing.activities
 
-import gov.nasa.jpl.pyre.examples.sequencing.SequencingDemo
-import gov.nasa.jpl.pyre.examples.sequencing.sequence_engine.Sequence
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.tasks.TaskScope
+import gov.nasa.jpl.parakeet.examples.sequencing.SequencingDemo
+import gov.nasa.jpl.parakeet.examples.sequencing.sequence_engine.Sequence
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

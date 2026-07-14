@@ -1,13 +1,13 @@
 package gov.nasa.jpl.parakeet.general.plans
 
-import gov.nasa.jpl.pyre.foundation.plans.Plan
-import gov.nasa.jpl.pyre.foundation.Simulator
-import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.general.reporting.ParallelReportHandler.Companion.inParallel
-import gov.nasa.jpl.pyre.general.reporting.usingEventCsvReportHandler
-import gov.nasa.jpl.pyre.utilities.Serialization.decodeFromFile
-import gov.nasa.jpl.pyre.utilities.Serialization.encodeToFile
+import gov.nasa.jpl.parakeet.foundation.plans.Plan
+import gov.nasa.jpl.parakeet.foundation.Simulator
+import gov.nasa.jpl.parakeet.foundation.plans.Checkpoint
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.general.reporting.ParallelReportHandler.Companion.inParallel
+import gov.nasa.jpl.parakeet.general.reporting.usingEventCsvReportHandler
+import gov.nasa.jpl.parakeet.utilities.Serialization.decodeFromFile
+import gov.nasa.jpl.parakeet.utilities.Serialization.encodeToFile
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

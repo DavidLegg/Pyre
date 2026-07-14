@@ -4,8 +4,8 @@
 
 The file [IncrementalSimulatorTest](./IncrementalSimulatorTest.kt) is the primary way we test incremental simulation.
 Although there are separate
-[kernel-](/main/kotlin/gov/nasa/jpl/pyre/kernel/incremental/KernelIncrementalSimulator.kt) and
-[foundation-level](/main/kotlin/gov/nasa/jpl/pyre/foundation/incremental/IncrementalSimulatorImpl.kt)
+[kernel-](/main/kotlin/gov/nasa/jpl/parakeet/kernel/incremental/KernelIncrementalSimulator.kt) and
+[foundation-level](/main/kotlin/gov/nasa/jpl/parakeet/foundation/incremental/IncrementalSimulatorImpl.kt)
 incremental simulators, they are not tested independently.
 It is hard to test the kernel-level incremental simulator directly,
 and that is not particularly valuable outside of the way it powers the foundation-level incremental simulator.

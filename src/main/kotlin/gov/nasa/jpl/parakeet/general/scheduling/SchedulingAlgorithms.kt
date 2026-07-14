@@ -1,10 +1,10 @@
 package gov.nasa.jpl.parakeet.general.scheduling
 
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
-import gov.nasa.jpl.pyre.general.scheduling.SchedulingOperations.plusAssign
-import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
-import gov.nasa.jpl.pyre.kernel.Name
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.plans.GroundedActivity
+import gov.nasa.jpl.parakeet.general.scheduling.SchedulingOperations.plusAssign
+import gov.nasa.jpl.parakeet.kernel.Durations.EPSILON
+import gov.nasa.jpl.parakeet.kernel.Name
 import org.apache.commons.math3.analysis.UnivariateFunction
 import org.apache.commons.math3.analysis.solvers.AllowedSolution
 import org.apache.commons.math3.analysis.solvers.BracketingNthOrderBrentSolver
