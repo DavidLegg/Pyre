@@ -8,30 +8,30 @@ import kotlin.time.Instant
 
 // Immutable default data types
 
-data class SimulationResults(
-    val startTime: Instant,
-    val endTime: Instant,
-    val resources: Map<Name, ResourceResults<*>>,
-    val activities: List<ActivityEvent>,
-)
+interface SimulationResults {
+    val startTime: Instant
+    val endTime: Instant
+    val resources: Map<Name, ResourceResults<*>>
+    val activities: List<ActivityEvent>
+}
 
-data class ResourceResults<T>(
-    val metadata: ChannelMetadata<T>,
-    val data: List<ChannelData<T>>,
-)
+interface ResourceResults<T> {
+    val metadata: ChannelMetadata<T>
+    val data: List<ChannelData<T>>
+}
 
 // Mutable variants used to collect results in memory, when appropriate
 
-class MutableSimulationResults(
-    var startTime: Instant = Instant.DISTANT_PAST,
-    var endTime: Instant = startTime,
-    val resources: MutableMap<Name, MutableResourceResults<*>> = mutableMapOf(),
+data class MutableSimulationResults(
+    override var startTime: Instant = Instant.DISTANT_PAST,
+    override var endTime: Instant = startTime,
+    override val resources: MutableMap<Name, MutableResourceResults<*>> = mutableMapOf(),
     // Activity results are just a list of activity start- and end-events.
     // It's tempting to make this a map over activity instances, but an instance may be re-used in a plan.
-    val activities: MutableList<ActivityEvent> = mutableListOf(),
-)
+    override val activities: MutableList<ActivityEvent> = mutableListOf(),
+) : SimulationResults
 
 data class MutableResourceResults<T>(
-    var metadata: ChannelMetadata<T>,
-    val data: MutableList<ChannelData<T>> = mutableListOf(),
-)
+    override var metadata: ChannelMetadata<T>,
+    override val data: MutableList<ChannelData<T>> = mutableListOf(),
+) : ResourceResults<T>

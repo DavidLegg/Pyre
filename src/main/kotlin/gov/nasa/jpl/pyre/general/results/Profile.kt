@@ -1,52 +1,24 @@
 package gov.nasa.jpl.pyre.general.results
 
-import gov.nasa.jpl.pyre.foundation.resources.Dynamics
 import gov.nasa.jpl.pyre.foundation.resources.Expiring
-import gov.nasa.jpl.pyre.general.results.Profile.Companion.start
 import gov.nasa.jpl.pyre.kernel.Name
-import java.util.*
 import kotlin.time.Instant
 
 /**
- * The time-history of a resource over an interval from [start] to [end]
+ * The profile of dynamics for a single resource from a simulation.
+ *
+ * This profile models some resource over [window].
+ * It can be seen as an iterable of (time, dynamics) pairs if the entire profile needs to be examined,
+ * or [get] can efficiently retrieve the dynamics at a specific time.
  */
-class Profile<D : Dynamics<*, D>>(
-    val name: Name,
-    end: Instant,
-    val segments: NavigableMap<Instant, D>
-) {
+interface Profile<D> : Iterable<Pair<Instant, D>> {
+    val name: Name
     val window: ClosedRange<Instant>
-    init {
-        require(segments.isNotEmpty()) {
-            "Profile segments cannot be empty"
-        }
-        window = this.segments.firstKey()..end
-        require(!window.isEmpty()) {
-            "Profile end $end must be later than start $start"
-        }
-    }
 
     /**
-     * Get the dynamics segment for [time].
-     * Starts at [time], and expires when the next segment starts (if there is a next segment).
+     * Returns the dynamics of this profile at this time.
+     *
+     * This is expected to be an efficient operation, usually O(log n) in the number of segments in this profile.
      */
-    fun getSegment(time: Instant): Expiring<D> = Expiring(
-        getSegmentData(time),
-        (segments.higherKey(time) ?: end) - time
-    )
-
-    private fun getSegmentData(time: Instant): D {
-        require(time in window) {
-            "Time $time is outside of profile range $start - $end"
-        }
-        return segments.floorEntry(time).let {
-            it.value.step(time - it.key)
-        }
-    }
-
-    companion object {
-        operator fun <V, D : Dynamics<V, D>> Profile<D>.get(time: Instant) = getSegmentData(time).value()
-        val Profile<*>.start get() = window.start
-        val Profile<*>.end get() = window.endInclusive
-    }
+    fun getSegment(time: Instant): Expiring<D>
 }

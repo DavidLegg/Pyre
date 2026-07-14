@@ -1,41 +1,13 @@
 package gov.nasa.jpl.pyre.general.scheduling
 
-import gov.nasa.jpl.pyre.foundation.plans.Activity
-import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
-import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
-import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.plans.Checkpoint
-import gov.nasa.jpl.pyre.general.results.SimulationResults
-import gov.nasa.jpl.pyre.foundation.reporting.ChannelReport.ChannelData
-import gov.nasa.jpl.pyre.foundation.resources.Dynamics
-import gov.nasa.jpl.pyre.foundation.resources.Resource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.decrement
-import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
+import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
+import gov.nasa.jpl.pyre.foundation.plans.Plan
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
-import gov.nasa.jpl.pyre.foundation.tasks.ResourceScope.Companion.now
-import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
-import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
-import gov.nasa.jpl.pyre.general.results.Profile
-import gov.nasa.jpl.pyre.general.results.ProfileOperations.asProfile
-import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
-import gov.nasa.jpl.pyre.general.results.ProfileOperations.computeProfile
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toMutableSimulationResults
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
-import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplayScope.Companion.replay
-import gov.nasa.jpl.pyre.general.units.Unit
-import gov.nasa.jpl.pyre.general.units.UnitAware
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.name
-import gov.nasa.jpl.pyre.kernel.Name
-import java.util.PriorityQueue
-import kotlin.reflect.KType
-import kotlin.reflect.typeOf
-import kotlin.require
+import java.util.*
 import kotlin.time.Instant
 
 /**
@@ -56,10 +28,9 @@ import kotlin.time.Instant
  *
  * @see SchedulingAlgorithms
  */
-class SchedulingSystem<M : Any, C> private constructor(
+class SchedulingSystem<M : Any> private constructor(
     startTime: Instant?,
-    val config: C,
-    private val constructModel: context (InitScope) (C) -> M,
+    private val constructModel: context (InitScope) () -> M,
     incon: Checkpoint<M>?,
     /** Activities not yet part of the simulation */
     private val futureActivities: PriorityQueue<GroundedActivity<M>>,
@@ -72,7 +43,7 @@ class SchedulingSystem<M : Any, C> private constructor(
         results.reportHandler(),
         startTime,
         incon,
-        { constructModel(config).also { model = it } },
+        { constructModel().also { model = it } },
     )
     init {
         // Get the start time from the simulation, regardless of how the simulation was initialized, to keep the two in sync.
@@ -82,13 +53,11 @@ class SchedulingSystem<M : Any, C> private constructor(
     val startTime: Instant get() = results.startTime
 
     constructor(
-        config: C,
-        constructModel: context (InitScope) (C) -> M,
+        constructModel: context (InitScope) () -> M,
         startTime: Instant? = null,
         incon: Checkpoint<M>? = null,
     ) : this(
         startTime,
-        config,
         constructModel,
         incon,
         PriorityQueue(compareBy { it.time }),
@@ -132,9 +101,10 @@ class SchedulingSystem<M : Any, C> private constructor(
         ) {
             numberOfActivitiesSeen = results.activities.size
             // First, look for any activities we need to inject right now:
-            while (futureActivities.peek()?.run { time == simulation.time() } ?: false) {
-                simulation.addActivity(activity)
-                pastActivities += activity
+            while (futureActivities.isNotEmpty() && futureActivities.element().time == simulation.time()) {
+                val futureActivity = futureActivities.remove()
+                simulation.addActivity(futureActivity)
+                pastActivities += futureActivity
             }
             // Look for when we would next need to inject activities, which is the latest we can safely advance:
             val nextActivityTime = futureActivities.minOfOrNull { it.time } ?: Instant.DISTANT_FUTURE
@@ -152,151 +122,26 @@ class SchedulingSystem<M : Any, C> private constructor(
         }
         futureActivities += activity
     }
-    fun addActivities(activities: Collection<GroundedActivity<M>>) = activities.forEach(::addActivity)
-    fun addPlan(plan: Plan<M>) = addActivities(plan.activities)
-
-    operator fun plusAssign(activity: Activity<M>) = addActivity(GroundedActivity(time(), Name(requireNotNull(activity::class.simpleName)), activity))
-    operator fun plusAssign(activity: GroundedActivity<M>) = addActivity(activity)
-    operator fun plusAssign(activities: Collection<GroundedActivity<M>>) = addActivities(activities)
-    operator fun plusAssign(plan: Plan<M>) = addPlan(plan)
 
     fun plan() = Plan(results.startTime, time(), pastActivities + futureActivities)
 
-    fun results(): SimulationResults {
-        results.endTime = simulation.time()
-        return results.toSimulationResults()
-    }
+    // TODO: What's the right way to expose the results?
+    //   I want to expose them for reading, but without needing to copy the results explicitly.
+    //   I also want to expose the model enough that users can access a resource in it, to call "resource.replay()"
+    //   in an init context (e.g. for compute() or stubbing sub-models or such).
+    //   Note that doing that requires a context param that knows which sim results to use...
+    //   So either the sim results are the context param, or this scheduling system can produce a context param
+    //   that points back to this scheduling system...
 
-    /** Get a single profile, selected by the resource object itself. */
-    fun <D : Dynamics<*, D>> profile(selector: M.() -> Resource<D>): Profile<D> {
-        val name = model!!.selector().name
-        return results.resources.getValue(name).data.asProfile(name, time())
-    }
+    fun save() = simulation.save()
 
-    /** Get the last value of a registered resource, selected by the resource object itself. */
-    fun <V, D : Dynamics<V, D>> lastValue(selector: M.() -> Resource<D>): V {
-        val name = model!!.selector().name
-        @Suppress("UNCHECKED_CAST")
-        val report = results.resources.getValue(name).data.last() as ChannelData<D>
-        return report.data.step(time() - report.time).value()
-    }
-
-    /** Get the last value of a registered resource, selected by the resource object itself. */
-    fun <V, D : Dynamics<V, D>> lastQuantity(selector: M.() -> UnitAware<Resource<D>>): UnitAware<V> {
-        // TODO: Use channel metadata to do unit conversion rather than resource.unit
-        val resourceResults = results.resources.getValue(model!!.selector().name)
-        @Suppress("UNCHECKED_CAST")
-        val report = resourceResults.data.last() as ChannelData<D>
-        val unit = resourceResults.metadata.metadata.getValue("unit").value as Unit
-        return UnitAware(
-            report.data.step(time() - report.time).value(),
-            unit,
-        )
-    }
-
-    interface SchedulingReplayScope {
-        context (_: InitScope)
-        fun <D : Dynamics<*, D>> replay(name: Name): Resource<D>
-
-        context (_: InitScope)
-        fun countActivities(predicate: (ActivityEvent) -> Boolean = { true }): IntResource
-
-        companion object {
-            context (_: InitScope, scope: SchedulingReplayScope)
-            fun <D : Dynamics<*, D>> replay(name: Name): Resource<D> = scope.replay(name)
-
-            context (_: InitScope, scope: SchedulingReplayScope)
-            fun <D : Dynamics<*, D>> Resource<D>.replay(): Resource<D> = replay(name)
-
-            context (_: InitScope, scope: SchedulingReplayScope)
-            fun countActivities(predicate: (ActivityEvent) -> Boolean = { true }): IntResource = scope.countActivities(predicate)
-        }
-    }
-
-    fun <V, D : Dynamics<V, D>> compute(
-        start: Instant = startTime,
-        end: Instant = time(),
-        derivation: context (InitScope, SchedulingReplayScope) M.() -> Resource<D>,
-        dynamicsType: KType
-    ): Profile<D> {
-        val scope = object : SchedulingReplayScope {
-            context (_: InitScope)
-            override fun <D : Dynamics<*, D>> replay(name: Name): Resource<D> =
-                this@SchedulingSystem.results.resources.getValue(name)
-                    .data
-                    .asProfile<D>(name, this@SchedulingSystem.time())
-                    .asResource()
-
-            // TODO: Refactor this to reduce duplicated code w/ IntProfileOperations.countActivities
-            context(_: InitScope)
-            override fun countActivities(predicate: (ActivityEvent) -> Boolean): IntResource {
-                val counter = discreteResource("counted activities", 0)
-                // TODO: Optimize; this is quadratic in number of activities
-                //   This filtering code on start and end events was written quickly when I realized there was a bug in the
-                //   prior way I was representing activity results using a map. It needs to be thought through carefully again.
-                // Remove start events that have a matching end event
-                val startEvents = mutableListOf<ActivityEvent>()
-                val endEvents = mutableListOf<ActivityEvent>()
-                for (event in results.activities) {
-                    if (event.end == null) {
-                        startEvents += event
-                    } else {
-                        endEvents += event
-                        // Remove the corresponding start event from startEvents
-                        startEvents.remove(event.copy(end = null))
-                    }
-                }
-                (startEvents + endEvents)
-                    // Restrict to activities that haven't already ended and satisfy the predicate
-                    .filter { (it.end?.let { it >= now() } ?: true) && predicate(it) }
-                    .forEach {
-                        // If the activity satisfies predicate, spawn a task for it
-                        spawn(it.name, task {
-                            // Increment when the activity starts
-                            delayUntil(it.start)
-                            counter.increment()
-                            if (it.end != null) {
-                                // Decrement when it ends, if it ends
-                                delayUntil(it.end)
-                                counter.decrement()
-                            }
-                        })
-                    }
-                return counter
-            }
-        }
-        return computeProfile(
-            start,
-            end,
-            { context(scope) { model!!.derivation() } },
-            dynamicsType,
-        )
-    }
-
-    fun fincon() = simulation.save()
-
-    // Initialize a new simulation, configured with newConfig and this sim's fincon
-    fun copy(newConfig: C = config): SchedulingSystem<M, C> = SchedulingSystem(
+    fun copy(): SchedulingSystem<M> = SchedulingSystem(
         time(),
-        newConfig,
         constructModel,
-        fincon(),
+        save(),
         // Copy over all the other bookkeeping data
         futureActivities = PriorityQueue(futureActivities),
         pastActivities = pastActivities.toMutableList(),
-        results = results.toMutableSimulationResults(),
+        results = results.copy(),
     )
-
-    companion object {
-        /**
-         * Compute a resource derived from the results collected by this [SchedulingSystem] so far.
-         *
-         * Access a registered resource through the model and call [replay] to use it in the derivation.
-         */
-        inline fun <V, reified D: Dynamics<V, D>, M : Any> SchedulingSystem<M, *>.compute(
-            start: Instant = startTime,
-            end: Instant = time(),
-            noinline derivation: context (InitScope, SchedulingReplayScope) M.() -> Resource<D>,
-        ) = compute(start, end, derivation, typeOf<D>())
-    }
 }

@@ -2,6 +2,7 @@ package gov.nasa.jpl.pyre.general.scheduling
 
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
+import gov.nasa.jpl.pyre.general.scheduling.SchedulingOperations.plusAssign
 import gov.nasa.jpl.pyre.kernel.Durations.EPSILON
 import gov.nasa.jpl.pyre.kernel.Name
 import org.apache.commons.math3.analysis.UnivariateFunction
@@ -48,7 +49,7 @@ object SchedulingAlgorithms {
      * @throws CouldNotScheduleException
      * If solver cannot find a suitable start time.
      */
-    fun <M : Any, C> SchedulingSystem<M, C>.scheduleActivityToEndNear(
+    fun <M : Any> SchedulingSystem<M>.scheduleActivityToEndNear(
         activity: Activity<M>,
         endTime: Instant,
         earliestStart: Instant = time(),

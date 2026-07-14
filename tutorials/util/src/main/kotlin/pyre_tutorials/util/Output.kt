@@ -1,9 +1,7 @@
 package pyre_tutorials.util
 
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
-import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResults
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
 
 object Output {
     /**
@@ -40,13 +38,6 @@ object Output {
             }
         }
     }
-
-    /**
-     * Dump [this] to stdout in a simple format.
-     *
-     * Designed to cut out details for empty parts of the results, to facilitate simple tutorials where some features are not in use.
-     */
-    fun MutableSimulationResults.dump() = toSimulationResults().dump()
 
     private fun ActivityEvent.friendlyFormat(): String {
         val fullName = if (name.simpleName == type) name else "$name ($type)"

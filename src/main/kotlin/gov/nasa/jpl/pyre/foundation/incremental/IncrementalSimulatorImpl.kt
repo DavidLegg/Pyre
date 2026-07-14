@@ -41,15 +41,9 @@ class IncrementalSimulatorImpl<M>(
 ) : IncrementalSimulator<M> {
     override var plan: Plan<M> = plan
         private set
-    override val results: SimulationResults get() = SimulationResults(
-        plan.startTime,
-        plan.endTime,
-        resourceResults.mapValues { (_, inc) -> inc.toResourceResults() },
-        activityResults.map { it.content.data }
-    )
+    private val _results = MutableIncrementalSimulationResults(plan.startTime, plan.endTime)
+    override val results: SimulationResults get() = _results
 
-    private val resourceResults: MutableMap<Name, MutableIncrementalResourceResults<*>> = mutableMapOf()
-    private val activityResults: TreeSet<ReportNode<ChannelData<ActivityEvent>>> = TreeSet(compareBy { it.time })
     private val simulationScope: SimulationScope
     private val model: M
     private val kernelSimulator: KernelIncrementalSimulator
@@ -67,21 +61,21 @@ class IncrementalSimulatorImpl<M>(
                     @Suppress("UNCHECKED_CAST")
                     object : IncrementalChannelHandler<ActivityEvent> {
                         override fun report(report: ReportNode<ChannelData<ActivityEvent>>) {
-                            activityResults += report
+                            _results.incrementalActivities += report
                         }
                         override fun revoke(report: ReportNode<ChannelData<ActivityEvent>>) {
-                            activityResults -= report
+                            _results.incrementalActivities -= report
                         }
                     } as IncrementalChannelHandler<T>
                 } else {
                     val thisResourceResults = MutableIncrementalResourceResults(metadata)
-                    resourceResults[metadata.channel] = thisResourceResults
+                    _results.resources[metadata.channel] = thisResourceResults
                     object : IncrementalChannelHandler<T> {
                         override fun report(report: ReportNode<ChannelData<T>>) {
-                            thisResourceResults.data.add(report)
+                            thisResourceResults.incrementalData.add(report)
                         }
                         override fun revoke(report: ReportNode<ChannelData<T>>) {
-                            thisResourceResults.data.remove(report)
+                            thisResourceResults.incrementalData.remove(report)
                         }
                     }
                 }
@@ -181,13 +175,23 @@ class IncrementalSimulatorImpl<M>(
         return Checkpoint(kernelCheckpoint.time, kernelCheckpoint.cells, daemons, activities)
     }
 
+    private data class MutableIncrementalSimulationResults(
+        override var startTime: Instant,
+        override var endTime: Instant,
+        override val resources: MutableMap<Name, MutableIncrementalResourceResults<*>> = mutableMapOf(),
+        val incrementalActivities: TreeSet<ReportNode<ChannelData<ActivityEvent>>> = TreeSet(compareBy { it.time })
+    ) : SimulationResults {
+        override val activities: List<ActivityEvent>
+            get() = incrementalActivities.map { it.content.data }
+    }
+
     private data class MutableIncrementalResourceResults<T>(
-        val metadata: ChannelMetadata<T>,
+        override val metadata: ChannelMetadata<T>,
         // By using a TreeSet and sorting by report time, we maintain a fully-ordered list of reports on each channel,
         // but insertions and deletions remain O(log n) in the number of reports on this channel.
-        val data: TreeSet<ReportNode<ChannelData<T>>> = TreeSet(compareBy { it.time }),
-    ) {
-        fun toResourceResults(): ResourceResults<T> =
-            ResourceResults(metadata, data.map { it.content })
+        val incrementalData: TreeSet<ReportNode<ChannelData<T>>> = TreeSet(compareBy { it.time }),
+    ) : ResourceResults<T> {
+        override val data: List<ChannelData<T>>
+            get() = incrementalData.map { it.content }
     }
 }

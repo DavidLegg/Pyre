@@ -38,12 +38,8 @@ import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.reporting.ReportHandling.discardReports
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
-import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.toSimulationResults
 import gov.nasa.jpl.pyre.kernel.Name
-import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.utilities.Serialization.alias
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
@@ -144,7 +140,7 @@ class SimulatorTest {
         )
         simulation.runUntil(Instant.parse("2020-01-01T01:00:00Z"))
 
-        with (reports.toSimulationResults()) {
+        with (reports) {
             checkChannel<Discrete<Int>>("intR") {
                 reportsDiscrete("2020-01-01T00:00:00Z", 0)
             }
@@ -195,7 +191,7 @@ class SimulatorTest {
         )
         simulation.runUntil(Instant.parse("2020-01-01T01:00:00Z"))
 
-        with (reports.toSimulationResults()) {
+        with (reports) {
             checkActivities {
                 finished("Activity 1", "2020-01-01T00:05:00Z", "2020-01-01T00:05:00Z")
                 finished("Activity 2", "2020-01-01T00:15:00Z", "2020-01-01T00:15:00Z")
@@ -335,7 +331,7 @@ class SimulatorTest {
             )
         )
 
-        with (reports.toSimulationResults()) {
+        with (reports) {
             checkActivities {
                 finished("DeviceBoot", "2020-01-01T00:05:00Z", "2020-01-01T00:10:00Z")
                 finished("Observation 1", "2020-01-01T00:15:00Z", "2020-01-01T00:25:00Z")
@@ -418,7 +414,7 @@ class SimulatorTest {
         }
 
         simulation1.runUntil(t1)
-        with (reports1.toSimulationResults()) {
+        with (reports1) {
             checkActivities {
                 finished("DeviceBoot", "2020-01-01T00:03:00Z", "2020-01-01T00:08:00Z")
                 unfinished("DeviceActivate", "2020-01-01T00:10:00Z")
@@ -438,7 +434,7 @@ class SimulatorTest {
         simulation2.addActivity(GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), Name("DeviceActivate2"), DeviceActivate(20.minutes)))
         simulation2.runUntil(t2)
 
-        with (reports2.toSimulationResults()) {
+        with (reports2) {
             checkActivities {
                 finished("DeviceActivate", "2020-01-01T00:10:00Z", "2020-01-01T01:10:00Z", false)
                 finished("DeviceShutdown", "2020-01-01T01:20:00Z", "2020-01-01T01:25:00Z")
@@ -457,7 +453,7 @@ class SimulatorTest {
             constructModel = ::TestModel,
         )
         simulation3.runUntil(t3)
-        with(reports3.toSimulationResults()) {
+        with(reports3) {
             checkActivities {
                 finished("DeviceBoot", "2020-01-01T01:58:00Z", "2020-01-01T02:03:00Z", false)
                 finished("DeviceActivate2", "2020-01-01T01:58:00Z", "2020-01-01T02:23:00Z", false)
@@ -484,7 +480,7 @@ class SimulatorTest {
         }
 
         simulation1.runUntil(t1)
-        with (reports1.toSimulationResults()) {
+        with (reports1) {
             checkActivities {
                 finished("DeviceBoot", "2020-01-01T00:03:00Z", "2020-01-01T00:08:00Z")
                 unfinished("DeviceActivate", "2020-01-01T00:10:00Z")
@@ -504,7 +500,7 @@ class SimulatorTest {
         simulation2.addActivity(GroundedActivity(Instant.parse("2020-01-01T01:58:00Z"), Name("DeviceActivate2"), DeviceActivate(20.minutes)))
         simulation2.runUntil(Instant.parse("2020-01-01T02:00:00Z"))
 
-        with (reports2.toSimulationResults()) {
+        with (reports2) {
             checkActivities {
                 finished("DeviceActivate", "2020-01-01T00:10:00Z", "2020-01-01T01:10:00Z", false)
                 finished("DeviceShutdown", "2020-01-01T01:20:00Z", "2020-01-01T01:25:00Z")
@@ -523,7 +519,7 @@ class SimulatorTest {
             constructModel = ::TestModel,
         )
         simulation3.runUntil(Instant.parse("2020-01-01T03:00:00Z"))
-        with(reports3.toSimulationResults()) {
+        with(reports3) {
             checkActivities {
                 finished("DeviceBoot", "2020-01-01T01:58:00Z", "2020-01-01T02:03:00Z", false)
                 finished("DeviceActivate2", "2020-01-01T01:58:00Z", "2020-01-01T02:23:00Z", false)
@@ -560,7 +556,7 @@ class SimulatorTest {
                 ),
             )
         )
-        with (reports.toSimulationResults()) {
+        with (reports) {
             checkChannel("stdout") {
                 // Both ReportDeviceStates should see the value of deviceState prior to the change by the concurrent activity.
                 reports("2020-01-01T00:00:00Z", "RDS: deviceState = OFF")

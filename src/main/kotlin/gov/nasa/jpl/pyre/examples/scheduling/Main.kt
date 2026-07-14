@@ -1,7 +1,5 @@
 package gov.nasa.jpl.pyre.examples.scheduling
 
-import gov.nasa.jpl.pyre.utilities.InvertibleFunction
-import gov.nasa.jpl.pyre.utilities.Serialization.encodeToFile
 import gov.nasa.jpl.pyre.examples.scheduling.data.model.DataModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel
 import gov.nasa.jpl.pyre.examples.scheduling.geometry.model.GeometryModel.PointingTarget
@@ -11,9 +9,9 @@ import gov.nasa.jpl.pyre.examples.scheduling.gnc.activities.GncSetSystemMode
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.activities.GncTurn
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel
 import gov.nasa.jpl.pyre.examples.scheduling.gnc.model.GncModel.BodyAxis
+import gov.nasa.jpl.pyre.examples.scheduling.imager.activities.ImagerDoObservation
 import gov.nasa.jpl.pyre.examples.scheduling.imager.activities.ImagerPowerOff
 import gov.nasa.jpl.pyre.examples.scheduling.imager.activities.ImagerPowerOn
-import gov.nasa.jpl.pyre.examples.scheduling.imager.activities.ImagerDoObservation
 import gov.nasa.jpl.pyre.examples.scheduling.imager.model.IMAGE
 import gov.nasa.jpl.pyre.examples.scheduling.imager.model.ImagerModel
 import gov.nasa.jpl.pyre.examples.scheduling.power.model.PowerModel
@@ -28,54 +26,44 @@ import gov.nasa.jpl.pyre.examples.scheduling.telecom.activities.RadioPowerOn
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.activities.RadioSetDownlinkRate
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.activities.TelecomPass
 import gov.nasa.jpl.pyre.examples.scheduling.telecom.model.TelecomModel
-import gov.nasa.jpl.pyre.general.scheduling.SchedulingAlgorithms.scheduleActivityToEndNear
-import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem
 import gov.nasa.jpl.pyre.examples.units.KILOWATT_HOUR
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.GroundedActivity
 import gov.nasa.jpl.pyre.foundation.plans.activities
-import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
-import gov.nasa.jpl.pyre.general.results.Profile
-import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
-import gov.nasa.jpl.pyre.general.results.discrete.BooleanProfileOperations.and
-import gov.nasa.jpl.pyre.general.results.discrete.BooleanProfileOperations.sometimes
-import gov.nasa.jpl.pyre.general.results.discrete.BooleanProfileOperations.windows
-import gov.nasa.jpl.pyre.general.units.StandardUnits
-import gov.nasa.jpl.pyre.general.units.StandardUnits.DEGREE
-import gov.nasa.jpl.pyre.general.units.StandardUnits.GIGABYTE
-import gov.nasa.jpl.pyre.general.units.StandardUnits.MEGABYTE
-import gov.nasa.jpl.pyre.general.units.StandardUnits.WATT
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.div
-import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.foundation.resources.discrete.Discrete
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.foundation.serialization.InstantSerializer
 import gov.nasa.jpl.pyre.foundation.serialization.ResultSerializer
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope
-import gov.nasa.jpl.pyre.general.results.discrete.BooleanProfile
-import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.Companion.compute
-import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem.SchedulingReplayScope.Companion.countActivities
+import gov.nasa.jpl.pyre.general.plans.runStandardPlanSimulation
+import gov.nasa.jpl.pyre.general.results.Profile
+import gov.nasa.jpl.pyre.general.results.ProfileOperations.asResource
+import gov.nasa.jpl.pyre.general.scheduling.SchedulingAlgorithms.scheduleActivityToEndNear
+import gov.nasa.jpl.pyre.general.scheduling.SchedulingOperations.plusAssign
+import gov.nasa.jpl.pyre.general.scheduling.SchedulingSystem
+import gov.nasa.jpl.pyre.general.units.StandardUnits
+import gov.nasa.jpl.pyre.general.units.StandardUnits.DEGREE
+import gov.nasa.jpl.pyre.general.units.StandardUnits.GIGABYTE
+import gov.nasa.jpl.pyre.general.units.StandardUnits.MEGABYTE
+import gov.nasa.jpl.pyre.general.units.StandardUnits.WATT
 import gov.nasa.jpl.pyre.general.units.Unit.Companion.SCALAR
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.div
+import gov.nasa.jpl.pyre.general.units.UnitAware.Companion.times
 import gov.nasa.jpl.pyre.kernel.Name
 import gov.nasa.jpl.pyre.kernel.NameOperations.div
+import gov.nasa.jpl.pyre.utilities.InvertibleFunction
 import gov.nasa.jpl.pyre.utilities.Serialization.alias
+import gov.nasa.jpl.pyre.utilities.Serialization.encodeToFile
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.builtins.DoubleArraySerializer
-import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.contextual
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D
-import kotlin.io.path.ExperimentalPathApi
-import kotlin.io.path.Path
-import kotlin.io.path.absolute
-import kotlin.io.path.createDirectories
-import kotlin.io.path.deleteRecursively
+import kotlin.io.path.*
 import kotlin.io.path.div
-import kotlin.io.path.exists
-import kotlin.io.path.inputStream
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -166,7 +154,7 @@ val GNC_JSON_FORMAT = Json {
 fun main(args: Array<String>) {
     when (args[0].lowercase()) {
         "simulate" -> simulationMain(args.sliceArray(1..<args.size))
-        "schedule" -> schedulingMain(args.sliceArray(1..<args.size))
+        // "schedule" -> schedulingMain(args.sliceArray(1..<args.size))
         else -> throw IllegalArgumentException("First argument must be a command: simulate, schedule")
     }
 }
@@ -179,6 +167,8 @@ fun simulationMain(args: Array<String>) {
     )
 }
 
+// TODO: Update this with the new SchedulingSystem interface and/or new scheduling utilities.
+/*
 @OptIn(ExperimentalSerializationApi::class, ExperimentalPathApi::class)
 fun schedulingMain(args: Array<String>) {
     unitAware {
@@ -200,8 +190,7 @@ fun schedulingMain(args: Array<String>) {
         val planStart = Instant.parse("2020-01-01T00:00:00Z")
         val planEnd = Instant.parse("2025-01-01T00:00:00Z")
         val baseScheduler = SchedulingSystem(
-            STANDARD_CONFIG,
-            ::SystemModel,
+            { SystemModel(contextOf<InitScope>(), STANDARD_CONFIG) },
             startTime = planStart,
         )
 
@@ -395,6 +384,7 @@ fun schedulingMain(args: Array<String>) {
         println("End scheduling procedure - ${schedulingEnd - schedulingStart}")
     }
 }
+ */
 
 // TODO: This is a bit of a hack to ensure we have unique names for all activities.
 //   I should come up with a better way to do this, incorporated into PlanSimulation and/or SchedulingSystem
@@ -450,16 +440,19 @@ data class GncInputProfiles(
     val pointingTargets: Map<PointingTarget, Profile<Discrete<Vector3D>>>,
 ) {
     // Given some sim results, build the profiles
-    constructor (scheduler: SchedulingSystem<SystemModel, *>) : this(PointingTarget.entries.associateWith {
+    // TODO: Update with new scheduling tools.
+    /*
+    constructor (scheduler: SchedulingSystem<SystemModel>) : this(PointingTarget.entries.associateWith {
         scheduler.profile { geometry.pointingDirection.getValue(it) }
     })
+     */
 
     // Given an init scope in a particular simulation, build the resources to feed a GncModel
     context (scope: InitScope)
     fun asInputs(): GncModel.Inputs = GncModel.Inputs(pointingTargets.mapValues { it.value.asResource() })
 }
 
-fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
+fun SchedulingSystem<SystemModel>.scheduleScienceOpTurns(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
     // For performance testing, we have one method that defers to either of two implementations:
 
     // Direct scheduling is the easier and more reliable way to do this
@@ -471,7 +464,7 @@ fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns(sci
     // scheduleScienceOpTurns_subsystem(scienceOp, gncInputProfiles)
 }
 
-fun SchedulingSystem<SystemModel, SystemModel.Config>.scheduleScienceOpTurns_direct(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
+fun SchedulingSystem<SystemModel>.scheduleScienceOpTurns_direct(scienceOp: ScienceOp, gncInputProfiles: GncInputProfiles) {
     // Advance the scheduler to the earliest time a turn may start, to avoid re-simulating more than necessary
     this.scheduleActivityToEndNear(GncActivity(scienceOpTurn(scienceOp.target)), scienceOp.start)
     this += GroundedActivity(scienceOp.end, backgroundTurn())
