@@ -130,4 +130,4 @@ Resources:
 Correct, but not particularly interesting yet.
 Now, we want to make things happen, and for that we'll need [tasks](../03_intro_to_tasks/README.md).
 
-You can find the full code for this tutorial in [IntroResources.kt](./src/main/kotlin/pyre_tutorials/IntroResources.kt).
+You can find the full code for this tutorial in [IntroResources.kt](./src/main/kotlin/parakeet_tutorials/IntroResources.kt).

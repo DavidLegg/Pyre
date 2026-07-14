@@ -1,4 +1,4 @@
-package pyre_tutorials.util
+package parakeet_tutorials.util
 
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.ActivityEvent
 import gov.nasa.jpl.pyre.general.results.SimulationResults

@@ -1,4 +1,4 @@
-package pyre_tutorials
+package parakeet_tutorials
 
 import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
@@ -6,7 +6,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stdout
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import kotlin.time.Instant
-import pyre_tutorials.util.Output.dump
+import parakeet_tutorials.util.Output.dump
 import kotlin.time.Duration.Companion.days
 
 fun main() {

@@ -252,4 +252,4 @@ Note that there are other ways to create sub-activities, listed in [ActivityActi
 including `call` to run an activity synchronously and `defer`/`deferUntil` to spawn the activity in the future.
 
 Finally, note that a daemon can spawn activities, though this is unusual.
-See the full code for this tutorial at [Spawn.kt](./src/main/kotlin/pyre_tutorials/Spawn.kt) for an example of this.
+See the full code for this tutorial at [Spawn.kt](./src/main/kotlin/parakeet_tutorials/Spawn.kt) for an example of this.

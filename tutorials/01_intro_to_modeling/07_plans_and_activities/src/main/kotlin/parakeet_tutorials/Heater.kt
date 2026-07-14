@@ -1,9 +1,7 @@
-package pyre_tutorials
+package parakeet_tutorials
 
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.equals
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDiscreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableDoubleResource
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope

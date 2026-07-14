@@ -87,4 +87,4 @@ Resources:
 Now that we have a simulator, we need to put something in it.
 That something is a [resource](../02_intro_to_resources/README.md).
 
-You can find the full code in [HelloWorld.kt](src/main/kotlin/pyre_tutorials/HelloWorld.kt)
+You can find the full code in [HelloWorld.kt](src/main/kotlin/parakeet_tutorials/HelloWorld.kt)

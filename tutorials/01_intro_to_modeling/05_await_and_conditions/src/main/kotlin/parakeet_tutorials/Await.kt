@@ -1,24 +1,27 @@
-package pyre_tutorials
+package parakeet_tutorials
 
 import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.decrement
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableIntResource
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
+import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
+import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
+import gov.nasa.jpl.pyre.foundation.tasks.SimulationScope.Companion.stdout
 import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delay
-import gov.nasa.jpl.pyre.foundation.tasks.TaskOperations.delayUntil
 import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import kotlin.time.Instant
-import pyre_tutorials.util.Output.dump
+import parakeet_tutorials.util.Output.dump
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 fun main() {
     val start = Instant.parse("2030-01-01T00:00:00Z")
@@ -31,19 +34,32 @@ fun main() {
         val counter: MutableIntResource = discreteResource("counter", 0).registered()
         val counterIsLarge: BooleanResource = (counter greaterThan 5).named { "counterIsLarge" }.registered()
 
+        // We'll set up a task to walk the counter up to 6:
         spawn("Increment Counter",  task {
-            // Within a task, we can wait for time to pass.
-            // One of the simplest versions of this is "delay", which simply waits for a certain fixed duration.
             delay(1.hours)
-            counter.increment()
+            repeat(6) {
+                counter.increment()
+                delay(10.minutes)
+            }
         })
 
-        // Out here, we're back in the initialization block - time here is at the start of the simulation, and can't advance.
+        // Now we'll set up another task to walk the counter back down to 0:
+        spawn("Reset Counter", task {
+            // A boolean resource functionally "is" a condition, so we can wait for it to be true:
+            await(counterIsLarge)
+            repeat(counter.getValue()) {
+                delay(5.minutes)
+                counter.decrement()
+            }
+        })
 
-        spawn("Increment Counter Again", task {
-            // Another version of waiting is "delayUntil", which waits until a certain absolute time.
-            delayUntil(start + 3.hours)
-            counter.set(10)
+        // We don't have to build the resource and give it a name, though.
+        // We can (and often do) build a resource on the fly to await it:
+        spawn("Warn about the counter", task {
+            await(counter greaterThan 3)
+            stdout.report("Counter is ${counter.getValue()}!")
+            await(counter equals 0)
+            stdout.report("Counter is back to 0!")
         })
     }
 

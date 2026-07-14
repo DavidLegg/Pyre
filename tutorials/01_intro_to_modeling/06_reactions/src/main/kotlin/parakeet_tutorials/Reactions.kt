@@ -1,21 +1,16 @@
-package pyre_tutorials
+package parakeet_tutorials
 
 import gov.nasa.jpl.pyre.foundation.Simulator
 import gov.nasa.jpl.pyre.foundation.reporting.Reporting.registered
 import gov.nasa.jpl.pyre.foundation.resources.discrete.BooleanResource
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.discreteResource
-import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.equals
 import gov.nasa.jpl.pyre.foundation.resources.discrete.DiscreteResourceOperations.greaterThan
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.decrement
 import gov.nasa.jpl.pyre.foundation.resources.discrete.IntResourceOperations.increment
 import gov.nasa.jpl.pyre.foundation.resources.discrete.MutableIntResource
-import gov.nasa.jpl.pyre.foundation.resources.getValue
 import gov.nasa.jpl.pyre.foundation.resources.named
 import gov.nasa.jpl.pyre.foundation.tasks.InitScope.Companion.spawn
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions.await
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.every
-import gov.nasa.jpl.pyre.foundation.tasks.Reactions.onceWhenever
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.whenever
 import gov.nasa.jpl.pyre.foundation.tasks.Reactions.wheneverChanges
 import gov.nasa.jpl.pyre.foundation.tasks.ReportScope.Companion.report
@@ -25,7 +20,7 @@ import gov.nasa.jpl.pyre.foundation.tasks.task
 import gov.nasa.jpl.pyre.general.results.MutableSimulationResults
 import gov.nasa.jpl.pyre.general.results.SimulationResultsOperations.reportHandler
 import kotlin.time.Instant
-import pyre_tutorials.util.Output.dump
+import parakeet_tutorials.util.Output.dump
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes

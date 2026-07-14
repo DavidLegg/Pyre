@@ -1,4 +1,4 @@
-package pyre_tutorials
+package parakeet_tutorials
 
 import gov.nasa.jpl.pyre.foundation.plans.Activity
 import gov.nasa.jpl.pyre.foundation.plans.ActivityActions.spawn

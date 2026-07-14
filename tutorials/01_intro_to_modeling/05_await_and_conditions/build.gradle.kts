@@ -13,7 +13,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("pyre_tutorials.AwaitKt")
+    mainClass.set("parakeet_tutorials.AwaitKt")
 }
 
 kotlin {
