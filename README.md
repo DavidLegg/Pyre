@@ -14,7 +14,7 @@ The motivating concerns for Parakeet are:
 
 ## Getting started
 
-To get started, I suggest looking at the [tutorials](./parakeet_tutorials), and can get you up and running the simulator in minutes.
+To get started, I suggest looking at the [tutorials](./tutorials), and can get you up and running the simulator in minutes.
 
 Once you're familiar with the basics, you can look at some of the more complex examples over in [examples](src/main/kotlin/gov/nasa/jpl/parakeet/examples).
 At the time of writing,
