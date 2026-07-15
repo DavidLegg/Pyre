@@ -261,4 +261,4 @@ Activities:
 We've seen two ways to introduce a task to the simulation.
 The third and final way lets us branch one task off of another, called [spawning](../08_spawn/README.md).
 
-You can find the full code for this tutorial in [Activities.kt](./src/main/kotlin/pyre_tutorials/Activities.kt) and the files it references.
+You can find the full code for this tutorial in [Activities.kt](./src/main/kotlin/parakeet_tutorials/Activities.kt) and the files it references.

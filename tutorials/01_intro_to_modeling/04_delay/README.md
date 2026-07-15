@@ -35,4 +35,4 @@ We can also see in this example that when we set `counter` to 10, `counterIsLarg
 What if we want to wait, not for a fixed time or until a fixed time, but until some interesting event happens?
 Instead of delay, we need to [await](../05_await_and_conditions/README.md).
 
-You can find the full code for this tutorial in [Delay.kt](./src/main/kotlin/pyre_tutorials/Delay.kt).
+You can find the full code for this tutorial in [Delay.kt](./src/main/kotlin/parakeet_tutorials/Delay.kt).

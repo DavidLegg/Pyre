@@ -1,0 +1,30 @@
+package gov.nasa.jpl.parakeet.examples.scheduling.gnc.activities
+
+import gov.nasa.jpl.parakeet.examples.scheduling.geometry.model.GeometryModel.PointingTarget
+import gov.nasa.jpl.parakeet.examples.scheduling.gnc.model.GncModel
+import gov.nasa.jpl.parakeet.examples.scheduling.gnc.model.GncModel.BodyAxis
+import gov.nasa.jpl.parakeet.foundation.plans.Activity
+import gov.nasa.jpl.parakeet.foundation.resources.discrete.DiscreteResourceOperations.set
+import gov.nasa.jpl.parakeet.foundation.tasks.Reactions.await
+import gov.nasa.jpl.parakeet.foundation.tasks.TaskScope
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+@Serializable
+@SerialName("GncTurn")
+class GncTurn(
+    val primaryPointingTarget: PointingTarget,
+    val secondaryPointingTarget: PointingTarget,
+    val primaryBodyAxis: BodyAxis,
+    val secondaryBodyAxis: BodyAxis,
+) : Activity<GncModel> {
+    context(scope: TaskScope)
+    override suspend fun effectModel(model: GncModel) {
+        model.primaryPointingTarget.set(primaryPointingTarget)
+        model.secondaryPointingTarget.set(secondaryPointingTarget)
+        model.primaryBodyAxis.set(primaryBodyAxis)
+        model.secondaryBodyAxis.set(secondaryBodyAxis)
+        // Wait to achieve the new attitude:
+        await(model.isSettled)
+    }
+}

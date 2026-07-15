@@ -15,7 +15,7 @@ The simulator is what runs a simulation. In order to build it, we need to provid
 - `incon`: An optional checkpoint used to restart a simulation we ran and saved before. We'll cover this in later tutorials.
 - `constructModel`: Defines the "initialization" phase of the simulation, and returns the model. We'll talk more about what the model is in later tutorials.
 
-Pyre allows us to configure a report handler for each simulator we construct.
+Parakeet allows us to configure a report handler for each simulator we construct.
 We might configure some simulations to write to disk, while others write to stdout, or keep their results in memory.
 We can change the output format, filter, split, or augment the output, and more by changing this function.
 
@@ -87,4 +87,4 @@ Resources:
 Now that we have a simulator, we need to put something in it.
 That something is a [resource](../02_intro_to_resources/README.md).
 
-You can find the full code in [HelloWorld.kt](src/main/kotlin/pyre_tutorials/HelloWorld.kt)
+You can find the full code in [HelloWorld.kt](src/main/kotlin/parakeet_tutorials/HelloWorld.kt)

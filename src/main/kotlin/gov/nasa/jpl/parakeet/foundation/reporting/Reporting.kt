@@ -1,0 +1,56 @@
+package gov.nasa.jpl.parakeet.foundation.reporting
+
+import gov.nasa.jpl.parakeet.foundation.resources.Dynamics
+import gov.nasa.jpl.parakeet.foundation.resources.FaultedResourceException
+import gov.nasa.jpl.parakeet.foundation.resources.Resource
+import gov.nasa.jpl.parakeet.foundation.tasks.Reactions.wheneverChanges
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope.Companion.channel
+import gov.nasa.jpl.parakeet.foundation.tasks.InitScope.Companion.spawn
+import gov.nasa.jpl.parakeet.foundation.tasks.ReportScope.Companion.report
+import gov.nasa.jpl.parakeet.foundation.tasks.SimulationScope.Companion.stderr
+import gov.nasa.jpl.parakeet.kernel.NameOperations.div
+import kotlin.reflect.KType
+import kotlin.reflect.typeOf
+
+object Reporting {
+    /**
+     * Construct a [Channel] incorporating this [scope]'s contextName
+     */
+    context (scope: InitScope)
+    inline fun <reified T> channel(name: String, vararg metadata: Pair<String, ChannelReport.Metadatum>): Channel<T> =
+        channel(scope.contextName / name, *metadata)
+
+    /**
+     * Register a resource to be reported whenever it changes.
+     * Reports are issued to a [Channel] dedicated to this resource.
+     */
+    context (scope: InitScope)
+    fun <V, D : Dynamics<V, D>> register(
+        resource: Resource<D>,
+        dynamicsType: KType,
+        metadata: Map<String, ChannelReport.Metadatum> = mapOf(),
+    ) {
+        val channel = scope.channel<D>(resource.name, metadata, dynamicsType)
+        try {
+            channel.report(resource.getDynamics().data)
+        } catch (e: FaultedResourceException) {
+            stderr.report("Resource ${resource.name} faulted: " + e.stackTraceToString())
+        }
+        spawn("Report resource ${resource.name.simpleName}", wheneverChanges(resource) {
+            try {
+                channel.report(resource.getDynamics().data)
+            } catch (e: FaultedResourceException) {
+                stderr.report("Resource ${resource.name} faulted: " + e.stackTraceToString())
+            }
+        })
+    }
+
+    /**
+     * Register a resource to be reported whenever it changes.
+     * Reports are issued to a [Channel] dedicated to this resource.
+     */
+    context (scope: InitScope)
+    inline fun <V, reified D : Dynamics<V, D>, R : Resource<D>> R.registered(vararg metadata: Pair<String, ChannelReport.Metadatum>): R =
+        also { register(it, typeOf<D>(), metadata.toMap()) }
+}

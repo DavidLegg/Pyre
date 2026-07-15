@@ -67,4 +67,4 @@ This is as we expected, but our tasks all run only once.
 What if we want our tasks to react not just the first time some condition is satisfied, but _every_ time it's satisfied?
 For that, we'll use repeating tasks, the most common of which are [reactions](../06_reactions/README.md).
 
-You can find the full code for this tutorial in [Await.kt](./src/main/kotlin/pyre_tutorials/Await.kt).
+You can find the full code for this tutorial in [Await.kt](./src/main/kotlin/parakeet_tutorials/Await.kt).

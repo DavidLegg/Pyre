@@ -248,8 +248,8 @@ We can make a few important observations about this output:
 1. Each spawned `DownlinkFiles` activity has start and end events in the activities section.
 2. The execution of all the child activities are interlaced because the parent spawns them without waiting for each to complete.
 
-Note that there are other ways to create sub-activities, listed in [ActivityActions](../../../src/main/kotlin/gov/nasa/jpl/pyre/foundation/plans/ActivityActions.kt),
+Note that there are other ways to create sub-activities, listed in [ActivityActions](../../../src/main/kotlin/gov/nasa/jpl/parakeet/foundation/plans/ActivityActions.kt),
 including `call` to run an activity synchronously and `defer`/`deferUntil` to spawn the activity in the future.
 
 Finally, note that a daemon can spawn activities, though this is unusual.
-See the full code for this tutorial at [Spawn.kt](./src/main/kotlin/pyre_tutorials/Spawn.kt) for an example of this.
+See the full code for this tutorial at [Spawn.kt](./src/main/kotlin/parakeet_tutorials/Spawn.kt) for an example of this.

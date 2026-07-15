@@ -3,7 +3,7 @@ plugins {
     kotlin("plugin.serialization") version "2.2.0"
 }
 
-group = "gov.nasa.jpl.pyre"
+group = "gov.nasa.jpl.parakeet"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -49,7 +49,7 @@ kotlin {
 
 tasks.withType<Jar> {
     manifest {
-        attributes["Main-Class"] = "gov.nasa.jpl.pyre.MainKt"
+        attributes["Main-Class"] = "gov.nasa.jpl.parakeet.MainKt"
     }
 
     // To avoid the duplicate handling strategy error

@@ -1,0 +1,31 @@
+package gov.nasa.jpl.parakeet.general.units.polynomial_quantity_resource
+
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResource
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations
+import gov.nasa.jpl.parakeet.general.resources.polynomial.PolynomialResourceOperations.constant
+import gov.nasa.jpl.parakeet.general.units.Ring
+
+object PolynomialResourceRing : Ring<PolynomialResource> {
+    override val zero: PolynomialResource = constant(0.0)
+    override val one: PolynomialResource = constant(1.0)
+
+    override fun PolynomialResource.plus(other: PolynomialResource): PolynomialResource =
+        with(PolynomialResourceOperations) {
+            this@plus + other
+        }
+
+    override fun PolynomialResource.minus(other: PolynomialResource): PolynomialResource =
+        with(PolynomialResourceOperations) {
+            this@minus - other
+        }
+
+    override fun Double.times(other: PolynomialResource): PolynomialResource =
+        with(PolynomialResourceOperations) {
+            this@times * other
+        }
+
+    override fun PolynomialResource.times(other: PolynomialResource): PolynomialResource =
+        with(PolynomialResourceOperations) {
+            this@times * other
+        }
+}

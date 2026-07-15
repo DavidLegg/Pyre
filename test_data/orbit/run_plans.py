@@ -3,7 +3,7 @@ from pathlib import Path
 
 HERE = Path(__file__).absolute().parent
 REPO_ROOT = HERE.parent.parent
-SIM_JAR = REPO_ROOT / 'build/libs/pyre-1.0-SNAPSHOT.jar'
+SIM_JAR = REPO_ROOT / 'build/libs/parakeet-1.0-SNAPSHOT.jar'
 OUTPUT_DIR = HERE / 'output'
 
 JAVA_MAX_MEMORY_GB = 60
