@@ -1,6 +1,6 @@
 # Parakeet
 
-Parakeet is a modeling and simulation system written in Kotlin, based on [Aerie](https://github.com/NASA-AMMOS/aerie).
+"Planning And Resource Analysis Kotlin Emulation Engineering Toolkit", or "Parakeet", is a modeling and simulation system written in Kotlin, based on [Aerie](https://github.com/NASA-AMMOS/aerie).
 
 The motivating concerns for Parakeet are:
 - Simplicity - it attempts to use a small set of base concepts to build up a rigorous, reliable simulation system.
@@ -14,7 +14,7 @@ The motivating concerns for Parakeet are:
 
 ## Getting started
 
-To get started, I suggest looking at the [tutorials](Parakeet, and can get you up and running the simulator in minutes.
+To get started, I suggest looking at the [tutorials](./parakeet_tutorials), and can get you up and running the simulator in minutes.
 
 Once you're familiar with the basics, you can look at some of the more complex examples over in [examples](src/main/kotlin/gov/nasa/jpl/parakeet/examples).
 At the time of writing,
